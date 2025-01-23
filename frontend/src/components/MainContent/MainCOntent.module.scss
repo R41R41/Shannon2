@@ -1,0 +1,23 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.statusSection {
+  flex: 0 0 200px;
+  border-bottom: 1px solid #e0e0e0;
+  resize: vertical;
+  overflow: auto;
+  padding: 16px;
+
+  &:hover {
+    cursor: row-resize;
+  }
+}
+
+.logSection {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
