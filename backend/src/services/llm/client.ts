@@ -4,88 +4,107 @@ import { BaseMessage } from '@langchain/core/messages';
 import { ConversationChain } from 'langchain/chains';
 import { BufferMemory } from 'langchain/memory';
 import { loadPrompt } from './config/prompts.js';
-import { Platform, LLMResponse } from './types/index.js';
+import { Platform, ConversationType, LLMMessage, LLMResponse } from './types/index.js';
+import { EventBus } from './eventBus.js';
+
+type ChainKey = `${Platform}-${ConversationType}`;
 
 export class LLMService {
-  private model: ChatOpenAI;
-  private chains: Map<Platform, ConversationChain>;
+  private eventBus: EventBus;
+  private chains: Map<ChainKey, ConversationChain>;
 
-  constructor() {
-    this.model = new ChatOpenAI({
-      modelName: 'gpt-4-turbo-preview',
-      temperature: 0.7,
-      maxTokens: 500,
-    });
-    
+  constructor(eventBus: EventBus) {
+    this.eventBus = eventBus;
     this.chains = new Map();
-    ['twitter', 'discord', 'youtube', 'minecraft'].forEach(platform => {
-      this.initializeChain(platform as Platform);
-    });
+    this.initializeChains();
   }
 
-  private async initializeChain(platform: Platform) {
-    const basePrompt = await loadPrompt('base');
+  private async initializeChains() {
+    const platforms: Platform[] = ["web","discord","minecraft"];
+    const types: ConversationType[] = ['text', 'voice'];
+
+    for (const platform of platforms) {
+      for (const type of types) {
+        await this.initializeChain(platform, type);
+      }
+    }
+  }
+
+  private async initializeChain(platform: Platform, type: ConversationType) {
+    const basePrompt = await loadPrompt(`base_${type}`);
     const platformPrompt = await loadPrompt(platform);
     
-    const prompt = ChatPromptTemplate.fromMessages([
-      ['system', basePrompt],
-      ['system', platformPrompt],
-      ['human', '{input}'],
-      ['ai', '{response}']
-    ]);
-
-    const memory = new BufferMemory({
-      returnMessages: true,
-      memoryKey: 'history',
-      inputKey: 'input',
-      outputKey: 'response'
+    const model = new ChatOpenAI({
+      modelName: 'gpt-4o',
+      temperature: 0.8,
     });
 
     const chain = new ConversationChain({
-      llm: this.model,
-      prompt,
-      memory,
-      verbose: process.env.NODE_ENV === 'development'
+      llm: model,
+      memory: new BufferMemory(),
+      prompt: ChatPromptTemplate.fromMessages([
+        ['system', basePrompt],
+        ['system', platformPrompt],
+        ['human', '{input}']
+      ])
     });
 
-    this.chains.set(platform, chain);
+    const chainKey = `${platform}-${type}` as ChainKey;
+    this.chains.set(chainKey, chain);
   }
 
-  async chat(message: string, platform: Platform): Promise<LLMResponse> {
+  async processMessage(message: LLMMessage) {
     try {
-      const chain = this.chains.get(platform);
+      const chainKey = `${message.platform}-${message.type}` as ChainKey;
+      const chain = this.chains.get(chainKey);
+      
       if (!chain) {
-        throw new Error(`${platform}用のチェーンが初期化されていません`);
+        throw new Error(`Chain not found for ${chainKey}`);
       }
 
       const response = await chain.call({
-        input: message
+        input: message.content
       });
 
-      return {
-        content: response.response
-      };
+      this.eventBus.publish({
+        type: 'llm:response',
+        platform: message.platform,
+        data: {
+          content: response.response,
+          type: message.type,
+          context: message.context
+        }
+      });
     } catch (error) {
-      console.error('LLM Error:', error);
-      return {
-        content: '',
-        error: error instanceof Error ? error.message : 'LLMサービスでエラーが発生しました'
-      };
+      console.error('LLM処理エラー:', error);
     }
   }
 
   resetContext(platform: Platform) {
-    const chain = this.chains.get(platform);
-    if (chain?.memory) {
-      (chain.memory as BufferMemory).clear();
-    }
+    this.chains.forEach((chain, key) => {
+      if (key.startsWith(platform)) {
+        if (chain?.memory) {
+          (chain.memory as BufferMemory).clear();
+        }
+      }
+    });
   }
 
   resetAllContexts() {
-    this.chains.forEach(chain => {
+    this.chains.forEach((chain, key) => {
       if (chain?.memory) {
         (chain.memory as BufferMemory).clear();
       }
     });
+  }
+
+  public async initialize() {
+    try {
+      // LLMの初期化処理（例：API接続テストなど）
+      console.log('LLM Service initialized');
+    } catch (error) {
+      console.error('LLM initialization error:', error);
+      throw error;
+    }
   }
 } 

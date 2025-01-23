@@ -1,11 +1,12 @@
 import mineflayer from 'mineflayer';
-import { LLMService } from '../llm/client.js';
+import { EventBus } from '../llm/eventBus.js';
+import { LLMMessage } from '../llm/types/index.js';
 
 export class MinecraftBot {
   private bot: mineflayer.Bot;
-  private llm: LLMService;
+  private eventBus: EventBus;
 
-  constructor() {
+  constructor(eventBus: EventBus) {
     const host = process.env.MC_HOST;
     const username = process.env.MC_USERNAME;
     
@@ -18,13 +19,38 @@ export class MinecraftBot {
       port: parseInt(process.env.MC_PORT || '25565'),
       username
     });
-    this.llm = new LLMService();
+
+    this.eventBus = eventBus;
     this.setupEvents();
   }
 
   private setupEvents() {
     this.bot.on('chat', async (username, message) => {
-      // チャット処理とLLM連携
+      if (username === this.bot.username) return;
+
+      const llmMessage: LLMMessage = {
+        platform: 'minecraft',
+        type: 'text',
+        content: message,
+        context: {
+          username: username
+        }
+      };
+      this.eventBus.publish({
+        type: 'minecraft:message',
+        platform: 'minecraft',
+        data: llmMessage
+      });
+    });
+
+    this.eventBus.subscribe('minecraft:message', (event) => {
+      this.bot.chat(event.data.content);
+    });
+  }
+
+  public start() {
+    this.bot.on('spawn', () => {
+      console.log('Minecraft bot spawned');
     });
   }
 } 
