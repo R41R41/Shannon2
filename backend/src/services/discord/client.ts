@@ -1,6 +1,5 @@
 import { Client, GatewayIntentBits, TextChannel } from 'discord.js';
 import { EventBus } from '../llm/eventBus.js';
-import { LLMResponse } from '../llm/types/index.js';
 
 export class DiscordBot {
   private client: Client;

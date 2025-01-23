@@ -31,8 +31,7 @@ export class LLMService {
   }
 
   private async initializeChain(platform: Platform, type: ConversationType) {
-    const basePrompt = await loadPrompt(`base_${type}`);
-    const platformPrompt = await loadPrompt(platform);
+    const prompt = await loadPrompt(platform, type);
     
     const model = new ChatOpenAI({
       modelName: 'gpt-4o',
@@ -43,8 +42,7 @@ export class LLMService {
       llm: model,
       memory: new BufferMemory(),
       prompt: ChatPromptTemplate.fromMessages([
-        ['system', basePrompt],
-        ['system', platformPrompt],
+        ['system', prompt],
         ['human', '{input}']
       ])
     });

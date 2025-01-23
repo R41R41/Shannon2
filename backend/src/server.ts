@@ -9,7 +9,7 @@ import { EventBus } from './services/llm/eventBus.js';
 // import { twitterRoutes } from './routes/twitter.routes.js';
 import { discordRoutes } from './routes/discord.routes.js';
 import dotenv from 'dotenv';
-import { TwitterClient } from './services/twitter/client.js';
+// import { TwitterClient } from './services/twitter/client.js';
 
 dotenv.config();
 
@@ -19,7 +19,7 @@ class Server {
   private eventBus: EventBus;
   private llmService: LLMService;
   private discordBot: DiscordBot;
-  private twitterClient: TwitterClient;
+  // private twitterClient: TwitterClient;
 //   private youtubeService: YoutubeService;
 //   private minecraftBot: MinecraftBot;
 
@@ -27,7 +27,7 @@ class Server {
     this.eventBus = new EventBus();
     this.llmService = new LLMService(this.eventBus);
     this.discordBot = new DiscordBot(this.eventBus);
-    this.twitterClient = new TwitterClient(this.eventBus);
+    // this.twitterClient = new TwitterClient(this.eventBus);
   }
 
   private setupMiddleware() {
@@ -56,7 +56,7 @@ class Server {
       // 各サービスを並列で起動
       await Promise.all([
         this.startDiscordBot(),
-        this.startTwitterClient(),
+        // this.startTwitterClient(),
         this.startLLMService(),
         this.connectDatabase()
       ]);
@@ -76,10 +76,10 @@ class Server {
     console.log('Discord Bot started');
   }
 
-  private async startTwitterClient() {
-    await this.twitterClient.initialize();
-    console.log('Twitter Client started');
-  }
+  // private async startTwitterClient() {
+  //   await this.twitterClient.initialize();
+  //   console.log('Twitter Client started');
+  // }
 
   private async startLLMService() {
     await this.llmService.initialize();

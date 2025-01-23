@@ -19,9 +19,10 @@ const convertToPromptName = (type: Platform, conversationType: ConversationType)
   return `${type}_${conversationType}`;
 };
 
-export const loadPrompt = async (type: Platform | `base_${ConversationType}`): Promise<string> => {
+export const loadPrompt = async (type: Platform, conversationType: ConversationType): Promise<string> => {
   try {
-    const path = join(__dirname, 'prompts', `${type}.txt`);
+    const promptName = convertToPromptName(type, conversationType);
+    const path = join(__dirname, 'prompts', `${promptName}.txt`);
     console.log('Loading prompt from:', path);
     return readFileSync(path, 'utf-8').trim();
   } catch (error) {
