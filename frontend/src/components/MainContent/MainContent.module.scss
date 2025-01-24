@@ -1,3 +1,4 @@
+@use "sass:map";
 @use "@styles/variables.scss" as *;
 
 .container {
@@ -24,4 +25,14 @@
   padding: 16px;
   overflow-y: auto;
   border-top: 1px solid color(surface, primary);
+}
+
+.resizeHandle {
+  height: 4px;
+  background-color: color(surface, primary);
+  transition: background-color map.get($transitions, fast);
+
+  &:hover {
+    background-color: color(primary);
+  }
 }
