@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import styles from './PushToTalkButton.module.scss';
 import { startRecording, stopRecording, stopRecordingWithoutCommit } from "@/utils/audioUtils";
 import OpenAIService from "@/services/openai";
+import KeyboardVoiceOutlinedIcon from '@mui/icons-material/KeyboardVoiceOutlined';
 
 interface PushToTalkButtonProps {
   openaiService: OpenAIService;
@@ -33,19 +34,17 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
   };
 
   return (
-  <div className={styles.pushToTalkButtonContainer}>
+  <div className={`${styles.pushToTalkButtonContainer} ${isRecording || isVadMode ? styles.active : ""}`}>
     <button
       onMouseDown={isVadMode ? () => {} : onPushToTalk}
       onMouseUp={isVadMode ? () => {} : onPushToTalk}
-      className={styles.pushToTalkButton}
-      style={{
-        backgroundColor: isRecording || isVadMode ? "#666" : "#444",
-      }}
+      className={`${styles.pushToTalkButton} ${isRecording || isVadMode ? styles.active : ""}`}
     >
-      {isRecording || isVadMode ? "音声認識中..." : "押下で音声入力"}
+      <KeyboardVoiceOutlinedIcon />
+      {isRecording || isVadMode ? "Recording..." : "Push to Talk"}
     </button>
     <div
-      className={`${styles.recordingIndicator} ${isVadMode ? styles.active : ""}`}
+      className={`${styles.recordingIndicator} ${isRecording || isVadMode ? styles.active : ""}`}
       onClick={onVadModeChange}
     />
     </div>

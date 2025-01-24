@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import styles from './Sidebar.module.scss';
 import classNames from 'classnames';
+import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
+import HandymanOutlinedIcon from '@mui/icons-material/HandymanOutlined';
+import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
+import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 
 const Sidebar: React.FC = () => {
   const [activeTab, setActiveTab] = useState('search');
@@ -14,7 +18,7 @@ const Sidebar: React.FC = () => {
           })}
           onClick={() => setActiveTab('search')}
         >
-          検索
+          <SearchOutlinedIcon />
         </div>
         <div 
           className={classNames(styles.tab, {
@@ -22,7 +26,7 @@ const Sidebar: React.FC = () => {
           })}
           onClick={() => setActiveTab('skills')}
         >
-          スキル
+          <HandymanOutlinedIcon />
         </div>
         <div 
           className={classNames(styles.tab, {
@@ -30,11 +34,22 @@ const Sidebar: React.FC = () => {
           })}
           onClick={() => setActiveTab('tasks')}
         >
-          タスク
+          <TaskAltOutlinedIcon />
+        </div>
+        <div 
+          className={classNames(styles.tab, {
+            [styles.active]: activeTab === 'schedule'
+          })}
+          onClick={() => setActiveTab('schedule')}
+        >
+          <ScheduleOutlinedIcon />
         </div>
       </div>
       <div className={styles.tabContent}>
-        {/* タブコンテンツをここに実装 */}
+        {activeTab === 'search' && <div></div>}
+        {activeTab === 'skills' && <div></div>}
+        {activeTab === 'tasks' && <div></div>}
+        {activeTab === 'schedule' && <div></div>}
       </div>
     </div>
   );

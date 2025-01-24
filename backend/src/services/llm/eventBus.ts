@@ -5,7 +5,8 @@ export type EventType =
   | 'twitter:post' 
   | 'youtube:stats' 
   | 'discord:message'
-  | 'minecraft:message';
+  | 'minecraft:message'
+  | 'web:message';
 
 export interface Event {
   type: EventType;

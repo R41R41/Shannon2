@@ -31,6 +31,9 @@
   padding: 8px 16px;
   border: 1px solid color(surface, primary);
   border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background-color: transparent;
   cursor: pointer;
   transition: all 0.2s;
@@ -42,5 +45,11 @@
 
   &:active {
     background-color: color(surface, secondary);
+  }
+
+  svg {
+    width: 24px;
+    height: 24px;
+    color: inherit;
   }
 }

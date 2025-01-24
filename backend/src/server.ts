@@ -10,6 +10,7 @@ import { EventBus } from './services/llm/eventBus.js';
 import { discordRoutes } from './routes/discord.routes.js';
 import dotenv from 'dotenv';
 // import { TwitterClient } from './services/twitter/client.js';
+import { WebClient } from './services/web/client.js';
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ class Server {
   private eventBus: EventBus;
   private llmService: LLMService;
   private discordBot: DiscordBot;
+  private webClient: WebClient;
   // private twitterClient: TwitterClient;
 //   private youtubeService: YoutubeService;
 //   private minecraftBot: MinecraftBot;
@@ -27,6 +29,7 @@ class Server {
     this.eventBus = new EventBus();
     this.llmService = new LLMService(this.eventBus);
     this.discordBot = new DiscordBot(this.eventBus);
+    this.webClient = new WebClient(this.eventBus);
     // this.twitterClient = new TwitterClient(this.eventBus);
   }
 
@@ -53,18 +56,12 @@ class Server {
 
   public async start() {
     try {
-      // 各サービスを並列で起動
       await Promise.all([
         this.startDiscordBot(),
-        // this.startTwitterClient(),
+        this.startWebClient(),
         this.startLLMService(),
         this.connectDatabase()
       ]);
-
-      const PORT = process.env.PORT || 5000;
-      this.app.listen(PORT, () => {
-        console.log(`Server is running on port ${PORT}`);
-      });
     } catch (error) {
       console.error('サービス起動エラー:', error);
       process.exit(1);
@@ -74,6 +71,11 @@ class Server {
   private async startDiscordBot() {
     await this.discordBot.start();
     console.log('Discord Bot started');
+  }
+
+  private async startWebClient() {
+    await this.webClient.start();
+    console.log('Web Client started');
   }
 
   // private async startTwitterClient() {

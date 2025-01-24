@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styles from './Header.module.scss';
 import SettingsModal from '@components/Modal/SettingsModal';
 import logo from '@/assets/logo.png';
+import SettingsIcon from '@mui/icons-material/Settings';
 
 const Header: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -18,7 +19,7 @@ const Header: React.FC = () => {
             className={styles.settingsButton}
             onClick={() => setIsModalOpen(true)}
           >
-            設定
+            <SettingsIcon />
           </button>
         </div>
       </header>

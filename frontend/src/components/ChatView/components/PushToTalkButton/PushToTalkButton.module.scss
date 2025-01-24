@@ -1,33 +1,41 @@
 @use "@styles/variables.scss" as *;
 
 .pushToTalkButtonContainer {
-  position: relative;
   display: flex;
-  height: 33px;
+  height: 32px;
   width: 100%;
-  background-color: color(surface, primary);
+  background-color: color(surface, secondary);
+  &.active {
+    background-color: color(surface, tertiary);
+  }
   .pushToTalkButton {
-    background-color: color(surface, primary);
+    background-color: color(surface, secondary);
     color: color(text, primary);
     border: none;
     cursor: pointer;
     height: 32px;
     width: calc(100% - 32px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     &:hover {
       background-color: color(surface, secondary);
     }
-    &:active {
-      background-color: color(surface, secondary);
+    &.active {
+      background-color: color(surface, tertiary);
+    }
+    svg {
+      color: color(text, primary);
+      width: 20px;
+      height: 20px;
+      margin-right: 6px;
     }
   }
 
   .recordingIndicator {
-    position: absolute;
-    right: 0;
-    top: 6px;
-    width: 20px;
-    height: 20px;
-    margin-right: 6px;
+    margin: auto;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background-color: color(danger-dark);
     cursor: pointer;

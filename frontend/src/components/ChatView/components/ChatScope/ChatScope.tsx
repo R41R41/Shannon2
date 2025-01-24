@@ -58,7 +58,7 @@ export const ChatScope: React.FC<ChatScopeProps> = ({ openaiService }) => {
 					<MessageInput
 						placeholder="メッセージを入力..."
 				onSend={handleSendMessage}
-				sendButton={true}
+				sendButton={false}
 				attachButton={false}
 			/>
 		</ChatContainer>

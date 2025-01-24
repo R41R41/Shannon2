@@ -8,32 +8,39 @@
 }
 
 .tabContainer {
-  height: 32px;
+  padding: auto;
   display: flex;
+  justify-content: center;
+  height: 32px;
   border-bottom: 1px solid color(surface, primary);
 }
 
 .tab {
   font-size: 12px;
-  width: 100%;
+  width: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: color(text, primary);
   cursor: pointer;
   transition: background-color 0.2s;
-
   &:hover {
     background-color: color(surface, secondary);
   }
 
   &.active {
     background-color: color(surface, secondary);
-    border-bottom: 2px solid color(text, primary);
+    border-bottom: 1px solid color(surface, active);
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
   }
 }
 
 .tabContent {
   flex: 1;
   padding: 16px;
+  color: color(text, primary);
 }

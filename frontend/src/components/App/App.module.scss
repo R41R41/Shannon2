@@ -14,7 +14,7 @@
 }
 
 .resizeHandle {
-  width: 4px;
+  width: 1px;
   background-color: color(surface, primary);
   transition: background-color map.get($transitions, fast);
 
