@@ -1,0 +1,59 @@
+@use "@styles/variables.scss" as *;
+
+.pushToTalkButtonContainer {
+  position: relative;
+  display: flex;
+  height: 33px;
+  width: 100%;
+  background-color: color(surface, primary);
+  .pushToTalkButton {
+    background-color: color(surface, primary);
+    color: color(text, primary);
+    border: none;
+    cursor: pointer;
+    height: 32px;
+    width: calc(100% - 32px);
+    &:hover {
+      background-color: color(surface, secondary);
+    }
+    &:active {
+      background-color: color(surface, secondary);
+    }
+  }
+
+  .recordingIndicator {
+    position: absolute;
+    right: 0;
+    top: 6px;
+    width: 20px;
+    height: 20px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background-color: color(danger-dark);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    &.active {
+      background-color: color(danger-light);
+      box-shadow: 0 0 10px color(danger-light);
+      animation: pulse 1.5s infinite;
+    }
+    &:hover {
+      background-color: color(danger);
+    }
+  }
+
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 0.8;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+}

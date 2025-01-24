@@ -9,7 +9,7 @@ const Header: React.FC = () => {
     <>
       <header className={styles.header}>
         <div className={styles.leftSection}>
-          <h1 className={styles.logo}>Shannon2</h1>
+          <h1 className={styles.logo}>Shannon</h1>
         </div>
         
         <div className={styles.rightSection}>

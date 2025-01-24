@@ -1,0 +1,45 @@
+@use "@styles/variables.scss" as *;
+
+.cs-main-container {
+  border: none;
+  height: 100%;
+  .cs-chat-container {
+    width: 100%;
+    height: 100%;
+    .cs-message-list {
+      width: 100%;
+      height: calc(100% - 37px);
+      background-color: color(background, primary);
+      .scrollbar-container {
+        .cs-message {
+          .cs-message__content-wrapper {
+            .cs-message__content {
+              background-color: color(surface, secondary);
+              color: color(text, primary);
+            }
+          }
+        }
+      }
+    }
+    .cs-message-input {
+      border: none;
+      background-color: color(surface, primary);
+      .cs-message-input__content-editor-wrapper {
+        background-color: color(surface, tertiary);
+        .cs-message-input__content-editor-container {
+          .cs-message-input__content-editor {
+            background-color: color(surface, tertiary);
+            color: color(text, primary);
+          }
+        }
+      }
+      .cs-message-input__tools {
+        .cs-button--send {
+          .fa-paper-plane {
+            color: color(text, primary);
+          }
+        }
+      }
+    }
+  }
+}

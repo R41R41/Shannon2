@@ -1,19 +1,38 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import styles from './PushToTalkButton.module.scss';
+import { startRecording, stopRecording, stopRecordingWithoutCommit } from "@/utils/audioUtils";
+import OpenAIService from "@/services/openai";
 
 interface PushToTalkButtonProps {
-  isRecording: boolean;
-  isVadMode: boolean;
-  onPushToTalk: () => void;
-  onVadModeChange: () => void;
+  openaiService: OpenAIService;
 }
 
 export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
-  isRecording,
-  isVadMode,
-  onPushToTalk,
-  onVadModeChange,
-}) => (
+  openaiService,
+}) => {
+  const [isRecording, setIsRecording] = useState(false);
+  const [isVadMode, setIsVadMode] = useState(false);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+
+  const onPushToTalk = () => {
+    if (isRecording) {
+      stopRecording(openaiService, processorRef);
+    } else {
+      startRecording(setIsRecording, processorRef, openaiService);
+    }
+  };
+
+  const onVadModeChange = () => {
+    openaiService?.vadModeChange(!isVadMode);
+    setIsVadMode(!isVadMode);
+    if (isRecording) {
+      stopRecordingWithoutCommit(processorRef, setIsRecording);
+    } else {
+      startRecording(setIsRecording, processorRef, openaiService);
+    }
+  };
+
+  return (
   <div className={styles.pushToTalkButtonContainer}>
     <button
       onMouseDown={isVadMode ? () => {} : onPushToTalk}
@@ -29,5 +48,6 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
       className={`${styles.recordingIndicator} ${isVadMode ? styles.active : ""}`}
       onClick={onVadModeChange}
     />
-  </div>
-); 
+    </div>
+  ); 
+};

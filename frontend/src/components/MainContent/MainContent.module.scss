@@ -1,12 +1,15 @@
+@use "@styles/variables.scss" as *;
+
 .container {
   display: flex;
   flex-direction: column;
   height: 100%;
+  background-color: color(background, primary);
 }
 
 .statusSection {
   flex: 0 0 200px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid color(surface, primary);
   resize: vertical;
   overflow: auto;
   padding: 16px;
@@ -20,4 +23,5 @@
   flex: 1;
   padding: 16px;
   overflow-y: auto;
+  border-top: 1px solid color(surface, primary);
 }

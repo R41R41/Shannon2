@@ -1,11 +1,14 @@
+@use "@styles/variables.scss" as *;
+
 .header {
+  width: 100vw;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 20px;
-  height: 60px;
-  background-color: #ffffff;
-  border-bottom: 1px solid #e0e0e0;
+  height: 32px;
+  background-color: color(surface, primary);
+  border-bottom: 1px solid color(surface, primary);
 }
 
 .leftSection {
@@ -14,9 +17,9 @@
 }
 
 .logo {
-  font-size: 24px;
+  font-size: 16px;
   font-weight: bold;
-  color: #1a73e8;
+  color: color(text, primary);
   margin: 0;
 }
 
@@ -28,17 +31,18 @@
 
 .settingsButton {
   padding: 8px 16px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid color(surface, primary);
   border-radius: 4px;
   background-color: transparent;
   cursor: pointer;
   transition: all 0.2s;
+  color: color(text, primary);
 
   &:hover {
-    background-color: #f5f5f5;
+    background-color: color(surface, secondary);
   }
 
   &:active {
-    background-color: #e0e0e0;
+    background-color: color(surface, secondary);
   }
 }

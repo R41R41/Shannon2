@@ -1,29 +1,37 @@
-.appContainer {
+@use "@styles/variables.scss" as *;
+
+.container {
   display: flex;
+  flex-direction: column;
   height: 100vh;
-  width: 100vw;
-}
-
-.sidebarWrapper {
-  flex: 0 0 300px;
-  border-right: 1px solid #e0e0e0;
-  resize: horizontal;
-  overflow: auto;
-}
-
-.contentWrapper {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.mainWrapper {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.chatWrapper {
-  flex: 0 0 200px;
-  border-top: 1px solid #e0e0e0;
+  width: calc(100vw - 1px);
+  .mainSection {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    width: 100%;
+    .sidebarWrapper {
+      height: 100%;
+      min-width: 200px;
+      max-width: calc(100% - 400px);
+      flex: 0 0 320px;
+      border: 1px solid color(surface, primary);
+      resize: horizontal;
+      overflow: auto;
+    }
+    .mainWrapper {
+      height: 100%;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid color(surface, primary);
+    }
+    .chatWrapper {
+      height: 100%;
+      min-width: 200px;
+      max-width: calc(100% - 400px);
+      flex: 0 0 320px;
+      border: 1px solid color(surface, primary);
+    }
+  }
 }
