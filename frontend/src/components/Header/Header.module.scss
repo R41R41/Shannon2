@@ -1,14 +1,14 @@
+@use "sass:map";
 @use "@styles/variables.scss" as *;
 
 .header {
-  width: 100vw;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 20px;
-  height: 32px;
+  padding: 0 spacing(md);
+  height: 40px;
   background-color: color(surface, primary);
-  border-bottom: 1px solid color(surface, primary);
+  border-bottom: 1px solid color(border, primary);
 }
 
 .leftSection {
@@ -17,10 +17,8 @@
 }
 
 .logo {
-  font-size: 16px;
-  font-weight: bold;
-  color: color(text, primary);
-  margin: 0;
+  height: 28px;
+  width: auto;
 }
 
 .rightSection {

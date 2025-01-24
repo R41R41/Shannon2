@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styles from './Header.module.scss';
-import SettingsModal from '@components/SettingsModal/SettingsModal';
+import SettingsModal from '@components/Modal/SettingsModal';
+import logo from '@/assets/logo.png';
 
 const Header: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -9,7 +10,7 @@ const Header: React.FC = () => {
     <>
       <header className={styles.header}>
         <div className={styles.leftSection}>
-          <h1 className={styles.logo}>Shannon</h1>
+          <img src={logo} alt="Shannon Logo" className={styles.logo} />
         </div>
         
         <div className={styles.rightSection}>
