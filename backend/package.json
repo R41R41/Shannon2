@@ -8,7 +8,9 @@
     "test": "tsc-watch --onSuccess \"node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js --test\""
   },
   "dependencies": {
+    "@langchain/community": "^0.3.27",
     "@langchain/core": "^0.3.33",
+    "@langchain/langgraph": "^0.2.41",
     "@langchain/openai": "^0.3.17",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
@@ -17,7 +19,7 @@
     "dotenv": "^16.0.0",
     "express": "^4.18.0",
     "googleapis": "^126.0.1",
-    "langchain": "^0.3.12",
+    "langchain": "^0.3.13",
     "mineflayer": "^4.14.0",
     "mongoose": "^7.0.0",
     "node-cron": "^3.0.0",

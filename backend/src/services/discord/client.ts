@@ -76,6 +76,8 @@ export class DiscordBot {
       const nickname = this.getUserNickname(message.author);
       const channelName = this.getChannelName(message.channelId);
       const guildName = this.getGuildName(message.channelId);
+      const messageId = message.id;
+      const userId = message.author.id;
       this.eventBus.log(
         'discord',
         'blue',
@@ -89,8 +91,12 @@ export class DiscordBot {
         data: {
           content: message.content,
           type: 'text',
+          guildName: guildName,
           channelId: message.channelId,
+          channelName: channelName,
           userName: nickname,
+          messageId: messageId,
+          userId: userId,
         } as DiscordMessage,
       });
     });

@@ -39,6 +39,10 @@ export interface DiscordMessage {
   type: 'text' | 'voice';
   channelId: string;
   userName: string;
+  guildName: string;
+  channelName: string;
+  messageId: string;
+  userId: string;
 }
 
 export class EventBus {
@@ -73,6 +77,21 @@ export class EventBus {
 
     try {
       await Log.create(logEntry);
+      // 10000件を超える場合に5000件を削除
+      const logCount = await Log.countDocuments();
+      if (logCount > 10000) {
+        const logsToDelete = logCount - 5000;
+        const oldestLogs = await Log.find()
+          .sort({ timestamp: 1 })
+          .limit(logsToDelete);
+
+        if (oldestLogs.length > 0) {
+          await Log.deleteMany({
+            _id: { $in: oldestLogs.map((log) => log._id) },
+          });
+          console.log(`${logsToDelete}件の古いログを削除しました`);
+        }
+      }
       console.log('Log saved to database');
     } catch (error) {
       console.error('Error saving log:', error);
