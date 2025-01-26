@@ -11,32 +11,26 @@ const ActivityLog: React.FC = () => {
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const MAX_LOGS = 200;
 
-  // 最下端までスクロールする関数
-  const scrollToBottom = () => {
-    if (logListRef.current) {
-      logListRef.current.scrollTo({
-        top: logListRef.current.scrollHeight,
-        behavior: 'smooth',
-      });
-    }
-  };
-
   useEffect(() => {
     const monitoring = MonitoringService();
 
     const handleLog = (log: LogEntry) => {
       setLogs((prevLogs) => {
         const newLogs = [...prevLogs, log].slice(-MAX_LOGS);
+        // 新しいログが追加されたら自動スクロール
         if (shouldAutoScroll) {
-          scrollToBottom();
+          setTimeout(() => {
+            logListRef.current?.scrollTo({
+              top: logListRef.current.scrollHeight,
+              behavior: 'smooth',
+            });
+          }, 0);
         }
         return newLogs;
       });
     };
 
     monitoring.subscribe(handleLog);
-    // 初期表示時も最下端にスクロール
-    scrollToBottom();
 
     return () => {
       monitoring.unsubscribe(handleLog);
