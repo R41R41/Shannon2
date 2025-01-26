@@ -19,6 +19,15 @@ const ActivityLog: React.FC = () => {
     };
   }, []);
 
+  const formatContent = (content: string) => {
+    return content.split('\n').map((line, i) => (
+      <React.Fragment key={i}>
+        {line}
+        {i < content.split('\n').length - 1 && <br />}
+      </React.Fragment>
+    ));
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.logList}>
@@ -27,7 +36,7 @@ const ActivityLog: React.FC = () => {
             <span className={styles.timestamp}>{log.timestamp}</span>
             <span className={styles.platform}>{log.platform}</span>
             <span className={`${styles.content} ${styles[log.color]}`}>
-              {log.content}
+              {formatContent(log.content)}
             </span>
           </div>
         ))}

@@ -4,7 +4,7 @@ import { ConversationChain } from 'langchain/chains';
 import { BufferMemory } from 'langchain/memory';
 import { loadPrompt } from './config/prompts.js';
 import { Platform, ConversationType, LLMMessage } from './types/index.js';
-import { EventBus } from '../eventBus.js';
+import { EventBus, DiscordMessage } from '../eventBus.js';
 import { RealtimeAPIService } from './realtimeApi.js';
 
 type ChainKey = `${Platform}-${ConversationType}`;
@@ -35,11 +35,15 @@ export class LLMService {
 
   private setupEventBus() {
     this.eventBus.subscribe('web:message', (event) => {
-      this.processMessage(event.data);
+      this.processWebMessage(event.data);
+    });
+
+    this.eventBus.subscribe('discord:message', (event) => {
+      this.processDiscordMessage(event.data as DiscordMessage);
     });
   }
 
-  async processMessage(message: LLMMessage) {
+  async processWebMessage(message: LLMMessage) {
     try {
       if (message.type === 'realtime_text') {
         await this.realtimeApi.inputText(message.content);
@@ -78,6 +82,32 @@ export class LLMService {
     } catch (error) {
       console.error('LLM処理エラー:', error);
     }
+  }
+
+  async processDiscordMessage(message: DiscordMessage) {
+    const chainKey = `discord-${message.type}` as ChainKey;
+    const chain = this.chains.get(chainKey);
+
+    if (!chain) {
+      throw new Error(`Chain not found for ${chainKey}`);
+    }
+
+    const input = message.userName + ': ' + message.content;
+
+    const response = await chain.call({
+      input: input,
+    });
+
+    this.eventBus.publish({
+      type: 'llm:response',
+      platform: 'discord',
+      data: {
+        content: response.response,
+        type: 'text',
+        channelId: message.channelId,
+        userName: message.userName,
+      } as DiscordMessage,
+    });
   }
 
   private setupRealtimeAPICallback() {

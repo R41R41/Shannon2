@@ -1,4 +1,6 @@
 import { Platform, LLMResponse } from './llm/types/index.js';
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 
 export type EventType =
   | 'llm:response'
@@ -32,6 +34,13 @@ export interface LogEntry {
   content: string;
 }
 
+export interface DiscordMessage {
+  content: string;
+  type: 'text' | 'voice';
+  channelId: string;
+  userName: string;
+}
+
 export class EventBus {
   private listeners: Map<EventType, Array<(event: Event) => void>> = new Map();
 
@@ -54,17 +63,21 @@ export class EventBus {
     });
   }
 
-  public log(platform: Platform, color: Color, content: string) {
+  public log(platform: string, color: Color, content: string) {
+    const now = new Date();
+    const tokyoTime = toZonedTime(now, 'Asia/Tokyo');
+    const timestamp = format(tokyoTime, 'yyyy-MM-dd HH:mm:ss');
+
     const logEntry: LogEntry = {
-      timestamp: new Date().toISOString(),
-      platform: platform,
-      color: color,
-      content: content,
+      timestamp,
+      platform,
+      color,
+      content,
     };
 
     this.publish({
       type: 'log',
-      platform: platform,
+      platform: 'web',
       data: logEntry,
     });
   }

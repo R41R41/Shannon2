@@ -57,7 +57,7 @@ class Server {
   private async connectDatabase() {
     try {
       await mongoose.connect(process.env.MONGODB_URI as string);
-      console.log('MongoDB connected');
+      console.log('\x1b[32mMongoDB connected\x1b[0m');
     } catch (error) {
       console.error('MongoDB connection error:', error);
     }
@@ -80,17 +80,16 @@ class Server {
 
   private async startDiscordBot() {
     await this.discordBot.start();
-    console.log('Discord Bot started');
   }
 
   private async startWebClient() {
     await this.webClient.start();
-    console.log('Web Client started');
+    console.log('\x1b[32mWeb Client started\x1b[0m');
   }
 
   private async startMonitoringService() {
     await this.monitoringService.initialize();
-    console.log('Monitoring Service started');
+    console.log('\x1b[32mMonitoring Service started\x1b[0m');
   }
 
   // private async startTwitterClient() {
@@ -100,12 +99,13 @@ class Server {
 
   private async startLLMService() {
     await this.llmService.initialize();
-    console.log('LLM Service started');
+    console.log('\x1b[32mLLM Service started\x1b[0m');
   }
 
   public async shutdown() {
     // 各サービスのクリーンアップ処理
     await mongoose.disconnect();
+    console.log('\x1b[32mMongoDB disconnected\x1b[0m');
     process.exit(0);
   }
 }

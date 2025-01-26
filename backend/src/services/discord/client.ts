@@ -1,5 +1,11 @@
-import { Client, GatewayIntentBits, TextChannel } from 'discord.js';
-import { EventBus } from '../eventBus.js';
+import {
+  Channel,
+  Client,
+  GatewayIntentBits,
+  TextChannel,
+  User,
+} from 'discord.js';
+import { EventBus, DiscordMessage } from '../eventBus.js';
 
 export class DiscordBot {
   private client: Client;
@@ -7,21 +13,68 @@ export class DiscordBot {
 
   constructor(eventBus: EventBus) {
     this.client = new Client({
-      intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
+      intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.MessageContent,
+      ],
     });
     this.eventBus = eventBus;
     this.setupEventHandlers();
   }
 
   public start() {
-    this.client.login(process.env.DISCORD_TOKEN);
+    try {
+      this.client.login(process.env.DISCORD_TOKEN);
+      console.log('\x1b[34mDiscord bot started\x1b[0m');
+      this.eventBus.log('discord', 'blue', 'Discord bot started');
+    } catch (error) {
+      console.error('\x1b[31mDiscord bot failed to start\x1b[0m');
+      this.eventBus.log(
+        'discord',
+        'red',
+        'Discord bot failed to start' + error
+      );
+    }
+  }
+
+  private getUserNickname(user: User) {
+    if (user.displayName) {
+      return user.displayName;
+    }
+    return user.username;
+  }
+
+  private getChannelName(channelId: string) {
+    const channel = this.client.channels.cache.get(channelId);
+    if (channel instanceof TextChannel) {
+      return channel.name;
+    }
+    return channelId;
+  }
+
+  private getGuildName(channelId: string) {
+    const channel = this.client.channels.cache.get(channelId);
+    if (channel && 'guild' in channel) {
+      return channel.guild.name;
+    }
+    return channelId;
   }
 
   private setupEventHandlers() {
     // テキストメッセージの処理
     this.client.on('messageCreate', (message) => {
       if (message.author.bot) return;
-
+      const nickname = this.getUserNickname(message.author);
+      const channelName = this.getChannelName(message.channelId);
+      const guildName = this.getGuildName(message.channelId);
+      this.eventBus.log(
+        'discord',
+        'blue',
+        guildName + ' ' + channelName + '\n' + nickname + ': ' + message.content
+      );
       this.eventBus.publish({
         type: 'discord:message',
         platform: 'discord',
@@ -29,13 +82,14 @@ export class DiscordBot {
           content: message.content,
           type: 'text',
           channelId: message.channelId,
-          userId: message.author.id,
-        },
+          userName: nickname,
+        } as DiscordMessage,
       });
     });
 
     // 音声メッセージの処理
     this.client.on('speech', (speech) => {
+      const nickname = this.getUserNickname(speech.user);
       this.eventBus.publish({
         type: 'discord:message',
         platform: 'discord',
@@ -43,19 +97,28 @@ export class DiscordBot {
           content: speech.content,
           type: 'voice',
           channelId: speech.channelId,
-          userId: speech.userId,
-        },
+          userName: nickname,
+        } as DiscordMessage,
       });
     });
 
     // LLMからの応答を処理
     this.eventBus.subscribe('llm:response', (event) => {
       if (event.platform === 'discord') {
-        const { content, type, channelId } = event.data;
+        const { content, type, channelId, userName } =
+          event.data as DiscordMessage;
+
         const channel = this.client.channels.cache.get(channelId);
+        const channelName = this.getChannelName(channelId);
+        const guildName = this.getGuildName(channelId);
 
         if (channel?.isTextBased() && 'send' in channel) {
           if (type === 'text') {
+            this.eventBus.log(
+              'discord',
+              'green',
+              guildName + ' ' + channelName + '\n' + 'Shannon: ' + content
+            );
             channel.send(content);
           } else if (type === 'voice') {
             this.synthesizeAndPlay(channel as TextChannel, content);
