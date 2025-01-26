@@ -22,6 +22,9 @@ export class MonitoringService {
   private static instance: MonitoringService;
   private ws: WebSocket | null = null;
   private listeners: Set<LogCallback> = new Set();
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 5;
+  private reconnectDelay: number = 3000;
 
   private constructor() {
     this.initialize();
@@ -35,12 +38,46 @@ export class MonitoringService {
   }
 
   private initialize() {
+    this.connect();
+  }
+
+  private connect() {
     this.ws = new WebSocket(`${WS_MONITORING_URL}`);
 
     this.ws.onmessage = (event) => {
       const log = JSON.parse(event.data);
       this.listeners.forEach((listener) => listener(log));
     };
+
+    this.ws.onclose = () => {
+      console.log('Monitoring WebSocket closed');
+      this.reconnect();
+    };
+
+    this.ws.onerror = (error) => {
+      console.error('Monitoring WebSocket error:', error);
+    };
+
+    this.ws.onopen = () => {
+      console.log('Monitoring WebSocket connected');
+      this.reconnectAttempts = 0; // 接続成功時にリセット
+    };
+  }
+
+  private reconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.error('Max reconnection attempts reached');
+      return;
+    }
+
+    this.reconnectAttempts++;
+    console.log(
+      `Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`
+    );
+
+    setTimeout(() => {
+      this.connect();
+    }, this.reconnectDelay);
   }
 
   public subscribe(callback: LogCallback) {

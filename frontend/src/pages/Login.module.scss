@@ -1,0 +1,47 @@
+@use '@styles/variables.scss' as *;
+
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: color(background, primary);
+}
+
+.form {
+  padding: 2rem;
+  background-color: color(surface, primary);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  text-align: center;
+
+  h1 {
+    margin-bottom: 2rem;
+    color: color(text, primary);
+  }
+}
+
+.input {
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  border: 1px solid color(border, primary);
+  border-radius: 4px;
+  background-color: color(surface, secondary);
+  color: color(text, primary);
+}
+
+.button {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: color(primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: color(primary-dark);
+  }
+}

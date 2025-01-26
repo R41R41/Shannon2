@@ -41,7 +41,7 @@ export class WebClient {
     this.initialized = true;
     this.wss.on('connection', (ws) => {
       this.client = ws;
-      console.log('\x1b[32mClient connected\x1b[0m');
+      console.log('\x1b[32mWeb Client connected\x1b[0m');
 
       ws.on('message', async (message) => {
         try {

@@ -312,53 +312,49 @@ export class RealtimeAPIService {
     });
   }
 
+  private async ensureConnection() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.log('WebSocket not connected, attempting to reconnect...');
+      await this.initialize();
+    }
+  }
+
   async inputText(text: string) {
     try {
+      await this.ensureConnection();
+
       const textMessage = {
         type: 'conversation.item.create',
         item: {
           type: 'message',
           role: 'user',
-          content: [
-            {
-              type: 'input_text',
-              text: text,
-            },
-          ],
+          content: [{ type: 'input_text', text }],
         },
       };
-      console.log('\x1b[32mtextMessage\x1b[0m', textMessage);
-      if (this.ws) {
-        this.ws.send(JSON.stringify(textMessage));
-      }
+      this.ws?.send(JSON.stringify(textMessage));
 
       const responseRequest = {
         type: 'response.create',
-        response: {
-          modalities: ['text'],
-        },
+        response: { modalities: ['text'] },
       };
-      if (this.ws) {
-        this.ws.send(JSON.stringify(responseRequest));
-      }
+      this.ws?.send(JSON.stringify(responseRequest));
     } catch (error) {
-      console.error(`\x1b[31mError processing text input: ${error}\x1b[0m`);
+      console.error('Error processing text input:', error);
       throw error;
     }
   }
 
   async inputAudioBufferAppend(data: string) {
     try {
-      console.log('\x1b[32mprocessVoiceInput\x1b[0m', data.length);
-      if (this.ws) {
-        const audioMessage = {
-          type: 'input_audio_buffer.append',
-          audio: data,
-        };
-        this.ws.send(JSON.stringify(audioMessage));
-      }
+      await this.ensureConnection();
+
+      const audioMessage = {
+        type: 'input_audio_buffer.append',
+        audio: data,
+      };
+      this.ws?.send(JSON.stringify(audioMessage));
     } catch (error) {
-      console.error(`\x1b[31mError processing voice input: ${error}\x1b[0m`);
+      console.error('Error processing voice input:', error);
       throw error;
     }
   }

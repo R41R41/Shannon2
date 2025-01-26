@@ -12,6 +12,7 @@ import dotenv from 'dotenv';
 // import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
 import { MonitoringService } from './services/monitoring/client.js';
+import cors from 'cors';
 
 dotenv.config();
 
@@ -37,6 +38,12 @@ class Server {
 
   private setupMiddleware() {
     this.app.use(express.json());
+    this.app.use(
+      cors({
+        origin: ['http://20.243.208.67:3000', 'http://localhost:3000'],
+        credentials: true,
+      })
+    );
     // その他のミドルウェア設定
   }
 

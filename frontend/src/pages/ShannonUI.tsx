@@ -1,5 +1,5 @@
 import React from 'react';
-import styles from './App.module.scss';
+import styles from './ShannonUI.module.scss';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import Sidebar from '@components/Sidebar/Sidebar';
 import MainContent from '@components/MainContent/MainContent';
@@ -10,7 +10,7 @@ const ResizeHandle = ({ className = '' }) => (
   <PanelResizeHandle className={`${styles.resizeHandle} ${className}`} />
 );
 
-const App: React.FC = () => {
+const ShannonUI: React.FC = () => {
   return (
     <div className={styles.container}>
       <Header />
@@ -37,4 +37,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+export default ShannonUI;

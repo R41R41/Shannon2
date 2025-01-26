@@ -19,11 +19,11 @@ export class MonitoringService {
   private setupWebSocket() {
     this.wss.on('connection', (ws) => {
       this.client = ws;
-      console.log('Monitoring client connected');
+      console.log('\x1b[32mMonitoring Client connected\x1b[0m');
 
       ws.on('close', () => {
         this.client = null;
-        console.log('Monitoring client disconnected');
+        console.log('\x1b[31mMonitoring Client disconnected\x1b[0m');
       });
     });
   }
