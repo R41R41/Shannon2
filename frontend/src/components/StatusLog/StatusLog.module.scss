@@ -1,6 +1,10 @@
 @use '@styles/variables.scss' as *;
 
 .container {
+  display: flex;
+  flex-direction: column;
+  width: 200px;
+  gap: 0.1rem;
   padding: 0.5rem;
   border-top: 1px solid color(border, primary);
 }
@@ -16,6 +20,11 @@
     width: 12px;
     height: 12px;
   }
+}
+
+.statusText {
+  text-align: right;
+  margin-left: auto;
 }
 
 .connected {

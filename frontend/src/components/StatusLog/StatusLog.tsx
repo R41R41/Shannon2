@@ -53,15 +53,20 @@ const StatusLog: React.FC = () => {
     <div className={styles.container}>
       <div className={styles.status}>
         <CircleIcon className={getStatusColor(monitoringStatus)} />
-        <span>Monitoring: {getStatusText(monitoringStatus)}</span>
+        <span>Monitoring</span>
+        <span className={styles.statusText}>
+          {getStatusText(monitoringStatus)}
+        </span>
       </div>
       <div className={styles.status}>
         <CircleIcon className={getStatusColor(openaiStatus)} />
-        <span>OpenAI: {getStatusText(openaiStatus)}</span>
+        <span>OpenAI</span>
+        <span className={styles.statusText}>{getStatusText(openaiStatus)}</span>
       </div>
       <div className={styles.status}>
         <CircleIcon className={getStatusColor(webStatus)} />
-        <span>Web Client: {getStatusText(webStatus)}</span>
+        <span>Web Client</span>
+        <span className={styles.statusText}>{getStatusText(webStatus)}</span>
       </div>
     </div>
   );

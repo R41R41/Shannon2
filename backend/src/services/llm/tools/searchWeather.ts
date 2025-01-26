@@ -15,7 +15,11 @@ export class SearchWeatherTool extends StructuredTool {
 
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
     try {
-      return `bing-searchツールを使用して${data.location}の${data.date}の天気を検索してください`;
+      return `bing-searchツールを使用して${data.location}の${data.date}の天気を検索し、以下の形式で返してください。\n
+      ${data.date}の${data.location}の天気は～～～です。
+      気温:△△-△△℃
+      降水確率:△△-△△%
+      天気の詳しい説明と、気の利いた一言`;
     } catch (error) {
       console.error('天気検索ツールエラー:', error);
       return `エラーが発生しました: ${error}`;

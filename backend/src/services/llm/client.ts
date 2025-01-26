@@ -5,13 +5,8 @@ import { Platform, ConversationType, LLMMessage } from './types/index.js';
 import { EventBus, DiscordMessage } from '../eventBus.js';
 import { RealtimeAPIService } from './realtimeApi.js';
 import { AgentExecutor } from 'langchain/agents';
-import {
-  AIMessage,
-  BaseMessage,
-  HumanMessage,
-  SystemMessage,
-} from '@langchain/core/messages';
-import { createTaskGraph } from './graph/taskGraph.js';
+import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
+import { TaskGraph } from './graph/taskGraph.js';
 
 type ChainKey = `${Platform}-${ConversationType}`;
 
@@ -22,16 +17,14 @@ export class LLMService {
   private taskGraph;
   private systemPrompts: Map<string, string>;
   private conversationHistories: Map<string, BaseMessage[]>;
-  private conversationSummaries: Map<string, string>;
 
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
     this.chains = new Map();
     this.realtimeApi = new RealtimeAPIService(eventBus);
-    this.taskGraph = createTaskGraph();
+    this.taskGraph = new TaskGraph(eventBus);
     this.systemPrompts = new Map();
     this.conversationHistories = new Map();
-    this.conversationSummaries = new Map();
     this.setupEventBus();
     this.setupRealtimeAPICallback();
     this.setupSystemPrompts();
