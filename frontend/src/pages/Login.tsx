@@ -13,7 +13,7 @@ const Login: React.FC = () => {
       window.location.hostname === '127.0.0.1'
     ) {
       localStorage.setItem('isAuthenticated', 'true');
-      navigate('/chat');
+      navigate('/shannonUI');
     }
   }, [navigate]);
 
@@ -21,7 +21,7 @@ const Login: React.FC = () => {
     e.preventDefault();
     if (password === import.meta.env.VITE_APP_PASSWORD) {
       localStorage.setItem('isAuthenticated', 'true');
-      navigate('/chat');
+      navigate('/shannonUI');
     } else {
       alert('パスワードが違います');
     }
