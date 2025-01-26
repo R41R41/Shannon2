@@ -1,5 +1,5 @@
 import { Client, GatewayIntentBits, TextChannel } from 'discord.js';
-import { EventBus } from '../llm/eventBus.js';
+import { EventBus } from '../eventBus.js';
 
 export class DiscordBot {
   private client: Client;
@@ -7,7 +7,7 @@ export class DiscordBot {
 
   constructor(eventBus: EventBus) {
     this.client = new Client({
-      intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages]
+      intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
     });
     this.eventBus = eventBus;
     this.setupEventHandlers();
@@ -19,9 +19,9 @@ export class DiscordBot {
 
   private setupEventHandlers() {
     // テキストメッセージの処理
-    this.client.on('messageCreate', message => {
+    this.client.on('messageCreate', (message) => {
       if (message.author.bot) return;
-      
+
       this.eventBus.publish({
         type: 'discord:message',
         platform: 'discord',
@@ -29,13 +29,13 @@ export class DiscordBot {
           content: message.content,
           type: 'text',
           channelId: message.channelId,
-          userId: message.author.id
-        }
+          userId: message.author.id,
+        },
       });
     });
 
     // 音声メッセージの処理
-    this.client.on('speech', speech => {
+    this.client.on('speech', (speech) => {
       this.eventBus.publish({
         type: 'discord:message',
         platform: 'discord',
@@ -43,8 +43,8 @@ export class DiscordBot {
           content: speech.content,
           type: 'voice',
           channelId: speech.channelId,
-          userId: speech.userId
-        }
+          userId: speech.userId,
+        },
       });
     });
 
@@ -53,7 +53,7 @@ export class DiscordBot {
       if (event.platform === 'discord') {
         const { content, type, channelId } = event.data;
         const channel = this.client.channels.cache.get(channelId);
-        
+
         if (channel?.isTextBased() && 'send' in channel) {
           if (type === 'text') {
             channel.send(content);
@@ -68,7 +68,9 @@ export class DiscordBot {
     this.eventBus.subscribe('twitter:post', (event) => {
       const announcementChannel = this.getAnnouncementChannel();
       if (announcementChannel) {
-        announcementChannel.send(`新しいツイート: ${event.data.content}\nhttps://twitter.com/user/status/${event.data.tweetId}`);
+        announcementChannel.send(
+          `新しいツイート: ${event.data.content}\nhttps://twitter.com/user/status/${event.data.tweetId}`
+        );
       }
     });
 
@@ -76,21 +78,27 @@ export class DiscordBot {
     this.eventBus.subscribe('youtube:stats', (event) => {
       const statsChannel = this.getStatsChannel();
       if (statsChannel) {
-        statsChannel.send(`📊 YouTube統計\n登録者数: ${event.data.subscribers}\n総視聴回数: ${event.data.views}`);
+        statsChannel.send(
+          `📊 YouTube統計\n登録者数: ${event.data.subscribers}\n総視聴回数: ${event.data.views}`
+        );
       }
     });
   }
 
   private getAnnouncementChannel() {
-    return this.client.channels.cache.get(process.env.DISCORD_ANNOUNCEMENT_CHANNEL_ID as string) as TextChannel;
+    return this.client.channels.cache.get(
+      process.env.DISCORD_ANNOUNCEMENT_CHANNEL_ID as string
+    ) as TextChannel;
   }
 
   private getStatsChannel() {
-    return this.client.channels.cache.get(process.env.DISCORD_STATS_CHANNEL_ID as string) as TextChannel;
+    return this.client.channels.cache.get(
+      process.env.DISCORD_STATS_CHANNEL_ID as string
+    ) as TextChannel;
   }
 
   private async synthesizeAndPlay(channel: TextChannel, text: string) {
     // 音声合成と再生の実装
     // 例: Google Cloud Text-to-Speech APIなどを使用
   }
-} 
+}

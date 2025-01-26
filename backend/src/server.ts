@@ -5,7 +5,7 @@ import { DiscordBot } from './services/discord/client.js';
 // import { YoutubeService } from './services/youtube/client.js';
 // import { MinecraftBot } from './services/minecraft/bot.js';
 import { LLMService } from './services/llm/client.js';
-import { EventBus } from './services/llm/eventBus.js';
+import { EventBus } from './services/eventBus.js';
 // import { twitterRoutes } from './routes/twitter.routes.js';
 import { discordRoutes } from './routes/discord.routes.js';
 import dotenv from 'dotenv';
@@ -16,14 +16,14 @@ dotenv.config();
 
 class Server {
   private app = express();
-//   private twitterScheduler: TwitterScheduler;
+  //   private twitterScheduler: TwitterScheduler;
   private eventBus: EventBus;
   private llmService: LLMService;
   private discordBot: DiscordBot;
   private webClient: WebClient;
   // private twitterClient: TwitterClient;
-//   private youtubeService: YoutubeService;
-//   private minecraftBot: MinecraftBot;
+  //   private youtubeService: YoutubeService;
+  //   private minecraftBot: MinecraftBot;
 
   constructor() {
     this.eventBus = new EventBus();
@@ -60,7 +60,7 @@ class Server {
         this.startDiscordBot(),
         this.startWebClient(),
         this.startLLMService(),
-        this.connectDatabase()
+        this.connectDatabase(),
       ]);
     } catch (error) {
       console.error('サービス起動エラー:', error);

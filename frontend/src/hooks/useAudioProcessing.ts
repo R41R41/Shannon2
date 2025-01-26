@@ -1,10 +1,10 @@
 import { AudioQueueManager } from '@components/ChatView/AudioManager';
 import { useEffect } from 'react';
-import OpenAIService from '@/services/openai';
+import { OpenAIService } from '@/services/openai';
 
 export const useAudioProcessing = (
-  openaiService: OpenAIService | null,
-  audioQueueManager: React.RefObject<AudioQueueManager>
+  openaiService: OpenAIService,
+  audioQueueManager: AudioQueueManager
 ) => {
   useEffect(() => {
     if (openaiService) {
@@ -16,7 +16,7 @@ export const useAudioProcessing = (
           bytes[i] = binaryString.charCodeAt(i);
         }
         const int16Array = new Int16Array(bytes.buffer);
-        audioQueueManager.current?.addAudioToQueue(int16Array);
+        audioQueueManager.addAudioToQueue(int16Array);
       };
     }
 
@@ -26,4 +26,4 @@ export const useAudioProcessing = (
       }
     };
   }, [openaiService, audioQueueManager]);
-}; 
+};

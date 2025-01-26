@@ -2,8 +2,9 @@
   "name": "backend",
   "type": "module",
   "scripts": {
-    "dev": "node --loader ts-node/esm src/server.ts",
-    "start": "node -r tsconfig-paths/register dist/server.js"
+    "build": "tsc",
+    "start": "node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js",
+    "dev": "tsc-watch --onSuccess \"node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js\""
   },
   "dependencies": {
     "@langchain/core": "^0.3.33",
@@ -28,6 +29,7 @@
     "cron": "^3.5.0",
     "dotenv": "^16.4.7",
     "ts-node": "^10.9.1",
+    "tsc-watch": "^6.0.0",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.0.0"
   }

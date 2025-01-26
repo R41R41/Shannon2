@@ -1,5 +1,5 @@
 import mineflayer from 'mineflayer';
-import { EventBus } from '../llm/eventBus.js';
+import { EventBus } from '../eventBus.js';
 import { LLMMessage } from '../llm/types/index.js';
 
 export class MinecraftBot {
@@ -9,7 +9,7 @@ export class MinecraftBot {
   constructor(eventBus: EventBus) {
     const host = process.env.MC_HOST;
     const username = process.env.MC_USERNAME;
-    
+
     if (!host || !username) {
       throw new Error('必要な環境変数が設定されていません');
     }
@@ -17,7 +17,7 @@ export class MinecraftBot {
     this.bot = mineflayer.createBot({
       host,
       port: parseInt(process.env.MC_PORT || '25565'),
-      username
+      username,
     });
 
     this.eventBus = eventBus;
@@ -33,13 +33,13 @@ export class MinecraftBot {
         type: 'text',
         content: message,
         context: {
-          username: username
-        }
+          username: username,
+        },
       };
       this.eventBus.publish({
         type: 'minecraft:message',
         platform: 'minecraft',
-        data: llmMessage
+        data: llmMessage,
       });
     });
 
@@ -53,4 +53,4 @@ export class MinecraftBot {
       console.log('Minecraft bot spawned');
     });
   }
-} 
+}

@@ -1,5 +1,5 @@
 import { TwitterApi } from 'twitter-api-v2';
-import { EventBus } from '../llm/eventBus.js';
+import { EventBus } from '../eventBus.js';
 import { LLMMessage } from '../llm/types/index.js';
 
 export class TwitterClient {
@@ -31,10 +31,7 @@ export class TwitterClient {
     this.eventBus.subscribe('twitter:post', async (event) => {
       if (event.platform === 'twitter') {
         try {
-          await this.client.v2.reply(
-            event.data.content,
-            event.data.tweetId
-          );
+          await this.client.v2.reply(event.data.content, event.data.tweetId);
         } catch (error) {
           console.error('Twitter reply error:', error);
         }
@@ -45,16 +42,16 @@ export class TwitterClient {
   async tweet(content: string) {
     try {
       const response = await this.client.v2.tweet(content);
-      
+
       // ツイート内容をDiscordにも送信
       this.eventBus.publish({
         type: 'twitter:post',
         platform: 'twitter',
         data: {
           content: content,
-          tweetId: response.data.id
+          tweetId: response.data.id,
         },
-        targetPlatforms: ['discord']  // Discordにも送信
+        targetPlatforms: ['discord'], // Discordにも送信
       });
 
       return response.data;
@@ -70,13 +67,13 @@ export class TwitterClient {
       type: 'text',
       content: content,
       context: {
-        tweetId: tweetId
-      }
+        tweetId: tweetId,
+      },
     };
     this.eventBus.publish({
       type: 'twitter:post',
       platform: 'twitter',
-      data: message
+      data: message,
     });
   }
 
@@ -86,7 +83,7 @@ export class TwitterClient {
       for await (const tweet of tweets) {
         await this.handleTweet(tweet.id, tweet.text);
         // レート制限を考慮して待機
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     } catch (error) {
       console.error('Search and reply error:', error);
@@ -104,4 +101,4 @@ export class TwitterClient {
       throw error;
     }
   }
-} 
+}

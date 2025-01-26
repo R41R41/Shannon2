@@ -6,7 +6,10 @@ import { Platform, ConversationType } from '../types/index.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const convertToPromptName = (type: Platform, conversationType: ConversationType): string => {
+const convertToPromptName = (
+  type: Platform,
+  conversationType: ConversationType
+): string => {
   if (type === 'discord') {
     return `discord_${conversationType}`;
   }
@@ -19,14 +22,22 @@ const convertToPromptName = (type: Platform, conversationType: ConversationType)
   return `${type}_${conversationType}`;
 };
 
-export const loadPrompt = async (type: Platform, conversationType: ConversationType): Promise<string> => {
+export const loadPrompt = async (
+  type: Platform,
+  conversationType: ConversationType
+): Promise<string> => {
   try {
     const promptName = convertToPromptName(type, conversationType);
     const path = join(__dirname, 'prompts', `${promptName}.txt`);
     console.log('Loading prompt from:', path);
     return readFileSync(path, 'utf-8').trim();
   } catch (error) {
-    console.error(`Failed to load prompt for ${type}:`, error);
-    throw new Error(`プロンプトの読み込みに失敗しました: ${type}`);
+    console.error(
+      `Failed to load prompt for ${type}_${conversationType}:`,
+      error
+    );
+    throw new Error(
+      `プロンプトの読み込みに失敗しました: ${type}_${conversationType}`
+    );
   }
 };

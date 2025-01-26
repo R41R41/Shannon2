@@ -1,7 +1,11 @@
 import React, { useState, useRef } from 'react';
 import styles from './PushToTalkButton.module.scss';
-import { startRecording, stopRecording, stopRecordingWithoutCommit } from "@/utils/audioUtils";
-import OpenAIService from "@/services/openai";
+import {
+  startRecording,
+  stopRecording,
+  stopRecordingWithoutCommit,
+} from '@/utils/audioUtils';
+import { OpenAIService } from '@/services/openai';
 import KeyboardVoiceOutlinedIcon from '@mui/icons-material/KeyboardVoiceOutlined';
 
 interface PushToTalkButtonProps {
@@ -17,7 +21,7 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
 
   const onPushToTalk = () => {
     if (isRecording) {
-      stopRecording(openaiService, processorRef);
+      stopRecording(setIsRecording, openaiService, processorRef);
     } else {
       startRecording(setIsRecording, processorRef, openaiService);
     }
@@ -34,19 +38,27 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
   };
 
   return (
-  <div className={`${styles.pushToTalkButtonContainer} ${isRecording || isVadMode ? styles.active : ""}`}>
-    <button
-      onMouseDown={isVadMode ? () => {} : onPushToTalk}
-      onMouseUp={isVadMode ? () => {} : onPushToTalk}
-      className={`${styles.pushToTalkButton} ${isRecording || isVadMode ? styles.active : ""}`}
-    >
-      <KeyboardVoiceOutlinedIcon />
-      {isRecording || isVadMode ? "Recording..." : "Push to Talk"}
-    </button>
     <div
-      className={`${styles.recordingIndicator} ${isRecording || isVadMode ? styles.active : ""}`}
-      onClick={onVadModeChange}
-    />
+      className={`${styles.pushToTalkButtonContainer} ${
+        isRecording || isVadMode ? styles.active : ''
+      }`}
+    >
+      <button
+        onMouseDown={isVadMode ? () => {} : onPushToTalk}
+        onMouseUp={isVadMode ? () => {} : onPushToTalk}
+        className={`${styles.pushToTalkButton} ${
+          isRecording || isVadMode ? styles.active : ''
+        }`}
+      >
+        <KeyboardVoiceOutlinedIcon />
+        {isRecording || isVadMode ? 'Recording...' : 'Push to Talk'}
+      </button>
+      <div
+        className={`${styles.recordingIndicator} ${
+          isRecording || isVadMode ? styles.active : ''
+        }`}
+        onClick={onVadModeChange}
+      />
     </div>
-  ); 
+  );
 };

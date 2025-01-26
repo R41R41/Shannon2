@@ -1,9 +1,9 @@
-import { Platform, LLMResponse } from './types/index.js';
+import { Platform, LLMResponse } from './llm/types/index.js';
 
-export type EventType = 
-  | 'llm:response' 
-  | 'twitter:post' 
-  | 'youtube:stats' 
+export type EventType =
+  | 'llm:response'
+  | 'twitter:post'
+  | 'youtube:stats'
   | 'discord:message'
   | 'minecraft:message'
   | 'web:message';
@@ -12,7 +12,7 @@ export interface Event {
   type: EventType;
   platform: Platform;
   data: any;
-  targetPlatforms?: Platform[];  // 送信先プラットフォーム
+  targetPlatforms?: Platform[]; // 送信先プラットフォーム
 }
 
 export class EventBus {
@@ -26,11 +26,14 @@ export class EventBus {
   }
 
   publish(event: Event) {
-    this.listeners.get(event.type)?.forEach(callback => {
+    this.listeners.get(event.type)?.forEach((callback) => {
       // targetPlatformsが指定されている場合、対象プラットフォームのみに配信
-      if (!event.targetPlatforms || event.targetPlatforms.includes(event.platform)) {
+      if (
+        !event.targetPlatforms ||
+        event.targetPlatforms.includes(event.platform)
+      ) {
         callback(event);
       }
     });
   }
-} 
+}

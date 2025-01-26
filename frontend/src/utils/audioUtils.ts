@@ -1,4 +1,4 @@
-import OpenAIService from '@/services/openai';
+import { OpenAIService } from '@/services/openai';
 
 export const convertFloat32ToInt16 = (buffer: Float32Array): ArrayBuffer => {
   let l = buffer.length;
@@ -32,7 +32,7 @@ export const startRecording = async (
       const audioData = event.inputBuffer.getChannelData(0);
       const int16Buffer = convertFloat32ToInt16(audioData);
       openaiService?.sendVoiceData(
-        new Blob([int16Buffer], { type: "audio/pcm" })
+        new Blob([int16Buffer], { type: 'audio/pcm' })
       );
     };
 
@@ -40,15 +40,17 @@ export const startRecording = async (
     processor.connect(audioContext.destination);
     processorRef.current = processor;
   } catch (error) {
-    console.error("録音開始時にエラーが発生しました:", error);
+    console.error('録音開始時にエラーが発生しました:', error);
     setIsRecording(false);
   }
 };
 
 export const stopRecording = (
+  setIsRecording: (isRecording: boolean) => void,
   openaiService: OpenAIService | null,
   processorRef: React.MutableRefObject<ScriptProcessorNode | null>
 ) => {
+  setIsRecording(false);
   if (processorRef.current) {
     openaiService?.commitAudioBuffer();
     processorRef.current.disconnect();
@@ -65,4 +67,4 @@ export const stopRecordingWithoutCommit = (
     processorRef.current.disconnect();
     processorRef.current = null;
   }
-}; 
+};
