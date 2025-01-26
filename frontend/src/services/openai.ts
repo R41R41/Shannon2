@@ -1,5 +1,7 @@
 import { WS_URL } from '@/services/apiTypes';
 
+export type ConnectionStatus = 'connected' | 'disconnected' | 'connecting';
+
 export class OpenAIService {
   private static instance: OpenAIService;
   private ws: WebSocket | null = null;
@@ -11,6 +13,8 @@ export class OpenAIService {
   public audioCallback: ((data: string) => void) | null = null;
   public audioDoneCallback: (() => void) | null = null;
   public userTranscriptCallback: ((text: string) => void) | null = null;
+  private statusListeners: Set<(status: ConnectionStatus) => void> = new Set();
+  private status: ConnectionStatus = 'disconnected';
 
   private constructor() {
     this.initialize();
@@ -25,11 +29,13 @@ export class OpenAIService {
 
   private async connect() {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      this.setStatus('connecting');
       this.ws = new WebSocket(WS_URL);
 
       this.ws.onopen = () => {
-        console.log('Connected to server');
-        this.reconnectAttempts = 0; // 接続成功時にリセット
+        console.log('OpenAI WebSocket connected');
+        this.setStatus('connected');
+        this.reconnectAttempts = 0;
       };
 
       this.ws.onmessage = (event) => {
@@ -39,6 +45,7 @@ export class OpenAIService {
         } else if (data.type === 'audio_done') {
           this.audioDoneCallback?.();
         } else if (data.type === 'text') {
+          console.log('textCallback', data.content);
           this.textCallback?.(data.content);
         } else if (data.type === 'audio') {
           if (!data.content.length) return;
@@ -49,13 +56,15 @@ export class OpenAIService {
         }
       };
 
-      this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+      this.ws.onclose = () => {
+        console.log('OpenAI WebSocket closed');
+        this.setStatus('disconnected');
+        this.reconnect();
       };
 
-      this.ws.onclose = () => {
-        console.log('WebSocket connection closed');
-        this.reconnect();
+      this.ws.onerror = (error) => {
+        console.error('OpenAI WebSocket error:', error);
+        this.setStatus('disconnected');
       };
     }
   }
@@ -151,6 +160,17 @@ export class OpenAIService {
       console.error('Error changing VAD mode:', error);
       throw error;
     }
+  }
+
+  public onStatusChange(callback: (status: ConnectionStatus) => void) {
+    this.statusListeners.add(callback);
+    callback(this.status);
+    return () => this.statusListeners.delete(callback);
+  }
+
+  private setStatus(status: ConnectionStatus) {
+    this.status = status;
+    this.statusListeners.forEach((listener) => listener(status));
   }
 }
 

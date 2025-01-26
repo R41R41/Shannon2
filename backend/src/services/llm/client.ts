@@ -218,7 +218,6 @@ export class LLMService {
 
   public async initialize() {
     try {
-      // LLMの初期化処理（例：API接続テストなど）
       console.log('LLM Service initialized');
     } catch (error) {
       console.error('LLM initialization error:', error);
