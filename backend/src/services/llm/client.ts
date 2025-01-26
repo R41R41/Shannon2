@@ -69,6 +69,8 @@ export class LLMService {
           input: message.content,
         });
 
+        this.logChainContent(chainKey, chain);
+
         this.eventBus.publish({
           type: 'llm:response',
           platform: message.platform,
@@ -204,7 +206,7 @@ export class LLMService {
   }
 
   resetAllContexts() {
-    this.chains.forEach((chain, key) => {
+    this.chains.forEach((chain) => {
       if (chain?.memory) {
         (chain.memory as BufferMemory).clear();
       }
@@ -219,5 +221,20 @@ export class LLMService {
       console.error('LLM initialization error:', error);
       throw error;
     }
+  }
+
+  private logChainContent(chainKey: ChainKey, chain: ConversationChain) {
+    const memory = chain.memory as BufferMemory;
+    memory.chatHistory.getMessages().then((messages) => {
+      const content = messages
+        .map((msg) => {
+          const role = msg._getType();
+          const content = msg.content;
+          return `${role}: ${content}`;
+        })
+        .join('\n');
+
+      this.eventBus.log('llm', 'magenta', `Chain: ${chainKey}\n${content}`);
+    });
   }
 }

@@ -81,6 +81,8 @@ export class DiscordBot {
         'blue',
         guildName + ' ' + channelName + '\n' + nickname + ': ' + message.content
       );
+      console.log('\x1b[34m' + guildName + ' ' + channelName + '\x1b[0m');
+      console.log('\x1b[34m' + nickname + ': ' + message.content + '\x1b[0m');
       this.eventBus.publish({
         type: 'discord:message',
         platform: 'discord',
@@ -132,6 +134,8 @@ export class DiscordBot {
               'green',
               guildName + ' ' + channelName + '\n' + 'Shannon: ' + content
             );
+            console.log('\x1b[34m' + guildName + ' ' + channelName + '\x1b[0m');
+            console.log('\x1b[34m' + userName + ': ' + content + '\x1b[0m');
             channel.send(content);
           } else if (type === 'voice') {
             this.synthesizeAndPlay(channel as TextChannel, content);

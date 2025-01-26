@@ -12,36 +12,30 @@ interface SearchQuery {
 
 export class MonitoringService {
   private wss: WebSocketServer;
-  private client: WebSocket | null = null;
   private eventBus: EventBus;
+  private client: WebSocket | null = null;
 
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
     this.wss = new WebSocketServer({
       port: PORTS.WEBSOCKET.MONITORING as number,
     });
-    this.setupWebSocket();
     this.setupEventHandlers();
   }
 
-  private setupWebSocket() {
-    this.wss.on('connection', (ws) => {
-      this.client = ws;
-      console.log('\x1b[32mMonitoring Client connected\x1b[0m');
-
-      ws.on('close', () => {
-        this.client = null;
-        console.log('\x1b[31mMonitoring Client disconnected\x1b[0m');
-      });
-    });
-  }
-
   private async setupEventHandlers() {
+    // WebSocket接続時の処理
     this.wss.on('connection', async (ws) => {
-      this.client = ws;
-      console.log('\x1b[32mMonitoring Client connected\x1b[0m');
+      console.log('Monitoring client connected');
 
-      // 最新200件のログを取得
+      // 既存の接続がある場合は切断
+      if (this.client) {
+        this.client.close();
+      }
+
+      this.client = ws;
+
+      // 最新200件のログを取得して送信
       const logs = await Log.find()
         .sort({ timestamp: -1 })
         .limit(200)
@@ -74,12 +68,19 @@ export class MonitoringService {
         this.client = null;
         console.log('\x1b[31mMonitoring Client disconnected\x1b[0m');
       });
+
+      ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
+        if (this.client === ws) {
+          this.client = null;
+        }
+      });
     });
 
-    // 新しいログの購読
+    // イベントバスからのログ購読
     this.eventBus.subscribe('log', (event) => {
       if (this.client && this.client.readyState === WebSocket.OPEN) {
-        this.client.send(JSON.stringify(event.data));
+        this.client.send(JSON.stringify({ type: 'log', data: event.data }));
       }
     });
   }

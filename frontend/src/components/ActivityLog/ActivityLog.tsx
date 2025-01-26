@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import styles from './ActivityLog.module.scss';
 import MonitoringService, { LogEntry } from '@/services/monitoring';
 
@@ -7,6 +7,8 @@ type Platform = 'web' | 'discord' | 'minecraft' | 'twitter' | 'youtube' | 'all';
 const ActivityLog: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('all');
+  const logListRef = useRef<HTMLDivElement>(null);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const MAX_LOGS = 200;
 
   useEffect(() => {
@@ -14,8 +16,17 @@ const ActivityLog: React.FC = () => {
 
     const handleLog = (log: LogEntry) => {
       setLogs((prevLogs) => {
-        const newLogs = [...prevLogs, log];
-        return newLogs.slice(-MAX_LOGS); // 最新の200件のみを保持
+        const newLogs = [...prevLogs, log].slice(-MAX_LOGS);
+        // 新しいログが追加されたら自動スクロール
+        if (shouldAutoScroll) {
+          setTimeout(() => {
+            logListRef.current?.scrollTo({
+              top: logListRef.current.scrollHeight,
+              behavior: 'smooth',
+            });
+          }, 0);
+        }
+        return newLogs;
       });
     };
 
@@ -24,7 +35,16 @@ const ActivityLog: React.FC = () => {
     return () => {
       monitoring.unsubscribe(handleLog);
     };
-  }, []);
+  }, [shouldAutoScroll]);
+
+  // スクロールイベントを監視して、手動スクロール時に自動スクロールを無効化
+  const handleScroll = () => {
+    if (!logListRef.current) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = logListRef.current;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
+    setShouldAutoScroll(isNearBottom);
+  };
 
   const formatContent = (content: string) => {
     return content.split('\n').map((line, i) => (
@@ -91,7 +111,7 @@ const ActivityLog: React.FC = () => {
           YouTube
         </button>
       </div>
-      <div className={styles.logList}>
+      <div ref={logListRef} className={styles.logList} onScroll={handleScroll}>
         {filteredLogs.map((log, index) => (
           <div key={index} className={styles.logEntry}>
             <span className={styles.timestamp}>{log.timestamp}</span>

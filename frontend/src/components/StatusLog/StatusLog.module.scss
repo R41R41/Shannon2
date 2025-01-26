@@ -1,6 +1,44 @@
-@use "@styles/variables.scss" as *;
+@use '@styles/variables.scss' as *;
 
 .container {
-  background-color: color(background, primary);
-  color: color(text, primary);
+  padding: 0.5rem;
+  border-top: 1px solid color(border, primary);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: color(text, secondary);
+
+  svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+.connected {
+  color: color(text, green);
+}
+
+.connecting {
+  color: color(text, yellow);
+  animation: pulse 1.5s infinite;
+}
+
+.disconnected {
+  color: color(text, red);
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
 }

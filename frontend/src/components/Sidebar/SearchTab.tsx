@@ -49,7 +49,7 @@ const SearchTab: React.FC<SearchTabProps> = ({
 
   return (
     <div className={styles.container}>
-      <span className={styles.title}>検索</span>
+      <span className={styles.title}>Search Logs</span>
       <div className={styles.searchForm}>
         <input
           type="text"
