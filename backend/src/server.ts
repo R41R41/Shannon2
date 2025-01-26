@@ -11,12 +11,13 @@ import { discordRoutes } from './routes/discord.routes.js';
 import dotenv from 'dotenv';
 // import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
+import { MonitoringService } from './services/monitoring/client.js';
 
 dotenv.config();
 
 class Server {
   private app = express();
-  //   private twitterScheduler: TwitterScheduler;
+  private monitoringService: MonitoringService;
   private eventBus: EventBus;
   private llmService: LLMService;
   private discordBot: DiscordBot;
@@ -30,6 +31,7 @@ class Server {
     this.llmService = new LLMService(this.eventBus);
     this.discordBot = new DiscordBot(this.eventBus);
     this.webClient = new WebClient(this.eventBus);
+    this.monitoringService = new MonitoringService(this.eventBus);
     // this.twitterClient = new TwitterClient(this.eventBus);
   }
 
@@ -61,6 +63,7 @@ class Server {
         this.startWebClient(),
         this.startLLMService(),
         this.connectDatabase(),
+        this.startMonitoringService(),
       ]);
     } catch (error) {
       console.error('サービス起動エラー:', error);
@@ -76,6 +79,11 @@ class Server {
   private async startWebClient() {
     await this.webClient.start();
     console.log('Web Client started');
+  }
+
+  private async startMonitoringService() {
+    await this.monitoringService.initialize();
+    console.log('Monitoring Service started');
   }
 
   // private async startTwitterClient() {

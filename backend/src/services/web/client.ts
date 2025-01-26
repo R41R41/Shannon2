@@ -13,14 +13,12 @@ export class WebClient {
   private app: express.Application;
   private server: http.Server;
   private initialized: boolean = false;
-
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
     this.app = express();
     this.server = http.createServer(this.app);
     this.wss = new WebSocketServer({ server: this.server });
     this.initialized = false;
-
     this.setupExpress();
     this.setupWebSocket();
     // this.setupEventHandlers();
@@ -51,6 +49,11 @@ export class WebClient {
 
           // テキストメッセージの処理
           if (parsedMessage.type === 'text') {
+            this.eventBus.log(
+              'web',
+              'white',
+              'received realtime text:' + parsedMessage.content
+            );
             const llmMessage: LLMMessage = {
               platform: 'web',
               type: 'realtime_text',
@@ -81,6 +84,7 @@ export class WebClient {
               data: llmMessage,
             });
           } else if (parsedMessage.type === 'voice_commit') {
+            this.eventBus.log('web', 'white', 'received realtime voice commit');
             const llmMessage: LLMMessage = {
               platform: 'web',
               type: 'realtime_voice_commit',
@@ -96,6 +100,7 @@ export class WebClient {
               data: llmMessage,
             });
           } else if (parsedMessage.type === 'vad_change') {
+            this.eventBus.log('web', 'white', 'received realtime vad change');
             const llmMessage: LLMMessage = {
               platform: 'web',
               type: 'realtime_vad_change',
@@ -112,19 +117,20 @@ export class WebClient {
             });
           }
         } catch (error) {
+          this.eventBus.log('web', 'red', 'Error processing message:' + error);
           console.error('Error processing message:', error);
         }
       });
 
       ws.on('close', () => {
         this.client = null;
+        this.eventBus.log('web', 'red', 'Client disconnected');
         console.log('\x1b[31mClient disconnected\x1b[0m');
       });
 
       this.eventBus.subscribe('llm:response', (event) => {
         if (event.platform === 'web') {
           const { content, type, context } = event.data;
-
           ws.send(
             JSON.stringify({
               type: type,
@@ -137,29 +143,9 @@ export class WebClient {
     });
   }
 
-  private setupEventHandlers() {
-    // LLMからの応答を処理
-    this.eventBus.subscribe('llm:response', (event) => {
-      if (event.platform === 'web') {
-        const { content, type, context } = event.data;
-
-        // 該当するクライアントにメッセージを送信
-        if (this.client && this.client.readyState === WebSocket.OPEN) {
-          console.log('\x1b[32mSending response to client\x1b[0m:', content);
-          this.client.send(
-            JSON.stringify({
-              type: type,
-              content: content,
-              sessionId: context.sessionId,
-            })
-          );
-        }
-      }
-    });
-  }
-
   public async start() {
     this.server.listen(PORTS.WEBSOCKET.WEB, () => {
+      this.eventBus.log('web', 'blue', 'Web WebSocket Server is running');
       console.log(
         `\x1b[32mWeb WebSocket Server is running on port ${PORTS.WEBSOCKET.WEB}\x1b[0m`
       );
@@ -171,5 +157,7 @@ export class WebClient {
       this.client.close();
     }
     this.server.close();
+    this.eventBus.log('web', 'red', 'Web WebSocket Server is shutdown');
+    console.log('\x1b[31mWeb WebSocket Server is shutdown\x1b[0m');
   }
 }

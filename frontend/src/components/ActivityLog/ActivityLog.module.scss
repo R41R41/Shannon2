@@ -1,6 +1,65 @@
-@use "@styles/variables.scss" as *;
+@use '@styles/variables.scss' as *;
 
 .container {
+  height: 100%;
+  overflow-y: auto;
+  padding: 1rem;
   background-color: color(background, primary);
+}
+
+.logList {
+  display: flex;
+  flex-direction: column;
+}
+
+.logEntry {
+  display: grid;
+  grid-template-columns: auto auto auto 1fr;
+  gap: 1rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+
+  &:hover {
+    background-color: color(surface, secondary);
+  }
+}
+
+.timestamp {
+  color: color(text, secondary);
+  font-family: monospace;
+}
+
+.platform {
+  color: color(primary);
+  font-weight: 500;
+}
+
+.type {
+  color: color(text, secondary);
+}
+
+.content {
   color: color(text, primary);
+  word-break: break-word;
+  &.white {
+    color: color(text, white);
+  }
+  &.red {
+    color: color(text, red);
+  }
+  &.green {
+    color: color(text, green);
+  }
+  &.blue {
+    color: color(text, blue);
+  }
+  &.yellow {
+    color: color(text, yellow);
+  }
+  &.magenta {
+    color: color(text, magenta);
+  }
+  &.cyan {
+    color: color(text, cyan);
+  }
 }

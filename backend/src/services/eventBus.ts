@@ -6,13 +6,30 @@ export type EventType =
   | 'youtube:stats'
   | 'discord:message'
   | 'minecraft:message'
-  | 'web:message';
+  | 'web:message'
+  | 'log';
 
 export interface Event {
   type: EventType;
   platform: Platform;
   data: any;
   targetPlatforms?: Platform[]; // 送信先プラットフォーム
+}
+
+export type Color =
+  | 'white'
+  | 'red'
+  | 'green'
+  | 'blue'
+  | 'yellow'
+  | 'magenta'
+  | 'cyan';
+
+export interface LogEntry {
+  timestamp: string;
+  platform: string;
+  color: Color;
+  content: string;
 }
 
 export class EventBus {
@@ -34,6 +51,21 @@ export class EventBus {
       ) {
         callback(event);
       }
+    });
+  }
+
+  public log(platform: Platform, color: Color, content: string) {
+    const logEntry: LogEntry = {
+      timestamp: new Date().toISOString(),
+      platform: platform,
+      color: color,
+      content: content,
+    };
+
+    this.publish({
+      type: 'log',
+      platform: platform,
+      data: logEntry,
     });
   }
 }
