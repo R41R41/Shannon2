@@ -1,0 +1,108 @@
+@use '@/styles/variables' as *;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.title {
+  padding: 0.5rem;
+  font-size: 12px;
+}
+
+.searchForm {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  padding-bottom: 0.5rem;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  input,
+  select {
+    font-size: 10px;
+    padding: 0.5rem;
+    border: 1px solid color(border, 'secondary');
+    border-radius: 4px;
+    background-color: color(surface, 'secondary');
+    color: color(text, 'primary');
+    &::placeholder {
+      color: color(text, 'secondary');
+    }
+  }
+
+  input[type='datetime-local'] {
+    &::-webkit-calendar-picker-indicator {
+      filter: invert(0.7); // 明るめの色に
+      cursor: pointer;
+    }
+  }
+
+  input[type='text'] {
+    &::-webkit-calendar-picker-indicator {
+      display: none; // テキスト入力時はアイコンを非表示
+    }
+  }
+}
+
+.results {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  padding-bottom: 0.5rem;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.logEntry {
+  display: flex;
+  flex-direction: column;
+  padding: 0.2rem;
+  border-radius: 4px;
+
+  .logHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+  }
+
+  .timestamp {
+    color: color(text, 'secondary');
+  }
+
+  .platform {
+    color: color('primary');
+  }
+
+  .content {
+    font-size: 14px;
+    color: color(text, 'primary');
+    word-break: break-word;
+    &.white {
+      color: color(text, white);
+    }
+    &.red {
+      color: color(text, red);
+    }
+    &.green {
+      color: color(text, green);
+    }
+    &.blue {
+      color: color(text, blue);
+    }
+    &.yellow {
+      color: color(text, yellow);
+    }
+    &.magenta {
+      color: color(text, magenta);
+    }
+    &.cyan {
+      color: color(text, cyan);
+    }
+  }
+}

@@ -7,12 +7,16 @@ type Platform = 'web' | 'discord' | 'minecraft' | 'twitter' | 'youtube' | 'all';
 const ActivityLog: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform>('all');
+  const MAX_LOGS = 200;
 
   useEffect(() => {
     const monitoring = MonitoringService();
 
     const handleLog = (log: LogEntry) => {
-      setLogs((prevLogs) => [...prevLogs, log]);
+      setLogs((prevLogs) => {
+        const newLogs = [...prevLogs, log];
+        return newLogs.slice(-MAX_LOGS); // 最新の200件のみを保持
+      });
     };
 
     monitoring.subscribe(handleLog);

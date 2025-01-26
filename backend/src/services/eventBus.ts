@@ -1,6 +1,7 @@
-import { Platform, LLMResponse } from './llm/types/index.js';
+import { Platform } from './llm/types/index.js';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
+import Log from '../models/Log.js';
 
 export type EventType =
   | 'llm:response'
@@ -63,7 +64,7 @@ export class EventBus {
     });
   }
 
-  public log(platform: string, color: Color, content: string) {
+  public async log(platform: string, color: Color, content: string) {
     const now = new Date();
     const tokyoTime = toZonedTime(now, 'Asia/Tokyo');
     const timestamp = format(tokyoTime, 'yyyy-MM-dd HH:mm:ss');
@@ -74,6 +75,9 @@ export class EventBus {
       color,
       content,
     };
+
+    // DBに保存
+    await Log.create(logEntry);
 
     this.publish({
       type: 'log',

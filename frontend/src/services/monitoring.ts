@@ -16,12 +16,21 @@ export interface LogEntry {
   content: string;
 }
 
+export interface SearchQuery {
+  startDate?: string;
+  endDate?: string;
+  platform?: string;
+  content?: string;
+}
+
 type LogCallback = (log: LogEntry) => void;
+type SearchCallback = (results: LogEntry[]) => void;
 
 export class MonitoringService {
   private static instance: MonitoringService;
   private ws: WebSocket | null = null;
   private listeners: Set<LogCallback> = new Set();
+  private searchListeners: Set<SearchCallback> = new Set();
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
   private reconnectDelay: number = 3000;
@@ -45,8 +54,17 @@ export class MonitoringService {
     this.ws = new WebSocket(`${WS_MONITORING_URL}`);
 
     this.ws.onmessage = (event) => {
-      const log = JSON.parse(event.data);
-      this.listeners.forEach((listener) => listener(log));
+      const { type, data } = JSON.parse(event.data);
+
+      if (type === 'log') {
+        this.listeners.forEach((listener) => {
+          listener(data);
+        });
+      } else if (type === 'searchResults') {
+        this.searchListeners.forEach((listener) => {
+          listener(data);
+        });
+      }
     };
 
     this.ws.onclose = () => {
@@ -86,6 +104,22 @@ export class MonitoringService {
 
   public unsubscribe(callback: LogCallback) {
     this.listeners.delete(callback);
+  }
+
+  public async searchLogs(query: SearchQuery) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(
+        JSON.stringify({
+          type: 'search',
+          query,
+        })
+      );
+    }
+  }
+
+  public onSearchResults(callback: SearchCallback) {
+    this.searchListeners.add(callback);
+    return () => this.searchListeners.delete(callback);
   }
 }
 
