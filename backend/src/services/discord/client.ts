@@ -10,8 +10,10 @@ import { EventBus, DiscordMessage } from '../eventBus.js';
 export class DiscordBot {
   private client: Client;
   private eventBus: EventBus;
+  private isTestMode: boolean;
 
-  constructor(eventBus: EventBus) {
+  constructor(eventBus: EventBus, isTestMode: boolean = false) {
+    this.isTestMode = isTestMode;
     this.client = new Client({
       intents: [
         GatewayIntentBits.Guilds,
@@ -66,6 +68,10 @@ export class DiscordBot {
   private setupEventHandlers() {
     // テキストメッセージの処理
     this.client.on('messageCreate', (message) => {
+      // テストモードの場合はテストサーバーのみ、それ以外の場合はテストサーバー以外を処理
+      const isTestGuild = message.guildId === process.env.TEST_GUILD_ID;
+      if (this.isTestMode !== isTestGuild) return;
+
       if (message.author.bot) return;
       const nickname = this.getUserNickname(message.author);
       const channelName = this.getChannelName(message.channelId);
@@ -89,6 +95,13 @@ export class DiscordBot {
 
     // 音声メッセージの処理
     this.client.on('speech', (speech) => {
+      // テストモードの場合はテストサーバーのみ、それ以外の場合はテストサーバー以外を処理
+      const channel = this.client.channels.cache.get(speech.channelId);
+      if (!channel || !('guild' in channel)) return;
+
+      const isTestGuild = channel.guild.id === process.env.TEST_GUILD_ID;
+      if (this.isTestMode !== isTestGuild) return;
+
       const nickname = this.getUserNickname(speech.user);
       this.eventBus.publish({
         type: 'discord:message',

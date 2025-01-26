@@ -30,7 +30,8 @@ class Server {
   constructor() {
     this.eventBus = new EventBus();
     this.llmService = new LLMService(this.eventBus);
-    this.discordBot = new DiscordBot(this.eventBus);
+    const isTestMode = process.argv.includes('--test');
+    this.discordBot = new DiscordBot(this.eventBus, isTestMode);
     this.webClient = new WebClient(this.eventBus);
     this.monitoringService = new MonitoringService(this.eventBus);
     // this.twitterClient = new TwitterClient(this.eventBus);
