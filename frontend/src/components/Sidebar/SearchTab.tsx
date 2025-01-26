@@ -47,6 +47,20 @@ const SearchTab: React.FC<SearchTabProps> = ({
     ));
   };
 
+  const formatTimestamp = (timestamp: Date) => {
+    return new Intl.DateTimeFormat('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    })
+      .format(new Date(timestamp))
+      .replace(/\//g, '-');
+  };
+
   return (
     <div className={styles.container}>
       <span className={styles.title}>Search Logs</span>
@@ -96,7 +110,9 @@ const SearchTab: React.FC<SearchTabProps> = ({
         {searchResults.map((log, index) => (
           <div key={index} className={styles.logEntry}>
             <div className={styles.logHeader}>
-              <span className={styles.timestamp}>{log.timestamp}</span>
+              <span className={styles.timestamp}>
+                {formatTimestamp(log.timestamp)}
+              </span>
               <span className={styles.platform}>{log.platform}</span>
             </div>
             <span className={`${styles.content} ${styles[log.color]}`}>

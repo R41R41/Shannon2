@@ -11,26 +11,32 @@ const ActivityLog: React.FC = () => {
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const MAX_LOGS = 200;
 
+  // 最下端までスクロールする関数
+  const scrollToBottom = () => {
+    if (logListRef.current) {
+      logListRef.current.scrollTo({
+        top: logListRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  };
+
   useEffect(() => {
     const monitoring = MonitoringService();
 
     const handleLog = (log: LogEntry) => {
       setLogs((prevLogs) => {
         const newLogs = [...prevLogs, log].slice(-MAX_LOGS);
-        // 新しいログが追加されたら自動スクロール
         if (shouldAutoScroll) {
-          setTimeout(() => {
-            logListRef.current?.scrollTo({
-              top: logListRef.current.scrollHeight,
-              behavior: 'smooth',
-            });
-          }, 0);
+          scrollToBottom();
         }
         return newLogs;
       });
     };
 
     monitoring.subscribe(handleLog);
+    // 初期表示時も最下端にスクロール
+    scrollToBottom();
 
     return () => {
       monitoring.unsubscribe(handleLog);
@@ -42,7 +48,7 @@ const ActivityLog: React.FC = () => {
     if (!logListRef.current) return;
 
     const { scrollTop, scrollHeight, clientHeight } = logListRef.current;
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 20;
     setShouldAutoScroll(isNearBottom);
   };
 
@@ -53,6 +59,20 @@ const ActivityLog: React.FC = () => {
         {i < content.split('\n').length - 1 && <br />}
       </React.Fragment>
     ));
+  };
+
+  const formatTimestamp = (timestamp: Date) => {
+    return new Intl.DateTimeFormat('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    })
+      .format(new Date(timestamp))
+      .replace(/\//g, '-');
   };
 
   const filteredLogs = logs.filter((log) =>
@@ -114,7 +134,9 @@ const ActivityLog: React.FC = () => {
       <div ref={logListRef} className={styles.logList} onScroll={handleScroll}>
         {filteredLogs.map((log, index) => (
           <div key={index} className={styles.logEntry}>
-            <span className={styles.timestamp}>{log.timestamp}</span>
+            <span className={styles.timestamp}>
+              {formatTimestamp(log.timestamp)}
+            </span>
             {selectedPlatform === 'all' && (
               <span className={styles.platform}>{log.platform}</span>
             )}

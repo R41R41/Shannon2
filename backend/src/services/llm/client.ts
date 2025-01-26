@@ -1,7 +1,15 @@
 import { ChatOpenAI } from '@langchain/openai';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
+import {
+  ChatPromptTemplate,
+  MessagesPlaceholder,
+  SystemMessagePromptTemplate,
+  HumanMessagePromptTemplate,
+} from '@langchain/core/prompts';
 import { ConversationChain } from 'langchain/chains';
-import { BufferMemory } from 'langchain/memory';
+import {
+  BufferMemory,
+  ConversationSummaryBufferMemory,
+} from 'langchain/memory';
 import { loadPrompt } from './config/prompts.js';
 import { Platform, ConversationType, LLMMessage } from './types/index.js';
 import { EventBus, DiscordMessage } from '../eventBus.js';
@@ -57,29 +65,6 @@ export class LLMService {
       } else if (message.type === 'realtime_vad_change') {
         await this.realtimeApi.vadModeChange(message.content);
         return;
-      } else {
-        const chainKey = `${message.platform}-${message.type}` as ChainKey;
-        const chain = this.chains.get(chainKey);
-
-        if (!chain) {
-          throw new Error(`Chain not found for ${chainKey}`);
-        }
-
-        const response = await chain.call({
-          input: message.content,
-        });
-
-        this.logChainContent(chainKey, chain);
-
-        this.eventBus.publish({
-          type: 'llm:response',
-          platform: message.platform,
-          data: {
-            content: response.response,
-            type: message.type,
-            context: message.context,
-          },
-        });
       }
     } catch (error) {
       console.error('LLM処理エラー:', error);
@@ -94,10 +79,8 @@ export class LLMService {
       throw new Error(`Chain not found for ${chainKey}`);
     }
 
-    const input = message.userName + ': ' + message.content;
-
     const response = await chain.call({
-      input: input,
+      input: message.userName + ': ' + message.content,
     });
 
     this.eventBus.publish({
@@ -182,13 +165,33 @@ export class LLMService {
       temperature: 0.8,
     });
 
+    const chatPrompt = ChatPromptTemplate.fromMessages([
+      SystemMessagePromptTemplate.fromTemplate(prompt),
+      new MessagesPlaceholder('history'),
+      HumanMessagePromptTemplate.fromTemplate('{input}'),
+    ]);
+
+    const summaryLLM = new ChatOpenAI({
+      modelName: 'gpt-3.5-turbo',
+      temperature: 0,
+    });
+
+    const memory = new ConversationSummaryBufferMemory({
+      llm: summaryLLM,
+      maxTokenLimit: 1000,
+      returnMessages: true,
+      memoryKey: 'history',
+      inputKey: 'input',
+      outputKey: 'response',
+      humanPrefix: 'Human',
+      aiPrefix: 'Assistant',
+    });
+
     const chain = new ConversationChain({
+      memory: memory,
+      prompt: chatPrompt,
       llm: model,
-      memory: new BufferMemory(),
-      prompt: ChatPromptTemplate.fromMessages([
-        ['system', prompt],
-        ['human', '{input}'],
-      ]),
+      verbose: true,
     });
 
     const chainKey = `${platform}-${type}` as ChainKey;
@@ -221,20 +224,5 @@ export class LLMService {
       console.error('LLM initialization error:', error);
       throw error;
     }
-  }
-
-  private logChainContent(chainKey: ChainKey, chain: ConversationChain) {
-    const memory = chain.memory as BufferMemory;
-    memory.chatHistory.getMessages().then((messages) => {
-      const content = messages
-        .map((msg) => {
-          const role = msg._getType();
-          const content = msg.content;
-          return `${role}: ${content}`;
-        })
-        .join('\n');
-
-      this.eventBus.log('llm', 'magenta', `Chain: ${chainKey}\n${content}`);
-    });
   }
 }

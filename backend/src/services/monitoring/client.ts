@@ -36,12 +36,12 @@ export class MonitoringService {
       this.client = ws;
 
       // 最新200件のログを取得して送信
-      const logs = await Log.find()
-        .sort({ timestamp: -1 })
-        .limit(200)
-        .sort({ timestamp: 1 });
+      const logs = await Log.find().sort({ timestamp: -1 }).limit(200);
+      const sortedLogs = logs.sort(
+        (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+      );
 
-      logs.forEach((log) => {
+      sortedLogs.forEach((log) => {
         if (this.client?.readyState === WebSocket.OPEN) {
           this.client.send(JSON.stringify({ type: 'log', data: log }));
         }
@@ -90,8 +90,8 @@ export class MonitoringService {
 
     if (query.startDate && query.endDate) {
       filter.timestamp = {
-        $gte: query.startDate,
-        $lte: query.endDate,
+        $gte: new Date(query.startDate),
+        $lte: new Date(query.endDate),
       };
     }
 
@@ -103,10 +103,7 @@ export class MonitoringService {
       filter.content = { $regex: query.content, $options: 'i' };
     }
 
-    return await Log.find(filter)
-      .sort({ timestamp: -1 })
-      .limit(200)
-      .sort({ timestamp: 1 });
+    return await Log.find(filter).sort({ timestamp: -1 }).limit(200).lean();
   }
 
   public async initialize() {

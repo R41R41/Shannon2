@@ -10,7 +10,7 @@ export type Color =
   | 'cyan';
 
 export interface LogEntry {
-  timestamp: string;
+  timestamp: Date;
   platform: string;
   color: Color;
   content: string;

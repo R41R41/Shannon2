@@ -1,6 +1,5 @@
 import { Platform } from './llm/types/index.js';
-import { format } from 'date-fns';
-import { toZonedTime } from 'date-fns-tz';
+import { ILog } from '../models/Log.js';
 import Log from '../models/Log.js';
 
 export type EventType =
@@ -64,20 +63,20 @@ export class EventBus {
     });
   }
 
-  public async log(platform: string, color: Color, content: string) {
-    const now = new Date();
-    const tokyoTime = toZonedTime(now, 'Asia/Tokyo');
-    const timestamp = format(tokyoTime, 'yyyy-MM-dd HH:mm:ss');
-
-    const logEntry: LogEntry = {
-      timestamp,
+  public async log(platform: Platform, color: Color, content: string) {
+    const logEntry: ILog = {
+      timestamp: new Date(),
       platform,
       color,
       content,
     };
 
-    // DBに保存
-    await Log.create(logEntry);
+    try {
+      await Log.create(logEntry);
+      console.log('Log saved to database');
+    } catch (error) {
+      console.error('Error saving log:', error);
+    }
 
     this.publish({
       type: 'log',
