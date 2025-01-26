@@ -40,7 +40,6 @@ export class LLMService {
   }
 
   async processMessage(message: LLMMessage) {
-    console.log(message);
     try {
       if (message.type === 'realtime_text') {
         await this.realtimeApi.inputText(message.content);
