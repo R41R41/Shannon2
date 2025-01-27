@@ -180,17 +180,17 @@ export class RealtimeAPIService {
 
         switch (data.type) {
           case 'session.created':
-            console.log('\x1b[32mSession created\x1b[0m');
+            console.log('\x1b[34mSession created\x1b[0m');
             this.eventBus.log('web', 'blue', 'Session created');
             break;
 
           case 'session.updated':
-            console.log('\x1b[34mSession updated\x1b[0m');
-            this.eventBus.log('web', 'blue', 'Session updated');
+            console.log('\x1b[36mSession updated\x1b[0m');
+            this.eventBus.log('web', 'cyan', 'Session updated');
             break;
 
           case 'response.created':
-            console.log('\x1b[35mResponse creation started\x1b[0m');
+            console.log('\x1b[34mResponse creation started\x1b[0m');
             this.eventBus.log('web', 'blue', 'Response creation started');
             break;
 
@@ -201,7 +201,7 @@ export class RealtimeAPIService {
             break;
 
           case 'response.text.done':
-            console.log('\x1b[34mText done\x1b[0m');
+            console.log('\x1b[32mText done\x1b[0m');
             this.eventBus.log('web', 'green', 'Text done');
             this.isTextResponseComplete = true;
             if (!this.isProcessingTextQueue && this.onTextDoneResponse) {
@@ -211,7 +211,7 @@ export class RealtimeAPIService {
             break;
 
           case 'input_audio_buffer.committed':
-            console.log('\x1b[35mSpeech committed\x1b[0m');
+            console.log('\x1b[32mSpeech committed\x1b[0m');
             this.eventBus.log('web', 'green', 'Speech committed');
             this.isUserTranscriptResponseComplete = false;
             break;
@@ -225,7 +225,7 @@ export class RealtimeAPIService {
 
           case 'input_audio_buffer.debug':
             console.log(
-              `\x1b[32mCurrent OpenAI buffer state: ${JSON.stringify(
+              `\x1b[33mCurrent OpenAI buffer state: ${JSON.stringify(
                 data,
                 null,
                 2
@@ -234,9 +234,6 @@ export class RealtimeAPIService {
             break;
 
           case 'response.audio.delta':
-            // console.log(
-            // 	`\x1b[32mAudio delta received: ${data.delta.length} bytes\x1b[0m`
-            // );
             if (this.onAudioResponse) {
               this.onAudioResponse(data.delta);
             }
@@ -255,14 +252,13 @@ export class RealtimeAPIService {
             break;
 
           case 'response.audio_transcript.delta':
-            // console.log("\x1b[32mTranscript delta\x1b[0m");
             if (this.onTextResponse) {
               this.onTextResponse(data.delta);
             }
             break;
 
           case 'response.audio_transcript.done':
-            console.log('\x1b[34mTranscript done\x1b[0m');
+            console.log('\x1b[32mTranscript done\x1b[0m');
             this.eventBus.log('web', 'green', 'Transcript done');
             this.isTextResponseComplete = true;
             if (!this.isProcessingTextQueue && this.onTextDoneResponse) {
@@ -272,7 +268,7 @@ export class RealtimeAPIService {
             break;
 
           case 'conversation.item.input_audio_transcription.completed':
-            console.log('\x1b[34mTranscript completed\x1b[0m');
+            console.log('\x1b[32mTranscript completed\x1b[0m');
             this.eventBus.log('web', 'green', 'Transcript completed');
             this.isUserTranscriptResponseComplete = true;
             if (this.onUserTranscriptResponse && data.transcript) {
@@ -288,7 +284,7 @@ export class RealtimeAPIService {
             break;
 
           default:
-            console.info(`\x1b[33mUnhandled event type: ${data.type}\x1b[0m`);
+            console.info(`\x1b[37mUnhandled event type: ${data.type}\x1b[0m`);
             this.eventBus.log(
               'web',
               'white',
@@ -354,7 +350,7 @@ export class RealtimeAPIService {
       };
       this.ws?.send(JSON.stringify(audioMessage));
     } catch (error) {
-      console.error('Error processing voice input:', error);
+      console.error(`\x1b[31mError processing voice input: ${error}\x1b[0m`);
       throw error;
     }
   }
@@ -380,12 +376,12 @@ export class RealtimeAPIService {
     if (this.ws) {
       this.isVadMode = data === 'true';
       if (this.isVadMode) {
-        console.log('\x1b[32mVAD mode change: true\x1b[0m');
-        this.eventBus.log('web', 'blue', 'VAD mode change: true');
+        console.log('\x1b[36mVAD mode change: true\x1b[0m');
+        this.eventBus.log('web', 'cyan', 'VAD mode change: true');
         this.ws.send(JSON.stringify(this.vadSessionConfig));
       } else {
-        console.log('\x1b[32mVAD mode change: false\x1b[0m');
-        this.eventBus.log('web', 'blue', 'VAD mode change: false');
+        console.log('\x1b[36mVAD mode change: false\x1b[0m');
+        this.eventBus.log('web', 'cyan', 'VAD mode change: false');
         this.ws.send(JSON.stringify(this.noVadSessionConfig));
       }
     }

@@ -98,7 +98,6 @@ export class EventBus {
             console.log(`${logsToDelete}件の古いログを削除しました`);
           }
         }
-        console.log('Log saved to database');
       } catch (error) {
         console.error('Error saving log:', error);
       }
