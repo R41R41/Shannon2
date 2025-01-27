@@ -68,6 +68,29 @@ export class LLMService {
       } else if (message.type === 'realtime_vad_change') {
         await this.realtimeApi.vadModeChange(message.content);
         return;
+      } else if (message.type === 'text') {
+        const prompt = this.systemPrompts.get(`web-text`);
+        if (!prompt) {
+          throw new Error('System prompt not found');
+        }
+        const response = await this.processMessage(
+          'User',
+          message.content,
+          'web',
+          'web',
+          '',
+          prompt
+        );
+        this.eventBus.publish({
+          type: 'llm:response',
+          platform: 'web',
+          data: {
+            content: response,
+            type: 'text',
+            context: {},
+          },
+        });
+        return;
       }
     } catch (error) {
       console.error('LLM処理エラー:', error);
@@ -82,15 +105,6 @@ export class LLMService {
         throw new Error('System prompt not found');
       }
 
-      const newMessage = new HumanMessage(
-        `${message.userName}: ${message.content}`
-      );
-
-      this.saveConversationHistory(message.channelId, [
-        ...this.getConversationHistory(message.channelId),
-        newMessage,
-      ]);
-
       const info = {
         guildName: message.guildName,
         channelName: message.channelName,
@@ -101,45 +115,77 @@ export class LLMService {
 
       const infoMessage = JSON.stringify(info);
 
+      const response = await this.processMessage(
+        message.userName,
+        message.content,
+        'discord',
+        message.channelId,
+        infoMessage,
+        prompt
+      );
+
+      this.eventBus.publish({
+        type: 'llm:response',
+        platform: 'discord',
+        data: {
+          content: response,
+          type: 'text',
+          channelId: message.channelId,
+          userName: message.userName,
+        },
+      });
+    } catch (error) {
+      console.error('LLM処理エラー:', error);
+      this.eventBus.log('discord', 'red', `Error: ${error}`);
+      throw error;
+    }
+  }
+
+  private async processMessage(
+    userName: string,
+    message: string,
+    platform: Platform,
+    platformId: string,
+    infoMessage: string,
+    prompt: string
+  ) {
+    try {
+      const newMessage = new HumanMessage(`${userName}: ${message}`);
+
+      this.saveConversationHistory(platformId, [
+        ...this.getConversationHistory(platformId),
+        newMessage,
+      ]);
+
       // グラフを実行
       const result = await this.taskGraph.invoke({
+        platform: platform,
         systemPrompt: prompt,
         infoMessage: infoMessage,
         messages: [],
         taskTree: {
-          goal: message.content,
+          goal: message,
           status: 'pending',
           children: [],
         },
         conversationHistory: {
-          messages: this.getConversationHistory(message.channelId) || [],
+          messages: this.getConversationHistory(platformId) || [],
         },
       });
 
       // 結果の取得と送信
       const lastMessage = result.messages[result.messages.length - 1];
 
-      this.saveConversationHistory(message.channelId, [
-        ...this.getConversationHistory(message.channelId),
+      this.saveConversationHistory(platformId, [
+        ...this.getConversationHistory(platformId),
         new AIMessage(lastMessage.content.toString()),
       ]);
-
-      this.eventBus.publish({
-        type: 'llm:response',
-        platform: 'discord',
-        data: {
-          content: lastMessage.content.toString(),
-          type: 'text',
-          channelId: message.channelId,
-          userName: message.userName,
-        } as DiscordMessage,
-      });
-
       // エラー発生時のログ
       if (result.taskTree.status === 'error') {
         console.error('Task error:', result.taskTree.error);
         this.eventBus.log('discord', 'red', `Error: ${result.taskTree.error}`);
       }
+      return lastMessage.content.toString();
     } catch (error) {
       console.error('LLM処理エラー:', error);
       this.eventBus.log('discord', 'red', `Error: ${error}`);

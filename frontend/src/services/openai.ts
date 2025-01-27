@@ -96,12 +96,17 @@ export class OpenAIService {
     }
   }
 
-  async sendMessage(message: string) {
+  async sendMessage(message: string, isRealTimeChat: boolean) {
     try {
       await this.ensureConnection();
 
+      let type = 'text';
+      if (isRealTimeChat) {
+        type = 'realtime_text';
+      }
+
       const messageData = JSON.stringify({
-        type: 'text',
+        type: type,
         content: message,
       });
 

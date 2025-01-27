@@ -48,7 +48,7 @@ export class WebClient {
           const parsedMessage = JSON.parse(message.toString());
 
           // テキストメッセージの処理
-          if (parsedMessage.type === 'text') {
+          if (parsedMessage.type === 'realtime_text') {
             this.eventBus.log(
               'web',
               'white',
@@ -57,6 +57,26 @@ export class WebClient {
             const llmMessage: LLMMessage = {
               platform: 'web',
               type: 'realtime_text',
+              content: parsedMessage.content,
+              context: {
+                sessionId: parsedMessage.sessionId,
+              },
+            };
+
+            this.eventBus.publish({
+              type: 'web:message',
+              platform: 'web',
+              data: llmMessage,
+            });
+          } else if (parsedMessage.type === 'text') {
+            this.eventBus.log(
+              'web',
+              'white',
+              'received text:' + parsedMessage.content
+            );
+            const llmMessage: LLMMessage = {
+              platform: 'web',
+              type: 'text',
               content: parsedMessage.content,
               context: {
                 sessionId: parsedMessage.sessionId,

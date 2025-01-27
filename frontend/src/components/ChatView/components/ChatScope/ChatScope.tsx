@@ -6,6 +6,7 @@ import {
   Message,
   MessageInput,
   TypingIndicator,
+  InputToolbox,
 } from '@chatscope/chat-ui-kit-react';
 import { OpenAIService } from '@/services/openai';
 import '@chatscope/chat-ui-kit-styles/dist/default/styles.min.css';
@@ -22,6 +23,7 @@ export const ChatScope: React.FC<ChatScopeProps> = ({ openaiService }) => {
   >([]);
   const [processingChatMessageIndex, setProcessingChatMessageIndex] =
     useState<number>(0);
+  const [isRealTimeChat, setIsRealTimeChat] = useState(false);
 
   const handleSendMessage = async (message: string) => {
     try {
@@ -30,7 +32,7 @@ export const ChatScope: React.FC<ChatScopeProps> = ({ openaiService }) => {
         { content: message, sender: 'User' },
       ]);
       if (openaiService) {
-        await openaiService.sendMessage(message);
+        await openaiService.sendMessage(message, isRealTimeChat);
       }
     } catch (error) {
       console.error('メッセージの送信に失敗しました:', error);
@@ -98,6 +100,17 @@ export const ChatScope: React.FC<ChatScopeProps> = ({ openaiService }) => {
           sendButton={false}
           attachButton={false}
         />
+        <InputToolbox>
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={isRealTimeChat}
+              onChange={(e) => setIsRealTimeChat(e.target.checked)}
+            />
+            <span className="slider"></span>
+          </label>
+          <span>Realtime API</span>
+        </InputToolbox>
       </ChatContainer>
     </MainContainer>
   );

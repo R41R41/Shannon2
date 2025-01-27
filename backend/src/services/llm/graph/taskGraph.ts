@@ -11,6 +11,7 @@ import {
 import { BingSearchTool, SearchWeatherTool } from '../tools/index.js';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { EventBus } from '../../eventBus.js';
+import { Platform } from '../types/index.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -63,7 +64,7 @@ export class TaskGraph {
     return toolNode;
   }
 
-  private baseMessagesToLog(messages: BaseMessage[]) {
+  private baseMessagesToLog(messages: BaseMessage[], platform: Platform) {
     for (const message of messages) {
       if (message instanceof HumanMessage) {
         console.log(`\x1b[37m${message.content}\x1b[0m`);
@@ -73,7 +74,7 @@ export class TaskGraph {
             `\x1b[32m${message.additional_kwargs.tool_calls[0].function.name}\x1b[0m`
           );
           this.eventBus.log(
-            'discord',
+            platform,
             'green',
             message.additional_kwargs.tool_calls[0].function.name
           );
@@ -81,7 +82,7 @@ export class TaskGraph {
             `\x1b[32m${message.additional_kwargs.tool_calls[0].function.arguments}\x1b[0m`
           );
           this.eventBus.log(
-            'discord',
+            platform,
             'green',
             message.additional_kwargs.tool_calls[0].function.arguments
           );
@@ -92,7 +93,7 @@ export class TaskGraph {
         console.log(`\x1b[37m${message.content}\x1b[0m`);
       } else if (message instanceof ToolMessage) {
         console.log(`\x1b[34m${message.content}\x1b[0m`);
-        this.eventBus.log('discord', 'blue', message.content.toString());
+        this.eventBus.log(platform, 'blue', message.content.toString());
       }
     }
   }
@@ -121,9 +122,9 @@ export class TaskGraph {
         ...state.messages,
       ];
     }
-    this.baseMessagesToLog(messages);
+    this.baseMessagesToLog(messages, state.platform);
     const response = await modelWithTools.invoke(messages);
-    this.baseMessagesToLog([response]);
+    this.baseMessagesToLog([response], state.platform);
     return { messages: [response] };
   };
 
@@ -154,6 +155,10 @@ export class TaskGraph {
   };
 
   private TaskState = Annotation.Root({
+    platform: Annotation<Platform>({
+      reducer: (_, next) => next,
+      default: () => 'discord',
+    }),
     systemPrompt: Annotation<string>({
       reducer: (_, next) => next,
       default: () => '',
