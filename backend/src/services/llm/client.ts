@@ -165,13 +165,15 @@ export class LLMService {
         infoMessage: infoMessage,
         messages: [],
         taskTree: {
-          goal: message,
+          goal: '',
+          plan: '',
           status: 'pending',
-          children: [],
+          subTasks: [],
         },
         conversationHistory: {
           messages: this.getConversationHistory(platformId) || [],
         },
+        decision: '',
       });
 
       // 結果の取得と送信

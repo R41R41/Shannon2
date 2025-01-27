@@ -1,8 +1,9 @@
-@use "sass:map";
-@use "@styles/variables.scss" as *;
+@use 'sass:map';
+@use '@styles/variables.scss' as *;
 
 .header {
   display: flex;
+  position: relative;
   justify-content: space-between;
   align-items: center;
   padding: 0 spacing(md);
@@ -28,6 +29,9 @@
 }
 
 .settingsButton {
+  position: absolute;
+  top: 0;
+  right: 0;
   padding: 8px 16px;
   border: 1px solid color(surface, primary);
   border-radius: 4px;
@@ -51,5 +55,53 @@
     width: 24px;
     height: 24px;
     color: inherit;
+  }
+}
+
+.dentSection {
+  .triangle {
+    position: absolute;
+    flex: 1;
+    bottom: 0;
+    width: 0;
+    height: 0;
+    border-right: 30px solid transparent;
+    border-left: 30px solid transparent;
+    border-bottom: 30px solid color(border, primary);
+    &::before {
+      content: '';
+      position: absolute;
+      top: 1px;
+      width: 0px;
+      height: 0px;
+      border-right: 30px solid transparent;
+      border-left: 30px solid transparent;
+      border-bottom: 30px solid color(background, primary);
+    }
+  }
+  .leftTriangle {
+    left: calc(25% - 30px);
+    &::before {
+      left: -30px;
+    }
+  }
+  .rightTriangle {
+    right: calc(25% - 30px);
+    &::before {
+      right: -30px;
+    }
+  }
+  .rectangle {
+    position: absolute;
+    flex: 1;
+    bottom: -2px;
+    display: flex;
+    justify-content: space-between;
+    right: 25%;
+    width: 50%;
+    height: 32px;
+    z-index: 100;
+    background-color: color(background, primary);
+    border-top: 1px solid color(border, primary);
   }
 }

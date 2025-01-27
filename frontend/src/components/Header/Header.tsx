@@ -13,18 +13,23 @@ const Header: React.FC = () => {
         <div className={styles.leftSection}>
           <img src={logo} alt="Shannon Logo" className={styles.logo} />
         </div>
-        
+
         <div className={styles.rightSection}>
-          <button 
+          <button
             className={styles.settingsButton}
             onClick={() => setIsModalOpen(true)}
           >
             <SettingsIcon />
           </button>
         </div>
+        <div className={styles.dentSection}>
+          <div className={`${styles.triangle} ${styles.leftTriangle}`}></div>
+          <div className={styles.rectangle}></div>
+          <div className={`${styles.triangle} ${styles.rightTriangle}`}></div>
+        </div>
       </header>
 
-      <SettingsModal 
+      <SettingsModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />

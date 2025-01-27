@@ -25,9 +25,10 @@ type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'error';
 
 interface TaskTreeState {
   goal: string;
+  plan: string;
   status: TaskStatus;
   error?: string;
-  children: TaskTreeState[];
+  subTasks: TaskTreeState[];
 }
 
 export class TaskGraph {
@@ -129,25 +130,26 @@ export class TaskGraph {
     const currentTime = new Date().toLocaleString('ja-JP', {
       timeZone: 'Asia/Tokyo',
     });
-    let messages: BaseMessage[] = [];
-    if (state.conversationHistory.summary) {
-      messages = [
-        new SystemMessage(state.systemPrompt),
-        new SystemMessage(`currentTime: ${currentTime}`),
-        new SystemMessage(state.infoMessage),
-        new SystemMessage(`chatSummary: ${state.conversationHistory.summary}`),
-        ...state.conversationHistory.messages.slice(-10),
-        ...state.messages,
-      ];
-    } else {
-      messages = [
-        new SystemMessage(state.systemPrompt),
-        new SystemMessage(`current time: ${currentTime}`),
-        new SystemMessage(state.infoMessage),
-        ...state.conversationHistory.messages.slice(-10),
-        ...state.messages,
-      ];
-    }
+    const chatSummary = state.conversationHistory.summary;
+    const goal = state.taskTree.goal;
+    const plan = state.taskTree.plan;
+    const subTasks = state.taskTree.subTasks;
+    const messages = [
+      new SystemMessage(state.systemPrompt),
+      new SystemMessage(`currentTime: ${currentTime}`),
+      new SystemMessage(state.infoMessage),
+      chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
+      ...state.conversationHistory.messages.slice(-10),
+      ...state.messages,
+      goal ? new AIMessage(`goal: ${goal}`) : null,
+      plan ? new AIMessage(`plan: ${plan}`) : null,
+      subTasks.length > 0
+        ? new AIMessage(`subTasks: ${JSON.stringify(subTasks)}`)
+        : null,
+    ].filter((message): message is BaseMessage => message !== null);
+
+    console.log(messages);
+
     this.baseMessagesToLog(messages, state.platform);
     const response = await modelWithTools.invoke(messages);
     this.baseMessagesToLog([response], state.platform);
@@ -180,6 +182,81 @@ export class TaskGraph {
     };
   };
 
+  private decisionNode = async (state: typeof this.TaskState.State) => {
+    const decisionPrompt = `
+    以下のメッセージを分析し、すぐに回答可能か計画が必要か判定してください：
+    # 判定基準
+    - 日常会話や単純な質問 → immediate
+    - 調査/計算/複数ステップが必要 → plan
+    `;
+
+    if (!this.model) {
+      throw new Error('Model not initialized');
+    }
+
+    const currentTime = new Date().toLocaleString('ja-JP', {
+      timeZone: 'Asia/Tokyo',
+    });
+    const chatSummary = state.conversationHistory.summary;
+
+    const messages = [
+      new SystemMessage(decisionPrompt),
+      new HumanMessage('判定結果（immediate/plan）のみを回答してください'),
+      new SystemMessage(`currentTime: ${currentTime}`),
+      new SystemMessage(state.infoMessage),
+      chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
+      ...state.conversationHistory.messages.slice(-10),
+    ].filter((message): message is BaseMessage => message !== null);
+
+    const decision = await this.model.invoke(messages);
+
+    console.log(decision.content.toString());
+
+    return { decision: decision.content.toString().trim().toLowerCase() };
+  };
+
+  private planningNode = async (state: typeof this.TaskState.State) => {
+    const planningPrompt = `文脈を理解し、ユーザーに回答するために以下の形式で計画を立案してください：
+    {
+      "goal": "達成すべき最終目標",
+      "plan": "全体の戦略",
+      "subTasks": [
+        {"goal": "サブタスク1", "plan": "サブタスク1の計画"},
+        {"goal": "サブタスク2", "plan": "サブタスク2の計画"}
+      ]
+    }
+    `;
+
+    const currentTime = new Date().toLocaleString('ja-JP', {
+      timeZone: 'Asia/Tokyo',
+    });
+    const chatSummary = state.conversationHistory.summary;
+
+    const messages = [
+      new SystemMessage(planningPrompt),
+      new SystemMessage(`currentTime: ${currentTime}`),
+      new SystemMessage(state.infoMessage),
+      chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
+      ...state.conversationHistory.messages.slice(-10),
+    ].filter((message): message is BaseMessage => message !== null);
+
+    if (!this.model) {
+      throw new Error('Model not initialized');
+    }
+
+    console.log(messages);
+
+    const plan = await this.model.invoke(messages);
+    return {
+      taskTree: {
+        ...state.taskTree,
+        goal: JSON.parse(plan.content.toString()).goal,
+        plan: JSON.parse(plan.content.toString()).plan,
+        subTasks: JSON.parse(plan.content.toString()).subTasks,
+      },
+    };
+  };
+
   private TaskState = Annotation.Root({
     platform: Annotation<Platform>({
       reducer: (_, next) => next,
@@ -201,8 +278,9 @@ export class TaskGraph {
       reducer: (_, next) => next,
       default: () => ({
         goal: '',
+        plan: '',
         status: 'pending',
-        children: [],
+        subTasks: [],
       }),
     }),
     conversationHistory: Annotation<{
@@ -218,35 +296,30 @@ export class TaskGraph {
         summary: '',
       }),
     }),
+    decision: Annotation<string>({
+      reducer: (_, next) => next,
+      default: () => '',
+    }),
   });
 
   private createGraph() {
     const workflow = new StateGraph(this.TaskState)
+      .addNode('decision_maker', this.decisionNode)
       .addNode('agent', this.callModel)
+      .addNode('planning', this.planningNode)
       .addNode('tools', this.toolNode)
-      .addNode('error_handler', this.errorHandler)
-      .addNode('summarize', this.summarizeConversation)
-      .addEdge(START, 'agent')
-      .addConditionalEdges('agent', (state) => {
-        const { messages } = state;
-        const lastMessage = messages[messages.length - 1] as AIMessage;
-
-        if ('tool_calls' in lastMessage && lastMessage.tool_calls?.length) {
-          return 'tools';
-        }
-        if (state.taskTree.status === 'error') {
-          return 'error_handler';
-        }
-        if (
-          !state.conversationHistory.summary &&
-          state.conversationHistory.messages.length >= 30
-        ) {
-          return 'summarize';
-        }
-        return END;
+      .addEdge(START, 'decision_maker')
+      .addConditionalEdges('decision_maker', (state) => {
+        return state.decision === 'immediate' ? 'agent' : 'planning';
       })
-      .addEdge('tools', 'agent')
-      .addEdge('summarize', 'agent');
+      .addEdge('planning', 'agent')
+      .addConditionalEdges('agent', (state) => {
+        const lastMessage = state.messages[
+          state.messages.length - 1
+        ] as AIMessage;
+        return lastMessage.tool_calls?.length ? 'tools' : END;
+      })
+      .addEdge('tools', 'agent');
 
     return workflow.compile();
   }
