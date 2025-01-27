@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { StructuredTool } from '@langchain/core/tools';
 import { BingSerpAPI } from '@langchain/community/tools/bingserpapi';
 
-export class BingSearchTool extends StructuredTool {
+export default class BingSearchTool extends StructuredTool {
   name = 'bing-search';
   description =
     'bing検索ツール。最終的な応答には必ずどのサイトを調べたのかソースを含めてください。';

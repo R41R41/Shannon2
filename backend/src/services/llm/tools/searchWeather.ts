@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { StructuredTool } from '@langchain/core/tools';
 
-export class SearchWeatherTool extends StructuredTool {
+export default class SearchWeatherTool extends StructuredTool {
   name = 'search-weather';
   description = '天気検索ツール。天気を調べるときは必ず使用する。';
   schema = z.object({

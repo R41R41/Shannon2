@@ -8,11 +8,16 @@ import {
   SystemMessage,
   ToolMessage,
 } from '@langchain/core/messages';
-import { BingSearchTool, SearchWeatherTool } from '../tools/index.js';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { EventBus } from '../../eventBus.js';
 import { Platform } from '../types/index.js';
 import dotenv from 'dotenv';
+import { readdirSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 dotenv.config();
 
@@ -26,20 +31,21 @@ interface TaskTreeState {
 }
 
 export class TaskGraph {
-  private model: ChatOpenAI;
-  private tools: any[];
+  private model: ChatOpenAI | null = null;
+  private tools: any[] = [];
   private toolNode: ToolNode;
   private graph: any;
   private eventBus: EventBus;
+
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
-    this.model = this.initializeModel();
-    this.tools = this.initializeTools();
-    this.toolNode = this.initializeToolNode();
+    this.initializeModel();
+    this.initializeTools();
+    this.toolNode = new ToolNode(this.tools);
     this.graph = this.createGraph();
   }
 
-  private initializeModel() {
+  private async initializeModel() {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY is not set');
@@ -51,17 +57,32 @@ export class TaskGraph {
       apiKey: OPENAI_API_KEY,
     });
 
-    return model;
+    this.model = model;
   }
 
-  private initializeTools() {
-    const tools = [new BingSearchTool(), new SearchWeatherTool()];
-    return tools;
-  }
+  private async initializeTools() {
+    const toolsDir = join(__dirname, '../tools');
+    const toolFiles = readdirSync(toolsDir).filter(
+      (file) =>
+        (file.endsWith('.ts') || file.endsWith('.js')) &&
+        !file.includes('.d.ts')
+    );
 
-  private initializeToolNode() {
-    const toolNode = new ToolNode(this.tools);
-    return toolNode;
+    this.tools = [];
+
+    for (const file of toolFiles) {
+      if (file === 'index.ts' || file === 'index.js') continue;
+
+      try {
+        const toolModule = await import(join(toolsDir, file));
+        const ToolClass = toolModule.default;
+        if (ToolClass?.prototype?.constructor) {
+          this.tools.push(new ToolClass());
+        }
+      } catch (error) {
+        console.error(`ツール読み込みエラー: ${file}`, error);
+      }
+    }
   }
 
   private baseMessagesToLog(messages: BaseMessage[], platform: Platform) {
@@ -101,7 +122,10 @@ export class TaskGraph {
   }
 
   private callModel = async (state: typeof this.TaskState.State) => {
-    const modelWithTools = this.model.bindTools(this.tools);
+    const modelWithTools = this.model?.bindTools(this.tools);
+    if (!modelWithTools) {
+      throw new Error('Model or tools not initialized');
+    }
     const currentTime = new Date().toLocaleString('ja-JP', {
       timeZone: 'Asia/Tokyo',
     });
