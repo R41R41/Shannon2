@@ -1,17 +1,19 @@
 # Shannon2
 
-error
+## ログ規則
+- error
 \x1b[31m - 赤
-success
+- success
 \x1b[32m - 緑
-warning
+- warning
 \x1b[33m - 黄
-started
+- started
 \x1b[34m - 青
-\x1b[35m - マゼンタ（紫）
-updated
+- updated
 \x1b[36m - シアン（水色）
+- others
 \x1b[37m - 白
+\x1b[35m - マゼンタ（紫）
 
 Shannon2                                                                  
 ├─ backend                                                                
