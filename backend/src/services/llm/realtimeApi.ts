@@ -152,7 +152,7 @@ export class RealtimeAPIService {
 
   private async initialize() {
     if (this.initialized) return;
-    console.log('\x1b[34minitialize\x1b[0m');
+    console.log('\x1b[36mRealtimeAPI initialized\x1b[0m');
 
     const url =
       'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17';
@@ -185,7 +185,7 @@ export class RealtimeAPIService {
             break;
 
           case 'session.updated':
-            console.log('\x1b[33mSession updated\x1b[0m');
+            console.log('\x1b[34mSession updated\x1b[0m');
             this.eventBus.log('web', 'blue', 'Session updated');
             break;
 

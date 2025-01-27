@@ -8,9 +8,9 @@ export class TwitterClient {
 
   constructor(eventBus: EventBus) {
     const apiKey = process.env.TWITTER_API_KEY;
-    const apiKeySecret = process.env.TWITTER_API_SECRET;
+    const apiKeySecret = process.env.TWITTER_API_KEY_SECRET;
     const accessToken = process.env.TWITTER_ACCESS_TOKEN;
-    const accessTokenSecret = process.env.TWITTER_ACCESS_SECRET;
+    const accessTokenSecret = process.env.TWITTER_ACCESS_TOKEN_SECRET;
 
     if (!apiKey || !apiKeySecret || !accessToken || !accessTokenSecret) {
       throw new Error('Twitter APIの認証情報が設定されていません');
@@ -33,7 +33,7 @@ export class TwitterClient {
         try {
           await this.client.v2.reply(event.data.content, event.data.tweetId);
         } catch (error) {
-          console.error('Twitter reply error:', error);
+          console.error(`\x1b[31mTwitter reply error: ${error}\x1b[0m`);
         }
       }
     });
@@ -56,7 +56,7 @@ export class TwitterClient {
 
       return response.data;
     } catch (error) {
-      console.error('Tweet error:', error);
+      console.error(`\x1b[31mTweet error: ${error}\x1b[0m`);
       throw error;
     }
   }
@@ -86,7 +86,7 @@ export class TwitterClient {
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     } catch (error) {
-      console.error('Search and reply error:', error);
+      console.error(`\x1b[31mSearch and reply error: ${error}\x1b[0m`);
       throw new Error('検索と返信処理に失敗しました');
     }
   }
@@ -97,7 +97,7 @@ export class TwitterClient {
       await this.client.v2.me();
       this.setupEventHandlers();
     } catch (error) {
-      console.error('Twitter initialization error:', error);
+      console.error(`\x1b[31mTwitter initialization error: ${error}\x1b[0m`);
       throw error;
     }
   }

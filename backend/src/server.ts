@@ -6,10 +6,10 @@ import { DiscordBot } from './services/discord/client.js';
 // import { MinecraftBot } from './services/minecraft/bot.js';
 import { LLMService } from './services/llm/client.js';
 import { EventBus } from './services/eventBus.js';
-// import { twitterRoutes } from './routes/twitter.routes.js';
+import { twitterRoutes } from './routes/twitter.routes.js';
 import { discordRoutes } from './routes/discord.routes.js';
 import dotenv from 'dotenv';
-// import { TwitterClient } from './services/twitter/client.js';
+import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
 import { MonitoringService } from './services/monitoring/client.js';
 import cors from 'cors';
@@ -23,7 +23,7 @@ class Server {
   private llmService: LLMService;
   private discordBot: DiscordBot;
   private webClient: WebClient;
-  // private twitterClient: TwitterClient;
+  private twitterClient: TwitterClient;
   //   private youtubeService: YoutubeService;
   //   private minecraftBot: MinecraftBot;
 
@@ -34,7 +34,7 @@ class Server {
     this.discordBot = new DiscordBot(this.eventBus, isTestMode);
     this.webClient = new WebClient(this.eventBus);
     this.monitoringService = new MonitoringService(this.eventBus);
-    // this.twitterClient = new TwitterClient(this.eventBus);
+    this.twitterClient = new TwitterClient(this.eventBus);
   }
 
   private setupMiddleware() {
@@ -50,7 +50,7 @@ class Server {
 
   private setupRoutes() {
     // APIルートの設定
-    // this.app.use('/api/twitter', twitterRoutes);
+    this.app.use('/api/twitter', twitterRoutes);
     this.app.use('/api/discord', discordRoutes);
     // その他のルート
   }
@@ -58,9 +58,9 @@ class Server {
   private async connectDatabase() {
     try {
       await mongoose.connect(process.env.MONGODB_URI as string);
-      console.log('\x1b[32mMongoDB connected\x1b[0m');
+      console.log('\x1b[34mMongoDB connected\x1b[0m');
     } catch (error) {
-      console.error('MongoDB connection error:', error);
+      console.error(`\x1b[31mMongoDB connection error: ${error}\x1b[0m`);
     }
   }
 
@@ -70,11 +70,12 @@ class Server {
         this.startDiscordBot(),
         this.startWebClient(),
         this.startLLMService(),
+        this.startTwitterClient(),
         this.connectDatabase(),
         this.startMonitoringService(),
       ]);
     } catch (error) {
-      console.error('サービス起動エラー:', error);
+      console.error(`\x1b[31mサービス起動エラー: ${error}\x1b[0m`);
       process.exit(1);
     }
   }
@@ -85,28 +86,28 @@ class Server {
 
   private async startWebClient() {
     await this.webClient.start();
-    console.log('\x1b[32mWeb Client started\x1b[0m');
+    console.log('\x1b[34mWeb Client started\x1b[0m');
   }
 
   private async startMonitoringService() {
     await this.monitoringService.initialize();
-    console.log('\x1b[32mMonitoring Service started\x1b[0m');
+    console.log('\x1b[34mMonitoring Service started\x1b[0m');
   }
 
-  // private async startTwitterClient() {
-  //   await this.twitterClient.initialize();
-  //   console.log('Twitter Client started');
-  // }
+  private async startTwitterClient() {
+    await this.twitterClient.initialize();
+    console.log('\x1b[34mTwitter Client started\x1b[0m');
+  }
 
   private async startLLMService() {
     await this.llmService.initialize();
-    console.log('\x1b[32mLLM Service started\x1b[0m');
+    console.log('\x1b[34mLLM Service started\x1b[0m');
   }
 
   public async shutdown() {
     // 各サービスのクリーンアップ処理
     await mongoose.disconnect();
-    console.log('\x1b[32mMongoDB disconnected\x1b[0m');
+    console.log('\x1b[31mMongoDB disconnected\x1b[0m');
     process.exit(0);
   }
 }

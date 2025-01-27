@@ -283,7 +283,7 @@ export class LLMService {
 
   public async initialize() {
     try {
-      console.log('LLM Service initialized');
+      console.log('\x1b[36mLLM Service initialized\x1b[0m');
     } catch (error) {
       console.error('LLM initialization error:', error);
       throw error;

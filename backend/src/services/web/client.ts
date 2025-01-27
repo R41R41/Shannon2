@@ -168,7 +168,7 @@ export class WebClient {
     this.server.listen(PORTS.WEBSOCKET.WEB, () => {
       this.eventBus.log('web', 'blue', 'Web WebSocket Server is running');
       console.log(
-        `\x1b[32mWeb WebSocket Server is running on port ${PORTS.WEBSOCKET.WEB}\x1b[0m`
+        `\x1b[34mWeb WebSocket Server is running on port ${PORTS.WEBSOCKET.WEB}\x1b[0m`
       );
     });
   }
