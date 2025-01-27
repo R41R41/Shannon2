@@ -81,6 +81,7 @@ export class LLMService {
           '',
           prompt
         );
+        this.eventBus.log('web', 'green', response);
         this.eventBus.publish({
           type: 'llm:response',
           platform: 'web',

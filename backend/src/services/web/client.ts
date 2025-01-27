@@ -69,11 +69,7 @@ export class WebClient {
               data: llmMessage,
             });
           } else if (parsedMessage.type === 'text') {
-            this.eventBus.log(
-              'web',
-              'white',
-              'received text:' + parsedMessage.content
-            );
+            this.eventBus.log('web', 'white', parsedMessage.content);
             const llmMessage: LLMMessage = {
               platform: 'web',
               type: 'text',
@@ -82,7 +78,6 @@ export class WebClient {
                 sessionId: parsedMessage.sessionId,
               },
             };
-
             this.eventBus.publish({
               type: 'web:message',
               platform: 'web',
