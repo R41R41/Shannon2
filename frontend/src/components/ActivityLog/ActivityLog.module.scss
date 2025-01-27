@@ -1,28 +1,20 @@
 @use '@styles/variables.scss' as *;
 
 .container {
-  position: relative;
   height: 100%;
   overflow: hidden;
   background-color: color(background, primary);
-}
-
-.logList {
-  position: absolute;
-  display: flex;
-  top: 2rem;
-  left: 0;
-  width: 100%;
-  height: calc(100% - 2rem);
-  flex-direction: column;
   padding-right: 0.5rem;
   padding-left: 0.5rem;
   padding-bottom: 0.5rem;
-  overflow-y: auto;
+}
 
-  & > :last-child {
-    margin-bottom: 1rem;
-  }
+.logList {
+  display: flex;
+  width: 100%;
+  height: calc(100% - 2rem);
+  flex-direction: column;
+  overflow-y: auto;
 }
 
 .logEntry {
