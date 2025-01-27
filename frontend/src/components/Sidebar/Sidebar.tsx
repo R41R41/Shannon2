@@ -20,6 +20,7 @@ const Sidebar: React.FC = () => {
             [styles.active]: activeTab === 'search',
           })}
           onClick={() => setActiveTab('search')}
+          title="検索"
         >
           <SearchOutlinedIcon />
         </div>
@@ -28,6 +29,7 @@ const Sidebar: React.FC = () => {
             [styles.active]: activeTab === 'skills',
           })}
           onClick={() => setActiveTab('skills')}
+          title="スキル"
         >
           <HandymanOutlinedIcon />
         </div>
@@ -36,6 +38,7 @@ const Sidebar: React.FC = () => {
             [styles.active]: activeTab === 'tasks',
           })}
           onClick={() => setActiveTab('tasks')}
+          title="タスク"
         >
           <TaskAltOutlinedIcon />
         </div>
@@ -44,6 +47,7 @@ const Sidebar: React.FC = () => {
             [styles.active]: activeTab === 'schedule',
           })}
           onClick={() => setActiveTab('schedule')}
+          title="スケジュール"
         >
           <ScheduleOutlinedIcon />
         </div>

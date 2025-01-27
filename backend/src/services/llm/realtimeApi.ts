@@ -284,7 +284,7 @@ export class RealtimeAPIService {
             console.error(
               `\x1b[31mServer error: ${JSON.stringify(data)}\x1b[0m`
             );
-            this.eventBus.log('web', 'red', 'Server error');
+            this.eventBus.log('web', 'red', 'Server error', true);
             break;
 
           default:
@@ -419,7 +419,7 @@ export class RealtimeAPIService {
       this.reconnectAttempts = 0; // 接続成功したらリセット
       this.eventBus.log('web', 'white', 'Connected to OpenAI Realtime API');
     } catch (error) {
-      this.eventBus.log('web', 'red', JSON.stringify(error));
+      this.eventBus.log('web', 'red', JSON.stringify(error), true);
       this.handleDisconnect();
     }
   }

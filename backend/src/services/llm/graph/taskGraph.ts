@@ -76,7 +76,8 @@ export class TaskGraph {
           this.eventBus.log(
             platform,
             'green',
-            message.additional_kwargs.tool_calls[0].function.name
+            message.additional_kwargs.tool_calls[0].function.name,
+            true
           );
           console.log(
             `\x1b[32m${message.additional_kwargs.tool_calls[0].function.arguments}\x1b[0m`
@@ -84,7 +85,8 @@ export class TaskGraph {
           this.eventBus.log(
             platform,
             'green',
-            message.additional_kwargs.tool_calls[0].function.arguments
+            message.additional_kwargs.tool_calls[0].function.arguments,
+            true
           );
         } else {
           console.log(`\x1b[32mShannon: ${message.content}\x1b[0m`);
@@ -93,7 +95,7 @@ export class TaskGraph {
         console.log(`\x1b[37m${message.content}\x1b[0m`);
       } else if (message instanceof ToolMessage) {
         console.log(`\x1b[34m${message.content}\x1b[0m`);
-        this.eventBus.log(platform, 'blue', message.content.toString());
+        this.eventBus.log(platform, 'blue', message.content.toString(), true);
       }
     }
   }

@@ -49,11 +49,7 @@ export class WebClient {
 
           // テキストメッセージの処理
           if (parsedMessage.type === 'realtime_text') {
-            this.eventBus.log(
-              'web',
-              'white',
-              'received realtime text:' + parsedMessage.content
-            );
+            this.eventBus.log('web', 'white', parsedMessage.content);
             const llmMessage: LLMMessage = {
               platform: 'web',
               type: 'realtime_text',
@@ -69,7 +65,7 @@ export class WebClient {
               data: llmMessage,
             });
           } else if (parsedMessage.type === 'text') {
-            this.eventBus.log('web', 'white', parsedMessage.content);
+            this.eventBus.log('web', 'white', parsedMessage.content, true);
             const llmMessage: LLMMessage = {
               platform: 'web',
               type: 'text',
@@ -99,7 +95,12 @@ export class WebClient {
               data: llmMessage,
             });
           } else if (parsedMessage.type === 'voice_commit') {
-            this.eventBus.log('web', 'white', 'received realtime voice commit');
+            this.eventBus.log(
+              'web',
+              'white',
+              'received realtime voice commit',
+              true
+            );
             const llmMessage: LLMMessage = {
               platform: 'web',
               type: 'realtime_voice_commit',
@@ -132,7 +133,12 @@ export class WebClient {
             });
           }
         } catch (error) {
-          this.eventBus.log('web', 'red', 'Error processing message:' + error);
+          this.eventBus.log(
+            'web',
+            'red',
+            'Error processing message:' + error,
+            true
+          );
           console.error('Error processing message:', error);
         }
       });
@@ -172,7 +178,7 @@ export class WebClient {
       this.client.close();
     }
     this.server.close();
-    this.eventBus.log('web', 'red', 'Web WebSocket Server is shutdown');
+    this.eventBus.log('web', 'red', 'Web WebSocket Server is shutdown', true);
     console.log('\x1b[31mWeb WebSocket Server is shutdown\x1b[0m');
   }
 }

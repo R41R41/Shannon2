@@ -81,7 +81,14 @@ export class DiscordBot {
       this.eventBus.log(
         'discord',
         'blue',
-        guildName + ' ' + channelName + '\n' + nickname + ': ' + message.content
+        guildName +
+          ' ' +
+          channelName +
+          '\n' +
+          nickname +
+          ': ' +
+          message.content,
+        true
       );
       console.log('\x1b[34m' + guildName + ' ' + channelName + '\x1b[0m');
       console.log('\x1b[34m' + nickname + ': ' + message.content + '\x1b[0m');
@@ -138,7 +145,8 @@ export class DiscordBot {
             this.eventBus.log(
               'discord',
               'green',
-              guildName + ' ' + channelName + '\n' + 'Shannon: ' + content
+              guildName + ' ' + channelName + '\n' + 'Shannon: ' + content,
+              true
             );
             console.log('\x1b[34m' + guildName + ' ' + channelName + '\x1b[0m');
             console.log('\x1b[34m' + userName + ': ' + content + '\x1b[0m');

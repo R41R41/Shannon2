@@ -81,7 +81,7 @@ export class LLMService {
           '',
           prompt
         );
-        this.eventBus.log('web', 'green', response);
+        this.eventBus.log('web', 'green', response, true);
         this.eventBus.publish({
           type: 'llm:response',
           platform: 'web',
@@ -137,7 +137,7 @@ export class LLMService {
       });
     } catch (error) {
       console.error('LLM処理エラー:', error);
-      this.eventBus.log('discord', 'red', `Error: ${error}`);
+      this.eventBus.log('discord', 'red', `Error: ${error}`, true);
       throw error;
     }
   }
@@ -184,12 +184,17 @@ export class LLMService {
       // エラー発生時のログ
       if (result.taskTree.status === 'error') {
         console.error('Task error:', result.taskTree.error);
-        this.eventBus.log('discord', 'red', `Error: ${result.taskTree.error}`);
+        this.eventBus.log(
+          'discord',
+          'red',
+          `Error: ${result.taskTree.error}`,
+          true
+        );
       }
       return lastMessage.content.toString();
     } catch (error) {
       console.error('LLM処理エラー:', error);
-      this.eventBus.log('discord', 'red', `Error: ${error}`);
+      this.eventBus.log('discord', 'red', `Error: ${error}`, true);
       throw error;
     }
   }
