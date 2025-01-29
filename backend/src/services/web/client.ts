@@ -1,10 +1,10 @@
-import { WebSocketServer, WebSocket } from 'ws';
-import { EventBus } from '../../services/eventBus.js';
-import { LLMMessage } from '../../services/llm/types/index.js';
+import cors from 'cors';
 import express from 'express';
 import http from 'http';
-import cors from 'cors';
+import { WebSocket, WebSocketServer } from 'ws';
 import { PORTS } from '../../config/ports.js';
+import { EventBus } from '../../services/eventBus.js';
+import { WebMessageInput, WebMessageOutput } from '../../types/index.js';
 
 export class WebClient {
   private wss: WebSocketServer;
@@ -21,7 +21,6 @@ export class WebClient {
     this.initialized = false;
     this.setupExpress();
     this.setupWebSocket();
-    // this.setupEventHandlers();
   }
 
   private setupExpress() {
@@ -47,52 +46,39 @@ export class WebClient {
         try {
           const parsedMessage = JSON.parse(message.toString());
 
-          // テキストメッセージの処理
           if (parsedMessage.type === 'realtime_text') {
-            this.eventBus.log('web', 'white', parsedMessage.content);
-            const llmMessage: LLMMessage = {
-              platform: 'web',
+            this.eventBus.log('web', 'white', parsedMessage.realtime_text);
+            const message: WebMessageInput = {
               type: 'realtime_text',
-              content: parsedMessage.content,
-              context: {
-                sessionId: parsedMessage.sessionId,
-              },
+              realtime_text: parsedMessage.realtime_text,
             };
 
             this.eventBus.publish({
-              type: 'web:message',
-              platform: 'web',
-              data: llmMessage,
+              type: 'web:get_message',
+              memoryZone: 'web',
+              data: message,
             });
           } else if (parsedMessage.type === 'text') {
-            this.eventBus.log('web', 'white', parsedMessage.content, true);
-            const llmMessage: LLMMessage = {
-              platform: 'web',
+            this.eventBus.log('web', 'white', parsedMessage.text, true);
+            const message: WebMessageInput = {
               type: 'text',
-              content: parsedMessage.content,
-              context: {
-                sessionId: parsedMessage.sessionId,
-              },
+              text: parsedMessage.text,
             };
             this.eventBus.publish({
-              type: 'web:message',
-              platform: 'web',
-              data: llmMessage,
+              type: 'web:get_message',
+              memoryZone: 'web',
+              data: message,
             });
           } else if (parsedMessage.type === 'voice_append') {
-            const llmMessage: LLMMessage = {
-              platform: 'web',
-              type: 'realtime_voice_append',
-              content: parsedMessage.content,
-              context: {
-                sessionId: parsedMessage.sessionId,
-              },
+            const message: WebMessageInput = {
+              type: 'realtime_audio',
+              realtime_audio: parsedMessage.realtime_audio,
             };
 
             this.eventBus.publish({
-              type: 'web:message',
-              platform: 'web',
-              data: llmMessage,
+              type: 'web:get_message',
+              memoryZone: 'web',
+              data: message,
             });
           } else if (parsedMessage.type === 'voice_commit') {
             this.eventBus.log(
@@ -101,35 +87,27 @@ export class WebClient {
               'received realtime voice commit',
               true
             );
-            const llmMessage: LLMMessage = {
-              platform: 'web',
-              type: 'realtime_voice_commit',
-              content: parsedMessage.content,
-              context: {
-                sessionId: parsedMessage.sessionId,
-              },
+            const message: WebMessageInput = {
+              type: 'endpoint',
+              endpoint: 'audio_done',
             };
 
             this.eventBus.publish({
-              type: 'web:message',
-              platform: 'web',
-              data: llmMessage,
+              type: 'web:get_message',
+              memoryZone: 'web',
+              data: message,
             });
           } else if (parsedMessage.type === 'vad_change') {
             this.eventBus.log('web', 'white', 'received realtime vad change');
-            const llmMessage: LLMMessage = {
-              platform: 'web',
-              type: 'realtime_vad_change',
-              content: parsedMessage.content,
-              context: {
-                sessionId: parsedMessage.sessionId,
-              },
+            const message: WebMessageInput = {
+              type: 'endpoint',
+              endpoint: parsedMessage.endpoint,
             };
 
             this.eventBus.publish({
-              type: 'web:message',
-              platform: 'web',
-              data: llmMessage,
+              type: 'web:get_message',
+              memoryZone: 'web',
+              data: message,
             });
           }
         } catch (error) {
@@ -149,14 +127,16 @@ export class WebClient {
         console.log('\x1b[31mClient disconnected\x1b[0m');
       });
 
-      this.eventBus.subscribe('llm:response', (event) => {
-        if (event.platform === 'web') {
-          const { content, type, context } = event.data;
+      this.eventBus.subscribe('web:post_message', (event) => {
+        if (event.memoryZone === 'web') {
+          const { type, text, audio, endpoint } =
+            event.data as WebMessageOutput;
           ws.send(
             JSON.stringify({
               type: type,
-              content: content,
-              sessionId: context.sessionId,
+              text: text,
+              audio: audio,
+              endpoint: endpoint,
             })
           );
         }

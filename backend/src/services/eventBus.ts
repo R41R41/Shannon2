@@ -1,21 +1,31 @@
-import { Platform } from './llm/types/index.js';
-import { ILog } from '../models/Log.js';
-import Log from '../models/Log.js';
-
-export type EventType =
-  | 'llm:response'
-  | 'twitter:post'
-  | 'youtube:stats'
-  | 'discord:message'
-  | 'minecraft:message'
-  | 'web:message'
-  | 'log';
+import Log, { ILog } from '../models/Log.js';
+import {
+  DiscordMessageInput,
+  DiscordMessageOutput,
+  EventType,
+  MemoryZone,
+  MinecraftInput,
+  MinecraftOutput,
+  TwitterMessageInput,
+  TwitterMessageOutput,
+  WebMessageInput,
+  WebMessageOutput,
+} from '../types/index.js';
 
 export interface Event {
   type: EventType;
-  platform: Platform;
-  data: any;
-  targetPlatforms?: Platform[]; // 送信先プラットフォーム
+  memoryZone: MemoryZone;
+  data:
+    | TwitterMessageInput
+    | WebMessageInput
+    | DiscordMessageInput
+    | ILog
+    | TwitterMessageOutput
+    | WebMessageOutput
+    | DiscordMessageOutput
+    | MinecraftInput
+    | MinecraftOutput;
+  targetMemoryZones?: MemoryZone[];
 }
 
 export type Color =
@@ -29,25 +39,19 @@ export type Color =
 
 export interface LogEntry {
   timestamp: string;
-  platform: string;
+  memoryZone: string;
   color: Color;
   content: string;
-}
-
-export interface DiscordMessage {
-  content: string;
-  type: 'text' | 'voice';
-  channelId: string;
-  userName: string;
-  guildName: string;
-  channelName: string;
-  messageId: string;
-  userId: string;
 }
 
 export class EventBus {
   private listeners: Map<EventType, Array<(event: Event) => void>> = new Map();
 
+  /**
+   * イベントタイプに対応するコールバック関数を追加する
+   * @param eventType イベントタイプ
+   * @param callback コールバック関数
+   */
   subscribe(eventType: EventType, callback: (event: Event) => void) {
     if (!this.listeners.has(eventType)) {
       this.listeners.set(eventType, []);
@@ -55,27 +59,38 @@ export class EventBus {
     this.listeners.get(eventType)?.push(callback);
   }
 
+  /**
+   * イベントを送信する
+   * @param event イベント
+   */
   publish(event: Event) {
     this.listeners.get(event.type)?.forEach((callback) => {
-      // targetPlatformsが指定されている場合、対象プラットフォームのみに配信
+      // targetMemoryZonesが指定されている場合、対象メモリゾーンのみに配信
       if (
-        !event.targetPlatforms ||
-        event.targetPlatforms.includes(event.platform)
+        !event.targetMemoryZones ||
+        event.targetMemoryZones.includes(event.memoryZone)
       ) {
         callback(event);
       }
     });
   }
 
+  /**
+   * ログを保存する
+   * @param memoryZone メモリゾーン
+   * @param color 色
+   * @param content 内容
+   * @param isSave 保存するかどうか
+   */
   public async log(
-    platform: Platform,
+    memoryZone: MemoryZone,
     color: Color,
     content: string,
     isSave: boolean = false
   ) {
     const logEntry: ILog = {
       timestamp: new Date(),
-      platform,
+      memoryZone,
       color,
       content,
     };
@@ -83,7 +98,6 @@ export class EventBus {
     if (isSave) {
       try {
         await Log.create(logEntry);
-        // 10000件を超える場合に5000件を削除
         const logCount = await Log.countDocuments();
         if (logCount > 10000) {
           const logsToDelete = logCount - 5000;
@@ -105,7 +119,7 @@ export class EventBus {
 
     this.publish({
       type: 'log',
-      platform: 'web',
+      memoryZone: 'web',
       data: logEntry,
     });
   }

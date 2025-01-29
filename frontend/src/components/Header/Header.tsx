@@ -12,6 +12,7 @@ const Header: React.FC = () => {
       <header className={styles.header}>
         <div className={styles.leftSection}>
           <img src={logo} alt="Shannon Logo" className={styles.logo} />
+          <div className={styles.version}>SHANNON-v2.2</div>
         </div>
 
         <div className={styles.rightSection}>

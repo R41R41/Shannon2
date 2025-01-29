@@ -1,17 +1,17 @@
 import mongoose from 'mongoose';
 import { Color } from '../services/eventBus';
-import { Platform } from '../services/llm/types/index.js';
+import { MemoryZone } from '../types/index.js';
 
 export interface ILog {
   timestamp: Date;
-  platform: Platform;
+  memoryZone: MemoryZone;
   color: Color;
   content: string;
 }
 
 const LogSchema = new mongoose.Schema<ILog>({
   timestamp: { type: Date, required: true },
-  platform: { type: String, required: true },
+  memoryZone: { type: String, required: true },
   color: { type: String, required: true },
   content: { type: String, required: true },
 });

@@ -1,6 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
-// import { TwitterScheduler } from './services/twitter/scheduler.js';
+import { Scheduler } from './services/scheduler/client.js';
 import { DiscordBot } from './services/discord/client.js';
 // import { YoutubeService } from './services/youtube/client.js';
 // import { MinecraftBot } from './services/minecraft/bot.js';
@@ -24,6 +24,7 @@ class Server {
   private discordBot: DiscordBot;
   private webClient: WebClient;
   private twitterClient: TwitterClient;
+  private scheduler: Scheduler;
   //   private youtubeService: YoutubeService;
   //   private minecraftBot: MinecraftBot;
 
@@ -34,7 +35,8 @@ class Server {
     this.discordBot = new DiscordBot(this.eventBus, isTestMode);
     this.webClient = new WebClient(this.eventBus);
     this.monitoringService = new MonitoringService(this.eventBus);
-    this.twitterClient = new TwitterClient(this.eventBus);
+    this.twitterClient = new TwitterClient(this.eventBus, isTestMode);
+    this.scheduler = new Scheduler(this.eventBus);
   }
 
   private setupMiddleware() {
@@ -73,6 +75,7 @@ class Server {
         this.startTwitterClient(),
         this.connectDatabase(),
         this.startMonitoringService(),
+        this.startScheduler(),
       ]);
     } catch (error) {
       console.error(`\x1b[31mサービス起動エラー: ${error}\x1b[0m`);
@@ -102,6 +105,11 @@ class Server {
   private async startLLMService() {
     await this.llmService.initialize();
     console.log('\x1b[34mLLM Service started\x1b[0m');
+  }
+
+  private async startScheduler() {
+    await this.scheduler.start();
+    console.log('\x1b[34mScheduler started\x1b[0m');
   }
 
   public async shutdown() {

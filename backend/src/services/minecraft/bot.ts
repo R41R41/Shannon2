@@ -1,6 +1,6 @@
 import mineflayer from 'mineflayer';
+import { MinecraftInput, MinecraftOutput } from '../../types/index.js';
 import { EventBus } from '../eventBus.js';
-import { LLMMessage } from '../llm/types/index.js';
 
 export class MinecraftBot {
   private bot: mineflayer.Bot;
@@ -28,23 +28,22 @@ export class MinecraftBot {
     this.bot.on('chat', async (username, message) => {
       if (username === this.bot.username) return;
 
-      const llmMessage: LLMMessage = {
-        platform: 'minecraft',
+      const minecraftInput: MinecraftInput = {
         type: 'text',
-        content: message,
-        context: {
-          username: username,
-        },
+        text: message,
       };
       this.eventBus.publish({
-        type: 'minecraft:message',
-        platform: 'minecraft',
-        data: llmMessage,
+        type: 'minecraft:get_message',
+        memoryZone: 'minecraft',
+        data: minecraftInput,
       });
     });
 
-    this.eventBus.subscribe('minecraft:message', (event) => {
-      this.bot.chat(event.data.content);
+    this.eventBus.subscribe('minecraft:post_message', (event) => {
+      const { type, text, endpoint } = event.data as MinecraftOutput;
+      if (text && type === 'text') {
+        this.bot.chat(text);
+      }
     });
   }
 

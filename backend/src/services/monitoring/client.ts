@@ -26,7 +26,7 @@ export class MonitoringService {
   private async setupEventHandlers() {
     // WebSocket接続時の処理
     this.wss.on('connection', async (ws) => {
-      console.log('Monitoring client connected');
+      console.log('\x1b[34mMonitoring client connected\x1b[0m');
 
       // 既存の接続がある場合は切断
       if (this.client) {

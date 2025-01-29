@@ -22,6 +22,13 @@
   width: auto;
 }
 
+.version {
+  font-family: 'kunai';
+  font-size: 0.8rem;
+  color: color(text, primary);
+  margin-left: 16px;
+}
+
 .rightSection {
   display: flex;
   align-items: center;

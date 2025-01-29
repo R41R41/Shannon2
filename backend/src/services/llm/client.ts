@@ -1,26 +1,36 @@
-import { ConversationChain } from 'langchain/chains';
-import { BufferMemory } from 'langchain/memory';
-import { loadPrompt } from './config/prompts.js';
-import { Platform, ConversationType, LLMMessage } from './types/index.js';
-import { EventBus, DiscordMessage } from '../eventBus.js';
-import { RealtimeAPIService } from './realtimeApi.js';
-import { AgentExecutor } from 'langchain/agents';
 import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
+import {
+  DiscordMessageInput,
+  DiscordMessageOutput,
+  MemoryZone,
+  PromptType,
+  promptTypes,
+  TwitterMessageInput,
+  TwitterMessageOutput,
+  WebMessageInput,
+  WebMessageOutput,
+} from '../../types/index.js';
+import { getDiscordMemoryZone } from '../../utils/discord.js';
+import { EventBus } from '../eventBus.js';
+import { PostAboutTodayAgent } from './agents/postAboutTodayAgent.js';
+import { PostFortuneAgent } from './agents/postFortuneAgent.js';
+import { PostWeatherAgent } from './agents/postWeatherAgent.js';
+import { RealtimeAPIService } from './agents/realtimeApiAgent.js';
+import { loadPrompt } from './config/prompts.js';
 import { TaskGraph } from './graph/taskGraph.js';
-
-type ChainKey = `${Platform}-${ConversationType}`;
 
 export class LLMService {
   private eventBus: EventBus;
-  private chains: Map<ChainKey, AgentExecutor | ConversationChain>;
   private realtimeApi: RealtimeAPIService;
-  private taskGraph;
-  private systemPrompts: Map<string, string>;
-  private conversationHistories: Map<string, BaseMessage[]>;
+  private taskGraph: TaskGraph;
+  private systemPrompts: Map<PromptType, string>;
+  private conversationHistories: Map<MemoryZone, BaseMessage[]>;
+  private aboutTodayAgent: PostAboutTodayAgent;
+  private weatherAgent: PostWeatherAgent;
+  private fortuneAgent: PostFortuneAgent;
 
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
-    this.chains = new Map();
     this.realtimeApi = new RealtimeAPIService(eventBus);
     this.taskGraph = new TaskGraph(eventBus);
     this.systemPrompts = new Map();
@@ -28,68 +38,79 @@ export class LLMService {
     this.setupEventBus();
     this.setupRealtimeAPICallback();
     this.setupSystemPrompts();
+    this.aboutTodayAgent = new PostAboutTodayAgent();
+    this.weatherAgent = new PostWeatherAgent();
+    this.fortuneAgent = new PostFortuneAgent();
   }
 
   private async setupSystemPrompts() {
-    for (const platform of ['discord', 'web']) {
-      for (const type of ['text', 'voice']) {
-        const prompt = await loadPrompt(
-          platform as Platform,
-          type as ConversationType
-        );
-        if (prompt) {
-          this.systemPrompts.set(`${platform}-${type}`, prompt);
-        }
+    for (const promptType of promptTypes) {
+      const prompt = await loadPrompt(promptType);
+      if (prompt) {
+        this.systemPrompts.set(promptType, prompt);
       }
     }
   }
 
   private setupEventBus() {
-    this.eventBus.subscribe('web:message', (event) => {
-      this.processWebMessage(event.data);
+    this.eventBus.subscribe('web:post_message', (event) => {
+      this.processWebMessage(event.data as WebMessageInput);
     });
 
-    this.eventBus.subscribe('discord:message', (event) => {
-      this.processDiscordMessage(event.data as DiscordMessage);
+    this.eventBus.subscribe('discord:post_message', (event) => {
+      this.processDiscordMessage(event.data as DiscordMessageInput);
+    });
+
+    this.eventBus.subscribe('twitter:post_scheduled_message', (event) => {
+      this.processCreatePost(event.data as TwitterMessageInput);
     });
   }
 
-  async processWebMessage(message: LLMMessage) {
+  private async processWebMessage(message: WebMessageInput) {
     try {
       if (message.type === 'realtime_text') {
-        await this.realtimeApi.inputText(message.content);
+        if (message.realtime_text) {
+          await this.realtimeApi.inputText(message.realtime_text);
+        }
         return;
-      } else if (message.type === 'realtime_voice_append') {
-        await this.realtimeApi.inputAudioBufferAppend(message.content);
+      } else if (
+        message.type === 'realtime_audio' &&
+        message.endpoint === 'realtime_audio_append'
+      ) {
+        if (message.realtime_audio) {
+          await this.realtimeApi.inputAudioBufferAppend(message.realtime_audio);
+        }
         return;
-      } else if (message.type === 'realtime_voice_commit') {
+      } else if (
+        message.type === 'realtime_audio' &&
+        message.endpoint === 'realtime_audio_commit'
+      ) {
         await this.realtimeApi.inputAudioBufferCommit();
         return;
-      } else if (message.type === 'realtime_vad_change') {
-        await this.realtimeApi.vadModeChange(message.content);
+      } else if (message.endpoint === 'realtime_vad_on') {
+        await this.realtimeApi.vadModeChange(true);
+        return;
+      } else if (message.endpoint === 'realtime_vad_off') {
+        await this.realtimeApi.vadModeChange(false);
         return;
       } else if (message.type === 'text') {
-        const prompt = this.systemPrompts.get(`web-text`);
-        if (!prompt) {
-          throw new Error('System prompt not found');
-        }
         const response = await this.processMessage(
-          'User',
-          message.content,
+          ['base_text'],
           'web',
-          'web',
-          '',
-          prompt
+          ['web'],
+          null,
+          message.text,
+          null
         );
         this.eventBus.log('web', 'green', response, true);
         this.eventBus.publish({
-          type: 'llm:response',
-          platform: 'web',
+          type: 'web:post_message',
+          memoryZone: 'web',
           data: {
-            content: response,
+            text: response,
             type: 'text',
-            context: {},
-          },
+          } as WebMessageOutput,
+          targetMemoryZones: ['web'],
         });
         return;
       }
@@ -98,72 +119,151 @@ export class LLMService {
     }
   }
 
-  async processDiscordMessage(message: DiscordMessage) {
+  private async processDiscordMessage(message: DiscordMessageInput) {
     try {
-      // システムプロンプトの取得
-      const prompt = this.systemPrompts.get(`discord-text`);
-      if (!prompt) {
-        throw new Error('System prompt not found');
-      }
-
-      const info = {
-        guildName: message.guildName,
-        channelName: message.channelName,
-        channelId: message.channelId,
-        messageId: message.messageId,
-        userId: message.userId,
-      };
-
-      const infoMessage = JSON.stringify(info);
-
-      const response = await this.processMessage(
-        message.userName,
-        message.content,
-        'discord',
-        message.channelId,
-        infoMessage,
-        prompt
-      );
-
-      this.eventBus.publish({
-        type: 'llm:response',
-        platform: 'discord',
-        data: {
-          content: response,
-          type: 'text',
+      if (
+        message.type === 'realtime_audio' &&
+        message.endpoint === 'realtime_audio_append'
+      ) {
+        if (message.realtime_audio) {
+          await this.realtimeApi.inputAudioBufferAppend(message.realtime_audio);
+        }
+        return;
+      } else if (
+        message.type === 'realtime_audio' &&
+        message.endpoint === 'realtime_audio_commit'
+      ) {
+        await this.realtimeApi.inputAudioBufferCommit();
+        return;
+      } else if (message.endpoint === 'realtime_vad_on') {
+        await this.realtimeApi.vadModeChange(true);
+        return;
+      } else if (message.endpoint === 'realtime_vad_off') {
+        await this.realtimeApi.vadModeChange(false);
+        return;
+      } else if (message.type === 'text') {
+        const info = {
+          guildName: message.guildName,
+          channelName: message.channelName,
+          guildId: message.guildId,
           channelId: message.channelId,
-          userName: message.userName,
-        },
-      });
+          messageId: message.messageId,
+          userId: message.userId,
+        };
+        const infoMessage = JSON.stringify(info);
+        const memoryZone = getDiscordMemoryZone(message.guildId);
+
+        const response = await this.processMessage(
+          ['base_text', 'discord'],
+          memoryZone,
+          [memoryZone],
+          message.userName,
+          message.text,
+          infoMessage
+        );
+        this.eventBus.log(memoryZone, 'green', response, true);
+        this.eventBus.publish({
+          type: 'discord:post_message',
+          memoryZone: memoryZone,
+          data: {
+            text: response,
+            type: 'text',
+            channelId: message.channelId,
+            guildId: message.guildId,
+          } as DiscordMessageOutput,
+          targetMemoryZones: [memoryZone],
+        });
+        return;
+      }
     } catch (error) {
       console.error('LLM処理エラー:', error);
-      this.eventBus.log('discord', 'red', `Error: ${error}`, true);
       throw error;
     }
   }
 
+  private async processCreatePost(message: TwitterMessageInput) {
+    let post = '';
+    let postForToyama = '';
+    if (message.endpoint === 'weather') {
+      post = await this.weatherAgent.createPost();
+      postForToyama = await this.weatherAgent.createPostForToyama();
+    } else if (message.endpoint === 'fortune') {
+      post = await this.fortuneAgent.createPost();
+      postForToyama = post;
+    } else if (message.endpoint === 'about_today') {
+      post = await this.aboutTodayAgent.createPost();
+      postForToyama = post;
+    }
+
+    this.saveConversationHistory('twitter:schedule_post', [
+      ...this.getConversationHistory('twitter:schedule_post'),
+      new AIMessage(post),
+    ]);
+    this.saveConversationHistory('discord:toyama_server', [
+      ...this.getConversationHistory('discord:toyama_server'),
+      new AIMessage(postForToyama),
+    ]);
+    this.eventBus.log('twitter:schedule_post', 'green', post, true);
+    this.eventBus.publish({
+      type: 'twitter:post_scheduled_message',
+      memoryZone: 'twitter:schedule_post',
+      data: {
+        endpoint: message.endpoint,
+        text: post,
+      } as TwitterMessageOutput,
+      targetMemoryZones: ['twitter:schedule_post', 'discord:aiminelab_server'],
+    });
+    this.eventBus.publish({
+      type: 'discord:post_message',
+      memoryZone: 'discord:toyama_server',
+      data: {
+        endpoint: message.endpoint,
+        text: postForToyama,
+      } as TwitterMessageOutput,
+      targetMemoryZones: ['discord:toyama_server'],
+    });
+  }
+
+  /**
+   * メッセージを処理する
+   * @param promptType プロンプトタイプ
+   * @param platform プラットフォーム
+   * @param userName ユーザー名
+   * @param message メッセージ
+   * @param infoMessage 追加情報
+   * @param inputMemoryZone 入力メモリゾーン
+   * @param outputMemoryZones 出力メモリゾーン
+   * @returns 応答メッセージ
+   */
   private async processMessage(
-    userName: string,
-    message: string,
-    platform: Platform,
-    platformId: string,
-    infoMessage: string,
-    prompt: string
-  ) {
+    promptTypes: PromptType[],
+    inputMemoryZone: MemoryZone,
+    outputMemoryZones?: MemoryZone[] | null,
+    userName?: string | null,
+    message?: string | null,
+    infoMessage?: string | null
+  ): Promise<string> {
     try {
+      const prompts = promptTypes.map((promptType) =>
+        this.systemPrompts.get(promptType)
+      );
+      const prompt = prompts.join('\n');
+
       const newMessage = new HumanMessage(`${userName}: ${message}`);
 
-      this.saveConversationHistory(platformId, [
-        ...this.getConversationHistory(platformId),
+      this.saveConversationHistory(inputMemoryZone, [
+        ...this.getConversationHistory(inputMemoryZone),
         newMessage,
       ]);
+      const messages = inputMemoryZone
+        ? this.getConversationHistory(inputMemoryZone)
+        : [];
 
-      // グラフを実行
       const result = await this.taskGraph.invoke({
-        platform: platform,
+        memoryZone: inputMemoryZone,
         systemPrompt: prompt,
-        infoMessage: infoMessage,
-        messages: [],
+        infoMessage: infoMessage || null,
+        messages: messages,
         taskTree: {
           goal: '',
           plan: '',
@@ -171,32 +271,30 @@ export class LLMService {
           subTasks: [],
         },
         conversationHistory: {
-          messages: this.getConversationHistory(platformId) || [],
+          messages: messages,
         },
         decision: '',
       });
 
-      // 結果の取得と送信
       const lastMessage = result.messages[result.messages.length - 1];
 
-      this.saveConversationHistory(platformId, [
-        ...this.getConversationHistory(platformId),
-        new AIMessage(lastMessage.content.toString()),
-      ]);
-      // エラー発生時のログ
-      if (result.taskTree.status === 'error') {
-        console.error('Task error:', result.taskTree.error);
-        this.eventBus.log(
-          'discord',
-          'red',
-          `Error: ${result.taskTree.error}`,
-          true
-        );
+      if (outputMemoryZones) {
+        outputMemoryZones.forEach((memoryZone) => {
+          this.saveConversationHistory(memoryZone, [
+            ...this.getConversationHistory(memoryZone),
+            new AIMessage(lastMessage.content.toString()),
+          ]);
+        });
+      } else {
+        this.saveConversationHistory(inputMemoryZone, [
+          ...this.getConversationHistory(inputMemoryZone),
+          new AIMessage(lastMessage.content.toString()),
+        ]);
       }
       return lastMessage.content.toString();
     } catch (error) {
-      console.error('LLM処理エラー:', error);
-      this.eventBus.log('discord', 'red', `Error: ${error}`, true);
+      console.error(`\x1b[31mLLM処理エラー:${error}\x1b[0m`);
+      this.eventBus.log(inputMemoryZone, 'red', `Error: ${error}`, true);
       throw error;
     }
   }
@@ -204,80 +302,63 @@ export class LLMService {
   private setupRealtimeAPICallback() {
     this.realtimeApi.setTextCallback((text) => {
       this.eventBus.publish({
-        type: 'llm:response',
-        platform: 'web',
+        type: 'web:post_message',
+        memoryZone: 'web',
         data: {
-          content: text,
-          type: 'text',
-          context: {},
-        },
+          type: 'realtime_text',
+          text: text,
+        } as WebMessageOutput,
+        targetMemoryZones: ['web'],
       });
     });
 
     this.realtimeApi.setTextDoneCallback(() => {
       this.eventBus.publish({
-        type: 'llm:response',
-        platform: 'web',
+        type: 'web:post_message',
+        memoryZone: 'web',
         data: {
-          content: '',
-          type: 'text_done',
-          context: {},
-        },
+          type: 'realtime_text',
+          endpoint: 'text_done',
+        } as WebMessageOutput,
+        targetMemoryZones: ['web'],
       });
     });
 
     this.realtimeApi.setAudioCallback((audio) => {
       this.eventBus.publish({
-        type: 'llm:response',
-        platform: 'web',
+        type: 'web:post_message',
+        memoryZone: 'web',
         data: {
-          content: audio,
-          type: 'audio',
-          context: {},
-        },
+          audio: audio,
+          type: 'realtime_audio',
+          endpoint: 'realtime_audio_append',
+        } as WebMessageOutput,
+        targetMemoryZones: ['web'],
       });
     });
 
     this.realtimeApi.setAudioDoneCallback(() => {
       this.eventBus.publish({
-        type: 'llm:response',
-        platform: 'web',
+        type: 'web:post_message',
+        memoryZone: 'web',
         data: {
-          content: '',
-          type: 'audio_done',
-          context: {},
-        },
+          type: 'realtime_audio',
+          endpoint: 'realtime_audio_commit',
+        } as WebMessageOutput,
+        targetMemoryZones: ['web'],
       });
     });
 
     this.realtimeApi.setUserTranscriptCallback((text) => {
       this.eventBus.publish({
-        type: 'llm:response',
-        platform: 'web',
+        type: 'web:post_message',
+        memoryZone: 'web',
         data: {
-          content: text,
-          type: 'user_transcript',
-          context: {},
-        },
+          text: text,
+          type: 'realtime_text',
+        } as WebMessageOutput,
+        targetMemoryZones: ['web'],
       });
-    });
-  }
-
-  resetContext(platform: Platform) {
-    this.chains.forEach((chain, key) => {
-      if (key.startsWith(platform)) {
-        if (chain?.memory) {
-          (chain.memory as BufferMemory).clear();
-        }
-      }
-    });
-  }
-
-  resetAllContexts() {
-    this.chains.forEach((chain) => {
-      if (chain?.memory) {
-        (chain.memory as BufferMemory).clear();
-      }
     });
   }
 
@@ -290,14 +371,17 @@ export class LLMService {
     }
   }
 
-  private getConversationHistory(channelId: string): BaseMessage[] {
-    return this.conversationHistories.get(channelId) || [];
+  private getConversationHistory(memoryZone: MemoryZone): BaseMessage[] {
+    return this.conversationHistories.get(memoryZone) || [];
   }
 
-  private saveConversationHistory(channelId: string, messages: BaseMessage[]) {
+  private saveConversationHistory(
+    memoryZone: MemoryZone,
+    messages: BaseMessage[]
+  ) {
     if (messages.length > 50) {
       messages = messages.slice(Math.max(messages.length - 50, 0));
     }
-    this.conversationHistories.set(channelId, messages);
+    this.conversationHistories.set(memoryZone, messages);
   }
 }

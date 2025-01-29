@@ -37,3 +37,17 @@ body {
   scrollbar-width: thin;
   scrollbar-color: color(surface, secondary) transparent;
 }
+
+@font-face {
+  font-family: 'dynemix';
+  src: url('/fonts/DYNEMIXDISPLAY156.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'kunai';
+  src: url('/fonts/KUNAI DISPLAY FONT.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}

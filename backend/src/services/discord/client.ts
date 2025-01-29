@@ -1,11 +1,17 @@
 import {
-  Channel,
   Client,
   GatewayIntentBits,
+  SlashCommandBuilder,
   TextChannel,
   User,
 } from 'discord.js';
-import { EventBus, DiscordMessage } from '../eventBus.js';
+import {
+  DiscordMessageInput,
+  DiscordMessageOutput,
+  MinecraftInput,
+} from '../../types/index.js';
+import { getDiscordMemoryZone } from '../../utils/discord.js';
+import { EventBus } from '../eventBus.js';
 
 export class DiscordBot {
   private client: Client;
@@ -21,24 +27,97 @@ export class DiscordBot {
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.GuildVoiceStates,
         GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildIntegrations,
+        GatewayIntentBits.GuildModeration,
       ],
     });
     this.eventBus = eventBus;
-    this.setupEventHandlers();
+
+    this.client.once('ready', () => {
+      this.setupEventHandlers();
+      this.setupSlashCommands();
+    });
   }
 
   public start() {
     try {
       this.client.login(process.env.DISCORD_TOKEN);
       console.log('\x1b[34mDiscord bot started\x1b[0m');
-      this.eventBus.log('discord', 'blue', 'Discord bot started');
+      this.eventBus.log(
+        'discord:aiminelab_server',
+        'blue',
+        'Discord bot started'
+      );
     } catch (error) {
       console.error('\x1b[31mDiscord bot failed to start\x1b[0m');
       this.eventBus.log(
-        'discord',
+        'discord:aiminelab_server',
         'red',
         'Discord bot failed to start' + error
       );
+    }
+  }
+
+  private async setupSlashCommands() {
+    try {
+      const commands = [
+        new SlashCommandBuilder()
+          .setName('minecraft_server_status')
+          .setDescription('Minecraftサーバーの状態を取得する')
+          .addStringOption((option) =>
+            option
+              .setName('server_name')
+              .setDescription('サーバー名')
+              .setRequired(true)
+              .addChoices(
+                { name: 'ワールド1', value: 'world1' },
+                { name: 'ワールド2', value: 'world2' }
+              )
+          ),
+      ];
+
+      // コマンドをJSON形式に変換
+      const commandsJson = commands.map((command) => command.toJSON());
+
+      // コマンドを登録
+      if (this.client.application) {
+        await this.client.application.commands.set(commandsJson);
+        console.log('\x1b[32mSlash commands registered successfully\x1b[0m');
+      }
+
+      this.client.on('interactionCreate', async (interaction) => {
+        if (!interaction.isCommand()) return;
+
+        switch (interaction.commandName) {
+          case 'minecraft_server_status':
+            if (interaction.isChatInputCommand()) {
+              const serverName = interaction.options.getString(
+                'server_name',
+                true
+              );
+              const data = {
+                type: 'endpoint',
+                serverName: serverName,
+                endpoint: 'get_status',
+              } as MinecraftInput;
+              try {
+                this.eventBus.publish({
+                  type: 'minecraft:get_status',
+                  memoryZone: 'minecraft',
+                  data: data,
+                });
+                await interaction.reply('ツイートを送信しました！');
+              } catch (error) {
+                await interaction.reply('ツイートの送信に失敗しました。');
+                console.error('Tweet error:', error);
+              }
+            }
+            break;
+        }
+      });
+      console.log('\x1b[32mSlash command setup completed\x1b[0m');
+    } catch (error) {
+      console.error(`\x1b[31mSlash command setup error: ${error}\x1b[0m`);
     }
   }
 
@@ -66,9 +145,7 @@ export class DiscordBot {
   }
 
   private setupEventHandlers() {
-    // テキストメッセージの処理
     this.client.on('messageCreate', (message) => {
-      // テストモードの場合はテストサーバーのみ、それ以外の場合はテストサーバー以外を処理
       const isTestGuild = message.guildId === process.env.TEST_GUILD_ID;
       if (this.isTestMode !== isTestGuild) return;
 
@@ -76,27 +153,22 @@ export class DiscordBot {
       const nickname = this.getUserNickname(message.author);
       const channelName = this.getChannelName(message.channelId);
       const guildName = this.getGuildName(message.channelId);
+      const memoryZone = getDiscordMemoryZone(guildName);
       const messageId = message.id;
       const userId = message.author.id;
       this.eventBus.log(
-        'discord',
-        'blue',
-        guildName +
-          ' ' +
-          channelName +
-          '\n' +
-          nickname +
-          ': ' +
-          message.content,
+        memoryZone,
+        'white',
+        `${guildName} ${channelName}\n${nickname}: ${message.content}`,
         true
       );
       console.log('\x1b[34m' + guildName + ' ' + channelName + '\x1b[0m');
       console.log('\x1b[34m' + nickname + ': ' + message.content + '\x1b[0m');
       this.eventBus.publish({
-        type: 'discord:message',
-        platform: 'discord',
+        type: 'discord:get_message',
+        memoryZone: memoryZone,
         data: {
-          content: message.content,
+          text: message.content,
           type: 'text',
           guildName: guildName,
           channelId: message.channelId,
@@ -104,7 +176,7 @@ export class DiscordBot {
           userName: nickname,
           messageId: messageId,
           userId: userId,
-        } as DiscordMessage,
+        } as DiscordMessageInput,
       });
     });
 
@@ -117,82 +189,52 @@ export class DiscordBot {
       const isTestGuild = channel.guild.id === process.env.TEST_GUILD_ID;
       if (this.isTestMode !== isTestGuild) return;
 
+      const memoryZone = getDiscordMemoryZone(channel.guild.name);
+
       const nickname = this.getUserNickname(speech.user);
       this.eventBus.publish({
-        type: 'discord:message',
-        platform: 'discord',
+        type: 'discord:get_message',
+        memoryZone: memoryZone,
         data: {
-          content: speech.content,
-          type: 'voice',
+          audio: speech.content,
+          type: 'realtime_audio',
           channelId: speech.channelId,
           userName: nickname,
-        } as DiscordMessage,
+          guildId: channel.guild.id,
+          guildName: channel.guild.name,
+          channelName: channel.name,
+          messageId: speech.messageId,
+          userId: speech.userId,
+        } as DiscordMessageInput,
       });
     });
 
     // LLMからの応答を処理
-    this.eventBus.subscribe('llm:response', (event) => {
-      if (event.platform === 'discord') {
-        const { content, type, channelId, userName } =
-          event.data as DiscordMessage;
+    this.eventBus.subscribe('discord:post_message', (event) => {
+      if (event.type === 'discord:post_message') {
+        const { text, type, channelId, guildId, audio, endpoint, imageUrl } =
+          event.data as DiscordMessageOutput;
 
         const channel = this.client.channels.cache.get(channelId);
         const channelName = this.getChannelName(channelId);
         const guildName = this.getGuildName(channelId);
+        const memoryZone = getDiscordMemoryZone(guildName);
 
         if (channel?.isTextBased() && 'send' in channel) {
           if (type === 'text') {
             this.eventBus.log(
-              'discord',
-              'green',
-              guildName + ' ' + channelName + '\n' + 'Shannon: ' + content,
+              memoryZone,
+              'white',
+              `${guildName} ${channelName}\nShannon: ${text}`,
               true
             );
             console.log('\x1b[34m' + guildName + ' ' + channelName + '\x1b[0m');
-            console.log('\x1b[34m' + userName + ': ' + content + '\x1b[0m');
-            channel.send(content);
-          } else if (type === 'voice') {
-            this.synthesizeAndPlay(channel as TextChannel, content);
+            console.log('\x1b[34m' + 'shannon: ' + text + '\x1b[0m');
+            channel.send(text ?? '');
+          } else if (type === 'realtime_audio' && audio) {
           }
         }
       }
     });
-
-    // Twitterの投稿を処理
-    this.eventBus.subscribe('twitter:post', (event) => {
-      const announcementChannel = this.getAnnouncementChannel();
-      if (announcementChannel) {
-        announcementChannel.send(
-          `新しいツイート: ${event.data.content}\nhttps://twitter.com/user/status/${event.data.tweetId}`
-        );
-      }
-    });
-
-    // YouTubeの統計を処理
-    this.eventBus.subscribe('youtube:stats', (event) => {
-      const statsChannel = this.getStatsChannel();
-      if (statsChannel) {
-        statsChannel.send(
-          `📊 YouTube統計\n登録者数: ${event.data.subscribers}\n総視聴回数: ${event.data.views}`
-        );
-      }
-    });
-  }
-
-  private getAnnouncementChannel() {
-    return this.client.channels.cache.get(
-      process.env.DISCORD_ANNOUNCEMENT_CHANNEL_ID as string
-    ) as TextChannel;
-  }
-
-  private getStatsChannel() {
-    return this.client.channels.cache.get(
-      process.env.DISCORD_STATS_CHANNEL_ID as string
-    ) as TextChannel;
-  }
-
-  private async synthesizeAndPlay(channel: TextChannel, text: string) {
-    // 音声合成と再生の実装
-    // 例: Google Cloud Text-to-Speech APIなどを使用
   }
 }

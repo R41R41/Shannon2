@@ -1,20 +1,31 @@
 import { TwitterApi } from 'twitter-api-v2';
+import { TwitterMessageOutput } from '../../types/index.js';
 import { EventBus } from '../eventBus.js';
-import { LLMMessage } from '../llm/types/index.js';
-
 export class TwitterClient {
   private client: TwitterApi;
   private eventBus: EventBus;
-
-  constructor(eventBus: EventBus) {
-    const apiKey = process.env.TWITTER_API_KEY;
-    const apiKeySecret = process.env.TWITTER_API_KEY_SECRET;
-    const accessToken = process.env.TWITTER_ACCESS_TOKEN;
-    const accessTokenSecret = process.env.TWITTER_ACCESS_TOKEN_SECRET;
+  private myUserId: string;
+  constructor(eventBus: EventBus, isTest: boolean) {
+    const apiKey = isTest
+      ? process.env.TWITTER_API_KEY_TEST
+      : process.env.TWITTER_API_KEY;
+    const apiKeySecret = isTest
+      ? process.env.TWITTER_API_KEY_SECRET_TEST
+      : process.env.TWITTER_API_KEY_SECRET;
+    const accessToken = isTest
+      ? process.env.TWITTER_ACCESS_TOKEN_TEST
+      : process.env.TWITTER_ACCESS_TOKEN;
+    const accessTokenSecret = isTest
+      ? process.env.TWITTER_ACCESS_TOKEN_SECRET_TEST
+      : process.env.TWITTER_ACCESS_TOKEN_SECRET;
 
     if (!apiKey || !apiKeySecret || !accessToken || !accessTokenSecret) {
       throw new Error('Twitter APIの認証情報が設定されていません');
     }
+
+    this.myUserId = isTest
+      ? process.env.TWITTER_USER_ID_TEST || ''
+      : process.env.TWITTER_USER_ID || '';
 
     this.client = new TwitterApi({
       appKey: apiKey,
@@ -28,76 +39,150 @@ export class TwitterClient {
   }
 
   private setupEventHandlers() {
-    this.eventBus.subscribe('twitter:post', async (event) => {
-      if (event.platform === 'twitter') {
-        try {
-          await this.client.v2.reply(event.data.content, event.data.tweetId);
-        } catch (error) {
-          console.error(`\x1b[31mTwitter reply error: ${error}\x1b[0m`);
+    this.eventBus.subscribe('twitter:post_scheduled_message', async (event) => {
+      const { text } = event.data as TwitterMessageOutput;
+      try {
+        await this.postTweet(text);
+      } catch (error) {
+        console.error('Twitter post error:', error);
+      }
+    });
+    this.eventBus.subscribe('twitter:post_message', async (event) => {
+      const { replyId, text } = event.data as TwitterMessageOutput;
+      try {
+        if (replyId) {
+          await this.replyTweet(replyId, text);
+        } else {
+          await this.postTweet(text);
         }
+      } catch (error) {
+        console.error(`\x1b[31mTwitter post error: ${error}\x1b[0m`);
       }
     });
   }
 
-  async tweet(content: string) {
+  private async postTweet(content: string) {
     try {
       const response = await this.client.v2.tweet(content);
-
-      // ツイート内容をDiscordにも送信
-      this.eventBus.publish({
-        type: 'twitter:post',
-        platform: 'twitter',
-        data: {
-          content: content,
-          tweetId: response.data.id,
-        },
-        targetPlatforms: ['discord'], // Discordにも送信
-      });
-
-      return response.data;
-    } catch (error) {
-      console.error(`\x1b[31mTweet error: ${error}\x1b[0m`);
+      console.log(
+        `\x1b[32mTweet posted successfully ${response.data.id}\x1b[0m`
+      );
+    } catch (error: any) {
+      console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
       throw error;
     }
   }
 
-  async handleTweet(tweetId: string, content: string) {
-    const message: LLMMessage = {
-      platform: 'twitter',
-      type: 'text',
-      content: content,
-      context: {
-        tweetId: tweetId,
-      },
-    };
-    this.eventBus.publish({
-      type: 'twitter:post',
-      platform: 'twitter',
-      data: message,
-    });
+  /**
+   * 自分のツイートを取得する
+   * @returns ツイートIDの配列
+   */
+  private async getMyTweets(): Promise<string[]> {
+    try {
+      if (!this.myUserId) {
+        throw new Error('TwitterユーザーIDが設定されていません');
+      }
+      const response = await this.client.v2.userTimeline(this.myUserId, {
+        max_results: 10,
+        exclude: 'replies',
+      });
+      return response.data.data.map((tweet) => tweet.id);
+    } catch (error: any) {
+      console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
+      throw error;
+    }
   }
 
-  async searchAndReply(keyword: string) {
+  private async replyTweet(replyId: string, text: string) {
     try {
-      const tweets = await this.client.v2.search(keyword);
-      for await (const tweet of tweets) {
-        await this.handleTweet(tweet.id, tweet.text);
-        // レート制限を考慮して待機
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-      }
-    } catch (error) {
-      console.error(`\x1b[31mSearch and reply error: ${error}\x1b[0m`);
-      throw new Error('検索と返信処理に失敗しました');
+      const response = await this.client.v2.reply(text, replyId);
+      console.log(
+        `\x1b[32mTweet replied successfully ${response.data.id}\x1b[0m`
+      );
+    } catch (error: any) {
+      console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
+      throw error;
     }
   }
 
   public async initialize() {
     try {
-      // 初期化処理（例：接続テスト）
-      await this.client.v2.me();
       this.setupEventHandlers();
     } catch (error) {
-      console.error(`\x1b[31mTwitter initialization error: ${error}\x1b[0m`);
+      if (error instanceof Error && error.message.includes('429')) {
+        const apiError = error as any;
+        if (apiError.rateLimit?.reset) {
+          const resetTime = apiError.rateLimit.reset * 1000;
+          const now = Date.now();
+          const waitTime = resetTime - now + 10000;
+
+          console.warn(
+            `\x1b[33mTwitter rate limit reached, waiting until ${new Date(
+              resetTime
+            ).toISOString()} (${waitTime / 1000}s)\x1b[0m`
+          );
+
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+          await this.initialize();
+        } else {
+          console.warn(
+            '\x1b[33mTwitter rate limit reached, waiting before retry...\x1b[0m'
+          );
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          await this.initialize();
+        }
+      } else {
+        console.error(`\x1b[31mTwitter initialization error: ${error}\x1b[0m`);
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * 指定されたツイートIDのリプライの中で、まだ自分が返信していない最も古いツイートを取得する
+   * @param tweetId リプライを取得するツイートのID
+   * @returns 最も古いリプライのツイートIDとその内容
+   */
+  public async getOldestUnrepliedTweet(
+    tweetId: string
+  ): Promise<{ id: string; text: string } | null> {
+    try {
+      const tweet = await this.client.v2.singleTweet(tweetId);
+      const conversationId = tweet.data.conversation_id;
+      const response = await this.client.v2.search(
+        `conversation_id:${conversationId}`,
+        {
+          expansions: ['author_id'],
+          'tweet.fields': [
+            'in_reply_to_user_id',
+            'author_id',
+            'conversation_id',
+            'created_at',
+          ],
+        }
+      );
+
+      const unrepliedTweets = response.data.data.filter(
+        (reply: any) =>
+          reply.in_reply_to_user_id === tweet.data.author_id &&
+          reply.author_id !== this.myUserId
+      );
+
+      if (unrepliedTweets.length > 0) {
+        const oldestTweet = unrepliedTweets.reduce((oldest, current) => {
+          if (!oldest.created_at || !current.created_at) {
+            return oldest;
+          }
+          return new Date(oldest.created_at) < new Date(current.created_at)
+            ? oldest
+            : current;
+        });
+        return { id: oldestTweet.id, text: oldestTweet.text };
+      }
+
+      return null;
+    } catch (error: any) {
+      console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
       throw error;
     }
   }

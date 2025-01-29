@@ -1,6 +1,5 @@
 import WebSocket from 'ws';
-import { EventBus } from '../eventBus';
-import { Platform, ConversationType } from './types';
+import { EventBus } from '../../eventBus';
 
 export class RealtimeAPIService {
   private ws: WebSocket | null = null;
@@ -284,12 +283,6 @@ export class RealtimeAPIService {
             break;
 
           default:
-            console.info(`\x1b[37mUnhandled event type: ${data.type}\x1b[0m`);
-            this.eventBus.log(
-              'web',
-              'white',
-              'Unhandled event type: ' + data.type
-            );
             break;
         }
       });
@@ -372,9 +365,9 @@ export class RealtimeAPIService {
     }
   }
 
-  async vadModeChange(data: string) {
+  async vadModeChange(data: boolean) {
     if (this.ws) {
-      this.isVadMode = data === 'true';
+      this.isVadMode = data;
       if (this.isVadMode) {
         console.log('\x1b[36mVAD mode change: true\x1b[0m');
         this.eventBus.log('web', 'cyan', 'VAD mode change: true');

@@ -1,20 +1,19 @@
-import { ChatOpenAI } from '@langchain/openai';
-import { StateGraph, START, END } from '@langchain/langgraph';
-import { Annotation } from '@langchain/langgraph';
 import {
+  AIMessage,
   BaseMessage,
   HumanMessage,
-  AIMessage,
   SystemMessage,
   ToolMessage,
 } from '@langchain/core/messages';
+import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
-import { EventBus } from '../../eventBus.js';
-import { Platform } from '../types/index.js';
+import { ChatOpenAI } from '@langchain/openai';
 import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
-import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+import { MemoryZone } from '../../../types/index.js';
+import { EventBus } from '../../eventBus.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -36,10 +35,10 @@ export class TaskGraph {
   private tools: any[] = [];
   private toolNode: ToolNode;
   private graph: any;
-  private eventBus: EventBus;
+  private eventBus: EventBus | null = null;
 
-  constructor(eventBus: EventBus) {
-    this.eventBus = eventBus;
+  constructor(eventBus?: EventBus) {
+    this.eventBus = eventBus ?? null;
     this.initializeModel();
     this.initializeTools();
     this.toolNode = new ToolNode(this.tools);
@@ -86,7 +85,7 @@ export class TaskGraph {
     }
   }
 
-  private baseMessagesToLog(messages: BaseMessage[], platform: Platform) {
+  private baseMessagesToLog(messages: BaseMessage[], memoryZone: MemoryZone) {
     for (const message of messages) {
       if (message instanceof HumanMessage) {
         console.log(`\x1b[37m${message.content}\x1b[0m`);
@@ -95,21 +94,25 @@ export class TaskGraph {
           console.log(
             `\x1b[32m${message.additional_kwargs.tool_calls[0].function.name}\x1b[0m`
           );
-          this.eventBus.log(
-            platform,
-            'green',
-            message.additional_kwargs.tool_calls[0].function.name,
-            true
-          );
+          if (this.eventBus) {
+            this.eventBus.log(
+              memoryZone,
+              'green',
+              message.additional_kwargs.tool_calls[0].function.name,
+              true
+            );
+          }
           console.log(
             `\x1b[32m${message.additional_kwargs.tool_calls[0].function.arguments}\x1b[0m`
           );
-          this.eventBus.log(
-            platform,
-            'green',
-            message.additional_kwargs.tool_calls[0].function.arguments,
-            true
-          );
+          if (this.eventBus) {
+            this.eventBus.log(
+              memoryZone,
+              'green',
+              message.additional_kwargs.tool_calls[0].function.arguments,
+              true
+            );
+          }
         } else {
           console.log(`\x1b[32mShannon: ${message.content}\x1b[0m`);
         }
@@ -117,7 +120,14 @@ export class TaskGraph {
         console.log(`\x1b[37m${message.content}\x1b[0m`);
       } else if (message instanceof ToolMessage) {
         console.log(`\x1b[34m${message.content}\x1b[0m`);
-        this.eventBus.log(platform, 'blue', message.content.toString(), true);
+        if (this.eventBus) {
+          this.eventBus.log(
+            memoryZone,
+            'blue',
+            message.content.toString(),
+            true
+          );
+        }
       }
     }
   }
@@ -137,7 +147,7 @@ export class TaskGraph {
     const messages = [
       new SystemMessage(state.systemPrompt),
       new SystemMessage(`currentTime: ${currentTime}`),
-      new SystemMessage(state.infoMessage),
+      state.infoMessage ? new SystemMessage(state.infoMessage) : null,
       chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
       ...state.conversationHistory.messages.slice(-10),
       ...state.messages,
@@ -148,11 +158,9 @@ export class TaskGraph {
         : null,
     ].filter((message): message is BaseMessage => message !== null);
 
-    console.log(messages);
-
-    this.baseMessagesToLog(messages, state.platform);
+    this.baseMessagesToLog(messages, state.memoryZone);
     const response = await modelWithTools.invoke(messages);
-    this.baseMessagesToLog([response], state.platform);
+    this.baseMessagesToLog([response], state.memoryZone);
     return { messages: [response] };
   };
 
@@ -203,7 +211,7 @@ export class TaskGraph {
       new SystemMessage(decisionPrompt),
       new HumanMessage('判定結果（immediate/plan）のみを回答してください'),
       new SystemMessage(`currentTime: ${currentTime}`),
-      new SystemMessage(state.infoMessage),
+      state.infoMessage ? new SystemMessage(state.infoMessage) : null,
       chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
       ...state.conversationHistory.messages.slice(-10),
     ].filter((message): message is BaseMessage => message !== null);
@@ -221,10 +229,12 @@ export class TaskGraph {
       "goal": "達成すべき最終目標",
       "plan": "全体の戦略",
       "subTasks": [
-        {"goal": "サブタスク1", "plan": "サブタスク1の計画"},
-        {"goal": "サブタスク2", "plan": "サブタスク2の計画"}
+        {"goal": "サブタスク1", "plan": "サブタスク1の計画", "status": "サブタスク1の状態", "subTasks": さらに下位のサブタスクがある場合はここに記載},
+        {"goal": "サブタスク2", "plan": "サブタスク2の計画", "status": "サブタスク2の状態", "subTasks": さらに下位のサブタスクがある場合はここに記載}
       ]
     }
+    - statusは以下のいずれかを使用してください：
+    'pending' | 'in_progress' | 'completed' | 'error'
     `;
 
     const currentTime = new Date().toLocaleString('ja-JP', {
@@ -235,7 +245,7 @@ export class TaskGraph {
     const messages = [
       new SystemMessage(planningPrompt),
       new SystemMessage(`currentTime: ${currentTime}`),
-      new SystemMessage(state.infoMessage),
+      state.infoMessage ? new SystemMessage(state.infoMessage) : null,
       chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
       ...state.conversationHistory.messages.slice(-10),
     ].filter((message): message is BaseMessage => message !== null);
@@ -243,8 +253,6 @@ export class TaskGraph {
     if (!this.model) {
       throw new Error('Model not initialized');
     }
-
-    console.log(messages);
 
     const plan = await this.model.invoke(messages);
     return {
@@ -258,17 +266,17 @@ export class TaskGraph {
   };
 
   private TaskState = Annotation.Root({
-    platform: Annotation<Platform>({
+    memoryZone: Annotation<MemoryZone>({
       reducer: (_, next) => next,
-      default: () => 'discord',
+      default: () => 'web',
     }),
     systemPrompt: Annotation<string>({
       reducer: (_, next) => next,
       default: () => '',
     }),
-    infoMessage: Annotation<string>({
+    infoMessage: Annotation<string | null>({
       reducer: (_, next) => next,
-      default: () => '',
+      default: () => null,
     }),
     messages: Annotation<BaseMessage[]>({
       reducer: (prev, next) => prev.concat(next),
@@ -285,7 +293,7 @@ export class TaskGraph {
     }),
     conversationHistory: Annotation<{
       messages: BaseMessage[];
-      summary?: string;
+      summary?: string | null;
     }>({
       reducer: (prev, next) => ({
         messages: [...prev.messages, ...next.messages],
@@ -293,12 +301,12 @@ export class TaskGraph {
       }),
       default: () => ({
         messages: [],
-        summary: '',
+        summary: null,
       }),
     }),
-    decision: Annotation<string>({
+    decision: Annotation<string | null>({
       reducer: (_, next) => next,
-      default: () => '',
+      default: () => null,
     }),
   });
 
@@ -324,7 +332,7 @@ export class TaskGraph {
     return workflow.compile();
   }
 
-  async invoke(state: typeof this.TaskState.State) {
+  public async invoke(state: typeof this.TaskState.State) {
     return await this.graph.invoke(state);
   }
 }
