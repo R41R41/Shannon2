@@ -52,13 +52,16 @@ export class OpenAIService {
         } else if (data.type === 'endpoint' && data.endpoint === 'audio_done') {
           this.audioDoneCallback?.();
         } else if (data.type === 'text' && data.text) {
-          console.log('textCallback', data.text);
           this.textCallback?.(data.text);
-        } else if (data.type === 'audio' && data.audio) {
-          console.log(`Received audio data: ${data.audio.length} bytes`);
-          this.audioCallback?.(data.audio);
-        } else if (data.type === 'user_transcript' && data.text) {
-          this.userTranscriptCallback?.(data.text);
+        } else if (data.type === 'realtime_text' && data.realtime_text) {
+          this.textCallback?.(data.realtime_text);
+        } else if (data.type === 'realtime_audio' && data.realtime_audio) {
+          console.log(
+            `Received audio data: ${data.realtime_audio.length} bytes`
+          );
+          this.audioCallback?.(data.realtime_audio);
+        } else if (data.type === 'user_transcript' && data.realtime_text) {
+          this.userTranscriptCallback?.(data.realtime_text);
         }
       };
 

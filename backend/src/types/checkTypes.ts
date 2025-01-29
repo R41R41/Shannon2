@@ -65,15 +65,20 @@ export const isWebMessageOutput = (
     typeof message === 'object' &&
     message !== null &&
     (message.type === 'text' ||
+      message.type === 'realtime_text' ||
+      message.type === 'user_transcript' ||
       message.type === 'audio' ||
       message.type === 'realtime_audio' ||
       message.type === 'endpoint') &&
     (message.text === undefined ||
       typeof message.text === 'string' ||
       message.text === null) &&
-    (message.audio === undefined ||
-      typeof message.audio === 'string' ||
-      message.audio === null) &&
+    (message.realtime_text === undefined ||
+      typeof message.realtime_text === 'string' ||
+      message.realtime_text === null) &&
+    (message.realtime_audio === undefined ||
+      typeof message.realtime_audio === 'string' ||
+      message.realtime_audio === null) &&
     (message.endpoint === undefined ||
       isRealTimeAPIEndpoint(message.endpoint as RealTimeAPIEndpoint) ||
       message.endpoint === null)

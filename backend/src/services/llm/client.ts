@@ -306,7 +306,7 @@ export class LLMService {
         memoryZone: 'web',
         data: {
           type: 'realtime_text',
-          text: text,
+          realtime_text: text,
         } as WebMessageOutput,
         targetMemoryZones: ['web'],
       });
@@ -329,7 +329,7 @@ export class LLMService {
         type: 'web:post_message',
         memoryZone: 'web',
         data: {
-          audio: audio.toString(),
+          realtime_audio: audio.toString(),
           type: 'realtime_audio',
           endpoint: 'realtime_audio_append',
         } as WebMessageOutput,
@@ -354,8 +354,8 @@ export class LLMService {
         type: 'web:post_message',
         memoryZone: 'web',
         data: {
-          text: text,
-          type: 'realtime_text',
+          realtime_text: text,
+          type: 'user_transcript',
         } as WebMessageOutput,
         targetMemoryZones: ['web'],
       });

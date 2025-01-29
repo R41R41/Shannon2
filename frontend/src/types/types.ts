@@ -156,7 +156,8 @@ export interface TwitterMessageOutput {
 export interface WebMessageOutput {
   type: ConversationType;
   text?: string | null;
-  audio?: string | null;
+  realtime_text?: string | null;
+  realtime_audio?: string | null;
   endpoint?: RealTimeAPIEndpoint | null;
 }
 
