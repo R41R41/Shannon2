@@ -1,4 +1,4 @@
-import { DiscordGuild } from '../types/index.js';
+import { DiscordGuild } from '../types/types.js';
 
 export const getDiscordMemoryZone = (guildId: string): DiscordGuild => {
   if (guildId === 'Toyama Server') {

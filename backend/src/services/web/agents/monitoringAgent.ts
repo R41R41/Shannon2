@@ -1,8 +1,8 @@
-import { WebSocketServer, WebSocket } from 'ws';
-import { EventBus } from '../eventBus.js';
-import { PORTS } from '../../config/ports.js';
-import Log from '../../models/Log.js';
-
+import { WebSocket, WebSocketServer } from 'ws';
+import { PORTS } from '../../../config/ports.js';
+import Log from '../../../models/Log.js';
+import { ILog, WebMonitoringOutput } from '../../../types/types.js';
+import { EventBus } from '../../eventBus.js';
 interface SearchQuery {
   startDate?: string;
   endDate?: string;
@@ -10,7 +10,7 @@ interface SearchQuery {
   content?: string;
 }
 
-export class MonitoringService {
+export class MonitoringAgent {
   private wss: WebSocketServer;
   private eventBus: EventBus;
   private client: WebSocket | null = null;
@@ -43,7 +43,7 @@ export class MonitoringService {
 
       sortedLogs.forEach((log) => {
         if (this.client?.readyState === WebSocket.OPEN) {
-          this.client.send(JSON.stringify({ type: 'log', data: log }));
+          this.client.send(JSON.stringify({ type: 'web:log', ...log }));
         }
       });
 
@@ -56,8 +56,8 @@ export class MonitoringService {
           if (this.client?.readyState === WebSocket.OPEN) {
             this.client.send(
               JSON.stringify({
-                type: 'searchResults',
-                data: searchResults,
+                type: 'web:searchResults',
+                data: searchResults as ILog[],
               })
             );
           }
@@ -78,9 +78,14 @@ export class MonitoringService {
     });
 
     // イベントバスからのログ購読
-    this.eventBus.subscribe('log', (event) => {
+    this.eventBus.subscribe('web:log', (event) => {
       if (this.client && this.client.readyState === WebSocket.OPEN) {
-        this.client.send(JSON.stringify({ type: 'log', data: event.data }));
+        const log = event.data as ILog;
+        const logOutput: WebMonitoringOutput = {
+          type: 'web:log',
+          data: log,
+        };
+        this.client.send(JSON.stringify(logOutput));
       }
     });
   }

@@ -28,6 +28,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/types/types.ts", "src/types/checkTypes.ts"],
   "exclude": ["node_modules"]
 }

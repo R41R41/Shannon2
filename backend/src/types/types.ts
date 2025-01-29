@@ -1,13 +1,14 @@
 export type Platform = 'web' | 'discord' | 'minecraft' | 'twitter' | 'youtube';
 
 export const promptTypes: PromptType[] = [
+  'base_text',
+  'base_voice',
   'about_today',
-  'weather',
+  'weather_to_emoji',
   'fortune',
   'discord',
-  'minecraft',
-  'twitter',
-  'youtube',
+  'forecast',
+  'forecast_for_toyama_server',
 ];
 
 export type PromptType =
@@ -16,18 +17,18 @@ export type PromptType =
   | 'base_voice'
   | 'discord'
   | 'minecraft'
-  | 'twitter'
-  | 'youtube'
-  | 'weatherToEmoji'
-  | 'forecast'
-  | 'forecast_for_toyama_server';
+  | 'weather_to_emoji'
+  | 'forecast_for_toyama_server'
+  | 'youtube';
 
 export type ConversationType =
   | 'text'
   | 'audio'
   | 'realtime_text'
   | 'realtime_audio'
-  | 'endpoint';
+  | 'endpoint'
+  | 'log'
+  | 'user_transcript';
 
 export type RealTimeAPIEndpoint =
   | 'realtime_text_input'
@@ -39,7 +40,10 @@ export type RealTimeAPIEndpoint =
   | 'text_done'
   | 'audio_done';
 
-export type TwitterSchedulePostEndpoint = 'about_today' | 'weather' | 'fortune';
+export type TwitterSchedulePostEndpoint =
+  | 'about_today'
+  | 'forecast'
+  | 'fortune';
 
 export type MinecraftServerStatusEndpoint =
   | 'get_status'
@@ -77,7 +81,7 @@ export type EventType =
   | 'minecraft:post_message'
   | 'web:get_message'
   | 'web:post_message'
-  | 'log';
+  | 'web:log';
 
 export interface LLMInput {
   platform: Platform;
@@ -105,6 +109,13 @@ export interface WebMessageInput {
   realtime_text?: string | null;
   realtime_audio?: string | null;
   endpoint?: RealTimeAPIEndpoint | null;
+}
+
+export type WebMonitoringOutputType = 'web:log' | 'web:searchResults';
+
+export interface WebMonitoringOutput {
+  type: WebMonitoringOutputType;
+  data: ILog | ILog[];
 }
 
 export interface DiscordMessageInput {
@@ -145,7 +156,7 @@ export interface TwitterMessageOutput {
 export interface WebMessageOutput {
   type: ConversationType;
   text?: string | null;
-  audio?: Uint8Array<ArrayBufferLike> | null;
+  audio?: string | null;
   endpoint?: RealTimeAPIEndpoint | null;
 }
 
@@ -157,4 +168,43 @@ export interface DiscordMessageOutput {
   audio?: Uint8Array<ArrayBufferLike> | null;
   endpoint?: RealTimeAPIEndpoint | null;
   imageUrl?: string | null;
+}
+
+export interface ILog {
+  timestamp: Date;
+  memoryZone: MemoryZone;
+  color: Color;
+  content: string;
+}
+
+export interface Event {
+  type: EventType;
+  memoryZone: MemoryZone;
+  data:
+    | TwitterMessageInput
+    | WebMessageInput
+    | DiscordMessageInput
+    | ILog
+    | TwitterMessageOutput
+    | WebMessageOutput
+    | DiscordMessageOutput
+    | MinecraftInput
+    | MinecraftOutput;
+  targetMemoryZones?: MemoryZone[];
+}
+
+export type Color =
+  | 'white'
+  | 'red'
+  | 'green'
+  | 'blue'
+  | 'yellow'
+  | 'magenta'
+  | 'cyan';
+
+export interface LogEntry {
+  timestamp: string;
+  memoryZone: string;
+  color: Color;
+  content: string;
 }

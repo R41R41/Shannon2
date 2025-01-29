@@ -1,4 +1,4 @@
-import { PromptType } from '@/types/index.js';
+import { PromptType } from '@/types/types.js';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
 import axios from 'axios';
@@ -120,7 +120,7 @@ export class PostWeatherAgent {
   }
 
   private async setupSystemPrompts(): Promise<void> {
-    const promptsName: PromptType[] = ['weather', 'weatherToEmoji'];
+    const promptsName: PromptType[] = ['forecast', 'weather_to_emoji'];
     for (const name of promptsName) {
       this.systemPrompts.set(name, await loadPrompt(name));
     }
@@ -136,7 +136,7 @@ export class PostWeatherAgent {
   }
 
   private async getEmoji(telop: string, chanceOfRain: string): Promise<string> {
-    const systemContent = this.systemPrompts.get('weatherToEmoji');
+    const systemContent = this.systemPrompts.get('weather_to_emoji');
     if (!systemContent) {
       throw new Error('systemPrompt is not set');
     }

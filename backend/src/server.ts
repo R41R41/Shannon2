@@ -1,24 +1,22 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import { Scheduler } from './services/scheduler/client.js';
 import { DiscordBot } from './services/discord/client.js';
+import { Scheduler } from './services/scheduler/client.js';
 // import { YoutubeService } from './services/youtube/client.js';
 // import { MinecraftBot } from './services/minecraft/bot.js';
-import { LLMService } from './services/llm/client.js';
-import { EventBus } from './services/eventBus.js';
-import { twitterRoutes } from './routes/twitter.routes.js';
-import { discordRoutes } from './routes/discord.routes.js';
+import cors from 'cors';
 import dotenv from 'dotenv';
+import { discordRoutes } from './routes/discord.routes.js';
+import { twitterRoutes } from './routes/twitter.routes.js';
+import { EventBus } from './services/eventBus.js';
+import { LLMService } from './services/llm/client.js';
 import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
-import { MonitoringService } from './services/monitoring/client.js';
-import cors from 'cors';
 
 dotenv.config();
 
 class Server {
   private app = express();
-  private monitoringService: MonitoringService;
   private eventBus: EventBus;
   private llmService: LLMService;
   private discordBot: DiscordBot;
@@ -34,7 +32,6 @@ class Server {
     const isTestMode = process.argv.includes('--test');
     this.discordBot = new DiscordBot(this.eventBus, isTestMode);
     this.webClient = new WebClient(this.eventBus);
-    this.monitoringService = new MonitoringService(this.eventBus);
     this.twitterClient = new TwitterClient(this.eventBus, isTestMode);
     this.scheduler = new Scheduler(this.eventBus);
   }
@@ -74,7 +71,6 @@ class Server {
         this.startLLMService(),
         this.startTwitterClient(),
         this.connectDatabase(),
-        this.startMonitoringService(),
         this.startScheduler(),
       ]);
     } catch (error) {
@@ -90,11 +86,6 @@ class Server {
   private async startWebClient() {
     await this.webClient.start();
     console.log('\x1b[34mWeb Client started\x1b[0m');
-  }
-
-  private async startMonitoringService() {
-    await this.monitoringService.initialize();
-    console.log('\x1b[34mMonitoring Service started\x1b[0m');
   }
 
   private async startTwitterClient() {

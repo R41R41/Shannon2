@@ -1,48 +1,5 @@
-import Log, { ILog } from '../models/Log.js';
-import {
-  DiscordMessageInput,
-  DiscordMessageOutput,
-  EventType,
-  MemoryZone,
-  MinecraftInput,
-  MinecraftOutput,
-  TwitterMessageInput,
-  TwitterMessageOutput,
-  WebMessageInput,
-  WebMessageOutput,
-} from '../types/index.js';
-
-export interface Event {
-  type: EventType;
-  memoryZone: MemoryZone;
-  data:
-    | TwitterMessageInput
-    | WebMessageInput
-    | DiscordMessageInput
-    | ILog
-    | TwitterMessageOutput
-    | WebMessageOutput
-    | DiscordMessageOutput
-    | MinecraftInput
-    | MinecraftOutput;
-  targetMemoryZones?: MemoryZone[];
-}
-
-export type Color =
-  | 'white'
-  | 'red'
-  | 'green'
-  | 'blue'
-  | 'yellow'
-  | 'magenta'
-  | 'cyan';
-
-export interface LogEntry {
-  timestamp: string;
-  memoryZone: string;
-  color: Color;
-  content: string;
-}
+import Log from '../models/Log.js';
+import { Color, Event, EventType, ILog, MemoryZone } from '../types/types.js';
 
 export class EventBus {
   private listeners: Map<EventType, Array<(event: Event) => void>> = new Map();
@@ -118,9 +75,10 @@ export class EventBus {
     }
 
     this.publish({
-      type: 'log',
+      type: 'web:log',
       memoryZone: 'web',
       data: logEntry,
-    });
+      targetMemoryZones: ['web'],
+    } as Event);
   }
 }

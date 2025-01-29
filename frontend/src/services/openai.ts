@@ -1,5 +1,6 @@
 import { WS_URL } from '@/services/apiTypes';
-
+import { WebMessageOutput } from '@/types/types';
+import { isWebMessageOutput } from '@/types/checkTypes';
 export type ConnectionStatus = 'connected' | 'disconnected' | 'connecting';
 
 export class OpenAIService {
@@ -39,20 +40,25 @@ export class OpenAIService {
       };
 
       this.ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'text_done') {
+        const data = JSON.parse(event.data) as WebMessageOutput;
+
+        if (!isWebMessageOutput(data)) {
+          console.error('Invalid message format:', data);
+          return;
+        }
+
+        if (data.type === 'endpoint' && data.endpoint === 'text_done') {
           this.textDoneCallback?.();
-        } else if (data.type === 'audio_done') {
+        } else if (data.type === 'endpoint' && data.endpoint === 'audio_done') {
           this.audioDoneCallback?.();
-        } else if (data.type === 'text') {
-          console.log('textCallback', data.content);
-          this.textCallback?.(data.content);
-        } else if (data.type === 'audio') {
-          if (!data.content.length) return;
-          console.log(`Received audio data: ${data.content.length} bytes`);
-          this.audioCallback?.(data.content);
-        } else if (data.type === 'user_transcript') {
-          this.userTranscriptCallback?.(data.content);
+        } else if (data.type === 'text' && data.text) {
+          console.log('textCallback', data.text);
+          this.textCallback?.(data.text);
+        } else if (data.type === 'audio' && data.audio) {
+          console.log(`Received audio data: ${data.audio.length} bytes`);
+          this.audioCallback?.(data.audio);
+        } else if (data.type === 'user_transcript' && data.text) {
+          this.userTranscriptCallback?.(data.text);
         }
       };
 
@@ -100,17 +106,20 @@ export class OpenAIService {
     try {
       await this.ensureConnection();
 
-      let type = 'text';
+      let messageData: string;
       if (isRealTimeChat) {
-        type = 'realtime_text';
+        messageData = JSON.stringify({
+          type: 'realtime_text',
+          realtime_text: message,
+        });
+      } else {
+        messageData = JSON.stringify({
+          type: 'text',
+          text: message,
+        });
       }
 
-      const messageData = JSON.stringify({
-        type: type,
-        content: message,
-      });
-
-      console.log('\x1b[32msendMessage\x1b[0m', message);
+      console.log('\x1b[32msendMessage\x1b[0m', messageData);
       this.ws?.send(messageData);
     } catch (error) {
       console.error('Error sending message:', error);
@@ -127,8 +136,8 @@ export class OpenAIService {
         String.fromCharCode(...new Uint8Array(arrayBuffer))
       );
       const messageData = JSON.stringify({
-        type: 'voice_append',
-        content: base64String,
+        type: 'realtime_audio',
+        realtime_audio: base64String,
       });
       console.log('\x1b[32msendVoiceData\x1b[0m', base64String.length);
       this.ws?.send(messageData);
@@ -143,8 +152,10 @@ export class OpenAIService {
       await this.ensureConnection();
 
       const messageData = JSON.stringify({
-        type: 'voice_commit',
+        type: 'endpoint',
+        endpoint: 'realtime_audio_commit',
       });
+      console.log('\x1b[32mcommitAudioBuffer\x1b[0m');
       this.ws?.send(messageData);
     } catch (error) {
       console.error('Error committing audio buffer:', error);
@@ -157,9 +168,10 @@ export class OpenAIService {
       await this.ensureConnection();
 
       const messageData = JSON.stringify({
-        type: 'vad_change',
-        content: data.toString(),
+        type: 'endpoint',
+        endpoint: data ? 'realtime_vad_on' : 'realtime_vad_off',
       });
+      console.log('\x1b[32mvadModeChange\x1b[0m', messageData);
       this.ws?.send(messageData);
     } catch (error) {
       console.error('Error changing VAD mode:', error);

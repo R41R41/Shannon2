@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import styles from './ActivityLog.module.scss';
-import MonitoringService, { LogEntry } from '@/services/monitoring';
+import MonitoringService from '@/services/monitoring';
+import { ILog, Platform } from '@/types/types';
 
-type Platform = 'web' | 'discord' | 'minecraft' | 'twitter' | 'youtube' | 'all';
+type TabType = Platform | 'all';
 
 const ActivityLog: React.FC = () => {
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [selectedPlatform, setSelectedPlatform] = useState<Platform>('all');
+  const [logs, setLogs] = useState<ILog[]>([]);
+  const [selectedPlatform, setSelectedPlatform] = useState<TabType>('all');
   const logListRef = useRef<HTMLDivElement>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const MAX_LOGS = 200;
@@ -14,7 +15,7 @@ const ActivityLog: React.FC = () => {
   useEffect(() => {
     const monitoring = MonitoringService();
 
-    const handleLog = (log: LogEntry) => {
+    const handleLog = (log: ILog) => {
       setLogs((prevLogs) => {
         const newLogs = [...prevLogs, log].slice(-MAX_LOGS);
         // 新しいログが追加されたら自動スクロール
@@ -69,9 +70,11 @@ const ActivityLog: React.FC = () => {
       .replace(/\//g, '-');
   };
 
-  const filteredLogs = logs.filter((log) =>
-    selectedPlatform === 'all' ? true : log.platform === selectedPlatform
-  );
+  const filteredLogs: ILog[] = logs.filter((log) => {
+    return selectedPlatform === 'all'
+      ? true
+      : log.memoryZone.includes(selectedPlatform as Platform);
+  });
 
   return (
     <div className={styles.container}>
@@ -132,7 +135,7 @@ const ActivityLog: React.FC = () => {
               {formatTimestamp(log.timestamp)}
             </span>
             {selectedPlatform === 'all' && (
-              <span className={styles.platform}>{log.platform}</span>
+              <span className={styles.platform}>{log.memoryZone}</span>
             )}
             <span className={`${styles.content} ${styles[log.color]}`}>
               {formatContent(log.content)}

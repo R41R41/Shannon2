@@ -9,7 +9,7 @@ import {
   TwitterMessageOutput,
   WebMessageInput,
   WebMessageOutput,
-} from '../../types/index.js';
+} from '../../types/types.js';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus.js';
 import { PostAboutTodayAgent } from './agents/postAboutTodayAgent.js';
@@ -53,11 +53,11 @@ export class LLMService {
   }
 
   private setupEventBus() {
-    this.eventBus.subscribe('web:post_message', (event) => {
+    this.eventBus.subscribe('web:get_message', (event) => {
       this.processWebMessage(event.data as WebMessageInput);
     });
 
-    this.eventBus.subscribe('discord:post_message', (event) => {
+    this.eventBus.subscribe('discord:get_message', (event) => {
       this.processDiscordMessage(event.data as DiscordMessageInput);
     });
 
@@ -184,7 +184,7 @@ export class LLMService {
   private async processCreatePost(message: TwitterMessageInput) {
     let post = '';
     let postForToyama = '';
-    if (message.endpoint === 'weather') {
+    if (message.endpoint === 'forecast') {
       post = await this.weatherAgent.createPost();
       postForToyama = await this.weatherAgent.createPostForToyama();
     } else if (message.endpoint === 'fortune') {
@@ -329,7 +329,7 @@ export class LLMService {
         type: 'web:post_message',
         memoryZone: 'web',
         data: {
-          audio: audio,
+          audio: audio.toString(),
           type: 'realtime_audio',
           endpoint: 'realtime_audio_append',
         } as WebMessageOutput,

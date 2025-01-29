@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { TwitterMessageInput } from '../../types/index.js';
+import { TwitterMessageInput } from '../../types/types.js';
 import { EventBus } from '../eventBus.js';
 
 export class Scheduler {

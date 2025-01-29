@@ -12,7 +12,7 @@ import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { MemoryZone } from '../../../types/index.js';
+import { MemoryZone } from '../../../types/types.js';
 import { EventBus } from '../../eventBus.js';
 
 const __filename = fileURLToPath(import.meta.url);

@@ -4,7 +4,9 @@ import http from 'http';
 import { WebSocket, WebSocketServer } from 'ws';
 import { PORTS } from '../../config/ports.js';
 import { EventBus } from '../../services/eventBus.js';
-import { WebMessageInput, WebMessageOutput } from '../../types/index.js';
+import { isWebMessageInput } from '../../types/checkTypes.js';
+import { WebMessageInput } from '../../types/types.js';
+import { MonitoringAgent } from './agents/monitoringAgent.js';
 
 export class WebClient {
   private wss: WebSocketServer;
@@ -13,6 +15,7 @@ export class WebClient {
   private app: express.Application;
   private server: http.Server;
   private initialized: boolean = false;
+  private monitoringAgent: MonitoringAgent;
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
     this.app = express();
@@ -21,6 +24,7 @@ export class WebClient {
     this.initialized = false;
     this.setupExpress();
     this.setupWebSocket();
+    this.monitoringAgent = new MonitoringAgent(this.eventBus);
   }
 
   private setupExpress() {
@@ -45,8 +49,20 @@ export class WebClient {
       ws.on('message', async (message) => {
         try {
           const parsedMessage = JSON.parse(message.toString());
+          if (isWebMessageInput(parsedMessage)) {
+            console.log(
+              `\x1b[34mvalid web message received: ${JSON.stringify(
+                parsedMessage
+              )}\x1b[0m`
+            );
+          } else {
+            throw new Error('Invalid message format');
+          }
 
-          if (parsedMessage.type === 'realtime_text') {
+          if (
+            parsedMessage.type === 'realtime_text' &&
+            parsedMessage.realtime_text
+          ) {
             this.eventBus.log('web', 'white', parsedMessage.realtime_text);
             const message: WebMessageInput = {
               type: 'realtime_text',
@@ -58,7 +74,7 @@ export class WebClient {
               memoryZone: 'web',
               data: message,
             });
-          } else if (parsedMessage.type === 'text') {
+          } else if (parsedMessage.type === 'text' && parsedMessage.text) {
             this.eventBus.log('web', 'white', parsedMessage.text, true);
             const message: WebMessageInput = {
               type: 'text',
@@ -69,7 +85,10 @@ export class WebClient {
               memoryZone: 'web',
               data: message,
             });
-          } else if (parsedMessage.type === 'voice_append') {
+          } else if (
+            parsedMessage.type === 'realtime_audio' &&
+            parsedMessage.realtime_audio
+          ) {
             const message: WebMessageInput = {
               type: 'realtime_audio',
               realtime_audio: parsedMessage.realtime_audio,
@@ -80,7 +99,10 @@ export class WebClient {
               memoryZone: 'web',
               data: message,
             });
-          } else if (parsedMessage.type === 'voice_commit') {
+          } else if (
+            parsedMessage.type === 'endpoint' &&
+            parsedMessage.endpoint
+          ) {
             this.eventBus.log(
               'web',
               'white',
@@ -97,8 +119,20 @@ export class WebClient {
               memoryZone: 'web',
               data: message,
             });
-          } else if (parsedMessage.type === 'vad_change') {
-            this.eventBus.log('web', 'white', 'received realtime vad change');
+          } else if (parsedMessage.endpoint === 'realtime_vad_on') {
+            this.eventBus.log('web', 'white', 'received realtime vad on');
+            const message: WebMessageInput = {
+              type: 'endpoint',
+              endpoint: parsedMessage.endpoint,
+            };
+
+            this.eventBus.publish({
+              type: 'web:get_message',
+              memoryZone: 'web',
+              data: message,
+            });
+          } else if (parsedMessage.endpoint === 'realtime_vad_off') {
+            this.eventBus.log('web', 'white', 'received realtime vad off');
             const message: WebMessageInput = {
               type: 'endpoint',
               endpoint: parsedMessage.endpoint,
@@ -129,16 +163,7 @@ export class WebClient {
 
       this.eventBus.subscribe('web:post_message', (event) => {
         if (event.memoryZone === 'web') {
-          const { type, text, audio, endpoint } =
-            event.data as WebMessageOutput;
-          ws.send(
-            JSON.stringify({
-              type: type,
-              text: text,
-              audio: audio,
-              endpoint: endpoint,
-            })
-          );
+          ws.send(JSON.stringify(event.data));
         }
       });
     });

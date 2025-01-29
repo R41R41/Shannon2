@@ -9,7 +9,7 @@ import {
   DiscordMessageInput,
   DiscordMessageOutput,
   MinecraftInput,
-} from '../../types/index.js';
+} from '../../types/types.js';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus.js';
 
@@ -53,7 +53,7 @@ export class DiscordBot {
       this.eventBus.log(
         'discord:aiminelab_server',
         'red',
-        'Discord bot failed to start' + error
+        `Discord bot failed to start: ${error}`
       );
     }
   }

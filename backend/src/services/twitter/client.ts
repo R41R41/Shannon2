@@ -1,5 +1,5 @@
 import { TwitterApi } from 'twitter-api-v2';
-import { TwitterMessageOutput } from '../../types/index.js';
+import { TwitterMessageOutput } from '../../types/types.js';
 import { EventBus } from '../eventBus.js';
 export class TwitterClient {
   private client: TwitterApi;

@@ -1,20 +1,5 @@
 import { WS_MONITORING_URL } from './apiTypes';
-
-export type Color =
-  | 'white'
-  | 'red'
-  | 'green'
-  | 'blue'
-  | 'yellow'
-  | 'magenta'
-  | 'cyan';
-
-export interface LogEntry {
-  timestamp: Date;
-  platform: string;
-  color: Color;
-  content: string;
-}
+import { ILog, WebMonitoringOutput } from '@/types/types';
 
 export interface SearchQuery {
   startDate?: string;
@@ -23,8 +8,8 @@ export interface SearchQuery {
   content?: string;
 }
 
-type LogCallback = (log: LogEntry) => void;
-type SearchCallback = (results: LogEntry[]) => void;
+type LogCallback = (log: ILog) => void;
+type SearchCallback = (results: ILog[]) => void;
 
 export type ConnectionStatus = 'connected' | 'disconnected' | 'connecting';
 
@@ -59,18 +44,18 @@ export class MonitoringService {
     this.ws = new WebSocket(`${WS_MONITORING_URL}`);
 
     this.ws.onmessage = (event) => {
-      const { type, data } = JSON.parse(event.data);
+      const { type, ...data } = JSON.parse(event.data) as WebMonitoringOutput;
 
-      if (type === 'log') {
+      if (type === 'web:log') {
         this.listeners.forEach((listener) => {
-          listener(data);
+          if (data.data) {
+            listener(data.data as ILog);
+          }
         });
-      } else if (type === 'searchResults') {
+      } else if (type === 'web:searchResults') {
         this.searchListeners.forEach((listener) => {
-          listener(data);
+          listener(data.data as ILog[]);
         });
-      } else if (type === 'webStatus') {
-        this.handleWebStatus(data);
       }
     };
 
@@ -150,10 +135,6 @@ export class MonitoringService {
   private setWebStatus(status: ConnectionStatus) {
     this.webStatus = status;
     this.webStatusListeners.forEach((listener) => listener(status));
-  }
-
-  private handleWebStatus(status: ConnectionStatus) {
-    this.setWebStatus(status);
   }
 
   private setStatus(status: ConnectionStatus) {
