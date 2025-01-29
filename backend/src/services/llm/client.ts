@@ -1,4 +1,5 @@
 import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
+import { isDiscordMessageInput } from '../../types/checkTypes.js';
 import {
   DiscordMessageInput,
   DiscordMessageOutput,
@@ -121,6 +122,12 @@ export class LLMService {
 
   private async processDiscordMessage(message: DiscordMessageInput) {
     try {
+      if (!isDiscordMessageInput(message)) {
+        console.error(
+          `Invalid discord message input: ${JSON.stringify(message)}`
+        );
+        return;
+      }
       if (
         message.type === 'realtime_audio' &&
         message.endpoint === 'realtime_audio_append'

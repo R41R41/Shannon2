@@ -153,9 +153,10 @@ export class DiscordBot {
       const nickname = this.getUserNickname(message.author);
       const channelName = this.getChannelName(message.channelId);
       const guildName = this.getGuildName(message.channelId);
-      const memoryZone = getDiscordMemoryZone(guildName);
+      const memoryZone = getDiscordMemoryZone(message.guildId ?? '');
       const messageId = message.id;
       const userId = message.author.id;
+      const guildId = message.guildId;
       this.eventBus.log(
         memoryZone,
         'white',
@@ -170,8 +171,9 @@ export class DiscordBot {
         data: {
           text: message.content,
           type: 'text',
-          guildName: guildName,
+          guildName: memoryZone,
           channelId: message.channelId,
+          guildId: guildId,
           channelName: channelName,
           userName: nickname,
           messageId: messageId,
@@ -189,7 +191,7 @@ export class DiscordBot {
       const isTestGuild = channel.guild.id === process.env.TEST_GUILD_ID;
       if (this.isTestMode !== isTestGuild) return;
 
-      const memoryZone = getDiscordMemoryZone(channel.guild.name);
+      const memoryZone = getDiscordMemoryZone(channel.guildId);
 
       const nickname = this.getUserNickname(speech.user);
       this.eventBus.publish({
@@ -218,7 +220,7 @@ export class DiscordBot {
         const channel = this.client.channels.cache.get(channelId);
         const channelName = this.getChannelName(channelId);
         const guildName = this.getGuildName(channelId);
-        const memoryZone = getDiscordMemoryZone(guildName);
+        const memoryZone = getDiscordMemoryZone(guildId);
 
         if (channel?.isTextBased() && 'send' in channel) {
           if (type === 'text') {
