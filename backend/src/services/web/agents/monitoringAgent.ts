@@ -1,12 +1,12 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { PORTS } from '../../../config/ports.js';
 import Log from '../../../models/Log.js';
-import { ILog, WebMonitoringOutput } from '../../../types/types.js';
+import { ILog, MemoryZone, WebMonitoringOutput } from '../../../types/types.js';
 import { EventBus } from '../../eventBus.js';
 interface SearchQuery {
   startDate?: string;
   endDate?: string;
-  platform?: string;
+  memoryZone?: MemoryZone;
   content?: string;
 }
 
@@ -100,8 +100,8 @@ export class MonitoringAgent {
       };
     }
 
-    if (query.platform) {
-      filter.platform = query.platform;
+    if (query.memoryZone) {
+      filter.memoryZone = query.memoryZone as MemoryZone;
     }
 
     if (query.content) {

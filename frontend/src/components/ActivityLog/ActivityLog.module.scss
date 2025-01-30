@@ -33,7 +33,7 @@
   color: color(text, secondary);
 }
 
-.platform {
+.memoryZone {
   color: color(primary);
   font-weight: 500;
 }
@@ -88,6 +88,8 @@
   color: color(text, disabled);
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 
   &:hover {
     color: color(text, primary);
@@ -95,5 +97,47 @@
 
   &.active {
     color: color(text, white);
+  }
+}
+
+.dropdownTab {
+  position: relative;
+  display: inline-block;
+
+  &:hover .dropdownContent {
+    display: block;
+  }
+}
+
+.dropdownContent {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: color(background, secondary);
+  min-width: 200px;
+  box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.2);
+  z-index: 1;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.dropdownItem {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-size: 0.7rem;
+  background: none;
+  border: none;
+  color: color(text, white);
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover {
+    background-color: color(background, tertiary);
+  }
+
+  &.active {
+    background-color: color(background, tertiary);
   }
 }

@@ -11,6 +11,7 @@
 - [x] realtime audio 会話ができる
 - [x] vad モードで realtime audio 会話ができる
 - [x] ログが分かりやすく見れる
+- [x] ログの検索ができる
 - [ ] Twitter 定時投稿
 - [ ] Twitter bot 起動・停止・状態
 - [ ] minebot 起動・停止・状態

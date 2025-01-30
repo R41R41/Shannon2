@@ -1,32 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import styles from './StatusLog.module.scss';
-import MonitoringService, { ConnectionStatus } from '@/services/monitoring';
+import { ConnectionStatus } from '@/services/monitoring';
 import CircleIcon from '@mui/icons-material/Circle';
-import OpenAIService from '@/services/openai';
 
-const StatusLog: React.FC = () => {
-  const [monitoringStatus, setMonitoringStatus] =
-    useState<ConnectionStatus>('disconnected');
-  const [openaiStatus, setOpenAIStatus] =
-    useState<ConnectionStatus>('disconnected');
-  const [webStatus, setWebStatus] = useState<ConnectionStatus>('disconnected');
+interface StatusLogProps {
+  monitoringStatus: ConnectionStatus;
+  openaiStatus: ConnectionStatus;
+  webStatus: ConnectionStatus;
+}
 
-  useEffect(() => {
-    const monitoring = MonitoringService();
-    const openai = OpenAIService();
-
-    const unsubscribeMonitoring =
-      monitoring.onWebStatusChange(setMonitoringStatus);
-    const unsubscribeOpenAI = openai.onStatusChange(setOpenAIStatus);
-    const unsubscribeWeb = monitoring.onWebStatusChange(setWebStatus);
-
-    return () => {
-      unsubscribeMonitoring();
-      unsubscribeOpenAI();
-      unsubscribeWeb();
-    };
-  }, []);
-
+const StatusLog: React.FC<StatusLogProps> = ({
+  monitoringStatus,
+  openaiStatus,
+  webStatus,
+}) => {
   const getStatusColor = (status: ConnectionStatus) => {
     switch (status) {
       case 'connected':

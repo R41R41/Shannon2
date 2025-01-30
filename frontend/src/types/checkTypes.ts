@@ -1,10 +1,20 @@
 import {
   DiscordGuild,
   DiscordMessageInput,
+  ILog,
   RealTimeAPIEndpoint,
   WebMessageInput,
   WebMessageOutput,
 } from './types';
+
+export const isILog = (log: ILog): log is ILog => {
+  return (
+    typeof log.memoryZone === 'string' &&
+    typeof log.content === 'string' &&
+    typeof log.timestamp === 'string' &&
+    typeof log.color === 'string'
+  );
+};
 
 export const isDiscordGuild = (guild: DiscordGuild): guild is DiscordGuild => {
   return (

@@ -6,11 +6,11 @@ import HandymanOutlinedIcon from '@mui/icons-material/HandymanOutlined';
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import SearchTab from './SearchTab';
-import { LogEntry } from '@/services/monitoring';
+import { ILog } from '@/types/types';
 
 const Sidebar: React.FC = () => {
   const [activeTab, setActiveTab] = useState('search');
-  const [searchResults, setSearchResults] = useState<LogEntry[]>([]);
+  const [searchResults, setSearchResults] = useState<ILog[]>([]);
 
   return (
     <div className={styles.sidebarContainer}>

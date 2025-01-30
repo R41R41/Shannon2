@@ -1,20 +1,25 @@
 import React, { useEffect, useState, useRef } from 'react';
 import styles from './ActivityLog.module.scss';
+import { ILog, MemoryZone } from '@/types/types';
+import { isILog } from '@/types/checkTypes';
 import MonitoringService from '@/services/monitoring';
-import { ILog, Platform } from '@/types/types';
+import { ConnectionStatus } from '@/services/monitoring';
 
-type TabType = Platform | 'all';
+interface ActivityLogProps {
+  monitoringStatus: ConnectionStatus;
+}
 
-const ActivityLog: React.FC = () => {
+const ActivityLog: React.FC<ActivityLogProps> = ({ monitoringStatus }) => {
   const [logs, setLogs] = useState<ILog[]>([]);
-  const [selectedPlatform, setSelectedPlatform] = useState<TabType>('all');
+  const [selectedMemoryZone, setSelectedMemoryZone] = useState<MemoryZone | ''>(
+    ''
+  );
   const logListRef = useRef<HTMLDivElement>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const MAX_LOGS = 200;
+  const monitoring = MonitoringService();
 
   useEffect(() => {
-    const monitoring = MonitoringService();
-
     const handleLog = (log: ILog) => {
       setLogs((prevLogs) => {
         const newLogs = [...prevLogs, log].slice(-MAX_LOGS);
@@ -36,7 +41,22 @@ const ActivityLog: React.FC = () => {
     return () => {
       monitoring.unsubscribe(handleLog);
     };
-  }, [shouldAutoScroll]);
+  }, [shouldAutoScroll, monitoring]);
+
+  useEffect(() => {
+    if (monitoringStatus === 'connected') {
+      const fetchAllMemoryZoneLogs = async () => {
+        try {
+          const allMemoryZoneLogs = await monitoring.getAllMemoryZoneLogs();
+          setLogs(allMemoryZoneLogs);
+        } catch (error) {
+          console.error('Failed to fetch all memory zone logs:', error);
+        }
+      };
+
+      fetchAllMemoryZoneLogs();
+    }
+  }, [monitoringStatus, monitoring]);
 
   // スクロールイベントを監視して、手動スクロール時に自動スクロールを無効化
   const handleScroll = () => {
@@ -71,9 +91,12 @@ const ActivityLog: React.FC = () => {
   };
 
   const filteredLogs: ILog[] = logs.filter((log) => {
-    return selectedPlatform === 'all'
+    if (!isILog(log)) {
+      return false;
+    }
+    return selectedMemoryZone === ''
       ? true
-      : log.memoryZone.includes(selectedPlatform as Platform);
+      : log.memoryZone.includes(selectedMemoryZone);
   });
 
   return (
@@ -81,49 +104,89 @@ const ActivityLog: React.FC = () => {
       <div className={styles.tabs}>
         <button
           className={`${styles.tab} ${
-            selectedPlatform === 'all' ? styles.active : ''
+            selectedMemoryZone === '' ? styles.active : ''
           }`}
-          onClick={() => setSelectedPlatform('all')}
+          onClick={() => setSelectedMemoryZone('')}
         >
           All
         </button>
         <button
           className={`${styles.tab} ${
-            selectedPlatform === 'web' ? styles.active : ''
+            selectedMemoryZone === 'web' ? styles.active : ''
           }`}
-          onClick={() => setSelectedPlatform('web')}
+          onClick={() => setSelectedMemoryZone('web')}
         >
-          Web
+          ShannonUI
         </button>
+        <div className={styles.dropdownTab}>
+          <button
+            className={`${styles.tab} ${
+              selectedMemoryZone.startsWith('discord') ? styles.active : ''
+            }`}
+          >
+            Discord:{' '}
+            {selectedMemoryZone.split(':')[1] === 'toyama_server'
+              ? 'とやまさば'
+              : selectedMemoryZone.split(':')[1] === 'aiminelab_server'
+              ? 'アイマイラボ！'
+              : selectedMemoryZone.split(':')[1] === 'test_server'
+              ? 'シャノンテスト用サーバー'
+              : '全てのサーバー'}
+          </button>
+          <div className={styles.dropdownContent}>
+            <button
+              className={`${styles.dropdownItem} ${
+                selectedMemoryZone === 'discord:toyama_server'
+                  ? styles.active
+                  : ''
+              }`}
+              onClick={() => setSelectedMemoryZone('discord:toyama_server')}
+            >
+              discord:とやまさば
+            </button>
+            <button
+              className={`${styles.dropdownItem} ${
+                selectedMemoryZone === 'discord:aiminelab_server'
+                  ? styles.active
+                  : ''
+              }`}
+              onClick={() => setSelectedMemoryZone('discord:aiminelab_server')}
+            >
+              discord:アイマイラボ！
+            </button>
+            <button
+              className={`${styles.dropdownItem} ${
+                selectedMemoryZone === 'discord:test_server'
+                  ? styles.active
+                  : ''
+              }`}
+              onClick={() => setSelectedMemoryZone('discord:test_server')}
+            >
+              discord:シャノンテスト用サーバー
+            </button>
+          </div>
+        </div>
         <button
           className={`${styles.tab} ${
-            selectedPlatform === 'discord' ? styles.active : ''
+            selectedMemoryZone === 'minecraft' ? styles.active : ''
           }`}
-          onClick={() => setSelectedPlatform('discord')}
-        >
-          Discord
-        </button>
-        <button
-          className={`${styles.tab} ${
-            selectedPlatform === 'minecraft' ? styles.active : ''
-          }`}
-          onClick={() => setSelectedPlatform('minecraft')}
+          onClick={() => setSelectedMemoryZone('minecraft')}
         >
           Minecraft
         </button>
         <button
           className={`${styles.tab} ${
-            selectedPlatform === 'twitter' ? styles.active : ''
+            selectedMemoryZone === 'twitter:schedule_post' ? styles.active : ''
           }`}
-          onClick={() => setSelectedPlatform('twitter')}
+          onClick={() => setSelectedMemoryZone('twitter:schedule_post')}
         >
-          Twitter
+          twitter
         </button>
         <button
           className={`${styles.tab} ${
-            selectedPlatform === 'youtube' ? styles.active : ''
+            selectedMemoryZone === 'youtube' ? styles.active : ''
           }`}
-          onClick={() => setSelectedPlatform('youtube')}
+          onClick={() => setSelectedMemoryZone('youtube')}
         >
           YouTube
         </button>
@@ -134,8 +197,8 @@ const ActivityLog: React.FC = () => {
             <span className={styles.timestamp}>
               {formatTimestamp(log.timestamp)}
             </span>
-            {selectedPlatform === 'all' && (
-              <span className={styles.platform}>{log.memoryZone}</span>
+            {selectedMemoryZone === '' && (
+              <span className={styles.memoryZone}>{log.memoryZone}</span>
             )}
             <span className={`${styles.content} ${styles[log.color]}`}>
               {formatContent(log.content)}

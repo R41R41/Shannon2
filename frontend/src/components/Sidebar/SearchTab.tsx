@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import styles from './SearchTab.module.scss';
-import MonitoringService, { LogEntry } from '@/services/monitoring';
+import { ILog } from '@/types/types';
+import { MemoryZone } from '@/types/types';
+import MonitoringService from '@/services/monitoring';
 
 interface SearchTabProps {
-  searchResults: LogEntry[];
-  setSearchResults: (results: LogEntry[]) => void;
+  searchResults: ILog[];
+  setSearchResults: (results: ILog[]) => void;
 }
 
 const SearchTab: React.FC<SearchTabProps> = ({
@@ -13,7 +15,7 @@ const SearchTab: React.FC<SearchTabProps> = ({
 }) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [platform, setPlatform] = useState('');
+  const [memoryZone, setMemoryZone] = useState<MemoryZone | ''>('');
   const [content, setContent] = useState('');
 
   useEffect(() => {
@@ -33,10 +35,10 @@ const SearchTab: React.FC<SearchTabProps> = ({
     monitoring.searchLogs({
       startDate,
       endDate,
-      platform,
+      memoryZone,
       content,
     });
-  }, [startDate, endDate, platform, content]);
+  }, [startDate, endDate, memoryZone, content]);
 
   const formatContent = (content: string) => {
     return content.split('\n').map((line, i) => (
@@ -88,16 +90,25 @@ const SearchTab: React.FC<SearchTabProps> = ({
           className={styles.input}
         />
         <select
-          value={platform}
-          onChange={(e) => setPlatform(e.target.value)}
+          value={memoryZone}
+          onChange={(e) => setMemoryZone(e.target.value as MemoryZone)}
           className={`${styles.input} ${styles.select}`}
         >
-          <option value="">全てのプラットフォーム</option>
-          <option value="web">Web</option>
-          <option value="discord">Discord</option>
-          <option value="minecraft">Minecraft</option>
-          <option value="twitter">Twitter</option>
-          <option value="youtube">YouTube</option>
+          <option value="">全ての記憶領域</option>
+          <option value="web">ShannonUI</option>
+          <option value="discord:toyama_server">discord:とやまさば</option>
+          <option value="discord:aiminelab_server">
+            discord:アイマイラボ！
+          </option>
+          <option value="discord:test_server">
+            discord:シャノンテスト用サーバー
+          </option>
+          <option value="minecraft">minecraft</option>
+          <option value="twitter:schedule_post">
+            twitter:スケジュール投稿
+          </option>
+          <option value="twitter:post">twitter:通常投稿</option>
+          <option value="youtube">youtube</option>
         </select>
         <input
           type="text"
@@ -113,7 +124,7 @@ const SearchTab: React.FC<SearchTabProps> = ({
               <span className={styles.timestamp}>
                 {formatTimestamp(log.timestamp)}
               </span>
-              <span className={styles.platform}>{log.platform}</span>
+              <span className={styles.platform}>{log.memoryZone}</span>
             </div>
             <span className={`${styles.content} ${styles[log.color]}`}>
               {formatContent(log.content)}

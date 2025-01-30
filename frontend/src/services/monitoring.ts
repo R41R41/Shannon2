@@ -4,7 +4,7 @@ import { ILog, WebMonitoringOutput } from '@/types/types';
 export interface SearchQuery {
   startDate?: string;
   endDate?: string;
-  platform?: string;
+  memoryZone?: string;
   content?: string;
 }
 
@@ -140,6 +140,28 @@ export class MonitoringService {
   private setStatus(status: ConnectionStatus) {
     this.webStatus = status;
     this.webStatusListeners.forEach((listener) => listener(status));
+  }
+
+  public async getAllMemoryZoneLogs(): Promise<ILog[]> {
+    return new Promise((resolve, reject) => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        const handleAllMemoryZoneLogs = (logs: ILog[]) => {
+          this.searchListeners.delete(handleAllMemoryZoneLogs);
+          resolve(logs);
+        };
+
+        this.searchListeners.add(handleAllMemoryZoneLogs);
+
+        this.ws.send(
+          JSON.stringify({
+            type: 'search',
+            query: { memoryZone: '' }, // 空文字で全てのプラットフォームを指定
+          })
+        );
+      } else {
+        reject(new Error('WebSocket is not open'));
+      }
+    });
   }
 }
 
