@@ -155,7 +155,7 @@ export class OpenAIService {
       await this.ensureConnection();
 
       const messageData = JSON.stringify({
-        type: 'endpoint',
+        type: 'realtime_audio',
         endpoint: 'realtime_audio_commit',
       });
       console.log('\x1b[32mcommitAudioBuffer\x1b[0m');

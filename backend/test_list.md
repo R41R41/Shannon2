@@ -4,9 +4,9 @@
 
 [x] text 会話ができる
 [x] realtime text 会話ができる
-[] realtime audio 会話ができる
-[] vad モードで realtime audio 会話ができる
-[] ログが分かりやすく見れる
+[x] realtime audio 会話ができる
+[x] vad モードで realtime audio 会話ができる
+[x] ログが分かりやすく見れる
 
 ## discord
 

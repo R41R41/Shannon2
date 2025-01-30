@@ -353,6 +353,7 @@ export class RealtimeAPIService {
       const commitMessage = {
         type: 'input_audio_buffer.commit',
       };
+      console.log('inputAudioBufferCommit', commitMessage);
       this.ws.send(JSON.stringify(commitMessage));
 
       const responseRequest = {

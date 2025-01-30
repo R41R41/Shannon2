@@ -48,25 +48,26 @@ export class WebClient {
 
       ws.on('message', async (message) => {
         try {
-          const parsedMessage = JSON.parse(message.toString());
-          if (isWebMessageInput(parsedMessage)) {
+          const data = JSON.parse(message.toString());
+          if (isWebMessageInput(data)) {
             console.log(
-              `\x1b[34mvalid web message received: ${JSON.stringify(
-                parsedMessage
-              )}\x1b[0m`
+              `\x1b[34mvalid web message received: ${
+                data.type === 'realtime_audio'
+                  ? data.type + ' ' + data.realtime_audio?.length
+                  : data.type === 'audio'
+                  ? data.type + ' ' + data.audio?.length
+                  : JSON.stringify(data)
+              }\x1b[0m`
             );
           } else {
             throw new Error('Invalid message format');
           }
 
-          if (
-            parsedMessage.type === 'realtime_text' &&
-            parsedMessage.realtime_text
-          ) {
-            this.eventBus.log('web', 'white', parsedMessage.realtime_text);
+          if (data.type === 'realtime_text' && data.realtime_text) {
+            this.eventBus.log('web', 'white', data.realtime_text);
             const message: WebMessageInput = {
               type: 'realtime_text',
-              realtime_text: parsedMessage.realtime_text,
+              realtime_text: data.realtime_text,
             };
 
             this.eventBus.publish({
@@ -74,24 +75,36 @@ export class WebClient {
               memoryZone: 'web',
               data: message,
             });
-          } else if (parsedMessage.type === 'text' && parsedMessage.text) {
-            this.eventBus.log('web', 'white', parsedMessage.text, true);
+          } else if (data.type === 'text' && data.text) {
+            this.eventBus.log('web', 'white', data.text, true);
             const message: WebMessageInput = {
               type: 'text',
-              text: parsedMessage.text,
+              text: data.text,
             };
             this.eventBus.publish({
               type: 'web:get_message',
               memoryZone: 'web',
               data: message,
             });
+          } else if (data.type === 'realtime_audio' && data.realtime_audio) {
+            const message: WebMessageInput = {
+              type: 'realtime_audio',
+              realtime_audio: data.realtime_audio,
+              endpoint: 'realtime_audio_append',
+            };
+
+            this.eventBus.publish({
+              type: 'web:get_message',
+              memoryZone: 'web',
+              data: message,
+            });
           } else if (
-            parsedMessage.type === 'realtime_audio' &&
-            parsedMessage.realtime_audio
+            data.type === 'realtime_audio' &&
+            data.endpoint === 'realtime_audio_commit'
           ) {
             const message: WebMessageInput = {
               type: 'realtime_audio',
-              realtime_audio: parsedMessage.realtime_audio,
+              endpoint: 'realtime_audio_commit',
             };
 
             this.eventBus.publish({
@@ -99,10 +112,7 @@ export class WebClient {
               memoryZone: 'web',
               data: message,
             });
-          } else if (
-            parsedMessage.type === 'endpoint' &&
-            parsedMessage.endpoint
-          ) {
+          } else if (data.type === 'endpoint' && data.endpoint) {
             this.eventBus.log(
               'web',
               'white',
@@ -111,7 +121,7 @@ export class WebClient {
             );
             const message: WebMessageInput = {
               type: 'endpoint',
-              endpoint: 'audio_done',
+              endpoint: data.endpoint,
             };
 
             this.eventBus.publish({
@@ -119,11 +129,11 @@ export class WebClient {
               memoryZone: 'web',
               data: message,
             });
-          } else if (parsedMessage.endpoint === 'realtime_vad_on') {
+          } else if (data.endpoint === 'realtime_vad_on') {
             this.eventBus.log('web', 'white', 'received realtime vad on');
             const message: WebMessageInput = {
               type: 'endpoint',
-              endpoint: parsedMessage.endpoint,
+              endpoint: data.endpoint,
             };
 
             this.eventBus.publish({
@@ -131,11 +141,11 @@ export class WebClient {
               memoryZone: 'web',
               data: message,
             });
-          } else if (parsedMessage.endpoint === 'realtime_vad_off') {
+          } else if (data.endpoint === 'realtime_vad_off') {
             this.eventBus.log('web', 'white', 'received realtime vad off');
             const message: WebMessageInput = {
               type: 'endpoint',
-              endpoint: parsedMessage.endpoint,
+              endpoint: data.endpoint,
             };
 
             this.eventBus.publish({
