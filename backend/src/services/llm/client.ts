@@ -283,6 +283,8 @@ export class LLMService {
         decision: '',
       });
 
+      console.log(result);
+
       const lastMessage = result.messages[result.messages.length - 1];
 
       if (outputMemoryZones) {
@@ -300,7 +302,7 @@ export class LLMService {
       }
       return lastMessage.content.toString();
     } catch (error) {
-      console.error(`\x1b[31mLLM処理エラー:${error}\x1b[0m`);
+      console.error(`\x1b[31mLLM処理エラー:${error}\n\x1b[0m`);
       this.eventBus.log(inputMemoryZone, 'red', `Error: ${error}`, true);
       throw error;
     }

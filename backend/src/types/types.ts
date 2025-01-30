@@ -19,7 +19,9 @@ export type PromptType =
   | 'minecraft'
   | 'weather_to_emoji'
   | 'forecast_for_toyama_server'
-  | 'youtube';
+  | 'youtube'
+  | 'planning'
+  | 'decision';
 
 export type ConversationType =
   | 'text'

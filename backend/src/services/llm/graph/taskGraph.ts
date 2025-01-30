@@ -5,6 +5,7 @@ import {
   SystemMessage,
   ToolMessage,
 } from '@langchain/core/messages';
+import { JsonOutputParser } from '@langchain/core/output_parsers';
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { ChatOpenAI } from '@langchain/openai';
@@ -12,9 +13,9 @@ import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { MemoryZone } from '../../../types/types.js';
+import { MemoryZone, PromptType } from '../../../types/types.js';
 import { EventBus } from '../../eventBus.js';
-
+import { loadPrompt } from '../config/prompts.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -36,13 +37,22 @@ export class TaskGraph {
   private toolNode: ToolNode;
   private graph: any;
   private eventBus: EventBus | null = null;
-
+  private systemPrompts: Map<PromptType, string>;
   constructor(eventBus?: EventBus) {
     this.eventBus = eventBus ?? null;
     this.initializeModel();
     this.initializeTools();
     this.toolNode = new ToolNode(this.tools);
     this.graph = this.createGraph();
+    this.systemPrompts = new Map();
+    this.setupSystemPrompts();
+  }
+
+  private async setupSystemPrompts(): Promise<void> {
+    const promptsName: PromptType[] = ['planning', 'decision'];
+    for (const name of promptsName) {
+      this.systemPrompts.set(name, await loadPrompt(name));
+    }
   }
 
   private async initializeModel() {
@@ -191,16 +201,17 @@ export class TaskGraph {
   };
 
   private decisionNode = async (state: typeof this.TaskState.State) => {
-    const decisionPrompt = `
-    以下のメッセージを分析し、すぐに回答可能か計画が必要か判定してください：
-    # 判定基準
-    - 日常会話や単純な質問 → immediate
-    - 調査/計算/複数ステップが必要 → plan
-    `;
+    const decisionPrompt = this.systemPrompts.get('decision');
+    if (!decisionPrompt) {
+      throw new Error('Decision prompt not found');
+    }
 
     if (!this.model) {
       throw new Error('Model not initialized');
     }
+
+    const parser = new JsonOutputParser();
+    const chain = this.model.pipe(parser);
 
     const currentTime = new Date().toLocaleString('ja-JP', {
       timeZone: 'Asia/Tokyo',
@@ -209,33 +220,26 @@ export class TaskGraph {
 
     const messages = [
       new SystemMessage(decisionPrompt),
-      new HumanMessage('判定結果（immediate/plan）のみを回答してください'),
       new SystemMessage(`currentTime: ${currentTime}`),
       state.infoMessage ? new SystemMessage(state.infoMessage) : null,
       chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
       ...state.conversationHistory.messages.slice(-10),
     ].filter((message): message is BaseMessage => message !== null);
 
-    const decision = await this.model.invoke(messages);
-
-    console.log(decision.content.toString());
-
-    return { decision: decision.content.toString().trim().toLowerCase() };
+    try {
+      const response = await chain.invoke(messages);
+      return { decision: response.decision };
+    } catch (error) {
+      console.error('JSONパースエラー:', error);
+      return this.errorHandler(state);
+    }
   };
 
   private planningNode = async (state: typeof this.TaskState.State) => {
-    const planningPrompt = `文脈を理解し、ユーザーに回答するために以下の形式で計画を立案してください：
-    {
-      "goal": "達成すべき最終目標",
-      "plan": "全体の戦略",
-      "subTasks": [
-        {"goal": "サブタスク1", "plan": "サブタスク1の計画", "status": "サブタスク1の状態", "subTasks": さらに下位のサブタスクがある場合はここに記載},
-        {"goal": "サブタスク2", "plan": "サブタスク2の計画", "status": "サブタスク2の状態", "subTasks": さらに下位のサブタスクがある場合はここに記載}
-      ]
+    const planningPrompt = this.systemPrompts.get('planning');
+    if (!planningPrompt) {
+      throw new Error('Planning prompt not found');
     }
-    - statusは以下のいずれかを使用してください：
-    'pending' | 'in_progress' | 'completed' | 'error'
-    `;
 
     const currentTime = new Date().toLocaleString('ja-JP', {
       timeZone: 'Asia/Tokyo',
@@ -253,16 +257,23 @@ export class TaskGraph {
     if (!this.model) {
       throw new Error('Model not initialized');
     }
+    const parser = new JsonOutputParser();
+    const chain = this.model.pipe(parser);
 
-    const plan = await this.model.invoke(messages);
-    return {
-      taskTree: {
-        ...state.taskTree,
-        goal: JSON.parse(plan.content.toString()).goal,
-        plan: JSON.parse(plan.content.toString()).plan,
-        subTasks: JSON.parse(plan.content.toString()).subTasks,
-      },
-    };
+    try {
+      const response = await chain.invoke(messages);
+      return {
+        taskTree: {
+          ...state.taskTree,
+          goal: response.goal,
+          plan: response.plan,
+          subTasks: response.subTasks,
+        },
+      };
+    } catch (error) {
+      console.error('JSONパースエラー:', error);
+      return this.errorHandler(state);
+    }
   };
 
   private TaskState = Annotation.Root({
