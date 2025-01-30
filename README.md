@@ -1,87 +1,54 @@
-# Shannon2
+# SHANNON <img src="frontend/public/logo.png" alt="Shannon Logo" width="30">
 
-## ログ規則
-- error
-\x1b[31m - 赤
-- success
-\x1b[32m - 緑
-- warning
-\x1b[33m - 黄
-- started
-\x1b[34m - 青
-- updated
-\x1b[36m - シアン（水色）
-- others
-\x1b[37m - 白
-\x1b[35m - マゼンタ（紫）
 
-Shannon2                                                                  
-├─ backend                                                                
-│  ├─ node_modules                                                                                                          
-│  ├─ src                                                                 
-│  │  ├─ config                                                           
-│  │  ├─ jobs                                                             
-│  │  ├─ models                                                     
-│  │  ├─ routes                                                           
-│  │  │  └─ discord.routes.ts                                             
-│  │  ├─ services                                                         
-│  │  │  ├─ discord                                                       
-│  │  │  │  ├─ commands                                                   
-│  │  │  │  ├─ events                                                     
-│  │  │  │  └─ client.ts                                                  
-│  │  │  ├─ llm                                                           
-│  │  │  │  ├─ config                                                     
-│  │  │  │  │  ├─ prompts                                                 
-│  │  │  │  │  │  ├─ base_text.txt                                        
-│  │  │  │  │  │  ├─ base_voice.txt                                       
-│  │  │  │  │  │  ├─ discord_text.txt                                     
-│  │  │  │  │  │  └─ discord_voice.txt                                    
-│  │  │  │  │  └─ prompts.ts                                              
-│  │  │  │  ├─ platforms                                                  
-│  │  │  │  ├─ types                                                      
-│  │  │  │  │  └─ index.ts                                                
-│  │  │  │  ├─ utils                                                      
-│  │  │  │  │  └─ errorHandler.ts                                         
-│  │  │  │  ├─ client.ts                                                  
-│  │  │  │  ├─ eventBus.ts                                                
-│  │  │  │  └─ index.ts                                                   
-│  │  │  ├─ minecraft                                                     
-│  │  │  │  └─ bot.ts                                                     
-│  │  │  ├─ twitter                                                       
-│  │  │  │  └─ client.ts                                                  
-│  │  │  └─ youtube                                                       
-│  │  ├─ types                                                            
-│  │  ├─ utils                                                            
-│  │  │  └─ scheduler.ts                                                  
-│  │  └─ server.ts                                                        
-│  ├─ package-lock.json                                                   
-│  ├─ package.json                                                        
-│  └─ tsconfig.json                                                       
-├─ frontend                                                               
-│  ├─ node_modules                                                                                                             
-│  ├─ public                                                              
-│  │  └─ vite.svg                                                         
-│  ├─ src                                                                 
-│  │  ├─ assets                                                           
-│  │  │  └─ react.svg                                                     
-│  │  ├─ components                                                       
-│  │  │  ├─ App                                                           
-│  │  │  │  ├─ App.module.scss                                            
-│  │  │  │  └─ App.tsx                                                    
-│  │  │  └─ ChatSidebar                                                   
-│  │  │     ├─ ChatSidebar.css                                            
-│  │  │     └─ ChatSidebar.tsx                                            
-│  │  ├─ index.css                                                        
-│  │  ├─ main.tsx                                                         
-│  │  └─ vite-env.d.ts                                                    
-│  ├─ eslint.config.js                                                    
-│  ├─ index.html                                                          
-│  ├─ package-lock.json                                                   
-│  ├─ package.json                                                        
-│  ├─ tsconfig.app.json                                                   
-│  ├─ tsconfig.json                                                       
-│  ├─ tsconfig.node.json                                                  
-│  └─ vite.config.ts                                                      
-├─ README.md                                                              
-├─ package-lock.json                                                      
-└─ package.json                                                           
+## 概要
+
+Shannon2は、OpenAI APIを活用したマルチモーダルなAIアシスタントです。テキストチャット、リアルタイム音声会話、Twitter連携、Minecraftサーバー管理、Youtube連携、Discord Botなどの機能を備えています。
+
+## デモ
+
+![デモGIFやスクリーンショット](frontend/public/demo.gif)
+
+## 特徴
+
+- **テキストチャット**: WebインターフェースとDiscordを通じた対話が可能
+- **リアルタイム音声会話**: VAD対応の音声チャットが可能
+- **Twitter連携**: 定時ツイートや自動対話
+- **Minecraftサーバー管理**: サーバーの起動/停止、状態監視
+- **Youtube連携**: コメントの自動返信
+- **Discord Bot**: サーバー管理やコミュニティ支援機能
+
+## インストール
+
+プロジェクトをローカル環境にセットアップする手順を以下に示します。
+
+```bash
+# リポジトリをクローン
+git clone https://github.com/R41R41/Shannon2.git
+
+# バックエンドのセットアップ
+cd Shannon2/backend
+npm install
+
+# フロントエンドのセットアップ
+cd ../frontend
+npm install
+```
+
+## 使用方法
+
+基本的な使用方法を以下に示します。詳細なガイドは[USAGE.md](USAGE.md)を参照してください。
+
+```bash
+# バックエンドの起動
+cd backend
+npm start
+
+# フロントエンドの起動
+cd frontend
+npm run dev
+```
+
+## 開発者向け情報
+
+開発者向けの詳細な情報は[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)を参照してください。
