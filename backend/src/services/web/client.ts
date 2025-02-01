@@ -2,11 +2,11 @@ import { PORTS } from '../../config/ports.js';
 import { EventBus } from '../eventBus.js';
 import { MonitoringAgent } from './agents/monitoringAgent.js';
 import { OpenAIClientService } from './agents/openaiAgent.js';
-
+import { ScheduleAgent } from './agents/scheduleAgent.js';
 export class WebClient {
   private openaiService: OpenAIClientService;
   private monitoringService: MonitoringAgent;
-
+  private scheduleService: ScheduleAgent;
   constructor(eventBus: EventBus) {
     this.openaiService = new OpenAIClientService({
       port: PORTS.WEBSOCKET.OPENAI as number,
@@ -19,10 +19,17 @@ export class WebClient {
       eventBus: eventBus,
       serviceName: 'monitoring',
     });
+
+    this.scheduleService = new ScheduleAgent({
+      port: PORTS.WEBSOCKET.SCHEDULE as number,
+      eventBus: eventBus,
+      serviceName: 'schedule',
+    });
   }
 
   public start() {
     this.openaiService.start();
     this.monitoringService.start();
+    this.scheduleService.start();
   }
 }

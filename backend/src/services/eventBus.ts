@@ -1,5 +1,5 @@
+import { Color, Event, EventType, ILog, MemoryZone } from '@common/types';
 import Log from '../models/Log.js';
-import { Color, Event, EventType, ILog, MemoryZone } from '../types/types.js';
 
 export class EventBus {
   private listeners: Map<EventType, Array<(event: Event) => void>> = new Map();

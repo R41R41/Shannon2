@@ -1,6 +1,7 @@
 [
   {
     "time": "0 8 * * *",
+    "name": "twitter:fortune",
     "data": {
       "type": "twitter:post_scheduled_message",
       "memoryZone": "twitter:post",
@@ -13,6 +14,7 @@
   },
   {
     "time": "0 12 * * *",
+    "name": "twitter:about_today",
     "data": {
       "type": "twitter:post_scheduled_message",
       "memoryZone": "twitter:post",
@@ -25,6 +27,7 @@
   },
   {
     "time": "0 18 * * *",
+    "name": "twitter:weather",
     "data": {
       "type": "twitter:post_scheduled_message",
       "memoryZone": "twitter:post",

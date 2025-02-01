@@ -1,6 +1,6 @@
+import { isWebMonitoringInput } from '@common/checkTypes';
+import { ILog, MemoryZone, WebMonitoringOutput } from '@common/types';
 import Log from '../../../models/Log.js';
-import { isWebMonitoringInput } from '../../../types/checkTypes.js';
-import { ILog, MemoryZone, WebMonitoringOutput } from '../../../types/types.js';
 import {
   WebSocketServiceBase,
   WebSocketServiceConfig,
@@ -27,7 +27,6 @@ export class MonitoringAgent extends WebSocketServiceBase {
       );
 
       sortedLogs.forEach((log) => {
-        console.log('log', log);
         this.broadcast({ type: 'web:log', data: log } as WebMonitoringOutput);
       });
 

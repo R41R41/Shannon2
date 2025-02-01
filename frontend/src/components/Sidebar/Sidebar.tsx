@@ -6,14 +6,17 @@ import HandymanOutlinedIcon from '@mui/icons-material/HandymanOutlined';
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import SearchTab from './SearchTab';
-import { ILog } from '@/types/types';
+import { ILog } from '@common/types';
 import { MonitoringAgent } from '@/services/agents/monitoringAgent';
+import { SchedulerAgent } from '@/services/agents/schedulerAgent';
+import ScheduleTab from './ScheduleTab';
 
 interface SidebarProps {
   monitoring: MonitoringAgent | null;
+  scheduler: SchedulerAgent | null;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ monitoring }) => {
+const Sidebar: React.FC<SidebarProps> = ({ monitoring, scheduler }) => {
   const [activeTab, setActiveTab] = useState('search');
   const [searchResults, setSearchResults] = useState<ILog[]>([]);
 
@@ -67,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ monitoring }) => {
         )}
         {activeTab === 'skills' && <div></div>}
         {activeTab === 'tasks' && <div></div>}
-        {activeTab === 'schedule' && <div></div>}
+        {activeTab === 'schedule' && <ScheduleTab scheduler={scheduler} />}
       </div>
     </div>
   );

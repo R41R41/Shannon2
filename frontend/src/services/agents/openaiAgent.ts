@@ -1,5 +1,5 @@
-import { OpenAIMessageOutput } from '@/types/types';
-import { isOpenAIMessageOutput } from '@/types/checkTypes';
+import { OpenAIMessageOutput } from '@common/types';
+import { isOpenAIMessageOutput } from '@common/checkTypes';
 import { WebSocketClientBase } from '../common/WebSocketClient';
 import { URLS } from '../config/ports';
 export class OpenAIAgent extends WebSocketClientBase {

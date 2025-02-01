@@ -1,5 +1,5 @@
+import { MinecraftInput, MinecraftOutput } from '@common/types';
 import mineflayer from 'mineflayer';
-import { MinecraftInput, MinecraftOutput } from '../../types/types.js';
 import { EventBus } from '../eventBus.js';
 
 export class MinecraftBot {

@@ -1,4 +1,4 @@
-import { PromptType } from '@/types/types.js';
+import { PromptType } from '@common/types';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
 import axios from 'axios';

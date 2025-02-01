@@ -83,6 +83,8 @@ export type EventType =
   | 'minecraft:post_message'
   | 'web:get_message'
   | 'web:post_message'
+  | 'web:get_schedule'
+  | 'web:post_schedule'
   | 'web:log';
 
 export interface LLMInput {
@@ -177,6 +179,21 @@ export interface OpenAIMessageOutput {
   endpoint?: RealTimeAPIEndpoint | null;
 }
 
+// スケジュール
+export type WebScheduleInputType = 'get_schedule' | 'call_schedule';
+
+export interface WebScheduleInput {
+  type: WebScheduleInputType | 'ping';
+  scheduleName?: string | null;
+}
+
+export type WebScheduleOutputType = 'post_schedule' | 'call_schedule';
+
+export interface WebScheduleOutput {
+  type: WebScheduleOutputType | 'pong';
+  data?: Schedule[];
+}
+
 export interface DiscordMessageOutput {
   type: ConversationType;
   guildId: string;
@@ -194,6 +211,16 @@ export interface ILog {
   content: string;
 }
 
+export interface SchedulerInput {
+  type: 'get_schedule';
+  scheduleName: string;
+}
+
+export interface SchedulerOutput {
+  type: 'post_schedule';
+  data: Schedule[];
+}
+
 export interface Event {
   type: EventType;
   memoryZone: MemoryZone;
@@ -206,7 +233,9 @@ export interface Event {
     | OpenAIMessageOutput
     | DiscordMessageOutput
     | MinecraftInput
-    | MinecraftOutput;
+    | MinecraftOutput
+    | SchedulerInput
+    | SchedulerOutput;
   targetMemoryZones?: MemoryZone[];
 }
 
@@ -228,6 +257,7 @@ export interface LogEntry {
 
 export interface Schedule {
   time: string;
+  name: string;
   data: {
     type: EventType;
     memoryZone: MemoryZone;

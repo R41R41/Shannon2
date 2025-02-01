@@ -8,5 +8,8 @@ export const URLS = {
     MONITORING: `ws://${SERVER_IP_ADDRESS}:${
       import.meta.env.VITE_WS_MONITORING_PORT
     }`,
+    SCHEDULER: `ws://${SERVER_IP_ADDRESS}:${
+      import.meta.env.VITE_WS_SCHEDULER_PORT
+    }`,
   },
 } as const;

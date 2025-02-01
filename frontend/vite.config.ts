@@ -15,7 +15,9 @@ export default defineConfig({
       '@styles': path.resolve(__dirname, './src/styles'),
       '@utils': path.resolve(__dirname, './src/utils'),
       '@hooks': path.resolve(__dirname, './src/hooks'),
-      '@types': path.resolve(__dirname, './src/types'),
+      '@common': path.resolve(__dirname, '../common/src'),
+      '@common/*': path.resolve(__dirname, '../common/src/*'),
+      'cronstrue/locales/ja': 'cronstrue/locales/ja.js',
     },
   },
 });

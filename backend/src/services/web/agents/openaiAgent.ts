@@ -1,8 +1,5 @@
-import { isOpenAIMessageInput } from '../../../types/checkTypes.js';
-import {
-  OpenAIMessageInput,
-  OpenAIMessageOutput,
-} from '../../../types/types.js';
+import { isOpenAIMessageInput } from '@common/checkTypes';
+import { OpenAIMessageInput, OpenAIMessageOutput } from '@common/types';
 import {
   WebSocketServiceBase,
   WebSocketServiceConfig,
@@ -17,7 +14,6 @@ export class OpenAIClientService extends WebSocketServiceBase {
       ws.on('message', (message) => {
         try {
           const data = JSON.parse(message.toString());
-          console.log('data', data);
           if (isOpenAIMessageInput(data)) {
             if (data.type === 'ping') {
               this.broadcast({ type: 'pong' } as OpenAIMessageOutput);

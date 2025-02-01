@@ -1,5 +1,5 @@
+import { ILog } from '@common/types';
 import mongoose from 'mongoose';
-import { ILog } from '../types/types.js';
 
 const LogSchema = new mongoose.Schema<ILog>({
   timestamp: { type: Date, required: true },

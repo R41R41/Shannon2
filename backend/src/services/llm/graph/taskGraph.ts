@@ -1,3 +1,4 @@
+import { MemoryZone, PromptType } from '@common/types';
 import {
   AIMessage,
   BaseMessage,
@@ -13,7 +14,6 @@ import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { MemoryZone, PromptType } from '../../../types/types.js';
 import { EventBus } from '../../eventBus.js';
 import { loadPrompt } from '../config/prompts.js';
 const __filename = fileURLToPath(import.meta.url);

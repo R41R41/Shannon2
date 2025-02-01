@@ -1,15 +1,15 @@
 import {
+  DiscordMessageInput,
+  DiscordMessageOutput,
+  MinecraftInput,
+} from '@common/types';
+import {
   Client,
   GatewayIntentBits,
   SlashCommandBuilder,
   TextChannel,
   User,
 } from 'discord.js';
-import {
-  DiscordMessageInput,
-  DiscordMessageOutput,
-  MinecraftInput,
-} from '../../types/types.js';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus.js';
 

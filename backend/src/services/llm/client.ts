@@ -1,5 +1,4 @@
-import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
-import { isDiscordMessageInput } from '../../types/checkTypes.js';
+import { isDiscordMessageInput } from '@common/checkTypes';
 import {
   DiscordMessageInput,
   DiscordMessageOutput,
@@ -10,7 +9,8 @@ import {
   promptTypes,
   TwitterMessageInput,
   TwitterMessageOutput,
-} from '../../types/types.js';
+} from '@common/types';
+import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus.js';
 import { PostAboutTodayAgent } from './agents/postAboutTodayAgent.js';

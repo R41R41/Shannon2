@@ -1,7 +1,6 @@
-import { ILog } from '@/types/types';
-import { isWebMonitoringOutput } from '@/types/checkTypes';
+import { ILog, SearchQuery } from '@common/types';
+import { isWebMonitoringOutput } from '@common/checkTypes';
 import { WebSocketClientBase } from '../common/WebSocketClient';
-import { SearchQuery } from '@/types/types';
 import { URLS } from '../config/ports';
 
 type LogCallback = (log: ILog) => void;

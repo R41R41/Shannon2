@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import styles from './ActivityLog.module.scss';
-import { ILog, MemoryZone } from '@/types/types';
-import { isILog } from '@/types/checkTypes';
+import { ILog, MemoryZone } from '@common/types';
+import { isILog } from '@common/checkTypes';
 import { MonitoringAgent } from '@/services/agents/monitoringAgent';
 
 interface ActivityLogProps {

@@ -1,3 +1,3 @@
-export * from '../../types/types.js';
+export * from '@common/types';
 export * from './client.js';
 export * from './utils/errorHandler.js';

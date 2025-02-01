@@ -8,7 +8,7 @@ import Header from '@components/Header/Header';
 import { MonitoringAgent } from '@/services/agents/monitoringAgent';
 import { OpenAIAgent } from '@/services/agents/openaiAgent';
 import { WebClient } from '@/services/client';
-
+import { SchedulerAgent } from '@/services/agents/schedulerAgent';
 const ResizeHandle = ({ className = '' }) => (
   <PanelResizeHandle className={`${styles.resizeHandle} ${className}`} />
 );
@@ -16,12 +16,13 @@ const ResizeHandle = ({ className = '' }) => (
 const ShannonUI: React.FC = () => {
   const [monitoring, setMonitoring] = useState<MonitoringAgent | null>(null);
   const [openai, setOpenai] = useState<OpenAIAgent | null>(null);
-
+  const [scheduler, setScheduler] = useState<SchedulerAgent | null>(null);
   useEffect(() => {
     const webClient = new WebClient();
     webClient.start();
     setMonitoring(webClient.monitoringService);
     setOpenai(webClient.openaiService);
+    setScheduler(webClient.schedulerService);
   }, []);
   return (
     <div className={styles.container}>
@@ -29,7 +30,7 @@ const ShannonUI: React.FC = () => {
       <div className={styles.mainSection}>
         <PanelGroup direction="horizontal">
           <Panel defaultSize={20} minSize={15}>
-            <Sidebar monitoring={monitoring} />
+            <Sidebar monitoring={monitoring} scheduler={scheduler} />
           </Panel>
 
           <ResizeHandle />

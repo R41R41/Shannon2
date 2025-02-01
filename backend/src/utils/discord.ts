@@ -1,5 +1,5 @@
+import { DiscordGuild } from '@common/types';
 import dotenv from 'dotenv';
-import { DiscordGuild } from '../types/types.js';
 
 dotenv.config();
 

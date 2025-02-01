@@ -3,7 +3,7 @@
     "target": "ES2020",
     "module": "ES2022",
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "../",
 
     // 型チェックの厳格化
     "strict": true,
@@ -23,9 +23,10 @@
     "removeComments": true,
     "sourceMap": true,
     "moduleResolution": "node",
-    "baseUrl": "src",
+    "baseUrl": "./src",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@common/*": ["../../common/src/*"]
     }
   },
   "include": ["src/**/*", "src/types/types.ts", "src/types/checkTypes.ts"],
