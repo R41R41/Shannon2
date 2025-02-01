@@ -5,15 +5,15 @@ import {
   stopRecording,
   stopRecordingWithoutCommit,
 } from '@/utils/audioUtils';
-import { OpenAIService } from '@/services/openai';
+import { OpenAIAgent } from '@/services/agents/openaiAgent';
 import KeyboardVoiceOutlinedIcon from '@mui/icons-material/KeyboardVoiceOutlined';
 
 interface PushToTalkButtonProps {
-  openaiService: OpenAIService;
+  openai: OpenAIAgent | null;
 }
 
 export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
-  openaiService,
+  openai,
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isVadMode, setIsVadMode] = useState(false);
@@ -21,19 +21,19 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
 
   const onPushToTalk = () => {
     if (isRecording) {
-      stopRecording(setIsRecording, openaiService, processorRef);
+      stopRecording(setIsRecording, openai, processorRef);
     } else {
-      startRecording(setIsRecording, processorRef, openaiService);
+      startRecording(setIsRecording, processorRef, openai);
     }
   };
 
   const onVadModeChange = () => {
-    openaiService?.vadModeChange(!isVadMode);
+    openai?.vadModeChange(!isVadMode);
     setIsVadMode(!isVadMode);
     if (isRecording) {
       stopRecordingWithoutCommit(processorRef, setIsRecording);
     } else {
-      startRecording(setIsRecording, processorRef, openaiService);
+      startRecording(setIsRecording, processorRef, openai);
     }
   };
 

@@ -2,14 +2,13 @@ import React, { useEffect, useState, useRef } from 'react';
 import styles from './ActivityLog.module.scss';
 import { ILog, MemoryZone } from '@/types/types';
 import { isILog } from '@/types/checkTypes';
-import MonitoringService from '@/services/monitoring';
-import { ConnectionStatus } from '@/services/monitoring';
+import { MonitoringAgent } from '@/services/agents/monitoringAgent';
 
 interface ActivityLogProps {
-  monitoringStatus: ConnectionStatus;
+  monitoring: MonitoringAgent | null;
 }
 
-const ActivityLog: React.FC<ActivityLogProps> = ({ monitoringStatus }) => {
+const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
   const [logs, setLogs] = useState<ILog[]>([]);
   const [selectedMemoryZone, setSelectedMemoryZone] = useState<MemoryZone | ''>(
     ''
@@ -17,10 +16,9 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoringStatus }) => {
   const logListRef = useRef<HTMLDivElement>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const MAX_LOGS = 200;
-  const monitoring = MonitoringService();
 
   useEffect(() => {
-    const handleLog = (log: ILog) => {
+    monitoring?.setLogCallback((log: ILog) => {
       setLogs((prevLogs) => {
         const newLogs = [...prevLogs, log].slice(-MAX_LOGS);
         // 新しいログが追加されたら自動スクロール
@@ -34,21 +32,17 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoringStatus }) => {
         }
         return newLogs;
       });
-    };
-
-    monitoring.subscribe(handleLog);
-
-    return () => {
-      monitoring.unsubscribe(handleLog);
-    };
-  }, [shouldAutoScroll, monitoring]);
+    });
+  }, [monitoring, shouldAutoScroll]);
 
   useEffect(() => {
-    if (monitoringStatus === 'connected') {
+    if (monitoring?.status === 'connected') {
       const fetchAllMemoryZoneLogs = async () => {
         try {
-          const allMemoryZoneLogs = await monitoring.getAllMemoryZoneLogs();
-          setLogs(allMemoryZoneLogs);
+          const allMemoryZoneLogs = await monitoring?.getAllMemoryZoneLogs();
+          if (allMemoryZoneLogs) {
+            setLogs(allMemoryZoneLogs);
+          }
         } catch (error) {
           console.error('Failed to fetch all memory zone logs:', error);
         }
@@ -56,7 +50,7 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoringStatus }) => {
 
       fetchAllMemoryZoneLogs();
     }
-  }, [monitoringStatus, monitoring]);
+  }, [monitoring?.status, monitoring]);
 
   // スクロールイベントを監視して、手動スクロール時に自動スクロールを無効化
   const handleScroll = () => {

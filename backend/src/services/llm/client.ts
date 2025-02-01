@@ -4,12 +4,12 @@ import {
   DiscordMessageInput,
   DiscordMessageOutput,
   MemoryZone,
+  OpenAIMessageInput,
+  OpenAIMessageOutput,
   PromptType,
   promptTypes,
   TwitterMessageInput,
   TwitterMessageOutput,
-  WebMessageInput,
-  WebMessageOutput,
 } from '../../types/types.js';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus.js';
@@ -55,7 +55,7 @@ export class LLMService {
 
   private setupEventBus() {
     this.eventBus.subscribe('web:get_message', (event) => {
-      this.processWebMessage(event.data as WebMessageInput);
+      this.processWebMessage(event.data as OpenAIMessageInput);
     });
 
     this.eventBus.subscribe('discord:get_message', (event) => {
@@ -67,7 +67,7 @@ export class LLMService {
     });
   }
 
-  private async processWebMessage(message: WebMessageInput) {
+  private async processWebMessage(message: OpenAIMessageInput) {
     try {
       if (message.type === 'realtime_text') {
         if (message.realtime_text) {
@@ -110,7 +110,7 @@ export class LLMService {
           data: {
             text: response,
             type: 'text',
-          } as WebMessageOutput,
+          } as OpenAIMessageOutput,
           targetMemoryZones: ['web'],
         });
         return;
@@ -316,7 +316,7 @@ export class LLMService {
         data: {
           type: 'realtime_text',
           realtime_text: text,
-        } as WebMessageOutput,
+        } as OpenAIMessageOutput,
         targetMemoryZones: ['web'],
       });
     });
@@ -328,7 +328,7 @@ export class LLMService {
         data: {
           type: 'realtime_text',
           endpoint: 'text_done',
-        } as WebMessageOutput,
+        } as OpenAIMessageOutput,
         targetMemoryZones: ['web'],
       });
     });
@@ -341,7 +341,7 @@ export class LLMService {
           realtime_audio: audio.toString(),
           type: 'realtime_audio',
           endpoint: 'realtime_audio_append',
-        } as WebMessageOutput,
+        } as OpenAIMessageOutput,
         targetMemoryZones: ['web'],
       });
     });
@@ -353,7 +353,7 @@ export class LLMService {
         data: {
           type: 'realtime_audio',
           endpoint: 'realtime_audio_commit',
-        } as WebMessageOutput,
+        } as OpenAIMessageOutput,
         targetMemoryZones: ['web'],
       });
     });
@@ -365,7 +365,7 @@ export class LLMService {
         data: {
           realtime_text: text,
           type: 'user_transcript',
-        } as WebMessageOutput,
+        } as OpenAIMessageOutput,
         targetMemoryZones: ['web'],
       });
     });

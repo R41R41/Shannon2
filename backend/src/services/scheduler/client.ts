@@ -1,52 +1,32 @@
+import fs from 'fs';
 import cron from 'node-cron';
-import { TwitterMessageInput } from '../../types/types.js';
+import { Schedule } from '../../types/types.js';
 import { EventBus } from '../eventBus.js';
 
 export class Scheduler {
   private eventBus: EventBus;
+  private schedule: Schedule[];
 
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
+    this.schedule = [];
+  }
+
+  private async setUpSchedule() {
+    this.schedule = JSON.parse(
+      fs.readFileSync('saves/schedule.json', 'utf8')
+    ) as Schedule[];
   }
 
   public async start() {
+    await this.setUpSchedule();
     await this.scheduleCreatePost();
   }
 
   private async scheduleCreatePost() {
-    cron.schedule('0 8 * * *', () => {
-      this.eventBus.publish({
-        type: 'twitter:post_scheduled_message',
-        memoryZone: 'twitter:post',
-        data: {
-          platform: 'twitter',
-          type: 'fortune',
-        } as TwitterMessageInput,
-        targetMemoryZones: ['twitter:schedule_post'],
-      });
-    });
-
-    cron.schedule('0 12 * * *', () => {
-      this.eventBus.publish({
-        type: 'twitter:post_scheduled_message',
-        memoryZone: 'twitter:post',
-        data: {
-          platform: 'twitter',
-          type: 'about_today',
-        } as TwitterMessageInput,
-        targetMemoryZones: ['twitter:schedule_post'],
-      });
-    });
-
-    cron.schedule('0 18 * * *', () => {
-      this.eventBus.publish({
-        type: 'twitter:post_scheduled_message',
-        memoryZone: 'twitter:post',
-        data: {
-          platform: 'twitter',
-          type: 'weather',
-        } as TwitterMessageInput,
-        targetMemoryZones: ['twitter:schedule_post'],
+    this.schedule.forEach((schedule) => {
+      cron.schedule(schedule.time, () => {
+        this.eventBus.publish(schedule.data);
       });
     });
   }

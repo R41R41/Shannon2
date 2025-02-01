@@ -7,8 +7,13 @@ import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import SearchTab from './SearchTab';
 import { ILog } from '@/types/types';
+import { MonitoringAgent } from '@/services/agents/monitoringAgent';
 
-const Sidebar: React.FC = () => {
+interface SidebarProps {
+  monitoring: MonitoringAgent | null;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ monitoring }) => {
   const [activeTab, setActiveTab] = useState('search');
   const [searchResults, setSearchResults] = useState<ILog[]>([]);
 
@@ -55,6 +60,7 @@ const Sidebar: React.FC = () => {
       <div className={styles.tabContent}>
         {activeTab === 'search' && (
           <SearchTab
+            monitoring={monitoring}
             searchResults={searchResults}
             setSearchResults={setSearchResults}
           />

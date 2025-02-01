@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import styles from './SearchTab.module.scss';
 import { ILog } from '@/types/types';
 import { MemoryZone } from '@/types/types';
-import MonitoringService from '@/services/monitoring';
+import { MonitoringAgent } from '@/services/agents/monitoringAgent';
 
 interface SearchTabProps {
+  monitoring: MonitoringAgent | null;
   searchResults: ILog[];
   setSearchResults: (results: ILog[]) => void;
 }
 
 const SearchTab: React.FC<SearchTabProps> = ({
+  monitoring,
   searchResults,
   setSearchResults,
 }) => {
@@ -19,26 +21,24 @@ const SearchTab: React.FC<SearchTabProps> = ({
   const [content, setContent] = useState('');
 
   useEffect(() => {
-    const monitoring = MonitoringService();
-    const unsubscribe = monitoring.onSearchResults((results) => {
+    const unsubscribe = monitoring?.onSearchResults((results) => {
       setSearchResults(results);
     });
 
     return () => {
-      unsubscribe();
+      unsubscribe?.();
     };
-  }, [setSearchResults]);
+  }, [setSearchResults, monitoring]);
 
   // 検索条件が変更されるたびに検索を実行
   useEffect(() => {
-    const monitoring = MonitoringService();
-    monitoring.searchLogs({
+    monitoring?.searchLogs({
       startDate,
       endDate,
       memoryZone,
       content,
     });
-  }, [startDate, endDate, memoryZone, content]);
+  }, [startDate, endDate, memoryZone, content, monitoring]);
 
   const formatContent = (content: string) => {
     return content.split('\n').map((line, i) => (

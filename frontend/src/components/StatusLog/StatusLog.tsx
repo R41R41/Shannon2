@@ -1,19 +1,38 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './StatusLog.module.scss';
-import { ConnectionStatus } from '@/services/monitoring';
+import { ConnectionStatus } from '@/services/common/WebSocketClient';
 import CircleIcon from '@mui/icons-material/Circle';
+import { MonitoringAgent } from '@/services/agents/monitoringAgent';
+import { OpenAIAgent } from '@/services/agents/openaiAgent';
 
 interface StatusLogProps {
-  monitoringStatus: ConnectionStatus;
-  openaiStatus: ConnectionStatus;
-  webStatus: ConnectionStatus;
+  monitoring: MonitoringAgent | null;
+  openai: OpenAIAgent | null;
 }
 
-const StatusLog: React.FC<StatusLogProps> = ({
-  monitoringStatus,
-  openaiStatus,
-  webStatus,
-}) => {
+const StatusLog: React.FC<StatusLogProps> = ({ monitoring, openai }) => {
+  const [monitoringStatus, setMonitoringStatus] =
+    useState<ConnectionStatus>('disconnected');
+  const [openaiStatus, setOpenaiStatus] =
+    useState<ConnectionStatus>('disconnected');
+
+  useEffect(() => {
+    const updateMonitoringStatus = (status: ConnectionStatus) => {
+      setMonitoringStatus(status);
+    };
+    const updateOpenaiStatus = (status: ConnectionStatus) => {
+      setOpenaiStatus(status);
+    };
+
+    monitoring?.addStatusListener(updateMonitoringStatus);
+    openai?.addStatusListener(updateOpenaiStatus);
+
+    return () => {
+      monitoring?.removeStatusListener(updateMonitoringStatus);
+      openai?.removeStatusListener(updateOpenaiStatus);
+    };
+  }, [monitoring, openai]);
+
   const getStatusColor = (status: ConnectionStatus) => {
     switch (status) {
       case 'connected':
@@ -49,11 +68,6 @@ const StatusLog: React.FC<StatusLogProps> = ({
         <CircleIcon className={getStatusColor(openaiStatus)} />
         <span>OpenAI</span>
         <span className={styles.statusText}>{getStatusText(openaiStatus)}</span>
-      </div>
-      <div className={styles.status}>
-        <CircleIcon className={getStatusColor(webStatus)} />
-        <span>Web Client</span>
-        <span className={styles.statusText}>{getStatusText(webStatus)}</span>
       </div>
     </div>
   );

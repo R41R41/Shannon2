@@ -8,15 +8,15 @@ import {
   TypingIndicator,
   InputToolbox,
 } from '@chatscope/chat-ui-kit-react';
-import { OpenAIService } from '@/services/openai';
+import { OpenAIAgent } from '@/services/agents/openaiAgent';
 import '@chatscope/chat-ui-kit-styles/dist/default/styles.min.css';
 import './ChatScope.scss';
 
 interface ChatScopeProps {
-  openaiService: OpenAIService | null;
+  openai: OpenAIAgent | null;
 }
 
-export const ChatScope: React.FC<ChatScopeProps> = ({ openaiService }) => {
+export const ChatScope: React.FC<ChatScopeProps> = ({ openai }) => {
   const [isTyping] = useState(false);
   const [chatMessages, setChatMessages] = useState<
     { content: string; sender: string }[]
@@ -31,16 +31,16 @@ export const ChatScope: React.FC<ChatScopeProps> = ({ openaiService }) => {
         ...prev,
         { content: message, sender: 'User' },
       ]);
-      if (openaiService) {
-        await openaiService.sendMessage(message, isRealTimeChat);
+      if (openai) {
+        await openai.sendMessage(message, isRealTimeChat);
       }
     } catch (error) {
       console.error('メッセージの送信に失敗しました:', error);
     }
   };
 
-  if (openaiService) {
-    openaiService.textCallback = (text: string) => {
+  if (openai) {
+    openai.textCallback = (text: string) => {
       if (processingChatMessageIndex > chatMessages.length) {
         setChatMessages((prev) => {
           return [...prev, { content: text, sender: 'AI' }];
@@ -59,10 +59,10 @@ export const ChatScope: React.FC<ChatScopeProps> = ({ openaiService }) => {
         });
       }
     };
-    openaiService.textDoneCallback = () => {
+    openai.textDoneCallback = () => {
       setProcessingChatMessageIndex(chatMessages.length + 1);
     };
-    openaiService.userTranscriptCallback = (text) => {
+    openai.userTranscriptCallback = (text: string) => {
       setChatMessages((prev) => [...prev, { content: text, sender: 'User' }]);
     };
   }

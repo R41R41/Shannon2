@@ -1,4 +1,4 @@
-import { OpenAIService } from '@/services/openai';
+import { OpenAIService } from '@/services/agents/openaiAgent';
 
 export const convertFloat32ToInt16 = (buffer: Float32Array): ArrayBuffer => {
   let l = buffer.length;

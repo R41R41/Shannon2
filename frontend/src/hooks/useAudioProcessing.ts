@@ -1,6 +1,6 @@
 import { AudioQueueManager } from '@components/ChatView/AudioManager';
 import { useEffect } from 'react';
-import { OpenAIService } from '@/services/openai';
+import { OpenAIService } from '@/services/agents/openaiAgent';
 
 export const useAudioProcessing = (
   openaiService: OpenAIService,

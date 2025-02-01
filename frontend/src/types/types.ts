@@ -19,7 +19,9 @@ export type PromptType =
   | 'minecraft'
   | 'weather_to_emoji'
   | 'forecast_for_toyama_server'
-  | 'youtube';
+  | 'youtube'
+  | 'planning'
+  | 'decision';
 
 export type ConversationType =
   | 'text'
@@ -102,8 +104,8 @@ export interface TwitterMessageInput {
   endpoint?: TwitterSchedulePostEndpoint | null;
 }
 
-export interface WebMessageInput {
-  type: ConversationType;
+export interface OpenAIMessageInput {
+  type: ConversationType | 'ping';
   text?: string | null;
   audio?: string | null;
   realtime_text?: string | null;
@@ -111,11 +113,25 @@ export interface WebMessageInput {
   endpoint?: RealTimeAPIEndpoint | null;
 }
 
+export interface SearchQuery {
+  startDate?: string;
+  endDate?: string;
+  memoryZone?: string;
+  content?: string;
+}
+
+export type WebMonitoringInputType = 'search' | 'ping';
+
+export interface WebMonitoringInput {
+  type: WebMonitoringInputType;
+  query?: SearchQuery | null;
+}
+
 export type WebMonitoringOutputType = 'web:log' | 'web:searchResults';
 
 export interface WebMonitoringOutput {
-  type: WebMonitoringOutputType;
-  data: ILog | ILog[];
+  type: WebMonitoringOutputType | 'pong';
+  data?: ILog | ILog[];
 }
 
 export interface DiscordMessageInput {
@@ -153,8 +169,8 @@ export interface TwitterMessageOutput {
   endpoint?: TwitterSchedulePostEndpoint | null;
 }
 
-export interface WebMessageOutput {
-  type: ConversationType;
+export interface OpenAIMessageOutput {
+  type: ConversationType | 'pong';
   text?: string | null;
   realtime_text?: string | null;
   realtime_audio?: string | null;
@@ -183,11 +199,11 @@ export interface Event {
   memoryZone: MemoryZone;
   data:
     | TwitterMessageInput
-    | WebMessageInput
+    | OpenAIMessageInput
     | DiscordMessageInput
     | ILog
     | TwitterMessageOutput
-    | WebMessageOutput
+    | OpenAIMessageOutput
     | DiscordMessageOutput
     | MinecraftInput
     | MinecraftOutput;
@@ -208,4 +224,14 @@ export interface LogEntry {
   memoryZone: string;
   color: Color;
   content: string;
+}
+
+export interface Schedule {
+  time: string;
+  data: {
+    type: EventType;
+    memoryZone: MemoryZone;
+    data: TwitterMessageInput;
+    targetMemoryZones: MemoryZone[];
+  };
 }

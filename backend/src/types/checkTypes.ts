@@ -2,9 +2,10 @@ import {
   DiscordGuild,
   DiscordMessageInput,
   ILog,
+  OpenAIMessageInput,
+  OpenAIMessageOutput,
   RealTimeAPIEndpoint,
-  WebMessageInput,
-  WebMessageOutput,
+  WebMonitoringInput,
 } from './types';
 
 export const isILog = (log: ILog): log is ILog => {
@@ -39,9 +40,9 @@ export const isRealTimeAPIEndpoint = (
   );
 };
 
-export const isWebMessageInput = (
-  message: WebMessageInput
-): message is WebMessageInput => {
+export const isOpenAIMessageInput = (
+  message: OpenAIMessageInput
+): message is OpenAIMessageInput => {
   return (
     typeof message === 'object' &&
     message !== null &&
@@ -49,7 +50,8 @@ export const isWebMessageInput = (
       message.type === 'audio' ||
       message.type === 'realtime_text' ||
       message.type === 'realtime_audio' ||
-      message.type === 'endpoint') &&
+      message.type === 'endpoint' ||
+      message.type === 'ping') &&
     (message.text === undefined ||
       typeof message.text === 'string' ||
       message.text === null) &&
@@ -68,9 +70,9 @@ export const isWebMessageInput = (
   );
 };
 
-export const isWebMessageOutput = (
-  message: WebMessageOutput
-): message is WebMessageOutput => {
+export const isOpenAIMessageOutput = (
+  message: OpenAIMessageOutput
+): message is OpenAIMessageOutput => {
   return (
     typeof message === 'object' &&
     message !== null &&
@@ -79,7 +81,8 @@ export const isWebMessageOutput = (
       message.type === 'user_transcript' ||
       message.type === 'audio' ||
       message.type === 'realtime_audio' ||
-      message.type === 'endpoint') &&
+      message.type === 'endpoint' ||
+      message.type === 'pong') &&
     (message.text === undefined ||
       typeof message.text === 'string' ||
       message.text === null) &&
@@ -92,6 +95,18 @@ export const isWebMessageOutput = (
     (message.endpoint === undefined ||
       isRealTimeAPIEndpoint(message.endpoint as RealTimeAPIEndpoint) ||
       message.endpoint === null)
+  );
+};
+
+export const isWebMonitoringInput = (
+  message: WebMonitoringInput
+): message is WebMonitoringInput => {
+  return (
+    typeof message === 'object' &&
+    message !== null &&
+    (message.type === 'search' || message.type === 'ping') &&
+    (message.query === undefined ||
+      (typeof message.query === 'object' && message.query !== null))
   );
 };
 

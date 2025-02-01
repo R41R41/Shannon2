@@ -6,7 +6,9 @@
 
 ### web
 
+- [ ] ログインできる
 - [x] text 会話ができる
+- [ ] 音声会話ができる
 - [x] realtime text 会話ができる
 - [x] realtime audio 会話ができる
 - [x] vad モードで realtime audio 会話ができる

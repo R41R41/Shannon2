@@ -1,21 +1,24 @@
 import React, { useRef, memo } from 'react';
-import OpenAIService from '@/services/openai.js';
+import { OpenAIAgent } from '@/services/agents/openaiAgent';
 import { AudioQueueManager } from './AudioManager.ts';
 import { useAudioProcessing } from '@/hooks/useAudioProcessing';
 import { PushToTalkButton } from './components/PushToTalkButton/PushToTalkButton';
 import { ChatScope } from './components/ChatScope/ChatScope.tsx';
 import './ChatView.scss';
 
-const ChatView: React.FC = memo(() => {
-  const openaiService = useRef(OpenAIService()).current;
+interface ChatViewProps {
+  openai: OpenAIAgent | null;
+}
+
+const ChatView: React.FC<ChatViewProps> = memo(({ openai }) => {
   const audioQueueManager = useRef(new AudioQueueManager()).current;
 
-  useAudioProcessing(openaiService, audioQueueManager);
+  useAudioProcessing(openai, audioQueueManager);
 
   return (
     <div className="chat-sidebar">
-      <ChatScope openaiService={openaiService} />
-      <PushToTalkButton openaiService={openaiService} />
+      <ChatScope openai={openai} />
+      <PushToTalkButton openai={openai} />
     </div>
   );
 });
