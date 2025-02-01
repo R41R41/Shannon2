@@ -1,4 +1,9 @@
-import { Schedule, SchedulerInput, SchedulerOutput } from '@common/types';
+import {
+  Schedule,
+  SchedulerInput,
+  SchedulerOutput,
+  TwitterMessageInput,
+} from '@shannon/common';
 import fs from 'fs';
 import cron from 'node-cron';
 import { EventBus } from '../eventBus.js';
@@ -28,6 +33,9 @@ export class Scheduler {
     this.eventBus.subscribe('web:get_schedule', (event) => {
       this.post_schedule(event.data as SchedulerInput);
     });
+    this.eventBus.subscribe('web:call_schedule', (event) => {
+      this.call_schedule(event.data as SchedulerInput);
+    });
   }
 
   private async post_schedule(data: SchedulerInput) {
@@ -40,6 +48,24 @@ export class Scheduler {
       } as SchedulerOutput,
       targetMemoryZones: ['web'],
     });
+  }
+
+  private async call_schedule(data: SchedulerInput) {
+    const platform = data.name?.split(':')[0];
+    const name = data.name?.split(':')[1];
+    console.log('calling schedule', platform, name);
+    if (platform && name) {
+      if (platform === 'twitter') {
+        this.eventBus.publish({
+          type: `${platform}:post_scheduled_message`,
+          memoryZone: `${platform}:schedule_post`,
+          data: {
+            endpoint: name,
+          } as TwitterMessageInput,
+          targetMemoryZones: [`${platform}:schedule_post`],
+        });
+      }
+    }
   }
 
   private async scheduleCreatePost() {

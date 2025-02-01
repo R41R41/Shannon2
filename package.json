@@ -1,6 +1,25 @@
 {
+  "name": "shannon",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend",
+    "common"
+  ],
+  "scripts": {
+    "build": "npm run build -w common && npm run build -w backend",
+    "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "clean": "rm -rf */dist",
+    "dev-backend": "npm run dev -w backend",
+    "dev-frontend": "npm run dev -w frontend"
+  },
+  "dependencies": {
+    "@shannon/common": "*"
+  },
   "devDependencies": {
+    "concurrently": "^8.2.2",
     "ts-node": "^10.9.2",
+    "tsc-watch": "^6.2.1",
     "tsconfig-paths": "^4.2.0"
   }
 }

@@ -1,6 +1,6 @@
-import { PromptType } from '@common/types';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
+import { PromptType } from '@shannon/common';
 import axios from 'axios';
 import { addDays, format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';

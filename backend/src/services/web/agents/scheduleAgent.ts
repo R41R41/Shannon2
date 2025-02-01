@@ -1,9 +1,9 @@
-import { isWebScheduleInput } from '@common/checkTypes';
 import {
+  isWebScheduleInput,
   SchedulerInput,
   SchedulerOutput,
   WebScheduleOutput,
-} from '@common/types';
+} from '@shannon/common';
 import {
   WebSocketServiceBase,
   WebSocketServiceConfig,
@@ -27,18 +27,31 @@ export class ScheduleAgent extends WebSocketServiceBase {
             return;
           }
           console.log(
-            `\x1b[34mvalid web message received: ${JSON.stringify(data)}\x1b[0m`
+            `\x1b[34mvalid web message received in schedule agent: ${JSON.stringify(
+              data
+            )}\x1b[0m`
           );
+          console.log(data.type);
         } else {
           console.error('Invalid message format:', data);
           return;
         }
         if (data.type === 'get_schedule') {
-          const scheduleName = data.scheduleName as string;
+          const name = data.name as string;
           this.eventBus.publish({
             type: 'web:get_schedule',
             memoryZone: 'web',
-            data: { type: 'get_schedule', scheduleName } as SchedulerInput,
+            data: { type: 'get_schedule', name } as SchedulerInput,
+          });
+        }
+
+        if (data.type === 'call_schedule') {
+          console.log('calling schedule', data.name);
+          const name = data.name as string;
+          this.eventBus.publish({
+            type: 'web:call_schedule',
+            memoryZone: 'web',
+            data: { type: 'call_schedule', name } as SchedulerInput,
           });
         }
       });

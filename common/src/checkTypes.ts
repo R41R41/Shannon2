@@ -9,7 +9,7 @@ import {
   WebMonitoringOutput,
   WebScheduleInput,
   WebScheduleOutput,
-} from "@common/types";
+} from "./types";
 
 export const isILog = (log: ILog): log is ILog => {
   return (

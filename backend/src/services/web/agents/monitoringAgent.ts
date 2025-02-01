@@ -1,5 +1,9 @@
-import { isWebMonitoringInput } from '@common/checkTypes';
-import { ILog, MemoryZone, WebMonitoringOutput } from '@common/types';
+import {
+  ILog,
+  isWebMonitoringInput,
+  MemoryZone,
+  WebMonitoringOutput,
+} from '@shannon/common';
 import Log from '../../../models/Log.js';
 import {
   WebSocketServiceBase,
@@ -40,7 +44,7 @@ export class MonitoringAgent extends WebSocketServiceBase {
             return;
           }
           console.log(
-            `\x1b[34mvalid web message received: ${
+            `\x1b[34mvalid web message received in monitoring agent: ${
               data.type === 'search'
                 ? JSON.stringify(data.query)
                 : JSON.stringify(data)

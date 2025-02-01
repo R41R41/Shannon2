@@ -2,7 +2,7 @@ import {
   DiscordMessageInput,
   DiscordMessageOutput,
   MinecraftInput,
-} from '@common/types';
+} from '@shannon/common';
 import {
   Client,
   GatewayIntentBits,
@@ -10,13 +10,22 @@ import {
   TextChannel,
   User,
 } from 'discord.js';
+import dotenv from 'dotenv';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus.js';
+
+dotenv.config();
 
 export class DiscordBot {
   private client: Client;
   private eventBus: EventBus;
   private isTestMode: boolean;
+  private toyamaGuildId: string | null = null;
+  private toyamaChannelId: string | null = null;
+  private aiminelabGuildId: string | null = null;
+  private aiminelabXChannelId: string | null = null;
+  private testGuildId: string | null = null;
+  private testXChannelId: string | null = null;
 
   constructor(eventBus: EventBus, isTestMode: boolean = false) {
     this.isTestMode = isTestMode;
@@ -37,6 +46,17 @@ export class DiscordBot {
       this.setupEventHandlers();
       this.setupSlashCommands();
     });
+
+    this.setUpChannels();
+  }
+
+  private setUpChannels() {
+    this.toyamaGuildId = process.env.TOYAMA_GUILD_ID ?? '';
+    this.toyamaChannelId = process.env.TOYAMA_CHANNEL_ID ?? '';
+    this.aiminelabGuildId = process.env.AIMINE_GUILD_ID ?? '';
+    this.aiminelabXChannelId = process.env.AIMINE_X_CHANNEL_ID ?? '';
+    this.testGuildId = process.env.TEST_GUILD_ID ?? '';
+    this.testXChannelId = process.env.TEST_X_CHANNEL_ID ?? '';
   }
 
   public start() {
@@ -216,6 +236,26 @@ export class DiscordBot {
       if (event.type === 'discord:post_message') {
         const { text, type, channelId, guildId, audio, endpoint, imageUrl } =
           event.data as DiscordMessageOutput;
+        if (
+          endpoint === 'forecast' ||
+          endpoint === 'fortune' ||
+          endpoint === 'about_today'
+        ) {
+          if (this.isTestMode) {
+            const xChannelId = this.testXChannelId ?? '';
+            const channel = this.client.channels.cache.get(xChannelId);
+            if (channel?.isTextBased() && 'send' in channel) {
+              channel.send(text ?? '');
+            }
+          } else {
+            const xChannelId = this.aiminelabXChannelId ?? '';
+            const channel = this.client.channels.cache.get(xChannelId);
+            if (channel?.isTextBased() && 'send' in channel) {
+              channel.send(text ?? '');
+            }
+          }
+          return;
+        }
 
         const channel = this.client.channels.cache.get(channelId);
         const channelName = this.getChannelName(channelId);

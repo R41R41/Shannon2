@@ -1,4 +1,3 @@
-import { MemoryZone, PromptType } from '@common/types';
 import {
   AIMessage,
   BaseMessage,
@@ -10,6 +9,7 @@ import { JsonOutputParser } from '@langchain/core/output_parsers';
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { ChatOpenAI } from '@langchain/openai';
+import { MemoryZone, PromptType } from '@shannon/common';
 import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
 import { dirname, join } from 'path';

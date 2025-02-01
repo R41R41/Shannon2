@@ -27,13 +27,13 @@
   },
   {
     "time": "0 18 * * *",
-    "name": "twitter:weather",
+    "name": "twitter:forecast",
     "data": {
       "type": "twitter:post_scheduled_message",
       "memoryZone": "twitter:post",
       "data": {
         "platform": "twitter",
-        "type": "weather"
+        "type": "forecast"
       },
       "targetMemoryZones": ["twitter:schedule_post"]
     }

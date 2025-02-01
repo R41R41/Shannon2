@@ -1,4 +1,4 @@
-import { DiscordGuild } from '@common/types';
+import { DiscordGuild } from '@shannon/common';
 import dotenv from 'dotenv';
 
 dotenv.config();

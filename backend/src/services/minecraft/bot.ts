@@ -1,4 +1,4 @@
-import { MinecraftInput, MinecraftOutput } from '@common/types';
+import { MinecraftInput, MinecraftOutput } from '@shannon/common';
 import mineflayer from 'mineflayer';
 import { EventBus } from '../eventBus.js';
 

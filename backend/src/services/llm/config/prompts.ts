@@ -1,4 +1,4 @@
-import { PromptType } from '@common/types';
+import { PromptType } from '@shannon/common';
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';

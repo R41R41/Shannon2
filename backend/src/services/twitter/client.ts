@@ -1,4 +1,4 @@
-import { TwitterMessageOutput } from '@common/types';
+import { TwitterMessageOutput } from '@shannon/common';
 import { TwitterApi } from 'twitter-api-v2';
 import { EventBus } from '../eventBus.js';
 export class TwitterClient {
@@ -42,7 +42,9 @@ export class TwitterClient {
     this.eventBus.subscribe('twitter:post_scheduled_message', async (event) => {
       const { text } = event.data as TwitterMessageOutput;
       try {
-        await this.postTweet(text);
+        if (text) {
+          await this.postTweet(text);
+        }
       } catch (error) {
         console.error('Twitter post error:', error);
       }
@@ -50,7 +52,7 @@ export class TwitterClient {
     this.eventBus.subscribe('twitter:post_message', async (event) => {
       const { replyId, text } = event.data as TwitterMessageOutput;
       try {
-        if (replyId) {
+        if (replyId && text) {
           await this.replyTweet(replyId, text);
         } else {
           await this.postTweet(text);

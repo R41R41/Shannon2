@@ -1,5 +1,8 @@
-import { isOpenAIMessageInput } from '@common/checkTypes';
-import { OpenAIMessageInput, OpenAIMessageOutput } from '@common/types';
+import {
+  isOpenAIMessageInput,
+  OpenAIMessageInput,
+  OpenAIMessageOutput,
+} from '@shannon/common';
 import {
   WebSocketServiceBase,
   WebSocketServiceConfig,
@@ -20,7 +23,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
               return;
             }
             console.log(
-              `\x1b[34mvalid web message received: ${
+              `\x1b[34mvalid web message received in openai agent: ${
                 data.type === 'realtime_audio'
                   ? data.type + ' ' + data.realtime_audio?.length
                   : data.type === 'audio'

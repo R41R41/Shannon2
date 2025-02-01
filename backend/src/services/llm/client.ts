@@ -1,7 +1,8 @@
-import { isDiscordMessageInput } from '@common/checkTypes';
+import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import {
   DiscordMessageInput,
   DiscordMessageOutput,
+  isDiscordMessageInput,
   MemoryZone,
   OpenAIMessageInput,
   OpenAIMessageOutput,
@@ -9,8 +10,7 @@ import {
   promptTypes,
   TwitterMessageInput,
   TwitterMessageOutput,
-} from '@common/types';
-import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
+} from '@shannon/common';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus.js';
 import { PostAboutTodayAgent } from './agents/postAboutTodayAgent.js';
@@ -226,7 +226,7 @@ export class LLMService {
       data: {
         endpoint: message.endpoint,
         text: postForToyama,
-      } as TwitterMessageOutput,
+      } as DiscordMessageOutput,
       targetMemoryZones: ['discord:toyama_server'],
     });
   }

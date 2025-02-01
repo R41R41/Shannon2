@@ -31,7 +31,7 @@ const ScheduleTab: React.FC<ScheduleTabProps> = ({ scheduler }) => {
 
   const handleExecute = async (name: string) => {
     if (scheduler) {
-      await scheduler.executeSchedule(name);
+      await scheduler.callSchedule(name);
     }
   };
 

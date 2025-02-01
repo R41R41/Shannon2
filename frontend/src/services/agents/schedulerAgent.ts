@@ -1,6 +1,6 @@
 import { isWebScheduleOutput } from '@common/checkTypes';
 import { WebSocketClientBase } from '../common/WebSocketClient';
-import { Schedule } from '@common/types';
+import { Schedule, WebScheduleInput } from '@common/types';
 import { URLS } from '../config/ports';
 
 type UpdateScheduleCallback = (schedule: Schedule[]) => void;
@@ -48,8 +48,10 @@ export class SchedulerAgent extends WebSocketClientBase {
     this.send(JSON.stringify({ type: 'get_schedule' }));
   }
 
-  public async executeSchedule(name: string): Promise<void> {
-    this.send(JSON.stringify({ type: 'execute_schedule', name }));
+  public async callSchedule(name: string): Promise<void> {
+    this.send(
+      JSON.stringify({ type: 'call_schedule', name } as WebScheduleInput)
+    );
   }
 
   public onSearchResults(callback: SearchCallback) {

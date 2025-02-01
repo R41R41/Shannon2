@@ -1,91 +1,92 @@
-export type Platform = 'web' | 'discord' | 'minecraft' | 'twitter' | 'youtube';
+export type Platform = "web" | "discord" | "minecraft" | "twitter" | "youtube";
 
 export const promptTypes: PromptType[] = [
-  'base_text',
-  'base_voice',
-  'about_today',
-  'weather_to_emoji',
-  'fortune',
-  'discord',
-  'forecast',
-  'forecast_for_toyama_server',
+  "base_text",
+  "base_voice",
+  "about_today",
+  "weather_to_emoji",
+  "fortune",
+  "discord",
+  "forecast",
+  "forecast_for_toyama_server",
 ];
 
 export type PromptType =
   | TwitterSchedulePostEndpoint
-  | 'base_text'
-  | 'base_voice'
-  | 'discord'
-  | 'minecraft'
-  | 'weather_to_emoji'
-  | 'forecast_for_toyama_server'
-  | 'youtube'
-  | 'planning'
-  | 'decision';
+  | "base_text"
+  | "base_voice"
+  | "discord"
+  | "minecraft"
+  | "weather_to_emoji"
+  | "forecast_for_toyama_server"
+  | "youtube"
+  | "planning"
+  | "decision";
 
 export type ConversationType =
-  | 'text'
-  | 'audio'
-  | 'realtime_text'
-  | 'realtime_audio'
-  | 'endpoint'
-  | 'log'
-  | 'user_transcript';
+  | "text"
+  | "audio"
+  | "realtime_text"
+  | "realtime_audio"
+  | "endpoint"
+  | "log"
+  | "user_transcript";
 
 export type RealTimeAPIEndpoint =
-  | 'realtime_text_input'
-  | 'realtime_text_commit'
-  | 'realtime_audio_append'
-  | 'realtime_audio_commit'
-  | 'realtime_vad_on'
-  | 'realtime_vad_off'
-  | 'text_done'
-  | 'audio_done';
+  | "realtime_text_input"
+  | "realtime_text_commit"
+  | "realtime_audio_append"
+  | "realtime_audio_commit"
+  | "realtime_vad_on"
+  | "realtime_vad_off"
+  | "text_done"
+  | "audio_done";
 
 export type TwitterSchedulePostEndpoint =
-  | 'about_today'
-  | 'forecast'
-  | 'fortune';
+  | "about_today"
+  | "forecast"
+  | "fortune";
 
 export type MinecraftServerStatusEndpoint =
-  | 'get_status'
-  | 'start_server'
-  | 'stop_server';
+  | "get_status"
+  | "start_server"
+  | "stop_server";
 
 export type DiscordGuild =
-  | 'discord:toyama_server'
-  | 'discord:aiminelab_server'
-  | 'discord:test_server';
+  | "discord:toyama_server"
+  | "discord:aiminelab_server"
+  | "discord:test_server";
 
 export type MemoryZone =
-  | 'web'
+  | "web"
   | DiscordGuild
-  | 'twitter:schedule_post'
-  | 'twitter:post'
-  | 'minecraft'
-  | 'youtube';
+  | "twitter:schedule_post"
+  | "twitter:post"
+  | "minecraft"
+  | "youtube";
 
 export type EventType =
-  | 'twitter:post_scheduled_message'
-  | 'twitter:post_message'
-  | 'twitter:get_message'
-  | 'youtube:get_stats'
-  | 'youtube:get_message'
-  | 'youtube:post_message'
-  | 'discord:get_message'
-  | 'discord:post_message'
-  | 'minecraft:get_status'
-  | 'minecraft:start_server'
-  | 'minecraft:stop_server'
-  | 'minecraft:action'
-  | 'minecraft:env_input'
-  | 'minecraft:get_message'
-  | 'minecraft:post_message'
-  | 'web:get_message'
-  | 'web:post_message'
-  | 'web:get_schedule'
-  | 'web:post_schedule'
-  | 'web:log';
+  | "twitter:post_scheduled_message"
+  | "twitter:post_message"
+  | "twitter:get_message"
+  | "youtube:get_stats"
+  | "youtube:get_message"
+  | "youtube:post_message"
+  | "discord:get_message"
+  | "discord:post_message"
+  | "minecraft:get_status"
+  | "minecraft:start_server"
+  | "minecraft:stop_server"
+  | "minecraft:action"
+  | "minecraft:env_input"
+  | "minecraft:get_message"
+  | "minecraft:post_message"
+  | "web:get_message"
+  | "web:post_message"
+  | "web:get_schedule"
+  | "web:post_schedule"
+  | "web:call_schedule"
+  | "web:log";
 
 export interface LLMInput {
   platform: Platform;
@@ -99,7 +100,6 @@ export interface LLMOutput {
 }
 
 export interface TwitterMessageInput {
-  platform: Platform;
   text?: string | null;
   replyId?: string | null;
   imageUrl?: string | null;
@@ -107,7 +107,7 @@ export interface TwitterMessageInput {
 }
 
 export interface OpenAIMessageInput {
-  type: ConversationType | 'ping';
+  type: ConversationType | "ping";
   text?: string | null;
   audio?: string | null;
   realtime_text?: string | null;
@@ -122,17 +122,17 @@ export interface SearchQuery {
   content?: string;
 }
 
-export type WebMonitoringInputType = 'search' | 'ping';
+export type WebMonitoringInputType = "search" | "ping";
 
 export interface WebMonitoringInput {
   type: WebMonitoringInputType;
   query?: SearchQuery | null;
 }
 
-export type WebMonitoringOutputType = 'web:log' | 'web:searchResults';
+export type WebMonitoringOutputType = "web:log" | "web:searchResults";
 
 export interface WebMonitoringOutput {
-  type: WebMonitoringOutputType | 'pong';
+  type: WebMonitoringOutputType | "pong";
   data?: ILog | ILog[];
 }
 
@@ -172,7 +172,7 @@ export interface TwitterMessageOutput {
 }
 
 export interface OpenAIMessageOutput {
-  type: ConversationType | 'pong';
+  type: ConversationType | "pong";
   text?: string | null;
   realtime_text?: string | null;
   realtime_audio?: string | null;
@@ -180,17 +180,17 @@ export interface OpenAIMessageOutput {
 }
 
 // スケジュール
-export type WebScheduleInputType = 'get_schedule' | 'call_schedule';
+export type WebScheduleInputType = "get_schedule" | "call_schedule";
 
 export interface WebScheduleInput {
-  type: WebScheduleInputType | 'ping';
-  scheduleName?: string | null;
+  type: WebScheduleInputType | "ping";
+  name?: string | null;
 }
 
-export type WebScheduleOutputType = 'post_schedule' | 'call_schedule';
+export type WebScheduleOutputType = "post_schedule" | "call_schedule";
 
 export interface WebScheduleOutput {
-  type: WebScheduleOutputType | 'pong';
+  type: WebScheduleOutputType | "pong";
   data?: Schedule[];
 }
 
@@ -199,8 +199,8 @@ export interface DiscordMessageOutput {
   guildId: string;
   channelId: string;
   text?: string | null;
-  audio?: Uint8Array<ArrayBufferLike> | null;
-  endpoint?: RealTimeAPIEndpoint | null;
+  audio?: Uint8Array | null;
+  endpoint?: RealTimeAPIEndpoint | TwitterSchedulePostEndpoint | null;
   imageUrl?: string | null;
 }
 
@@ -211,13 +211,15 @@ export interface ILog {
   content: string;
 }
 
+export type ScheduleInputType = "get_schedule" | "call_schedule";
+
 export interface SchedulerInput {
-  type: 'get_schedule';
-  scheduleName: string;
+  type: ScheduleInputType;
+  name: string;
 }
 
 export interface SchedulerOutput {
-  type: 'post_schedule';
+  type: "post_schedule";
   data: Schedule[];
 }
 
@@ -240,13 +242,13 @@ export interface Event {
 }
 
 export type Color =
-  | 'white'
-  | 'red'
-  | 'green'
-  | 'blue'
-  | 'yellow'
-  | 'magenta'
-  | 'cyan';
+  | "white"
+  | "red"
+  | "green"
+  | "blue"
+  | "yellow"
+  | "magenta"
+  | "cyan";
 
 export interface LogEntry {
   timestamp: string;

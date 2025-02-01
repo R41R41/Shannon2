@@ -7,3 +7,5 @@
 /backend/.env
 /frontend/.env
 package-lock.json
+node_modules
+.env

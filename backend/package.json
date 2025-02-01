@@ -1,8 +1,8 @@
 {
-  "name": "backend",
+  "name": "@shannon/backend",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -b",
     "start": "node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js",
     "dev": "tsc-watch --onSuccess \"node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js\"",
     "test": "tsc-watch --onSuccess \"node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js --test\""
@@ -29,7 +29,8 @@
     "openai": "^4.80.0",
     "twit": "^2.2.11",
     "twitter-api-v2": "^1.19.0",
-    "winston": "^3.10.0"
+    "winston": "^3.10.0",
+    "@shannon/common": "*"
   },
   "devDependencies": {
     "@types/cors": "^2.8.0",
