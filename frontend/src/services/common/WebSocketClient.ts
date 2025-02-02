@@ -3,8 +3,8 @@ export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 export abstract class WebSocketClientBase {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 3000;
+  private maxReconnectAttempts = 60; // 5分 = 60回 (5秒間隔)
+  private reconnectDelay = 5000; // 5秒
   private pingInterval: number | null = null;
   private lastPongReceived = 0;
   private pingTimeoutId: number | null = null;
@@ -14,12 +14,13 @@ export abstract class WebSocketClientBase {
   constructor(private url: string) {}
 
   public connect() {
-    if (this.ws) return;
+    if (this.ws?.readyState === WebSocket.CONNECTING) return;
 
     this.ws = new WebSocket(this.url);
     this.setStatus('connecting');
 
     this.ws.onopen = () => {
+      this.reconnectAttempts = 0; // 接続成功時にリセット
       this.setStatus('connected');
       this.startPing();
     };
@@ -70,7 +71,12 @@ export abstract class WebSocketClientBase {
   }
 
   private reconnect() {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) return;
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this.setStatus('disconnected');
+      return;
+    }
+
+    this.setStatus('connecting');
     this.reconnectAttempts++;
     setTimeout(() => this.connect(), this.reconnectDelay);
   }

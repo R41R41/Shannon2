@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true, // 全てのIPアドレスでリッスン
-    port: 3000,
+    port: 13000,
   },
   resolve: {
     alias: {

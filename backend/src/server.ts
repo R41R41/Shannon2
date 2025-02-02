@@ -40,7 +40,7 @@ class Server {
     this.app.use(express.json());
     this.app.use(
       cors({
-        origin: ['http://20.243.208.67:3000', 'http://localhost:3000'],
+        origin: ['http://20.243.208.67:13000', 'http://localhost:13000'],
         credentials: true,
       })
     );
