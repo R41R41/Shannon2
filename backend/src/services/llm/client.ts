@@ -26,9 +26,9 @@ export class LLMService {
   private taskGraph: TaskGraph;
   private systemPrompts: Map<PromptType, string>;
   private conversationHistories: Map<MemoryZone, BaseMessage[]>;
-  private aboutTodayAgent: PostAboutTodayAgent;
-  private weatherAgent: PostWeatherAgent;
-  private fortuneAgent: PostFortuneAgent;
+  private aboutTodayAgent!: PostAboutTodayAgent;
+  private weatherAgent!: PostWeatherAgent;
+  private fortuneAgent!: PostFortuneAgent;
 
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
@@ -38,10 +38,14 @@ export class LLMService {
     this.conversationHistories = new Map();
     this.setupEventBus();
     this.setupRealtimeAPICallback();
-    this.setupSystemPrompts();
-    this.aboutTodayAgent = new PostAboutTodayAgent();
-    this.weatherAgent = new PostWeatherAgent();
-    this.fortuneAgent = new PostFortuneAgent();
+  }
+
+  public async initialize() {
+    await this.setupSystemPrompts();
+    this.aboutTodayAgent = await PostAboutTodayAgent.create();
+    this.weatherAgent = await PostWeatherAgent.create();
+    this.fortuneAgent = await PostFortuneAgent.create();
+    console.log('\x1b[36mLLM Service initialized\x1b[0m');
   }
 
   private async setupSystemPrompts() {
@@ -369,15 +373,6 @@ export class LLMService {
         targetMemoryZones: ['web'],
       });
     });
-  }
-
-  public async initialize() {
-    try {
-      console.log('\x1b[36mLLM Service initialized\x1b[0m');
-    } catch (error) {
-      console.error('LLM initialization error:', error);
-      throw error;
-    }
   }
 
   private getConversationHistory(memoryZone: MemoryZone): BaseMessage[] {

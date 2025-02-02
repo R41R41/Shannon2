@@ -4,14 +4,17 @@
   "scripts": {
     "build": "tsc -b",
     "start": "node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js",
-    "dev": "tsc-watch --onSuccess \"node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js\"",
-    "test": "tsc-watch --onSuccess \"node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js --test\""
+    "dev": "tsc-watch --onSuccess \"node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js --test\"",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
   },
   "dependencies": {
     "@langchain/community": "^0.3.27",
     "@langchain/core": "^0.3.33",
     "@langchain/langgraph": "^0.2.41",
     "@langchain/openai": "^0.3.17",
+    "@shannon/common": "*",
     "@types/twit": "^2.2.35",
     "axios": "^1.7.9",
     "cors": "^2.8.5",
@@ -29,8 +32,7 @@
     "openai": "^4.80.0",
     "twit": "^2.2.11",
     "twitter-api-v2": "^1.19.0",
-    "winston": "^3.10.0",
-    "@shannon/common": "*"
+    "winston": "^3.10.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.0",
@@ -42,6 +44,9 @@
     "ts-node": "^10.9.1",
     "tsc-watch": "^6.0.0",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "@vitest/ui": "^1.0.0"
   }
 }

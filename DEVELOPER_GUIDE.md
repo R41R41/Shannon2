@@ -59,6 +59,7 @@
 
 ### その他
 
+- [x] テスト体制の整備
 - [ ] 複数人で web を操作しても混ざらない
 - [ ] web を https ＋ドメインで公開
 - [ ] 管理者モード
@@ -66,6 +67,61 @@
 - [ ] 内部思考Agent
 - [ ] 感情状態 
 
+## 各serviceのeventBus
+
+### web
+#### monitoringAgent
+##### publish
+##### subscribe
+- web:log
+#### openaiAgent
+##### publish
+- web:get_message
+##### subscribe
+- web:post_message
+#### scheduleAgent
+##### publish
+- web:get_schedule
+- web:call_schedule
+##### subscribe
+- web:post_schedule
+
+### llm
+#### publish
+- web:post_message
+- discord:post_message
+- twitter:post_scheduled_message
+#### subscribe
+- web:get_message
+- discord:get_message
+- twitter:post_scheduled_message
+
+### discord
+#### publish
+- minecraft:get_status
+- discord:get_message
+#### subscribe
+- discord:post_message
+
+### twitter
+#### publish
+#### subscribe
+- twitter:post_scheduled_message
+- twitter:post_message
+
+### scheduler
+#### publish
+- web:post_schedule
+- twitter:post_scheduled_message
+#### subscribe
+- web:get_schedule
+- web:call_schedule
+
+### minecraft
+#### publish
+- minecraft:get_message
+#### subscribe
+- minecraft:post_message
 
 ## ログ規則
 

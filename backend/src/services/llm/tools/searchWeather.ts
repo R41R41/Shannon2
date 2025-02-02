@@ -1,12 +1,12 @@
-import { z } from 'zod';
 import { StructuredTool } from '@langchain/core/tools';
+import { z } from 'zod';
 
 export default class SearchWeatherTool extends StructuredTool {
   name = 'search-weather';
   description = '天気検索ツール。天気を調べるときは必ず使用する。';
   schema = z.object({
     date: z.string().describe('検索したい日付（YYYY-MM-DD）'),
-    location: z.string().describe('検索したい場所（日本語で指定）'),
+    location: z.string().describe('検索したい場所'),
   });
 
   constructor() {

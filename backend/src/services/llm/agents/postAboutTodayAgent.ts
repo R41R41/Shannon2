@@ -6,15 +6,19 @@ const jst = 'Asia/Tokyo';
 
 export class PostAboutTodayAgent {
   private taskGraph: TaskGraph;
-  private systemPrompt: string | null = null;
+  private systemPrompt: string;
 
-  constructor() {
+  private constructor(systemPrompt: string) {
     this.taskGraph = new TaskGraph();
-    this.setupSystemPrompt();
+    this.systemPrompt = systemPrompt;
   }
 
-  private async setupSystemPrompt() {
-    this.systemPrompt = await loadPrompt('about_today');
+  public static async create(): Promise<PostAboutTodayAgent> {
+    const prompt = await loadPrompt('about_today');
+    if (!prompt) {
+      throw new Error('Failed to load about_today prompt');
+    }
+    return new PostAboutTodayAgent(prompt);
   }
 
   private getTodayDate(): string {

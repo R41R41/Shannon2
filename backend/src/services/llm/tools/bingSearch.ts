@@ -1,13 +1,13 @@
-import { z } from 'zod';
-import { StructuredTool } from '@langchain/core/tools';
 import { BingSerpAPI } from '@langchain/community/tools/bingserpapi';
+import { StructuredTool } from '@langchain/core/tools';
+import { z } from 'zod';
 
 export default class BingSearchTool extends StructuredTool {
   name = 'bing-search';
   description =
     'bing検索ツール。最終的な応答には必ずどのサイトを調べたのかソースを含めてください。';
   schema = z.object({
-    query: z.string().describe('検索したい内容（日本語で指定）'),
+    query: z.string().describe('検索したい内容（検索内容に適した言語で指定）'),
   });
   private bingSerpAPI: BingSerpAPI;
 

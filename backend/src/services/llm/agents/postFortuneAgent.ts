@@ -13,8 +13,8 @@ export class PostFortuneAgent {
   private keywords: string[];
   private zodiacSigns: string[];
   private model: ChatOpenAI;
-  private systemPrompt: string | null = null;
-  constructor() {
+  private systemPrompt: string;
+  constructor(systemPrompt: string) {
     this.model = new ChatOpenAI({
       modelName: 'gpt-4o',
       temperature: 1,
@@ -260,11 +260,15 @@ export class PostFortuneAgent {
       '積極性',
       '変動',
     ];
-    this.setupSystemPrompt();
+    this.systemPrompt = systemPrompt;
   }
 
-  private async setupSystemPrompt() {
-    this.systemPrompt = await loadPrompt('fortune');
+  public static async create(): Promise<PostFortuneAgent> {
+    const prompt = await loadPrompt('fortune');
+    if (!prompt) {
+      throw new Error('Failed to load fortune prompt');
+    }
+    return new PostFortuneAgent(prompt);
   }
 
   private getFortuneInfo = async () => {
@@ -290,6 +294,6 @@ export class PostFortuneAgent {
       new SystemMessage(systemContent),
       new HumanMessage(humanContent),
     ]);
-    return `【今日の運勢】\n${response.content[0].toString()}`;
+    return `【今日の運勢】\n${response.content.toString()}`;
   }
 }

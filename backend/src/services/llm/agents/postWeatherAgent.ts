@@ -37,7 +37,10 @@ export class PostWeatherAgent {
   ];
   private taskGraph: TaskGraph;
 
-  constructor(cities: string[] = ['仙台', '東京', '名古屋', '大阪', '福岡']) {
+  constructor(
+    systemPrompts: Map<PromptType, string>,
+    cities: string[] = ['仙台', '東京', '名古屋', '大阪', '福岡']
+  ) {
     this.model = new ChatOpenAI({
       modelName: 'gpt-4o',
       temperature: 0.8,
@@ -115,15 +118,20 @@ export class PostWeatherAgent {
       '那覇',
     ];
     this.url = 'https://weather.tsukumijima.net/api/forecast?city=';
-    this.systemPrompts = new Map();
-    this.setupSystemPrompts();
+    this.systemPrompts = systemPrompts;
   }
 
-  private async setupSystemPrompts(): Promise<void> {
-    const promptsName: PromptType[] = ['forecast', 'weather_to_emoji'];
+  public static async create(): Promise<PostWeatherAgent> {
+    const promptsName: PromptType[] = [
+      'forecast',
+      'weather_to_emoji',
+      'forecast_for_toyama_server',
+    ];
+    const systemPrompts = new Map();
     for (const name of promptsName) {
-      this.systemPrompts.set(name, await loadPrompt(name));
+      systemPrompts.set(name, await loadPrompt(name));
     }
+    return new PostWeatherAgent(systemPrompts);
   }
 
   private async getUrl(city: string): Promise<any> {
@@ -145,7 +153,7 @@ export class PostWeatherAgent {
       new SystemMessage(systemContent),
       new HumanMessage(humanContent),
     ]);
-    return result.content[0].toString();
+    return result.content.toString();
   }
 
   private getTemperature(forecastData: any): string {
@@ -248,6 +256,7 @@ export class PostWeatherAgent {
     if (!systemContent) {
       throw new Error('systemPrompt is not set');
     }
+    const lastForecast = this.forecasts[this.forecasts.length - 1];
     const humanContent =
       `tomorrow's date:${date}\n` +
       cityForecasts
@@ -259,15 +268,12 @@ export class PostWeatherAgent {
             .join('\n');
         })
         .join('\n') +
-      '\n' +
-      `Today's weather:\n${
-        this.forecasts[this.forecasts.length - 1].forecasts
-      }`;
+      `${lastForecast ? `\nToday's weather:\n${lastForecast.forecasts}` : ''}`;
     const result = await this.model.invoke([
       new SystemMessage(systemContent),
       new HumanMessage(humanContent),
     ]);
-    return result.content[0].toString();
+    return result.content.toString();
   }
 
   private async setForecasts(date: string, forecast: string): Promise<void> {
@@ -283,7 +289,7 @@ export class PostWeatherAgent {
     const commentSentence = await this.getComment();
     const date = this.getTomorrowDate();
     this.setForecasts(date, dataSentence + '\n\n' + commentSentence);
-    return `【明日の天気】\n${dataSentence}\n\n${commentSentence}`;
+    return `${dataSentence}\n\n${commentSentence}`;
   }
 
   public async createPostForToyama(): Promise<string> {
@@ -312,6 +318,6 @@ export class PostWeatherAgent {
     });
     const postForToyama =
       result.messages[result.messages.length - 1].content.toString();
-    return `【明日の天気】\n${postForToyama}`;
+    return `${postForToyama}`;
   }
 }
