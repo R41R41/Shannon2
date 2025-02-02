@@ -30,10 +30,10 @@ export class Scheduler {
   }
 
   private async setupEventBus() {
-    this.eventBus.subscribe('web:get_schedule', (event) => {
+    this.eventBus.subscribe('scheduler:get_schedule', (event) => {
       this.post_schedule(event.data as SchedulerInput);
     });
-    this.eventBus.subscribe('web:call_schedule', (event) => {
+    this.eventBus.subscribe('scheduler:call_schedule', (event) => {
       this.call_schedule(event.data as SchedulerInput);
     });
   }
@@ -57,12 +57,12 @@ export class Scheduler {
     if (platform && name) {
       if (platform === 'twitter') {
         this.eventBus.publish({
-          type: `${platform}:post_scheduled_message`,
-          memoryZone: `${platform}:schedule_post`,
+          type: `llm:post_scheduled_message`,
+          memoryZone: `twitter:schedule_post`,
           data: {
             endpoint: name,
           } as TwitterMessageInput,
-          targetMemoryZones: [`${platform}:schedule_post`],
+          targetMemoryZones: [`twitter:schedule_post`],
         });
       }
     }

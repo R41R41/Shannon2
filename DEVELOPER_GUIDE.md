@@ -76,13 +76,13 @@
 - web:log
 #### openaiAgent
 ##### publish
-- web:get_message
+- llm:get_web_message
 ##### subscribe
 - web:post_message
 #### scheduleAgent
 ##### publish
-- web:get_schedule
-- web:call_schedule
+- scheduler:get_schedule
+- scheduler:call_schedule
 ##### subscribe
 - web:post_schedule
 
@@ -92,14 +92,14 @@
 - discord:post_message
 - twitter:post_scheduled_message
 #### subscribe
-- web:get_message
-- discord:get_message
-- twitter:post_scheduled_message
+- llm:get_web_message
+- llm:get_discord_message
+- llm:post_scheduled_message*
 
 ### discord
 #### publish
 - minecraft:get_status
-- discord:get_message
+- llm:get_discord_message
 #### subscribe
 - discord:post_message
 
@@ -112,10 +112,10 @@
 ### scheduler
 #### publish
 - web:post_schedule
-- twitter:post_scheduled_message
+- llm:post_scheduled_message*
 #### subscribe
-- web:get_schedule
-- web:call_schedule
+- scheduler:get_schedule
+- scheduler:call_schedule
 
 ### minecraft
 #### publish

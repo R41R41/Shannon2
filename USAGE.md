@@ -2,6 +2,14 @@
 
 このドキュメントでは、SHANNONの詳細な使用方法を説明します。
 
+## ビルド
+
+```bash
+npm run build -w common
+npm run build -w backend
+npm run build -w frontend
+```
+
 ## バックエンドの起動
 
 バックエンドを起動するには、以下のコマンドを使用します。

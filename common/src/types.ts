@@ -66,13 +66,14 @@ export type MemoryZone =
   | "youtube";
 
 export type EventType =
+  | "llm:post_scheduled_message"
   | "twitter:post_scheduled_message"
   | "twitter:post_message"
   | "twitter:get_message"
   | "youtube:get_stats"
   | "youtube:get_message"
   | "youtube:post_message"
-  | "discord:get_message"
+  | "llm:get_discord_message"
   | "discord:post_message"
   | "minecraft:get_status"
   | "minecraft:start_server"
@@ -81,11 +82,11 @@ export type EventType =
   | "minecraft:env_input"
   | "minecraft:get_message"
   | "minecraft:post_message"
-  | "web:get_message"
+  | "llm:get_web_message"
   | "web:post_message"
-  | "web:get_schedule"
+  | "scheduler:get_schedule"
   | "web:post_schedule"
-  | "web:call_schedule"
+  | "scheduler:call_schedule"
   | "web:log";
 
 export interface LLMInput {

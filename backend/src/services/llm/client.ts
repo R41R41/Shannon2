@@ -58,15 +58,15 @@ export class LLMService {
   }
 
   private setupEventBus() {
-    this.eventBus.subscribe('web:get_message', (event) => {
+    this.eventBus.subscribe('llm:get_web_message', (event) => {
       this.processWebMessage(event.data as OpenAIMessageInput);
     });
 
-    this.eventBus.subscribe('discord:get_message', (event) => {
+    this.eventBus.subscribe('llm:get_discord_message', (event) => {
       this.processDiscordMessage(event.data as DiscordMessageInput);
     });
 
-    this.eventBus.subscribe('twitter:post_scheduled_message', (event) => {
+    this.eventBus.subscribe('llm:post_scheduled_message', (event) => {
       this.processCreatePost(event.data as TwitterMessageInput);
     });
   }

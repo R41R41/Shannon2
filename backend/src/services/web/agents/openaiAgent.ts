@@ -42,7 +42,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
             };
 
             this.eventBus.publish({
-              type: 'web:get_message',
+              type: 'llm:get_web_message',
               memoryZone: 'web',
               data: message,
             });
@@ -53,7 +53,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
               text: data.text,
             };
             this.eventBus.publish({
-              type: 'web:get_message',
+              type: 'llm:get_web_message',
               memoryZone: 'web',
               data: message,
             });
@@ -65,7 +65,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
             };
 
             this.eventBus.publish({
-              type: 'web:get_message',
+              type: 'llm:get_web_message',
               memoryZone: 'web',
               data: message,
             });
@@ -79,7 +79,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
             };
 
             this.eventBus.publish({
-              type: 'web:get_message',
+              type: 'llm:get_web_message',
               memoryZone: 'web',
               data: message,
             });
@@ -96,7 +96,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
             };
 
             this.eventBus.publish({
-              type: 'web:get_message',
+              type: 'llm:get_web_message',
               memoryZone: 'web',
               data: message,
             });
@@ -108,7 +108,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
             };
 
             this.eventBus.publish({
-              type: 'web:get_message',
+              type: 'llm:get_web_message',
               memoryZone: 'web',
               data: message,
             });
@@ -120,7 +120,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
             };
 
             this.eventBus.publish({
-              type: 'web:get_message',
+              type: 'llm:get_web_message',
               memoryZone: 'web',
               data: message,
             });

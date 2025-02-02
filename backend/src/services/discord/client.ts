@@ -186,7 +186,7 @@ export class DiscordBot {
       console.log('\x1b[34m' + guildName + ' ' + channelName + '\x1b[0m');
       console.log('\x1b[34m' + nickname + ': ' + message.content + '\x1b[0m');
       this.eventBus.publish({
-        type: 'discord:get_message',
+        type: 'llm:get_discord_message',
         memoryZone: memoryZone,
         data: {
           text: message.content,
@@ -215,7 +215,7 @@ export class DiscordBot {
 
       const nickname = this.getUserNickname(speech.user);
       this.eventBus.publish({
-        type: 'discord:get_message',
+        type: 'llm:get_discord_message',
         memoryZone: memoryZone,
         data: {
           audio: speech.content,

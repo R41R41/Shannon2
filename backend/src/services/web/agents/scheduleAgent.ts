@@ -39,7 +39,7 @@ export class ScheduleAgent extends WebSocketServiceBase {
         if (data.type === 'get_schedule') {
           const name = data.name as string;
           this.eventBus.publish({
-            type: 'web:get_schedule',
+            type: 'scheduler:get_schedule',
             memoryZone: 'web',
             data: { type: 'get_schedule', name } as SchedulerInput,
           });
@@ -49,7 +49,7 @@ export class ScheduleAgent extends WebSocketServiceBase {
           console.log('calling schedule', data.name);
           const name = data.name as string;
           this.eventBus.publish({
-            type: 'web:call_schedule',
+            type: 'scheduler:call_schedule',
             memoryZone: 'web',
             data: { type: 'call_schedule', name } as SchedulerInput,
           });
