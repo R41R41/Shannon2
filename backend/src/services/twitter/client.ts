@@ -24,26 +24,16 @@ export class TwitterClient extends BaseClient {
     isTest: boolean
   ) {
     super(serviceName, eventBus);
-    const apiKey = isTest
-      ? process.env.TWITTER_API_KEY_TEST
-      : process.env.TWITTER_API_KEY;
-    const apiKeySecret = isTest
-      ? process.env.TWITTER_API_KEY_SECRET_TEST
-      : process.env.TWITTER_API_KEY_SECRET;
-    const accessToken = isTest
-      ? process.env.TWITTER_ACCESS_TOKEN_TEST
-      : process.env.TWITTER_ACCESS_TOKEN;
-    const accessTokenSecret = isTest
-      ? process.env.TWITTER_ACCESS_TOKEN_SECRET_TEST
-      : process.env.TWITTER_ACCESS_TOKEN_SECRET;
+    const apiKey = process.env.TWITTER_API_KEY;
+    const apiKeySecret = process.env.TWITTER_API_KEY_SECRET;
+    const accessToken = process.env.TWITTER_ACCESS_TOKEN;
+    const accessTokenSecret = process.env.TWITTER_ACCESS_TOKEN_SECRET;
 
     if (!apiKey || !apiKeySecret || !accessToken || !accessTokenSecret) {
       throw new Error('Twitter APIの認証情報が設定されていません');
     }
 
-    this.myUserId = isTest
-      ? process.env.TWITTER_USER_ID_TEST || ''
-      : process.env.TWITTER_USER_ID || '';
+    this.myUserId = process.env.TWITTER_USER_ID || '';
 
     this.client = new TwitterApi({
       appKey: apiKey,
@@ -57,7 +47,6 @@ export class TwitterClient extends BaseClient {
 
   private setupEventHandlers() {
     this.eventBus.subscribe('twitter:status', async (event) => {
-      console.log('twitter:status', event);
       const { serviceCommand } = event.data as TwitterClientInput;
       if (serviceCommand === 'start') {
         await this.start();

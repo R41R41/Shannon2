@@ -7,12 +7,9 @@ Web:
 discord:  
   ☐ minecraft サーバーの状態を見れる
   ☐ minecraft サーバーの起動・停止ができる
-  ☐ twitter の定時ツイートが表示される*1
-  ✔ 特定チャンネルだけで会話できる*1 @done(25-02-03 20:12)
   ☐ しょうもない機能たち*1
   
 Twitter:
-  ☐ 定時ツイートが分かりやすい
   ☐ 投稿につき 1 返信*1
   ☐ アイマイラボの投稿リツイート*1
   ☐ ライ、ヤミーの投稿に返信*1
@@ -117,6 +114,9 @@ Minecraft:
   - **updated**: \x1b[36m - シアン（水色）
   - **others**: \x1b[37m - 白, \x1b[35m - マゼンタ（紫）
 Archive:
+  ✔ twitter の定時ツイートが表示される*1 @done(25-02-03 20:37) @project(discord)
+  ✔ 定時ツイートが分かりやすい @done(25-02-03 20:37) @project(Twitter)
+  ✔ 特定チャンネルだけで会話できる*1 @done(25-02-03 20:12) @project(discord)
   ✔ テスト体制の整備 @done(25-02-03 12:08) @project(その他)
   ✔ discord bot 起動・停止・状態*1 @started(25-02-03 11:25) @done(25-02-03 12:02) @lasted(37m40s) @project(Web)
   ✔ ログインできる @done(25-02-03 09:15) @project(Web)

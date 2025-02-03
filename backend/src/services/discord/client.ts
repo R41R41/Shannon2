@@ -196,8 +196,6 @@ export class DiscordBot extends BaseClient {
       }
     });
     this.client.on('messageCreate', (message) => {
-      console.log('discord:status', this.status);
-      console.log('discord:isTest', this.isTest);
       if (this.status !== 'running') return;
       const isTestGuild = message.guildId === process.env.TEST_GUILD_ID;
       if (this.isTest !== isTestGuild) return;
@@ -292,6 +290,12 @@ export class DiscordBot extends BaseClient {
             const channel = this.client.channels.cache.get(xChannelId);
             if (channel?.isTextBased() && 'send' in channel) {
               channel.send(text ?? '');
+            }
+            const toyamaChannel = this.client.channels.cache.get(
+              this.toyamaChannelId ?? ''
+            );
+            if (toyamaChannel?.isTextBased() && 'send' in toyamaChannel) {
+              toyamaChannel.send(text ?? '');
             }
           }
           return;
