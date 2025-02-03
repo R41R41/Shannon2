@@ -33,7 +33,7 @@ class Server {
     this.discordBot = DiscordBot.getInstance(this.eventBus, isTestMode);
     this.webClient = new WebClient(this.eventBus);
     this.twitterClient = TwitterClient.getInstance(this.eventBus, isTestMode);
-    this.scheduler = new Scheduler(this.eventBus);
+    this.scheduler = Scheduler.getInstance(this.eventBus, isTestMode);
   }
 
   private setupMiddleware() {

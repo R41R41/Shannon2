@@ -10,10 +10,17 @@ import {
 } from '../../common/WebSocketService.js';
 
 export class ScheduleAgent extends WebSocketServiceBase {
+  private static instance: ScheduleAgent;
   public constructor(config: WebSocketServiceConfig) {
     super(config);
   }
 
+  public static getInstance(config: WebSocketServiceConfig) {
+    if (!ScheduleAgent.instance) {
+      ScheduleAgent.instance = new ScheduleAgent(config);
+    }
+    return ScheduleAgent.instance;
+  }
   protected override initialize() {
     this.wss.on('connection', async (ws) => {
       console.log('\x1b[34mSchedule client connected\x1b[0m');
@@ -31,7 +38,6 @@ export class ScheduleAgent extends WebSocketServiceBase {
               data
             )}\x1b[0m`
           );
-          console.log(data.type);
         } else {
           console.error('Invalid message format:', data);
           return;

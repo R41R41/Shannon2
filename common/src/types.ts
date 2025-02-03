@@ -63,7 +63,8 @@ export type MemoryZone =
   | "twitter:schedule_post"
   | "twitter:post"
   | "minecraft"
-  | "youtube";
+  | "youtube"
+  | "scheduler";
 
 export type EventType =
   | "llm:post_scheduled_message"
@@ -286,7 +287,7 @@ export type ServiceStatus = "running" | "stopped" | "connecting";
 export type ServiceCommand = "start" | "stop" | "status";
 
 export interface StatusAgentInput extends ServiceInput {
-  service: "twitter" | "discord" | "minecraft";
+  service: "twitter" | "discord" | "minecraft" | "scheduler";
   status: ServiceStatus;
 }
 

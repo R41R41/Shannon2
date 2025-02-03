@@ -6,27 +6,41 @@ import {
 } from '@shannon/common';
 import fs from 'fs';
 import cron from 'node-cron';
+import { BaseClient } from '../common/BaseClient.js';
 import { EventBus } from '../eventBus.js';
 
-export class Scheduler {
-  private eventBus: EventBus;
+export class Scheduler extends BaseClient {
+  private static instance: Scheduler;
   private schedules: Schedule[];
+  public isTest: boolean = false;
 
-  constructor(eventBus: EventBus) {
-    this.eventBus = eventBus;
+  public static getInstance(eventBus: EventBus, isTest: boolean = false) {
+    if (!Scheduler.instance) {
+      Scheduler.instance = new Scheduler('scheduler', eventBus, isTest);
+    }
+    Scheduler.instance.isTest = isTest;
+    return Scheduler.instance;
+  }
+
+  constructor(
+    serviceName: 'scheduler',
+    eventBus: EventBus,
+    isTest: boolean = false
+  ) {
+    super(serviceName, eventBus);
     this.schedules = [];
+  }
+
+  public async initialize() {
+    await this.setUpSchedule();
+    await this.setupEventBus();
+    await this.scheduleCreatePost();
   }
 
   private async setUpSchedule() {
     this.schedules = JSON.parse(
       fs.readFileSync('saves/schedule.json', 'utf8')
     ) as Schedule[];
-  }
-
-  public async start() {
-    await this.setUpSchedule();
-    await this.setupEventBus();
-    await this.scheduleCreatePost();
   }
 
   private async setupEventBus() {

@@ -4,7 +4,7 @@ export abstract class BaseClient {
   public status: ServiceStatus = 'stopped';
 
   constructor(
-    private readonly serviceName: 'twitter' | 'discord',
+    private readonly serviceName: 'twitter' | 'discord' | 'scheduler',
     public eventBus: EventBus
   ) {}
 

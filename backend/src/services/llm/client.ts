@@ -222,7 +222,7 @@ export class LLMService {
         command: message.command,
         text: post,
       } as TwitterClientInput,
-      targetMemoryZones: ['twitter:schedule_post', 'discord:aiminelab_server'],
+      targetMemoryZones: ['twitter:schedule_post'],
     });
     this.eventBus.publish({
       type: 'discord:post_message',
@@ -231,7 +231,6 @@ export class LLMService {
         command: message.command,
         text: postForToyama,
       } as DiscordClientOutput,
-      targetMemoryZones: ['discord:toyama_server'],
     });
   }
 

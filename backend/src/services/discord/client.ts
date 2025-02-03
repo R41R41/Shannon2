@@ -41,7 +41,6 @@ export class DiscordBot extends BaseClient {
     isTest: boolean = false
   ) {
     super(serviceName, eventBus);
-    console.log('DiscordBot constructor', isTest);
     this.client = new Client({
       intents: [
         GatewayIntentBits.Guilds,

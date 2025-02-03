@@ -63,8 +63,8 @@ export class TwitterClient extends BaseClient {
         });
       }
     });
-    if (this.status !== 'running') return;
     this.eventBus.subscribe('twitter:post_scheduled_message', async (event) => {
+      if (this.status !== 'running') return;
       const { text } = event.data as TwitterClientInput;
       try {
         if (text) {
@@ -75,6 +75,7 @@ export class TwitterClient extends BaseClient {
       }
     });
     this.eventBus.subscribe('twitter:post_message', async (event) => {
+      if (this.status !== 'running') return;
       const { replyId, text } = event.data as TwitterClientInput;
       try {
         if (replyId && text) {
@@ -89,6 +90,7 @@ export class TwitterClient extends BaseClient {
   }
 
   private async postTweet(content: string) {
+    if (this.status !== 'running') return;
     try {
       const response = await this.client.v2.tweet(content);
       console.log(
@@ -105,6 +107,7 @@ export class TwitterClient extends BaseClient {
    * @returns ツイートIDの配列
    */
   private async getMyTweets(): Promise<string[]> {
+    if (this.status !== 'running') return [];
     try {
       if (!this.myUserId) {
         throw new Error('TwitterユーザーIDが設定されていません');
@@ -121,6 +124,7 @@ export class TwitterClient extends BaseClient {
   }
 
   private async replyTweet(replyId: string, text: string) {
+    if (this.status !== 'running') return;
     try {
       const response = await this.client.v2.reply(text, replyId);
       console.log(

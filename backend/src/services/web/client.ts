@@ -28,7 +28,7 @@ export class WebClient {
       serviceName: 'status',
     });
 
-    this.scheduleService = new ScheduleAgent({
+    this.scheduleService = ScheduleAgent.getInstance({
       port: PORTS.WEBSOCKET.SCHEDULE as number,
       eventBus: eventBus,
       serviceName: 'schedule',
