@@ -45,7 +45,8 @@ export type RealTimeAPIEndpoint =
 export type TwitterSchedulePostEndpoint =
   | "about_today"
   | "forecast"
-  | "fortune";
+  | "fortune"
+  | "check_replies";
 
 export type MinecraftServerStatusEndpoint =
   | "get_status"
@@ -68,11 +69,13 @@ export type MemoryZone =
 
 export type EventType =
   | "llm:post_scheduled_message"
+  | "llm:post_twitter_reply"
   | "twitter:status"
   | "twitter:start"
   | "twitter:stop"
   | "twitter:post_scheduled_message"
   | "twitter:post_message"
+  | "twitter:check_replies"
   | "twitter:get_message"
   | "youtube:get_stats"
   | "youtube:get_message"
@@ -110,13 +113,6 @@ export interface LLMInput {
 export interface LLMOutput {
   type: ConversationType;
   content: string;
-}
-
-export interface TwitterMessageInput extends ServiceInput {
-  text?: string | null;
-  replyId?: string | null;
-  imageUrl?: string | null;
-  command?: TwitterSchedulePostEndpoint | null;
 }
 
 export interface OpenAIMessageInput {
@@ -240,7 +236,7 @@ export interface Event {
   type: EventType;
   memoryZone: MemoryZone;
   data:
-    | TwitterMessageInput
+    | TwitterClientInput
     | OpenAIMessageInput
     | DiscordClientInput
     | ILog
@@ -251,7 +247,8 @@ export interface Event {
     | MinecraftOutput
     | SchedulerInput
     | SchedulerOutput
-    | StatusAgentInput;
+    | StatusAgentInput
+    | ServiceInput;
   targetMemoryZones?: MemoryZone[];
 }
 
@@ -277,7 +274,7 @@ export interface Schedule {
   data: {
     type: EventType;
     memoryZone: MemoryZone;
-    data: TwitterMessageInput;
+    data: TwitterClientInput;
     targetMemoryZones: MemoryZone[];
   };
 }

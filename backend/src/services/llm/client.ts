@@ -9,7 +9,6 @@ import {
   PromptType,
   promptTypes,
   TwitterClientInput,
-  TwitterMessageInput,
 } from '@shannon/common';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus.js';
@@ -67,8 +66,32 @@ export class LLMService {
     });
 
     this.eventBus.subscribe('llm:post_scheduled_message', (event) => {
-      this.processCreatePost(event.data as TwitterMessageInput);
+      this.processCreatePost(event.data as TwitterClientInput);
     });
+
+    this.eventBus.subscribe('llm:post_twitter_reply', (event) => {
+      this.processTwitterReply(event.data as TwitterClientInput);
+    });
+  }
+
+  private async processTwitterReply(message: TwitterClientInput) {
+    const response = await this.processMessage(
+      ['base_text'],
+      'twitter:post',
+      ['twitter:post'],
+      null,
+      message.text,
+      null
+    );
+    console.log(response);
+    // this.eventBus.publish({
+    //   type: 'twitter:post_message',
+    //   memoryZone: 'twitter:post',
+    //   data: {
+    //     text: response,
+    //     replyId: message.replyId,
+    //   } as TwitterClientInput,
+    // });
   }
 
   private async processWebMessage(message: OpenAIMessageInput) {
@@ -192,7 +215,7 @@ export class LLMService {
     }
   }
 
-  private async processCreatePost(message: TwitterMessageInput) {
+  private async processCreatePost(message: TwitterClientInput) {
     let post = '';
     let postForToyama = '';
     if (message.command === 'forecast') {

@@ -1,5 +1,7 @@
 import {
   EventType,
+  ServiceCommand,
+  ServiceInput,
   StatusAgentInput,
   StatusAgentOutput,
 } from '@shannon/common';
@@ -26,8 +28,8 @@ export class StatusAgent extends WebSocketServiceBase {
             type: `${service}:status` as EventType,
             memoryZone: 'web',
             data: {
-              serviceCommand: command,
-            },
+              serviceCommand: command as ServiceCommand,
+            } as ServiceInput,
           });
         }
       });

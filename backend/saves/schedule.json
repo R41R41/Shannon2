@@ -37,5 +37,16 @@
       },
       "targetMemoryZones": ["twitter:schedule_post"]
     }
+  },
+  {
+    "time": "*/20 * * * *",
+    "name": "twitter:check_replies",
+    "data": {
+      "type": "twitter:check_replies",
+      "memoryZone": "twitter:post",
+      "data": {
+        "platform": "twitter"
+      }
+    }
   }
 ]

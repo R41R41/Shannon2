@@ -2,7 +2,7 @@ import {
   Schedule,
   SchedulerInput,
   SchedulerOutput,
-  TwitterMessageInput,
+  TwitterClientInput,
 } from '@shannon/common';
 import fs from 'fs';
 import cron from 'node-cron';
@@ -69,14 +69,21 @@ export class Scheduler extends BaseClient {
     const name = data.name?.split(':')[1];
     console.log('calling schedule', platform, name);
     if (platform && name) {
-      if (platform === 'twitter') {
+      if (platform === 'twitter' && name === 'check_replies') {
+        this.eventBus.publish({
+          type: `twitter:check_replies`,
+          memoryZone: `twitter:post`,
+          data: {
+            command: name,
+          } as TwitterClientInput,
+        });
+      } else {
         this.eventBus.publish({
           type: `llm:post_scheduled_message`,
           memoryZone: `twitter:schedule_post`,
           data: {
             command: name,
-          } as TwitterMessageInput,
-          targetMemoryZones: [`twitter:schedule_post`],
+          } as TwitterClientInput,
         });
       }
     }

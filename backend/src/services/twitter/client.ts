@@ -1,11 +1,14 @@
 import { TwitterClientInput } from '@shannon/common';
+import dotenv from 'dotenv';
 import { TwitterApi } from 'twitter-api-v2';
 import { BaseClient } from '../common/BaseClient.js';
 import { EventBus } from '../eventBus.js';
 
+dotenv.config();
+
 export class TwitterClient extends BaseClient {
   private client: TwitterApi;
-  private myUserId: string;
+  private myUserId: string | null = null;
   public isTest: boolean = false;
 
   private static instance: TwitterClient;
@@ -15,6 +18,7 @@ export class TwitterClient extends BaseClient {
       TwitterClient.instance = new TwitterClient('twitter', eventBus, isTest);
     }
     TwitterClient.instance.isTest = isTest;
+    TwitterClient.instance.myUserId = process.env.TWITTER_USER_ID || null;
     return TwitterClient.instance;
   }
 
@@ -33,16 +37,12 @@ export class TwitterClient extends BaseClient {
       throw new Error('Twitter APIの認証情報が設定されていません');
     }
 
-    this.myUserId = process.env.TWITTER_USER_ID || '';
-
     this.client = new TwitterApi({
       appKey: apiKey,
       appSecret: apiKeySecret,
       accessToken: accessToken,
       accessSecret: accessTokenSecret,
     });
-
-    this.setupEventHandlers();
   }
 
   private setupEventHandlers() {
@@ -87,6 +87,26 @@ export class TwitterClient extends BaseClient {
         console.error(`\x1b[31mTwitter post error: ${error}\x1b[0m`);
       }
     });
+    this.eventBus.subscribe('twitter:check_replies', async (event) => {
+      if (this.status !== 'running') return;
+      try {
+        await this.checkAndReplyToUnrepliedTweets();
+      } catch (error) {
+        console.error(`\x1b[31mCheck replies error: ${error}\x1b[0m`);
+      }
+    });
+  }
+
+  async getUserId(username: string) {
+    try {
+      const response = await this.client.v2.userByUsername(username);
+      if (response.data) {
+        console.log(`User ID for ${username}: ${response.data.id}`);
+        return response.data.id;
+      }
+    } catch (error) {
+      console.error('Error fetching user ID:', error);
+    }
   }
 
   private async postTweet(content: string) {
@@ -177,9 +197,14 @@ export class TwitterClient extends BaseClient {
   public async getOldestUnrepliedTweet(
     tweetId: string
   ): Promise<{ id: string; text: string } | null> {
+    if (this.status !== 'running') return null;
     try {
-      const tweet = await this.client.v2.singleTweet(tweetId);
+      const tweet = await this.client.v2.singleTweet(tweetId, {
+        'tweet.fields': ['conversation_id'],
+      });
+      console.log(tweet);
       const conversationId = tweet.data.conversation_id;
+      console.log(conversationId);
       const response = await this.client.v2.search(
         `conversation_id:${conversationId}`,
         {
@@ -192,7 +217,7 @@ export class TwitterClient extends BaseClient {
           ],
         }
       );
-
+      console.log(response);
       const unrepliedTweets = response.data.data.filter(
         (reply: any) =>
           reply.in_reply_to_user_id === tweet.data.author_id &&
@@ -214,6 +239,66 @@ export class TwitterClient extends BaseClient {
       return null;
     } catch (error: any) {
       console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
+      throw error;
+    }
+  }
+
+  /**
+   * 24時間以内の自分のツイートを取得する
+   * @returns ツイートIDの配列
+   */
+  private async getRecentTweets(): Promise<string[]> {
+    if (this.status !== 'running') return [];
+    try {
+      if (!this.myUserId) {
+        throw new Error('TwitterユーザーIDが設定されていません');
+      }
+      const oneDayAgo = new Date();
+      oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+
+      const response = await this.client.v2.userTimeline(this.myUserId, {
+        max_results: 100,
+        exclude: 'replies',
+        'tweet.fields': ['created_at'],
+      });
+
+      return response.data.data
+        .filter((tweet) => {
+          const tweetDate = new Date(tweet.created_at!);
+          return tweetDate > oneDayAgo;
+        })
+        .map((tweet) => tweet.id);
+    } catch (error: any) {
+      console.error(`\x1b[31mGet recent tweets error: ${error.message}\x1b[0m`);
+      throw error;
+    }
+  }
+
+  /**
+   * 24時間以内の自分のツイートをチェックし、未返信のリプライに返信する
+   */
+  private async checkAndReplyToUnrepliedTweets() {
+    try {
+      const recentTweets = await this.getRecentTweets();
+
+      for (const tweetId of recentTweets) {
+        const unrepliedTweet = await this.getOldestUnrepliedTweet(tweetId);
+
+        console.log(unrepliedTweet);
+
+        if (unrepliedTweet) {
+          this.eventBus.publish({
+            type: 'llm:post_twitter_reply',
+            memoryZone: 'twitter:post',
+            data: {
+              replyId: unrepliedTweet.id,
+              text: unrepliedTweet.text,
+            },
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error(`\x1b[31mCheck and reply error: ${error.message}\x1b[0m`);
       throw error;
     }
   }
