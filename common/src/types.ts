@@ -28,7 +28,7 @@ export type ConversationType =
   | "audio"
   | "realtime_text"
   | "realtime_audio"
-  | "endpoint"
+  | "command"
   | "log"
   | "user_transcript";
 
@@ -67,6 +67,9 @@ export type MemoryZone =
 
 export type EventType =
   | "llm:post_scheduled_message"
+  | "twitter:status"
+  | "twitter:start"
+  | "twitter:stop"
   | "twitter:post_scheduled_message"
   | "twitter:post_message"
   | "twitter:get_message"
@@ -74,6 +77,9 @@ export type EventType =
   | "youtube:get_message"
   | "youtube:post_message"
   | "llm:get_discord_message"
+  | "discord:start"
+  | "discord:stop"
+  | "discord:status"
   | "discord:post_message"
   | "minecraft:get_status"
   | "minecraft:start_server"
@@ -87,7 +93,12 @@ export type EventType =
   | "scheduler:get_schedule"
   | "web:post_schedule"
   | "scheduler:call_schedule"
-  | "web:log";
+  | "web:log"
+  | "web:status";
+
+export interface ServiceInput {
+  serviceCommand?: ServiceCommand | null;
+}
 
 export interface LLMInput {
   platform: Platform;
@@ -100,11 +111,11 @@ export interface LLMOutput {
   content: string;
 }
 
-export interface TwitterMessageInput {
+export interface TwitterMessageInput extends ServiceInput {
   text?: string | null;
   replyId?: string | null;
   imageUrl?: string | null;
-  endpoint?: TwitterSchedulePostEndpoint | null;
+  command?: TwitterSchedulePostEndpoint | null;
 }
 
 export interface OpenAIMessageInput {
@@ -113,7 +124,7 @@ export interface OpenAIMessageInput {
   audio?: string | null;
   realtime_text?: string | null;
   realtime_audio?: string | null;
-  endpoint?: RealTimeAPIEndpoint | null;
+  command?: RealTimeAPIEndpoint | null;
 }
 
 export interface SearchQuery {
@@ -137,7 +148,7 @@ export interface WebMonitoringOutput {
   data?: ILog | ILog[];
 }
 
-export interface DiscordMessageInput {
+export interface DiscordClientInput extends ServiceInput {
   type: ConversationType;
   channelId: string;
   guildId: string;
@@ -149,27 +160,27 @@ export interface DiscordMessageInput {
   text?: string | null;
   audio?: string | null;
   realtime_audio?: string | null;
-  endpoint?: RealTimeAPIEndpoint | null;
+  command?: RealTimeAPIEndpoint | null;
 }
 
 export interface MinecraftInput {
   type: ConversationType;
   serverName?: string | null;
   text?: string | null;
-  endpoint?: RealTimeAPIEndpoint | MinecraftServerStatusEndpoint | null;
+  command?: RealTimeAPIEndpoint | MinecraftServerStatusEndpoint | null;
 }
 
 export interface MinecraftOutput {
   type: ConversationType;
   text?: string | null;
-  endpoint?: RealTimeAPIEndpoint | null;
+  command?: RealTimeAPIEndpoint | null;
 }
 
-export interface TwitterMessageOutput {
+export interface TwitterClientInput extends ServiceInput {
   text: string;
   replyId?: string | null;
   imageUrl?: string | null;
-  endpoint?: TwitterSchedulePostEndpoint | null;
+  command?: TwitterSchedulePostEndpoint | null;
 }
 
 export interface OpenAIMessageOutput {
@@ -177,7 +188,7 @@ export interface OpenAIMessageOutput {
   text?: string | null;
   realtime_text?: string | null;
   realtime_audio?: string | null;
-  endpoint?: RealTimeAPIEndpoint | null;
+  command?: RealTimeAPIEndpoint | null;
 }
 
 // スケジュール
@@ -195,13 +206,13 @@ export interface WebScheduleOutput {
   data?: Schedule[];
 }
 
-export interface DiscordMessageOutput {
+export interface DiscordClientOutput {
   type: ConversationType;
   guildId: string;
   channelId: string;
   text?: string | null;
   audio?: Uint8Array | null;
-  endpoint?: RealTimeAPIEndpoint | TwitterSchedulePostEndpoint | null;
+  command?: RealTimeAPIEndpoint | TwitterSchedulePostEndpoint | null;
   imageUrl?: string | null;
 }
 
@@ -214,7 +225,7 @@ export interface ILog {
 
 export type ScheduleInputType = "get_schedule" | "call_schedule";
 
-export interface SchedulerInput {
+export interface SchedulerInput extends ServiceInput {
   type: ScheduleInputType;
   name: string;
 }
@@ -230,15 +241,16 @@ export interface Event {
   data:
     | TwitterMessageInput
     | OpenAIMessageInput
-    | DiscordMessageInput
+    | DiscordClientInput
     | ILog
-    | TwitterMessageOutput
+    | TwitterClientInput
     | OpenAIMessageOutput
-    | DiscordMessageOutput
+    | DiscordClientOutput
     | MinecraftInput
     | MinecraftOutput
     | SchedulerInput
-    | SchedulerOutput;
+    | SchedulerOutput
+    | StatusAgentInput;
   targetMemoryZones?: MemoryZone[];
 }
 
@@ -267,4 +279,21 @@ export interface Schedule {
     data: TwitterMessageInput;
     targetMemoryZones: MemoryZone[];
   };
+}
+
+export type ServiceStatus = "running" | "stopped" | "connecting";
+
+export type ServiceCommand = "start" | "stop" | "status";
+
+export interface StatusAgentInput extends ServiceInput {
+  service: "twitter" | "discord" | "minecraft";
+  status: ServiceStatus;
+}
+
+export type StatusAgentOutputType = "service:status" | "service:command";
+
+export interface StatusAgentOutput {
+  type: StatusAgentOutputType | "pong";
+  service: "twitter" | "discord" | "minecraft";
+  data: ServiceStatus;
 }

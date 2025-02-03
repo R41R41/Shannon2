@@ -61,7 +61,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
             const message: OpenAIMessageInput = {
               type: 'realtime_audio',
               realtime_audio: data.realtime_audio,
-              endpoint: 'realtime_audio_append',
+              command: 'realtime_audio_append',
             };
 
             this.eventBus.publish({
@@ -71,11 +71,11 @@ export class OpenAIClientService extends WebSocketServiceBase {
             });
           } else if (
             data.type === 'realtime_audio' &&
-            data.endpoint === 'realtime_audio_commit'
+            data.command === 'realtime_audio_commit'
           ) {
             const message: OpenAIMessageInput = {
               type: 'realtime_audio',
-              endpoint: 'realtime_audio_commit',
+              command: 'realtime_audio_commit',
             };
 
             this.eventBus.publish({
@@ -83,7 +83,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
               memoryZone: 'web',
               data: message,
             });
-          } else if (data.type === 'endpoint' && data.endpoint) {
+          } else if (data.type === 'command' && data.command) {
             this.eventBus.log(
               'web',
               'white',
@@ -91,8 +91,8 @@ export class OpenAIClientService extends WebSocketServiceBase {
               true
             );
             const message: OpenAIMessageInput = {
-              type: 'endpoint',
-              endpoint: data.endpoint,
+              type: 'command',
+              command: data.command,
             };
 
             this.eventBus.publish({
@@ -100,11 +100,11 @@ export class OpenAIClientService extends WebSocketServiceBase {
               memoryZone: 'web',
               data: message,
             });
-          } else if (data.endpoint === 'realtime_vad_on') {
+          } else if (data.command === 'realtime_vad_on') {
             this.eventBus.log('web', 'white', 'received realtime vad on');
             const message: OpenAIMessageInput = {
-              type: 'endpoint',
-              endpoint: data.endpoint,
+              type: 'command',
+              command: data.command,
             };
 
             this.eventBus.publish({
@@ -112,11 +112,11 @@ export class OpenAIClientService extends WebSocketServiceBase {
               memoryZone: 'web',
               data: message,
             });
-          } else if (data.endpoint === 'realtime_vad_off') {
+          } else if (data.command === 'realtime_vad_off') {
             this.eventBus.log('web', 'white', 'received realtime vad off');
             const message: OpenAIMessageInput = {
-              type: 'endpoint',
-              endpoint: data.endpoint,
+              type: 'command',
+              command: data.command,
             };
 
             this.eventBus.publish({

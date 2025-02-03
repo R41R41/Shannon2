@@ -1,6 +1,6 @@
 import {
-  DiscordMessageInput,
-  DiscordMessageOutput,
+  DiscordClientInput,
+  DiscordClientOutput,
   MinecraftInput,
 } from '@shannon/common';
 import {
@@ -12,13 +12,12 @@ import {
 } from 'discord.js';
 import dotenv from 'dotenv';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
+import { BaseClient } from '../common/BaseClient.js';
 import { EventBus } from '../eventBus.js';
-
 dotenv.config();
 
-export class DiscordBot {
+export class DiscordBot extends BaseClient {
   private client: Client;
-  private eventBus: EventBus;
   private isTestMode: boolean;
   private toyamaGuildId: string | null = null;
   private toyamaChannelId: string | null = null;
@@ -28,6 +27,7 @@ export class DiscordBot {
   private testXChannelId: string | null = null;
 
   constructor(eventBus: EventBus, isTestMode: boolean = false) {
+    super('discord', eventBus);
     this.isTestMode = isTestMode;
     this.client = new Client({
       intents: [
@@ -48,6 +48,7 @@ export class DiscordBot {
     });
 
     this.setUpChannels();
+    this.setupEventHandlers();
   }
 
   private setUpChannels() {
@@ -59,7 +60,7 @@ export class DiscordBot {
     this.testXChannelId = process.env.TEST_X_CHANNEL_ID ?? '';
   }
 
-  public start() {
+  public initialize() {
     try {
       this.client.login(process.env.DISCORD_TOKEN);
       console.log('\x1b[34mDiscord bot started\x1b[0m');
@@ -116,9 +117,9 @@ export class DiscordBot {
                 true
               );
               const data = {
-                type: 'endpoint',
+                type: 'command',
                 serverName: serverName,
-                endpoint: 'get_status',
+                command: 'get_status',
               } as MinecraftInput;
               try {
                 this.eventBus.publish({
@@ -165,6 +166,25 @@ export class DiscordBot {
   }
 
   private setupEventHandlers() {
+    this.eventBus.subscribe('discord:status', async (event) => {
+      console.log('discord:status', event);
+      const { serviceCommand } = event.data as DiscordClientInput;
+      if (serviceCommand === 'start') {
+        await this.start();
+      } else if (serviceCommand === 'stop') {
+        await this.stop();
+      } else if (serviceCommand === 'status') {
+        this.eventBus.publish({
+          type: 'web:status',
+          memoryZone: 'web',
+          data: {
+            service: 'discord',
+            status: this.status,
+          },
+        });
+      }
+    });
+    if (this.status !== 'running') return;
     this.client.on('messageCreate', (message) => {
       const isTestGuild = message.guildId === process.env.TEST_GUILD_ID;
       if (this.isTestMode !== isTestGuild) return;
@@ -198,7 +218,7 @@ export class DiscordBot {
           userName: nickname,
           messageId: messageId,
           userId: userId,
-        } as DiscordMessageInput,
+        } as DiscordClientInput,
       });
     });
 
@@ -227,19 +247,19 @@ export class DiscordBot {
           channelName: channel.name,
           messageId: speech.messageId,
           userId: speech.userId,
-        } as DiscordMessageInput,
+        } as DiscordClientInput,
       });
     });
 
     // LLMからの応答を処理
     this.eventBus.subscribe('discord:post_message', (event) => {
       if (event.type === 'discord:post_message') {
-        const { text, type, channelId, guildId, audio, endpoint, imageUrl } =
-          event.data as DiscordMessageOutput;
+        const { text, type, channelId, guildId, audio, command, imageUrl } =
+          event.data as DiscordClientOutput;
         if (
-          endpoint === 'forecast' ||
-          endpoint === 'fortune' ||
-          endpoint === 'about_today'
+          command === 'forecast' ||
+          command === 'fortune' ||
+          command === 'about_today'
         ) {
           if (this.isTestMode) {
             const xChannelId = this.testXChannelId ?? '';

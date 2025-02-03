@@ -89,7 +89,7 @@ class Server {
   }
 
   private async startTwitterClient() {
-    await this.twitterClient.initialize();
+    await this.twitterClient.start();
     console.log('\x1b[34mTwitter Client started\x1b[0m');
   }
 

@@ -4,16 +4,24 @@ import { ConnectionStatus } from '@/services/common/WebSocketClient';
 import CircleIcon from '@mui/icons-material/Circle';
 import { MonitoringAgent } from '@/services/agents/monitoringAgent';
 import { OpenAIAgent } from '@/services/agents/openaiAgent';
+import { StatusAgent } from '@/services/agents/statusAgent';
 
 interface StatusLogProps {
   monitoring: MonitoringAgent | null;
   openai: OpenAIAgent | null;
+  status: StatusAgent | null;
 }
 
-const StatusLog: React.FC<StatusLogProps> = ({ monitoring, openai }) => {
+const StatusLog: React.FC<StatusLogProps> = ({
+  monitoring,
+  openai,
+  status,
+}) => {
   const [monitoringStatus, setMonitoringStatus] =
     useState<ConnectionStatus>('disconnected');
   const [openaiStatus, setOpenaiStatus] =
+    useState<ConnectionStatus>('disconnected');
+  const [statusStatus, setStatusStatus] =
     useState<ConnectionStatus>('disconnected');
 
   useEffect(() => {
@@ -24,14 +32,19 @@ const StatusLog: React.FC<StatusLogProps> = ({ monitoring, openai }) => {
       setOpenaiStatus(status);
     };
 
+    const updateStatusStatus = (status: ConnectionStatus) => {
+      setStatusStatus(status);
+    };
+
     monitoring?.addStatusListener(updateMonitoringStatus);
     openai?.addStatusListener(updateOpenaiStatus);
-
+    status?.addStatusListener(updateStatusStatus);
     return () => {
       monitoring?.removeStatusListener(updateMonitoringStatus);
       openai?.removeStatusListener(updateOpenaiStatus);
+      status?.removeStatusListener(updateStatusStatus);
     };
-  }, [monitoring, openai]);
+  }, [monitoring, openai, status]);
 
   const getStatusColor = (status: ConnectionStatus) => {
     switch (status) {
@@ -68,6 +81,11 @@ const StatusLog: React.FC<StatusLogProps> = ({ monitoring, openai }) => {
         <CircleIcon className={getStatusColor(openaiStatus)} />
         <span>OpenAI</span>
         <span className={styles.statusText}>{getStatusText(openaiStatus)}</span>
+      </div>
+      <div className={styles.status}>
+        <CircleIcon className={getStatusColor(statusStatus)} />
+        <span>StatusMonitor</span>
+        <span className={styles.statusText}>{getStatusText(statusStatus)}</span>
       </div>
     </div>
   );

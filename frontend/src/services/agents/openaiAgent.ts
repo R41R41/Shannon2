@@ -30,9 +30,9 @@ export class OpenAIAgent extends WebSocketClientBase {
       console.error('Invalid message format:', data);
       return;
     }
-    if (data.type === 'endpoint' && data.endpoint === 'text_done') {
+    if (data.type === 'command' && data.command === 'text_done') {
       this.textDoneCallback?.();
-    } else if (data.type === 'endpoint' && data.endpoint === 'audio_done') {
+    } else if (data.type === 'command' && data.command === 'audio_done') {
       this.audioDoneCallback?.();
     } else if (data.type === 'text' && data.text) {
       this.textCallback?.(data.text);
@@ -91,7 +91,7 @@ export class OpenAIAgent extends WebSocketClientBase {
     try {
       const messageData = JSON.stringify({
         type: 'realtime_audio',
-        endpoint: 'realtime_audio_commit',
+        command: 'realtime_audio_commit',
       });
       console.log('\x1b[32mcommitAudioBuffer\x1b[0m');
       this.send(messageData);
@@ -104,8 +104,8 @@ export class OpenAIAgent extends WebSocketClientBase {
   async vadModeChange(data: boolean) {
     try {
       const messageData = JSON.stringify({
-        type: 'endpoint',
-        endpoint: data ? 'realtime_vad_on' : 'realtime_vad_off',
+        type: 'command',
+        command: data ? 'realtime_vad_on' : 'realtime_vad_off',
       });
       console.log('\x1b[32mvadModeChange\x1b[0m', messageData);
       this.send(messageData);

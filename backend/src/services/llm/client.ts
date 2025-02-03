@@ -1,15 +1,15 @@
 import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import {
-  DiscordMessageInput,
-  DiscordMessageOutput,
-  isDiscordMessageInput,
+  DiscordClientInput,
+  DiscordClientOutput,
+  isDiscordClientInput,
   MemoryZone,
   OpenAIMessageInput,
   OpenAIMessageOutput,
   PromptType,
   promptTypes,
+  TwitterClientInput,
   TwitterMessageInput,
-  TwitterMessageOutput,
 } from '@shannon/common';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus.js';
@@ -63,7 +63,7 @@ export class LLMService {
     });
 
     this.eventBus.subscribe('llm:get_discord_message', (event) => {
-      this.processDiscordMessage(event.data as DiscordMessageInput);
+      this.processDiscordMessage(event.data as DiscordClientInput);
     });
 
     this.eventBus.subscribe('llm:post_scheduled_message', (event) => {
@@ -80,7 +80,7 @@ export class LLMService {
         return;
       } else if (
         message.type === 'realtime_audio' &&
-        message.endpoint === 'realtime_audio_append'
+        message.command === 'realtime_audio_append'
       ) {
         if (message.realtime_audio) {
           await this.realtimeApi.inputAudioBufferAppend(message.realtime_audio);
@@ -88,14 +88,14 @@ export class LLMService {
         return;
       } else if (
         message.type === 'realtime_audio' &&
-        message.endpoint === 'realtime_audio_commit'
+        message.command === 'realtime_audio_commit'
       ) {
         await this.realtimeApi.inputAudioBufferCommit();
         return;
-      } else if (message.endpoint === 'realtime_vad_on') {
+      } else if (message.command === 'realtime_vad_on') {
         await this.realtimeApi.vadModeChange(true);
         return;
-      } else if (message.endpoint === 'realtime_vad_off') {
+      } else if (message.command === 'realtime_vad_off') {
         await this.realtimeApi.vadModeChange(false);
         return;
       } else if (message.type === 'text') {
@@ -124,9 +124,9 @@ export class LLMService {
     }
   }
 
-  private async processDiscordMessage(message: DiscordMessageInput) {
+  private async processDiscordMessage(message: DiscordClientInput) {
     try {
-      if (!isDiscordMessageInput(message)) {
+      if (!isDiscordClientInput(message)) {
         console.error(
           `Invalid discord message input: ${JSON.stringify(message)}`
         );
@@ -134,7 +134,7 @@ export class LLMService {
       }
       if (
         message.type === 'realtime_audio' &&
-        message.endpoint === 'realtime_audio_append'
+        message.command === 'realtime_audio_append'
       ) {
         if (message.realtime_audio) {
           await this.realtimeApi.inputAudioBufferAppend(message.realtime_audio);
@@ -142,14 +142,14 @@ export class LLMService {
         return;
       } else if (
         message.type === 'realtime_audio' &&
-        message.endpoint === 'realtime_audio_commit'
+        message.command === 'realtime_audio_commit'
       ) {
         await this.realtimeApi.inputAudioBufferCommit();
         return;
-      } else if (message.endpoint === 'realtime_vad_on') {
+      } else if (message.command === 'realtime_vad_on') {
         await this.realtimeApi.vadModeChange(true);
         return;
-      } else if (message.endpoint === 'realtime_vad_off') {
+      } else if (message.command === 'realtime_vad_off') {
         await this.realtimeApi.vadModeChange(false);
         return;
       } else if (message.type === 'text') {
@@ -181,7 +181,7 @@ export class LLMService {
             type: 'text',
             channelId: message.channelId,
             guildId: message.guildId,
-          } as DiscordMessageOutput,
+          } as DiscordClientOutput,
           targetMemoryZones: [memoryZone],
         });
         return;
@@ -195,13 +195,13 @@ export class LLMService {
   private async processCreatePost(message: TwitterMessageInput) {
     let post = '';
     let postForToyama = '';
-    if (message.endpoint === 'forecast') {
+    if (message.command === 'forecast') {
       post = await this.weatherAgent.createPost();
       postForToyama = await this.weatherAgent.createPostForToyama();
-    } else if (message.endpoint === 'fortune') {
+    } else if (message.command === 'fortune') {
       post = await this.fortuneAgent.createPost();
       postForToyama = post;
-    } else if (message.endpoint === 'about_today') {
+    } else if (message.command === 'about_today') {
       post = await this.aboutTodayAgent.createPost();
       postForToyama = post;
     }
@@ -219,18 +219,18 @@ export class LLMService {
       type: 'twitter:post_scheduled_message',
       memoryZone: 'twitter:schedule_post',
       data: {
-        endpoint: message.endpoint,
+        command: message.command,
         text: post,
-      } as TwitterMessageOutput,
+      } as TwitterClientInput,
       targetMemoryZones: ['twitter:schedule_post', 'discord:aiminelab_server'],
     });
     this.eventBus.publish({
       type: 'discord:post_message',
       memoryZone: 'discord:toyama_server',
       data: {
-        endpoint: message.endpoint,
+        command: message.command,
         text: postForToyama,
-      } as DiscordMessageOutput,
+      } as DiscordClientOutput,
       targetMemoryZones: ['discord:toyama_server'],
     });
   }
@@ -331,7 +331,7 @@ export class LLMService {
         memoryZone: 'web',
         data: {
           type: 'realtime_text',
-          endpoint: 'text_done',
+          command: 'text_done',
         } as OpenAIMessageOutput,
         targetMemoryZones: ['web'],
       });
@@ -344,7 +344,7 @@ export class LLMService {
         data: {
           realtime_audio: audio.toString(),
           type: 'realtime_audio',
-          endpoint: 'realtime_audio_append',
+          command: 'realtime_audio_append',
         } as OpenAIMessageOutput,
         targetMemoryZones: ['web'],
       });
@@ -356,7 +356,7 @@ export class LLMService {
         memoryZone: 'web',
         data: {
           type: 'realtime_audio',
-          endpoint: 'realtime_audio_commit',
+          command: 'realtime_audio_commit',
         } as OpenAIMessageOutput,
         targetMemoryZones: ['web'],
       });

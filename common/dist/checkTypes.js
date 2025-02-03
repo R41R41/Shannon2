@@ -9,15 +9,15 @@ export const isDiscordGuild = (guild) => {
         guild === "discord:aiminelab_server" ||
         guild === "discord:test_server");
 };
-export const isRealTimeAPIEndpoint = (endpoint) => {
-    return (endpoint === "realtime_text_input" ||
-        endpoint === "realtime_text_commit" ||
-        endpoint === "realtime_audio_append" ||
-        endpoint === "realtime_audio_commit" ||
-        endpoint === "realtime_vad_on" ||
-        endpoint === "realtime_vad_off" ||
-        endpoint === "text_done" ||
-        endpoint === "audio_done");
+export const isRealTimeAPIEndpoint = (command) => {
+    return (command === "realtime_text_input" ||
+        command === "realtime_text_commit" ||
+        command === "realtime_audio_append" ||
+        command === "realtime_audio_commit" ||
+        command === "realtime_vad_on" ||
+        command === "realtime_vad_off" ||
+        command === "text_done" ||
+        command === "audio_done");
 };
 export const isOpenAIMessageInput = (message) => {
     return (typeof message === "object" &&
@@ -26,7 +26,7 @@ export const isOpenAIMessageInput = (message) => {
             message.type === "audio" ||
             message.type === "realtime_text" ||
             message.type === "realtime_audio" ||
-            message.type === "endpoint" ||
+            message.type === "command" ||
             message.type === "ping") &&
         (message.text === undefined ||
             typeof message.text === "string" ||
@@ -40,9 +40,9 @@ export const isOpenAIMessageInput = (message) => {
         (message.realtime_audio === undefined ||
             typeof message.realtime_audio === "string" ||
             message.realtime_audio === null) &&
-        (message.endpoint === undefined ||
-            isRealTimeAPIEndpoint(message.endpoint) ||
-            message.endpoint === null));
+        (message.command === undefined ||
+            isRealTimeAPIEndpoint(message.command) ||
+            message.command === null));
 };
 export const isOpenAIMessageOutput = (message) => {
     return (typeof message === "object" &&
@@ -52,7 +52,7 @@ export const isOpenAIMessageOutput = (message) => {
             message.type === "user_transcript" ||
             message.type === "audio" ||
             message.type === "realtime_audio" ||
-            message.type === "endpoint" ||
+            message.type === "command" ||
             message.type === "pong") &&
         (message.text === undefined ||
             typeof message.text === "string" ||
@@ -63,9 +63,9 @@ export const isOpenAIMessageOutput = (message) => {
         (message.realtime_audio === undefined ||
             typeof message.realtime_audio === "string" ||
             message.realtime_audio === null) &&
-        (message.endpoint === undefined ||
-            isRealTimeAPIEndpoint(message.endpoint) ||
-            message.endpoint === null));
+        (message.command === undefined ||
+            isRealTimeAPIEndpoint(message.command) ||
+            message.command === null));
 };
 export const isWebMonitoringInput = (message) => {
     return (typeof message === "object" &&
@@ -93,13 +93,13 @@ export const isWebScheduleOutput = (message) => {
         message.type === "call_schedule" ||
         message.type === "pong");
 };
-export const isDiscordMessageInput = (message) => {
+export const isDiscordClientInput = (message) => {
     return (typeof message === "object" &&
         message !== null &&
         (message.type === "text" ||
             message.type === "audio" ||
             message.type === "realtime_audio" ||
-            message.type === "endpoint") &&
+            message.type === "command") &&
         typeof message.channelId === "string" &&
         typeof message.guildId === "string" &&
         typeof message.userName === "string" &&
@@ -116,7 +116,7 @@ export const isDiscordMessageInput = (message) => {
         (message.realtime_audio === undefined ||
             typeof message.realtime_audio === "string" ||
             message.realtime_audio === null) &&
-        (message.endpoint === undefined ||
-            isRealTimeAPIEndpoint(message.endpoint) ||
-            message.endpoint === null));
+        (message.command === undefined ||
+            isRealTimeAPIEndpoint(message.command) ||
+            message.command === null));
 };

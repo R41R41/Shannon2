@@ -9,6 +9,7 @@ import { MonitoringAgent } from '@/services/agents/monitoringAgent';
 import { OpenAIAgent } from '@/services/agents/openaiAgent';
 import { WebClient } from '@/services/client';
 import { SchedulerAgent } from '@/services/agents/schedulerAgent';
+import { StatusAgent } from '@/services/agents/statusAgent';
 const ResizeHandle = ({ className = '' }) => (
   <PanelResizeHandle className={`${styles.resizeHandle} ${className}`} />
 );
@@ -17,12 +18,14 @@ const ShannonUI: React.FC = () => {
   const [monitoring, setMonitoring] = useState<MonitoringAgent | null>(null);
   const [openai, setOpenai] = useState<OpenAIAgent | null>(null);
   const [scheduler, setScheduler] = useState<SchedulerAgent | null>(null);
+  const [status, setStatus] = useState<StatusAgent | null>(null);
   useEffect(() => {
     const webClient = new WebClient();
     webClient.start();
     setMonitoring(webClient.monitoringService);
     setOpenai(webClient.openaiService);
     setScheduler(webClient.schedulerService);
+    setStatus(webClient.statusService);
   }, []);
   return (
     <div className={styles.container}>
@@ -30,13 +33,21 @@ const ShannonUI: React.FC = () => {
       <div className={styles.mainSection}>
         <PanelGroup direction="horizontal">
           <Panel defaultSize={20} minSize={15}>
-            <Sidebar monitoring={monitoring} scheduler={scheduler} />
+            <Sidebar
+              monitoring={monitoring}
+              scheduler={scheduler}
+              status={status}
+            />
           </Panel>
 
           <ResizeHandle />
 
           <Panel defaultSize={60} minSize={30}>
-            <MainContent monitoring={monitoring} openai={openai} />
+            <MainContent
+              monitoring={monitoring}
+              openai={openai}
+              status={status}
+            />
           </Panel>
 
           <ResizeHandle />

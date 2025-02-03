@@ -1,11 +1,14 @@
-import { TwitterMessageOutput } from '@shannon/common';
+import { TwitterClientInput } from '@shannon/common';
 import { TwitterApi } from 'twitter-api-v2';
+import { BaseClient } from '../common/BaseClient.js';
 import { EventBus } from '../eventBus.js';
-export class TwitterClient {
+
+export class TwitterClient extends BaseClient {
   private client: TwitterApi;
-  private eventBus: EventBus;
   private myUserId: string;
+
   constructor(eventBus: EventBus, isTest: boolean) {
+    super('twitter', eventBus);
     const apiKey = isTest
       ? process.env.TWITTER_API_KEY_TEST
       : process.env.TWITTER_API_KEY;
@@ -39,8 +42,27 @@ export class TwitterClient {
   }
 
   private setupEventHandlers() {
+    this.eventBus.subscribe('twitter:status', async (event) => {
+      console.log('twitter:status', event);
+      const { serviceCommand } = event.data as TwitterClientInput;
+      if (serviceCommand === 'start') {
+        await this.start();
+      } else if (serviceCommand === 'stop') {
+        await this.stop();
+      } else if (serviceCommand === 'status') {
+        this.eventBus.publish({
+          type: 'web:status',
+          memoryZone: 'web',
+          data: {
+            service: 'twitter',
+            status: this.status,
+          },
+        });
+      }
+    });
+    if (this.status !== 'running') return;
     this.eventBus.subscribe('twitter:post_scheduled_message', async (event) => {
-      const { text } = event.data as TwitterMessageOutput;
+      const { text } = event.data as TwitterClientInput;
       try {
         if (text) {
           await this.postTweet(text);
@@ -50,7 +72,7 @@ export class TwitterClient {
       }
     });
     this.eventBus.subscribe('twitter:post_message', async (event) => {
-      const { replyId, text } = event.data as TwitterMessageOutput;
+      const { replyId, text } = event.data as TwitterClientInput;
       try {
         if (replyId && text) {
           await this.replyTweet(replyId, text);

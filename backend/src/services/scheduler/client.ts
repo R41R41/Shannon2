@@ -60,7 +60,7 @@ export class Scheduler {
           type: `llm:post_scheduled_message`,
           memoryZone: `twitter:schedule_post`,
           data: {
-            endpoint: name,
+            command: name,
           } as TwitterMessageInput,
           targetMemoryZones: [`twitter:schedule_post`],
         });

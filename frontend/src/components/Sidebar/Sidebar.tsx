@@ -10,13 +10,17 @@ import { ILog } from '@common/types';
 import { MonitoringAgent } from '@/services/agents/monitoringAgent';
 import { SchedulerAgent } from '@/services/agents/schedulerAgent';
 import ScheduleTab from './ScheduleTab';
+import { StatusAgent } from '@/services/agents/statusAgent';
+import StatusTab from './StatusTab';
+import MonitorHeartOutlinedIcon from '@mui/icons-material/MonitorHeartOutlined';
 
 interface SidebarProps {
   monitoring: MonitoringAgent | null;
   scheduler: SchedulerAgent | null;
+  status: StatusAgent | null;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ monitoring, scheduler }) => {
+const Sidebar: React.FC<SidebarProps> = ({ monitoring, scheduler, status }) => {
   const [activeTab, setActiveTab] = useState('search');
   const [searchResults, setSearchResults] = useState<ILog[]>([]);
 
@@ -59,6 +63,15 @@ const Sidebar: React.FC<SidebarProps> = ({ monitoring, scheduler }) => {
         >
           <ScheduleOutlinedIcon />
         </div>
+        <div
+          className={classNames(styles.tab, {
+            [styles.active]: activeTab === 'status',
+          })}
+          onClick={() => setActiveTab('status')}
+          title="ステータス"
+        >
+          <MonitorHeartOutlinedIcon />
+        </div>
       </div>
       <div className={styles.tabContent}>
         {activeTab === 'search' && (
@@ -71,6 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({ monitoring, scheduler }) => {
         {activeTab === 'skills' && <div></div>}
         {activeTab === 'tasks' && <div></div>}
         {activeTab === 'schedule' && <ScheduleTab scheduler={scheduler} />}
+        {activeTab === 'status' && <StatusTab status={status} />}
       </div>
     </div>
   );

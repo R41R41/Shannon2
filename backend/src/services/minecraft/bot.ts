@@ -40,7 +40,7 @@ export class MinecraftBot {
     });
 
     this.eventBus.subscribe('minecraft:post_message', (event) => {
-      const { type, text, endpoint } = event.data as MinecraftOutput;
+      const { type, text, command } = event.data as MinecraftOutput;
       if (text && type === 'text') {
         this.bot.chat(text);
       }

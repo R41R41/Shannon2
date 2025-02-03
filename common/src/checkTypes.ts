@@ -1,6 +1,6 @@
 import {
   DiscordGuild,
-  DiscordMessageInput,
+  DiscordClientInput,
   ILog,
   OpenAIMessageInput,
   OpenAIMessageOutput,
@@ -29,17 +29,17 @@ export const isDiscordGuild = (guild: DiscordGuild): guild is DiscordGuild => {
 };
 
 export const isRealTimeAPIEndpoint = (
-  endpoint: RealTimeAPIEndpoint
-): endpoint is RealTimeAPIEndpoint => {
+  command: RealTimeAPIEndpoint
+): command is RealTimeAPIEndpoint => {
   return (
-    endpoint === "realtime_text_input" ||
-    endpoint === "realtime_text_commit" ||
-    endpoint === "realtime_audio_append" ||
-    endpoint === "realtime_audio_commit" ||
-    endpoint === "realtime_vad_on" ||
-    endpoint === "realtime_vad_off" ||
-    endpoint === "text_done" ||
-    endpoint === "audio_done"
+    command === "realtime_text_input" ||
+    command === "realtime_text_commit" ||
+    command === "realtime_audio_append" ||
+    command === "realtime_audio_commit" ||
+    command === "realtime_vad_on" ||
+    command === "realtime_vad_off" ||
+    command === "text_done" ||
+    command === "audio_done"
   );
 };
 
@@ -53,7 +53,7 @@ export const isOpenAIMessageInput = (
       message.type === "audio" ||
       message.type === "realtime_text" ||
       message.type === "realtime_audio" ||
-      message.type === "endpoint" ||
+      message.type === "command" ||
       message.type === "ping") &&
     (message.text === undefined ||
       typeof message.text === "string" ||
@@ -67,9 +67,9 @@ export const isOpenAIMessageInput = (
     (message.realtime_audio === undefined ||
       typeof message.realtime_audio === "string" ||
       message.realtime_audio === null) &&
-    (message.endpoint === undefined ||
-      isRealTimeAPIEndpoint(message.endpoint as RealTimeAPIEndpoint) ||
-      message.endpoint === null)
+    (message.command === undefined ||
+      isRealTimeAPIEndpoint(message.command as RealTimeAPIEndpoint) ||
+      message.command === null)
   );
 };
 
@@ -84,7 +84,7 @@ export const isOpenAIMessageOutput = (
       message.type === "user_transcript" ||
       message.type === "audio" ||
       message.type === "realtime_audio" ||
-      message.type === "endpoint" ||
+      message.type === "command" ||
       message.type === "pong") &&
     (message.text === undefined ||
       typeof message.text === "string" ||
@@ -95,9 +95,9 @@ export const isOpenAIMessageOutput = (
     (message.realtime_audio === undefined ||
       typeof message.realtime_audio === "string" ||
       message.realtime_audio === null) &&
-    (message.endpoint === undefined ||
-      isRealTimeAPIEndpoint(message.endpoint as RealTimeAPIEndpoint) ||
-      message.endpoint === null)
+    (message.command === undefined ||
+      isRealTimeAPIEndpoint(message.command as RealTimeAPIEndpoint) ||
+      message.command === null)
   );
 };
 
@@ -147,16 +147,16 @@ export const isWebScheduleOutput = (
   );
 };
 
-export const isDiscordMessageInput = (
-  message: DiscordMessageInput
-): message is DiscordMessageInput => {
+export const isDiscordClientInput = (
+  message: DiscordClientInput
+): message is DiscordClientInput => {
   return (
     typeof message === "object" &&
     message !== null &&
     (message.type === "text" ||
       message.type === "audio" ||
       message.type === "realtime_audio" ||
-      message.type === "endpoint") &&
+      message.type === "command") &&
     typeof message.channelId === "string" &&
     typeof message.guildId === "string" &&
     typeof message.userName === "string" &&
@@ -173,8 +173,8 @@ export const isDiscordMessageInput = (
     (message.realtime_audio === undefined ||
       typeof message.realtime_audio === "string" ||
       message.realtime_audio === null) &&
-    (message.endpoint === undefined ||
-      isRealTimeAPIEndpoint(message.endpoint as RealTimeAPIEndpoint) ||
-      message.endpoint === null)
+    (message.command === undefined ||
+      isRealTimeAPIEndpoint(message.command as RealTimeAPIEndpoint) ||
+      message.command === null)
   );
 };

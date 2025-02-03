@@ -1,21 +1,10 @@
 
 Web:
-  ✔ ログインできる @done(25-02-03 09:15)
-  ✔ text 会話ができる @done(25-02-03 09:15)
   ☐ 音声会話ができる
-  ✔ realtime text 会話ができる @done(25-02-03 09:15)
-  ✔ realtime audio 会話ができる @done(25-02-03 09:15)
-  ✔ vad モードで realtime audio 会話ができる @done(25-02-03 09:15)
-  ✔ ログが分かりやすく見れる @done(25-02-03 09:15)
-  ✔ ログの検索ができる @done(25-02-03 09:15)
-  ✔ Twitter 定時投稿 @done(25-02-03 09:15)
-  ☐ Twitter bot 起動・停止・状態*1
   ☐ minebot 起動・停止・状態
   ☐ minecraft 起動・停止・状態
-  ☐ discord bot 起動・停止・状態*1
   
 discord:  
-  ✔ text 会話ができる @done(25-02-03 09:16)
   ☐ minecraft サーバーの状態を見れる
   ☐ minecraft サーバーの起動・停止ができる
   ☐ twitter の定時ツイートが表示される*1
@@ -23,7 +12,6 @@ discord:
   ☐ しょうもない機能たち*1
   
 Twitter:
-  ✔ 定時ツイートがされる @done(25-02-03 09:16)
   ☐ 定時ツイートが分かりやすい
   ☐ 投稿につき 1 返信*1
   ☐ アイマイラボの投稿リツイート*1
@@ -128,3 +116,16 @@ Minecraft:
   - **started**: \x1b[34m - 青
   - **updated**: \x1b[36m - シアン（水色）
   - **others**: \x1b[37m - 白, \x1b[35m - マゼンタ（紫）
+Archive:
+  ✔ discord bot 起動・停止・状態*1 @started(25-02-03 11:25) @done(25-02-03 12:02) @lasted(37m40s) @project(Web)
+  ✔ ログインできる @done(25-02-03 09:15) @project(Web)
+  ✔ text 会話ができる @done(25-02-03 09:15) @project(Web)
+  ✔ realtime text 会話ができる @done(25-02-03 09:15) @project(Web)
+  ✔ realtime audio 会話ができる @done(25-02-03 09:15) @project(Web)
+  ✔ vad モードで realtime audio 会話ができる @done(25-02-03 09:15) @project(Web)
+  ✔ ログが分かりやすく見れる @done(25-02-03 09:15) @project(Web)
+  ✔ ログの検索ができる @done(25-02-03 09:15) @project(Web)
+  ✔ Twitter 定時投稿 @done(25-02-03 09:15) @project(Web)
+  ✔ Twitter bot 起動・停止・状態*1 @done(25-02-03 11:25) @project(Web)
+  ✔ text 会話ができる @done(25-02-03 09:16) @project(discord)
+  ✔ 定時ツイートがされる @done(25-02-03 09:16) @project(Twitter)
