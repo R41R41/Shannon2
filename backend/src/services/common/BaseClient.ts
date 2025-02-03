@@ -1,12 +1,26 @@
 import { ServiceStatus } from '@shannon/common';
 import { EventBus } from '../eventBus.js';
-export abstract class BaseClient {
-  public status: ServiceStatus = 'stopped';
 
-  constructor(
+export class BaseClient {
+  public status: ServiceStatus = 'stopped';
+  protected static instances: Map<string, BaseClient> = new Map();
+
+  protected constructor(
     private readonly serviceName: 'twitter' | 'discord',
     public eventBus: EventBus
   ) {}
+
+  public static getInstance(
+    serviceName: 'twitter' | 'discord',
+    eventBus: EventBus,
+    isTest?: boolean
+  ): BaseClient {
+    const key = `${serviceName}${isTest ? ':test' : ''}`;
+    if (!this.instances.has(key)) {
+      this.instances.set(key, new this(serviceName, eventBus));
+    }
+    return this.instances.get(key) as BaseClient;
+  }
 
   private async setStatus(newStatus: ServiceStatus) {
     this.status = newStatus;
@@ -20,7 +34,7 @@ export abstract class BaseClient {
     });
   }
 
-  public abstract initialize(): void;
+  public initialize(): void {}
 
   public async start() {
     if (this.status === 'running') return;

@@ -23,8 +23,6 @@ export class StatusAgent extends WebSocketClientBase {
     const data = JSON.parse(message) as StatusAgentOutput;
     if (data.type === 'pong') return;
 
-    console.log('\x1b[34mStatus event received\x1b[0m', data);
-
     const listeners = this.serviceStatusListeners.get(data.service);
     if (listeners && data.data) {
       listeners.forEach((listener) => listener(data.data));

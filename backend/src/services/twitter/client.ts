@@ -7,8 +7,20 @@ export class TwitterClient extends BaseClient {
   private client: TwitterApi;
   private myUserId: string;
 
-  constructor(eventBus: EventBus, isTest: boolean) {
-    super('twitter', eventBus);
+  public static override getInstance(
+    serviceName: 'twitter',
+    eventBus: EventBus,
+    isTest: boolean
+  ): TwitterClient {
+    return super.getInstance(serviceName, eventBus, isTest) as TwitterClient;
+  }
+
+  private constructor(
+    serviceName: 'twitter',
+    eventBus: EventBus,
+    isTest: boolean
+  ) {
+    super(serviceName, eventBus);
     const apiKey = isTest
       ? process.env.TWITTER_API_KEY_TEST
       : process.env.TWITTER_API_KEY;
@@ -37,7 +49,6 @@ export class TwitterClient extends BaseClient {
       accessSecret: accessTokenSecret,
     });
 
-    this.eventBus = eventBus;
     this.setupEventHandlers();
   }
 

@@ -26,8 +26,20 @@ export class DiscordBot extends BaseClient {
   private testGuildId: string | null = null;
   private testXChannelId: string | null = null;
 
-  constructor(eventBus: EventBus, isTestMode: boolean = false) {
-    super('discord', eventBus);
+  public static override getInstance(
+    serviceName: 'discord',
+    eventBus: EventBus,
+    isTest: boolean
+  ): DiscordBot {
+    return super.getInstance(serviceName, eventBus, isTest) as DiscordBot;
+  }
+
+  private constructor(
+    serviceName: 'discord',
+    eventBus: EventBus,
+    isTestMode: boolean = false
+  ) {
+    super(serviceName, eventBus);
     this.isTestMode = isTestMode;
     this.client = new Client({
       intents: [
@@ -167,7 +179,6 @@ export class DiscordBot extends BaseClient {
 
   private setupEventHandlers() {
     this.eventBus.subscribe('discord:status', async (event) => {
-      console.log('discord:status', event);
       const { serviceCommand } = event.data as DiscordClientInput;
       if (serviceCommand === 'start') {
         await this.start();
@@ -184,8 +195,9 @@ export class DiscordBot extends BaseClient {
         });
       }
     });
-    if (this.status !== 'running') return;
     this.client.on('messageCreate', (message) => {
+      console.log('discord:status', this.status);
+      if (this.status !== 'running') return;
       const isTestGuild = message.guildId === process.env.TEST_GUILD_ID;
       if (this.isTestMode !== isTestGuild) return;
 
@@ -197,6 +209,11 @@ export class DiscordBot extends BaseClient {
       const messageId = message.id;
       const userId = message.author.id;
       const guildId = message.guildId;
+      if (
+        guildId === this.toyamaGuildId &&
+        message.channelId !== this.toyamaChannelId
+      )
+        return;
       this.eventBus.log(
         memoryZone,
         'white',
@@ -224,6 +241,7 @@ export class DiscordBot extends BaseClient {
 
     // 音声メッセージの処理
     this.client.on('speech', (speech) => {
+      if (this.status !== 'running') return;
       // テストモードの場合はテストサーバーのみ、それ以外の場合はテストサーバー以外を処理
       const channel = this.client.channels.cache.get(speech.channelId);
       if (!channel || !('guild' in channel)) return;
@@ -253,6 +271,7 @@ export class DiscordBot extends BaseClient {
 
     // LLMからの応答を処理
     this.eventBus.subscribe('discord:post_message', (event) => {
+      if (this.status !== 'running') return;
       if (event.type === 'discord:post_message') {
         const { text, type, channelId, guildId, audio, command, imageUrl } =
           event.data as DiscordClientOutput;
