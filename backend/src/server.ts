@@ -30,17 +30,9 @@ class Server {
     this.eventBus = new EventBus();
     this.llmService = new LLMService(this.eventBus);
     const isTestMode = process.argv.includes('--test');
-    this.discordBot = DiscordBot.getInstance(
-      'discord',
-      this.eventBus,
-      isTestMode
-    );
+    this.discordBot = DiscordBot.getInstance(this.eventBus, isTestMode);
     this.webClient = new WebClient(this.eventBus);
-    this.twitterClient = TwitterClient.getInstance(
-      'twitter',
-      this.eventBus,
-      isTestMode
-    );
+    this.twitterClient = TwitterClient.getInstance(this.eventBus, isTestMode);
     this.scheduler = new Scheduler(this.eventBus);
   }
 

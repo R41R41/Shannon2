@@ -6,13 +6,16 @@ import { EventBus } from '../eventBus.js';
 export class TwitterClient extends BaseClient {
   private client: TwitterApi;
   private myUserId: string;
+  public isTest: boolean = false;
 
-  public static override getInstance(
-    serviceName: 'twitter',
-    eventBus: EventBus,
-    isTest: boolean
-  ): TwitterClient {
-    return super.getInstance(serviceName, eventBus, isTest) as TwitterClient;
+  private static instance: TwitterClient;
+
+  public static getInstance(eventBus: EventBus, isTest: boolean = false) {
+    if (!TwitterClient.instance) {
+      TwitterClient.instance = new TwitterClient('twitter', eventBus, isTest);
+    }
+    TwitterClient.instance.isTest = isTest;
+    return TwitterClient.instance;
   }
 
   private constructor(

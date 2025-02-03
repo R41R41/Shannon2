@@ -18,29 +18,30 @@ dotenv.config();
 
 export class DiscordBot extends BaseClient {
   private client: Client;
-  private isTestMode: boolean;
   private toyamaGuildId: string | null = null;
   private toyamaChannelId: string | null = null;
   private aiminelabGuildId: string | null = null;
   private aiminelabXChannelId: string | null = null;
   private testGuildId: string | null = null;
   private testXChannelId: string | null = null;
+  private static instance: DiscordBot;
+  public isTest: boolean = false;
 
-  public static override getInstance(
-    serviceName: 'discord',
-    eventBus: EventBus,
-    isTest: boolean
-  ): DiscordBot {
-    return super.getInstance(serviceName, eventBus, isTest) as DiscordBot;
+  public static getInstance(eventBus: EventBus, isTest: boolean = false) {
+    if (!DiscordBot.instance) {
+      DiscordBot.instance = new DiscordBot('discord', eventBus, isTest);
+    }
+    DiscordBot.instance.isTest = isTest;
+    return DiscordBot.instance;
   }
 
   private constructor(
     serviceName: 'discord',
     eventBus: EventBus,
-    isTestMode: boolean = false
+    isTest: boolean = false
   ) {
     super(serviceName, eventBus);
-    this.isTestMode = isTestMode;
+    console.log('DiscordBot constructor', isTest);
     this.client = new Client({
       intents: [
         GatewayIntentBits.Guilds,
@@ -55,7 +56,6 @@ export class DiscordBot extends BaseClient {
     this.eventBus = eventBus;
 
     this.client.once('ready', () => {
-      this.setupEventHandlers();
       this.setupSlashCommands();
     });
 
@@ -197,9 +197,10 @@ export class DiscordBot extends BaseClient {
     });
     this.client.on('messageCreate', (message) => {
       console.log('discord:status', this.status);
+      console.log('discord:isTest', this.isTest);
       if (this.status !== 'running') return;
       const isTestGuild = message.guildId === process.env.TEST_GUILD_ID;
-      if (this.isTestMode !== isTestGuild) return;
+      if (this.isTest !== isTestGuild) return;
 
       if (message.author.bot) return;
       const nickname = this.getUserNickname(message.author);
@@ -247,7 +248,7 @@ export class DiscordBot extends BaseClient {
       if (!channel || !('guild' in channel)) return;
 
       const isTestGuild = channel.guild.id === process.env.TEST_GUILD_ID;
-      if (this.isTestMode !== isTestGuild) return;
+      if (this.isTest !== isTestGuild) return;
 
       const memoryZone = getDiscordMemoryZone(channel.guildId);
 
@@ -280,7 +281,7 @@ export class DiscordBot extends BaseClient {
           command === 'fortune' ||
           command === 'about_today'
         ) {
-          if (this.isTestMode) {
+          if (this.isTest) {
             const xChannelId = this.testXChannelId ?? '';
             const channel = this.client.channels.cache.get(xChannelId);
             if (channel?.isTextBased() && 'send' in channel) {
