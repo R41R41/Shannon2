@@ -23,6 +23,9 @@ export abstract class WebSocketServiceBase {
     } else {
       throw new Error('Invalid configuration');
     }
+    console.log(
+      `WebSocketServer created on port ${config.port} for service ${config.serviceName}`
+    );
     this.eventBus = config.eventBus;
     this.serviceName = config.serviceName;
   }

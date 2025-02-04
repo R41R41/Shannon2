@@ -2,11 +2,12 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
   server: {
     host: true, // 全てのIPアドレスでリッスン
-    port: process.env.MODE === 'test' ? 13000 : 3000,
+    port: mode === 'test' ? 13000 : 3000,
+    strictPort: true, // 指定したポートが使用中の場合はエラーを出す
     // 許可するホストを追加
     proxy: {
       '/api': 'http://localhost:5000',
@@ -30,4 +31,4 @@ export default defineConfig({
       'cronstrue/locales/ja': 'cronstrue/locales/ja.js',
     },
   },
-});
+}));

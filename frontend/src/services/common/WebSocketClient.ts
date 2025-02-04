@@ -14,26 +14,41 @@ export abstract class WebSocketClientBase {
   constructor(private url: string) {}
 
   public connect() {
-    if (this.ws?.readyState === WebSocket.CONNECTING) return;
+    console.log('Attempting to connect to:', this.url);
+    if (this.ws?.readyState === WebSocket.CONNECTING) {
+      console.log('Already connecting to WebSocket');
+      return;
+    }
 
-    this.ws = new WebSocket(this.url);
-    this.setStatus('connecting');
+    try {
+      this.ws = new WebSocket(this.url);
+      console.log('WebSocket instance created');
+      this.setStatus('connecting');
 
-    this.ws.onopen = () => {
-      this.reconnectAttempts = 0; // 接続成功時にリセット
-      this.setStatus('connected');
-      this.startPing();
-    };
+      this.ws.onopen = () => {
+        console.log('WebSocket connection opened');
+        this.reconnectAttempts = 0;
+        this.setStatus('connected');
+        this.startPing();
+      };
 
-    this.ws.onmessage = (event) => {
-      this.receivePong(event.data);
-      this.handleMessage(event.data);
-    };
+      this.ws.onmessage = (event) => {
+        this.receivePong(event.data);
+        this.handleMessage(event.data);
+      };
 
-    this.ws.onclose = () => {
-      this.setStatus('disconnected');
-      this.reconnect();
-    };
+      this.ws.onclose = () => {
+        console.log('WebSocket connection closed');
+        this.setStatus('disconnected');
+        this.reconnect();
+      };
+
+      this.ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+    } catch (error) {
+      console.error('Error creating WebSocket:', error);
+    }
   }
 
   public send(data: string) {
@@ -52,6 +67,7 @@ export abstract class WebSocketClientBase {
     this.pingInterval = window.setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {
         this.ws.send(JSON.stringify({ type: 'ping' }));
+        console.log('\x1b[34mping sent in startPing\x1b[0m');
         this.lastPongReceived = Date.now();
         this.pingTimeoutId = window.setTimeout(() => {
           if (Date.now() - this.lastPongReceived > 30000) {

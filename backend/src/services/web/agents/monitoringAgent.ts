@@ -40,6 +40,7 @@ export class MonitoringAgent extends WebSocketServiceBase {
 
         if (isWebMonitoringInput(data)) {
           if (data.type === 'ping') {
+            console.log('\x1b[34mping received in monitoring agent\x1b[0m');
             this.broadcast({ type: 'pong' } as WebMonitoringOutput);
             return;
           }
