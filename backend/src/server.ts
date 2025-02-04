@@ -4,7 +4,6 @@ import { DiscordBot } from './services/discord/client.js';
 import { Scheduler } from './services/scheduler/client.js';
 import { YoutubeClient } from './services/youtube/client.js';
 // import { MinecraftBot } from './services/minecraft/bot.js';
-import cors from 'cors';
 import dotenv from 'dotenv';
 import { discordRoutes } from './routes/discord.routes.js';
 import { twitterRoutes } from './routes/twitter.routes.js';
@@ -35,17 +34,6 @@ class Server {
     this.twitterClient = TwitterClient.getInstance(this.eventBus, isTestMode);
     this.scheduler = Scheduler.getInstance(this.eventBus, isTestMode);
     this.youtubeClient = YoutubeClient.getInstance(this.eventBus, isTestMode);
-  }
-
-  private setupMiddleware() {
-    this.app.use(express.json());
-    this.app.use(
-      cors({
-        origin: ['http://20.243.208.67:13000', 'http://localhost:13000'],
-        credentials: true,
-      })
-    );
-    // その他のミドルウェア設定
   }
 
   private setupRoutes() {

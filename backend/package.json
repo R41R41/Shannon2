@@ -4,7 +4,8 @@
   "scripts": {
     "build": "tsc -b",
     "start": "node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js",
-    "dev": "tsc-watch --onSuccess \"node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js --test\"",
+    "dev": "tsc-watch --onSuccess \"node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js\"",
+    "dev:test": "tsc-watch --onSuccess \"node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js --test\"",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui"

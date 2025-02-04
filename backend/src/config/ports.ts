@@ -7,6 +7,6 @@ export const PORTS = {
     MINECRAFT: process.env.WS_MINECRAFT_PORT || 5030,
     MONITORING: process.env.WS_MONITORING_PORT || 5040,
     SCHEDULE: process.env.WS_SCHEDULE_PORT || 5050,
-    STATUS: process.env.WS_STATUS_PORT || 5060,
+    STATUS: process.env.WS_STATUS_PORT || 5070,
   },
 } as const;

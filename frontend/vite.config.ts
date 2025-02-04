@@ -6,7 +6,17 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true, // 全てのIPアドレスでリッスン
-    port: 13000,
+    port: process.env.MODE === 'test' ? 13000 : 3000,
+    // 許可するホストを追加
+    proxy: {
+      '/api': 'http://localhost:5000',
+    },
+    allowedHosts: ['sh4nnon.com', 'www.sh4nnon.com', 'localhost'],
+  },
+  // ホスト設定を追加
+  preview: {
+    host: true,
+    port: 3000,
   },
   resolve: {
     alias: {
