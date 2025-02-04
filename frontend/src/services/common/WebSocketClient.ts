@@ -67,7 +67,6 @@ export abstract class WebSocketClientBase {
     this.pingInterval = window.setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {
         this.ws.send(JSON.stringify({ type: 'ping' }));
-        console.log('\x1b[34mping sent in startPing\x1b[0m');
         this.lastPongReceived = Date.now();
         this.pingTimeoutId = window.setTimeout(() => {
           if (Date.now() - this.lastPongReceived > 30000) {

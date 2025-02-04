@@ -8,7 +8,7 @@ const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const hostname = window.location.hostname; // 'sh4nnon.com' など
 
 // テストモード時は別のポートを使用
-const host = isTest ? `${hostname}:13000` : window.location.host;
+const host = isTest ? `${hostname}:14000` : window.location.host;
 
 // // WebSocketの接続先を環境に応じて設定
 // const wsHost = isTest
@@ -30,16 +30,16 @@ export const URLS = {
   WEBSOCKET: {
     // テスト環境でもホスト名を使用
     OPENAI: isTest
-      ? `${wsProtocol}//${hostname}:15010/ws/openai`
+      ? `${wsProtocol}//${hostname}:16010/ws/openai`
       : `${wsProtocol}//${host}/ws/openai`,
     MONITORING: isTest
-      ? `${wsProtocol}//${hostname}:15011/ws/monitoring`
+      ? `${wsProtocol}//${hostname}:16011/ws/monitoring`
       : `${wsProtocol}//${host}/ws/monitoring`,
     SCHEDULER: isTest
-      ? `${wsProtocol}//${hostname}:15012/ws/scheduler`
+      ? `${wsProtocol}//${hostname}:16012/ws/scheduler`
       : `${wsProtocol}//${host}/ws/scheduler`,
     STATUS: isTest
-      ? `${wsProtocol}//${hostname}:15013/ws/status`
+      ? `${wsProtocol}//${hostname}:16013/ws/status`
       : `${wsProtocol}//${host}/ws/status`,
   },
 } as const;
