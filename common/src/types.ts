@@ -19,9 +19,10 @@ export type PromptType =
   | "minecraft"
   | "weather_to_emoji"
   | "forecast_for_toyama_server"
-  | "youtube"
+  | "reply_youtube_comment"
   | "planning"
-  | "decision";
+  | "decision"
+  | "reply_twitter_comment";
 
 export type ConversationType =
   | "text"
@@ -70,6 +71,7 @@ export type MemoryZone =
 export type EventType =
   | "llm:post_scheduled_message"
   | "llm:post_twitter_reply"
+  | "llm:reply_youtube_comment"
   | "twitter:status"
   | "twitter:start"
   | "twitter:stop"
@@ -80,6 +82,8 @@ export type EventType =
   | "youtube:get_stats"
   | "youtube:get_message"
   | "youtube:post_message"
+  | "youtube:check_comments"
+  | "youtube:reply_comment"
   | "llm:get_discord_message"
   | "discord:start"
   | "discord:stop"
@@ -98,10 +102,17 @@ export type EventType =
   | "web:post_schedule"
   | "scheduler:call_schedule"
   | "web:log"
-  | "web:status";
+  | "web:status"
+  | "youtube:status";
 
 export interface ServiceInput {
   serviceCommand?: ServiceCommand | null;
+}
+
+export interface YoutubeClientInput extends ServiceInput {
+  videoId?: string | null;
+  commentId?: string | null;
+  reply?: string | null;
 }
 
 export interface LLMInput {
@@ -248,7 +259,8 @@ export interface Event {
     | SchedulerInput
     | SchedulerOutput
     | StatusAgentInput
-    | ServiceInput;
+    | ServiceInput
+    | YoutubeClientOutput;
   targetMemoryZones?: MemoryZone[];
 }
 
@@ -268,6 +280,16 @@ export interface LogEntry {
   content: string;
 }
 
+export interface YoutubeClientOutput {
+  videoId: string;
+  commentId: string;
+  text: string;
+  authorName: string;
+  publishedAt: string;
+  videoTitle: string;
+  videoDescription: string;
+}
+
 export interface Schedule {
   time: string;
   name: string;
@@ -284,7 +306,7 @@ export type ServiceStatus = "running" | "stopped" | "connecting";
 export type ServiceCommand = "start" | "stop" | "status";
 
 export interface StatusAgentInput extends ServiceInput {
-  service: "twitter" | "discord" | "minecraft" | "scheduler";
+  service: "twitter" | "discord" | "minecraft" | "scheduler" | "youtube";
   status: ServiceStatus;
 }
 

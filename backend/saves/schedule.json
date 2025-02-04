@@ -39,13 +39,24 @@
     }
   },
   {
-    "time": "*/20 * * * *",
+    "time": "0 */1 * * *",
     "name": "twitter:check_replies",
     "data": {
       "type": "twitter:check_replies",
       "memoryZone": "twitter:post",
       "data": {
         "platform": "twitter"
+      }
+    }
+  },
+  {
+    "time": "*/30 * * * *",
+    "name": "youtube:check_comments",
+    "data": {
+      "type": "youtube:check_comments",
+      "memoryZone": "youtube",
+      "data": {
+        "platform": "youtube"
       }
     }
   }

@@ -41,7 +41,7 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
         try {
           const allMemoryZoneLogs = await monitoring?.getAllMemoryZoneLogs();
           if (allMemoryZoneLogs) {
-            setLogs(allMemoryZoneLogs);
+            setLogs([...allMemoryZoneLogs].reverse());
           }
         } catch (error) {
           console.error('Failed to fetch all memory zone logs:', error);

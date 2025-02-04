@@ -9,6 +9,8 @@ import {
   PromptType,
   promptTypes,
   TwitterClientInput,
+  YoutubeClientInput,
+  YoutubeClientOutput,
 } from '@shannon/common';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus.js';
@@ -16,6 +18,8 @@ import { PostAboutTodayAgent } from './agents/postAboutTodayAgent.js';
 import { PostFortuneAgent } from './agents/postFortuneAgent.js';
 import { PostWeatherAgent } from './agents/postWeatherAgent.js';
 import { RealtimeAPIService } from './agents/realtimeApiAgent.js';
+import { ReplyTwitterCommentAgent } from './agents/replyTwitterComment.js';
+import { ReplyYoutubeCommentAgent } from './agents/replyYoutubeComment.js';
 import { loadPrompt } from './config/prompts.js';
 import { TaskGraph } from './graph/taskGraph.js';
 
@@ -28,6 +32,8 @@ export class LLMService {
   private aboutTodayAgent!: PostAboutTodayAgent;
   private weatherAgent!: PostWeatherAgent;
   private fortuneAgent!: PostFortuneAgent;
+  private replyTwitterCommentAgent!: ReplyTwitterCommentAgent;
+  private replyYoutubeCommentAgent!: ReplyYoutubeCommentAgent;
 
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
@@ -44,6 +50,8 @@ export class LLMService {
     this.aboutTodayAgent = await PostAboutTodayAgent.create();
     this.weatherAgent = await PostWeatherAgent.create();
     this.fortuneAgent = await PostFortuneAgent.create();
+    this.replyTwitterCommentAgent = await ReplyTwitterCommentAgent.create();
+    this.replyYoutubeCommentAgent = await ReplyYoutubeCommentAgent.create();
     console.log('\x1b[36mLLM Service initialized\x1b[0m');
   }
 
@@ -72,18 +80,34 @@ export class LLMService {
     this.eventBus.subscribe('llm:post_twitter_reply', (event) => {
       this.processTwitterReply(event.data as TwitterClientInput);
     });
+
+    this.eventBus.subscribe('llm:reply_youtube_comment', (event) => {
+      this.processYoutubeReply(event.data as YoutubeClientOutput);
+    });
+  }
+
+  private async processYoutubeReply(data: YoutubeClientOutput) {
+    const comment = data.text;
+    const videoTitle = data.videoTitle;
+    const videoDescription = data.videoDescription;
+    const reply = await this.replyYoutubeCommentAgent.reply(
+      comment,
+      videoTitle,
+      videoDescription
+    );
+    this.eventBus.publish({
+      type: 'youtube:reply_comment',
+      memoryZone: 'youtube',
+      data: {
+        videoId: data.videoId,
+        commentId: data.commentId,
+        reply,
+      } as YoutubeClientInput,
+    });
   }
 
   private async processTwitterReply(message: TwitterClientInput) {
-    const response = await this.processMessage(
-      ['base_text'],
-      'twitter:post',
-      ['twitter:post'],
-      null,
-      message.text,
-      null
-    );
-    console.log(response);
+    // console.log(response);
     // this.eventBus.publish({
     //   type: 'twitter:post_message',
     //   memoryZone: 'twitter:post',

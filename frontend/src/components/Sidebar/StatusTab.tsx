@@ -12,11 +12,13 @@ interface StatusTabProps {
 const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
   const [twitterStatus, setTwitterStatus] = useState<ServiceStatus>('stopped');
   const [discordStatus, setDiscordStatus] = useState<ServiceStatus>('stopped');
+  const [youtubeStatus, setYoutubeStatus] = useState<ServiceStatus>('stopped');
 
   useEffect(() => {
     if (status?.status === 'connected') {
       status.getStatusService('twitter');
       status.getStatusService('discord');
+      status.getStatusService('youtube');
       const cleanupTwitter = status.onServiceStatus(
         'twitter',
         setTwitterStatus
@@ -25,9 +27,14 @@ const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
         'discord',
         setDiscordStatus
       );
+      const cleanupYoutube = status.onServiceStatus(
+        'youtube',
+        setYoutubeStatus
+      );
       return () => {
         cleanupTwitter();
         cleanupDiscord();
+        cleanupYoutube();
       };
     }
   }, [status]);
@@ -45,6 +52,12 @@ const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
         await status.stopService('discord');
       } else {
         await status.startService('discord');
+      }
+    } else if (service === 'youtube') {
+      if (youtubeStatus === 'running') {
+        await status.stopService('youtube');
+      } else {
+        await status.startService('youtube');
       }
     }
   };
@@ -86,6 +99,14 @@ const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
           >
             {discordStatus === 'running' ? <StopIcon /> : <PlayArrowIcon />}
           </button>
+        </div>
+        <div className={styles.serviceItem}>
+          <div className={styles.info}>
+            <span className={styles.name}>YouTube Bot</span>
+            <span className={`${styles.status} ${styles[youtubeStatus]}`}>
+              {youtubeStatus}
+            </span>
+          </div>
         </div>
       </div>
     </div>

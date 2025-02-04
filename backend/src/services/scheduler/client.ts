@@ -3,6 +3,7 @@ import {
   SchedulerInput,
   SchedulerOutput,
   TwitterClientInput,
+  YoutubeClientInput,
 } from '@shannon/common';
 import fs from 'fs';
 import cron from 'node-cron';
@@ -67,7 +68,7 @@ export class Scheduler extends BaseClient {
   private async call_schedule(data: SchedulerInput) {
     const platform = data.name?.split(':')[0];
     const name = data.name?.split(':')[1];
-    console.log('calling schedule', platform, name);
+    console.log(`\x1b[34mCalling schedule: ${platform} ${name}\x1b[0m`);
     if (platform && name) {
       if (platform === 'twitter' && name === 'check_replies') {
         this.eventBus.publish({
@@ -77,13 +78,21 @@ export class Scheduler extends BaseClient {
             command: name,
           } as TwitterClientInput,
         });
-      } else {
+      } else if (platform === 'twitter') {
         this.eventBus.publish({
           type: `llm:post_scheduled_message`,
           memoryZone: `twitter:schedule_post`,
           data: {
             command: name,
           } as TwitterClientInput,
+        });
+      } else if (platform === 'youtube' && name === 'check_comments') {
+        this.eventBus.publish({
+          type: `youtube:check_comments`,
+          memoryZone: `youtube`,
+          data: {
+            command: name,
+          } as YoutubeClientInput,
         });
       }
     }

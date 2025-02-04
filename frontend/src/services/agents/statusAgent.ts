@@ -11,6 +11,7 @@ export class StatusAgent extends WebSocketClientBase {
   public static getInstance() {
     if (!StatusAgent.instance) {
       StatusAgent.instance = new StatusAgent(URLS.WEBSOCKET.STATUS);
+      console.log('StatusAgent instance created ', URLS.WEBSOCKET.STATUS);
     }
     return StatusAgent.instance;
   }

@@ -12,6 +12,10 @@ export class MonitoringAgent extends WebSocketClientBase {
   public static getInstance() {
     if (!MonitoringAgent.instance) {
       MonitoringAgent.instance = new MonitoringAgent(URLS.WEBSOCKET.MONITORING);
+      console.log(
+        'MonitoringAgent instance created ',
+        URLS.WEBSOCKET.MONITORING
+      );
     }
     return MonitoringAgent.instance;
   }

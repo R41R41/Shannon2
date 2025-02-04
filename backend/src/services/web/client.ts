@@ -9,27 +9,35 @@ export class WebClient {
   private monitoringService: MonitoringAgent;
   private scheduleService: ScheduleAgent;
   private statusService: StatusAgent;
-  constructor(eventBus: EventBus) {
+  constructor(eventBus: EventBus, isTest: boolean) {
     this.openaiService = new OpenAIClientService({
-      port: PORTS.WEBSOCKET.OPENAI as number,
+      port: isTest
+        ? Number(PORTS.WEBSOCKET.OPENAI) + 10000
+        : Number(PORTS.WEBSOCKET.OPENAI),
       eventBus: eventBus,
       serviceName: 'openai',
     });
 
     this.monitoringService = new MonitoringAgent({
-      port: PORTS.WEBSOCKET.MONITORING as number,
+      port: isTest
+        ? Number(PORTS.WEBSOCKET.MONITORING) + 10000
+        : Number(PORTS.WEBSOCKET.MONITORING),
       eventBus: eventBus,
       serviceName: 'monitoring',
     });
 
     this.statusService = new StatusAgent({
-      port: PORTS.WEBSOCKET.STATUS as number,
+      port: isTest
+        ? Number(PORTS.WEBSOCKET.STATUS) + 10000
+        : Number(PORTS.WEBSOCKET.STATUS),
       eventBus: eventBus,
       serviceName: 'status',
     });
 
     this.scheduleService = ScheduleAgent.getInstance({
-      port: PORTS.WEBSOCKET.SCHEDULE as number,
+      port: isTest
+        ? Number(PORTS.WEBSOCKET.SCHEDULE) + 10000
+        : Number(PORTS.WEBSOCKET.SCHEDULE),
       eventBus: eventBus,
       serviceName: 'schedule',
     });

@@ -8,6 +8,7 @@ export class OpenAIAgent extends WebSocketClientBase {
   public static getInstance() {
     if (!OpenAIAgent.instance) {
       OpenAIAgent.instance = new OpenAIAgent(URLS.WEBSOCKET.OPENAI);
+      console.log('OpenAIAgent instance created ', URLS.WEBSOCKET.OPENAI);
     }
     return OpenAIAgent.instance;
   }

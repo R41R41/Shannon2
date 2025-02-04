@@ -2,7 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import { DiscordBot } from './services/discord/client.js';
 import { Scheduler } from './services/scheduler/client.js';
-// import { YoutubeService } from './services/youtube/client.js';
+import { YoutubeClient } from './services/youtube/client.js';
 // import { MinecraftBot } from './services/minecraft/bot.js';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -23,7 +23,7 @@ class Server {
   private webClient: WebClient;
   private twitterClient: TwitterClient;
   private scheduler: Scheduler;
-  //   private youtubeService: YoutubeService;
+  private youtubeClient: YoutubeClient;
   //   private minecraftBot: MinecraftBot;
 
   constructor() {
@@ -31,9 +31,10 @@ class Server {
     this.llmService = new LLMService(this.eventBus);
     const isTestMode = process.argv.includes('--test');
     this.discordBot = DiscordBot.getInstance(this.eventBus, isTestMode);
-    this.webClient = new WebClient(this.eventBus);
+    this.webClient = new WebClient(this.eventBus, isTestMode);
     this.twitterClient = TwitterClient.getInstance(this.eventBus, isTestMode);
     this.scheduler = Scheduler.getInstance(this.eventBus, isTestMode);
+    this.youtubeClient = YoutubeClient.getInstance(this.eventBus, isTestMode);
   }
 
   private setupMiddleware() {
@@ -72,6 +73,7 @@ class Server {
         this.startTwitterClient(),
         this.connectDatabase(),
         this.startScheduler(),
+        this.startYoutubeClient(),
       ]);
     } catch (error) {
       console.error(`\x1b[31mサービス起動エラー: ${error}\x1b[0m`);
@@ -101,6 +103,11 @@ class Server {
   private async startScheduler() {
     await this.scheduler.start();
     console.log('\x1b[34mScheduler started\x1b[0m');
+  }
+
+  private async startYoutubeClient() {
+    await this.youtubeClient.start();
+    console.log('\x1b[34mYoutube Client started\x1b[0m');
   }
 
   public async shutdown() {

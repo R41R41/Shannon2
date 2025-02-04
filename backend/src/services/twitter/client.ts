@@ -217,13 +217,13 @@ export class TwitterClient extends BaseClient {
           ],
         }
       );
-      console.log(response);
+      console.log(JSON.stringify(response));
       const unrepliedTweets = response.data.data.filter(
         (reply: any) =>
           reply.in_reply_to_user_id === tweet.data.author_id &&
           reply.author_id !== this.myUserId
       );
-
+      console.log(JSON.stringify(unrepliedTweets));
       if (unrepliedTweets.length > 0) {
         const oldestTweet = unrepliedTweets.reduce((oldest, current) => {
           if (!oldest.created_at || !current.created_at) {

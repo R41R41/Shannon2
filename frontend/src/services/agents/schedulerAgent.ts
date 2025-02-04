@@ -13,6 +13,7 @@ export class SchedulerAgent extends WebSocketClientBase {
   public static getInstance() {
     if (!SchedulerAgent.instance) {
       SchedulerAgent.instance = new SchedulerAgent(URLS.WEBSOCKET.SCHEDULER);
+      console.log('SchedulerAgent instance created ', URLS.WEBSOCKET.SCHEDULER);
     }
     return SchedulerAgent.instance;
   }
