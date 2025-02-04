@@ -80,6 +80,12 @@ export interface TwitterClientInput extends ServiceInput {
     imageUrl?: string | null;
     command?: TwitterSchedulePostEndpoint | null;
 }
+export interface TwitterClientOutput extends ServiceInput {
+    text: string;
+    replyId?: string | null;
+    authorName?: string | null;
+    myTweet?: string | null;
+}
 export interface OpenAIMessageOutput {
     type: ConversationType | "pong";
     text?: string | null;
@@ -124,7 +130,7 @@ export interface SchedulerOutput {
 export interface Event {
     type: EventType;
     memoryZone: MemoryZone;
-    data: TwitterClientInput | OpenAIMessageInput | DiscordClientInput | ILog | TwitterClientInput | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput;
+    data: TwitterClientInput | TwitterClientOutput | OpenAIMessageInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput;
     targetMemoryZones?: MemoryZone[];
 }
 export type Color = "white" | "red" | "green" | "blue" | "yellow" | "magenta" | "cyan";

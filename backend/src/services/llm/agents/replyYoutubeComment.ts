@@ -34,13 +34,14 @@ export class ReplyYoutubeCommentAgent {
   public async reply(
     comment: string,
     videoTitle: string,
-    videoDescription: string
+    videoDescription: string,
+    authorName: string
   ): Promise<string> {
     if (!this.systemPrompt) {
       throw new Error('systemPrompt is not set');
     }
     const systemContent = this.systemPrompt;
-    const humanContent = `コメント:${comment}\n動画タイトル:${videoTitle}\n動画概要欄:${videoDescription}`;
+    const humanContent = `コメント:${comment}\n動画タイトル:${videoTitle}\n動画概要欄:${videoDescription}\nコメントしてくれたユーザーの名前:${authorName}`;
     const response = await this.model.invoke([
       new SystemMessage(systemContent),
       new HumanMessage(humanContent),

@@ -6,9 +6,10 @@ Web:
   ☐ スキルの表示
   
 discord:  
+  ☐ channelログをllmに渡す @high(25-02-04 21:10)
   ☐ minecraft サーバーの状態を見れる
   ☐ minecraft サーバーの起動・停止ができる
-  ☐ しょうもない機能たち*1
+  ☐ しょうもない機能たち*1 @high(25-02-04 21:10)
   
 Twitter:
   ☐ 投稿につき 1 返信*保留
@@ -35,8 +36,6 @@ Minecraft:
   ☐ 検索：バイオーム、周囲ブロック、周囲エンティティ、画面
   
 その他:
-  ☐ 複数人で web を操作しても混ざらない
-  ☐ web を https ＋ドメインで公開 @critical(25-02-03 20:40)
   ☐ 管理者モード
   ☐ 自発性
   ☐ 内部思考Agent
@@ -114,6 +113,7 @@ Minecraft:
   - **updated**: \x1b[36m - シアン（水色）
   - **others**: \x1b[37m - 白, \x1b[35m - マゼンタ（紫）
 Archive:
+  ✔ web を https ＋ドメインで公開 @critical(25-02-03 20:40) @done(25-02-05 03:55) @project(その他)
   ✔ Youtube 自動返信*1 @done(25-02-04 21:10) @project(Youtube)
   ✔ 1 コメントにつき 1 返信*1 @done(25-02-04 21:10) @project(Youtube)
   ✔ twitter の定時ツイートが表示される*1 @done(25-02-03 20:37) @project(discord)

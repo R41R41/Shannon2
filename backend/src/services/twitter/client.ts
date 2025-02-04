@@ -191,15 +191,21 @@ export class TwitterClient extends BaseClient {
 
   /**
    * 指定されたツイートIDのリプライの中で、まだ自分が返信していない最も古いツイートを取得する
-   * @param tweetId リプライを取得するツイートのID
+   * @param myTweet リプライを取得するツイートのID
    * @returns 最も古いリプライのツイートIDとその内容
    */
-  public async getOldestUnrepliedTweet(
-    tweetId: string
-  ): Promise<{ id: string; text: string } | null> {
+  public async getOldestUnrepliedTweet(myTweet: {
+    id: string;
+    text: string;
+  }): Promise<{
+    id: string;
+    text: string;
+    authorName: string;
+    myTweet: string;
+  } | null> {
     if (this.status !== 'running') return null;
     try {
-      const tweet = await this.client.v2.singleTweet(tweetId, {
+      const tweet = await this.client.v2.singleTweet(myTweet.id, {
         'tweet.fields': ['conversation_id'],
       });
       console.log(tweet);
@@ -233,7 +239,12 @@ export class TwitterClient extends BaseClient {
             ? oldest
             : current;
         });
-        return { id: oldestTweet.id, text: oldestTweet.text };
+        return {
+          id: oldestTweet.id,
+          text: oldestTweet.text,
+          authorName: oldestTweet.author_id || '',
+          myTweet: myTweet.text,
+        };
       }
 
       return null;
@@ -247,7 +258,7 @@ export class TwitterClient extends BaseClient {
    * 24時間以内の自分のツイートを取得する
    * @returns ツイートIDの配列
    */
-  private async getRecentTweets(): Promise<string[]> {
+  private async getRecentTweets(): Promise<{ id: string; text: string }[]> {
     if (this.status !== 'running') return [];
     try {
       if (!this.myUserId) {
@@ -267,7 +278,10 @@ export class TwitterClient extends BaseClient {
           const tweetDate = new Date(tweet.created_at!);
           return tweetDate > oneDayAgo;
         })
-        .map((tweet) => tweet.id);
+        .map((tweet) => ({
+          id: tweet.id,
+          text: tweet.text,
+        }));
     } catch (error: any) {
       console.error(`\x1b[31mGet recent tweets error: ${error.message}\x1b[0m`);
       throw error;
@@ -281,8 +295,8 @@ export class TwitterClient extends BaseClient {
     try {
       const recentTweets = await this.getRecentTweets();
 
-      for (const tweetId of recentTweets) {
-        const unrepliedTweet = await this.getOldestUnrepliedTweet(tweetId);
+      for (const myTweet of recentTweets) {
+        const unrepliedTweet = await this.getOldestUnrepliedTweet(myTweet);
 
         console.log(unrepliedTweet);
 
@@ -293,6 +307,8 @@ export class TwitterClient extends BaseClient {
             data: {
               replyId: unrepliedTweet.id,
               text: unrepliedTweet.text,
+              authorName: unrepliedTweet.authorName,
+              myTweet: unrepliedTweet.myTweet,
             },
           });
         }

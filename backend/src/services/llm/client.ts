@@ -9,6 +9,7 @@ import {
   PromptType,
   promptTypes,
   TwitterClientInput,
+  TwitterClientOutput,
   YoutubeClientInput,
   YoutubeClientOutput,
 } from '@shannon/common';
@@ -78,7 +79,7 @@ export class LLMService {
     });
 
     this.eventBus.subscribe('llm:post_twitter_reply', (event) => {
-      this.processTwitterReply(event.data as TwitterClientInput);
+      this.processTwitterReply(event.data as TwitterClientOutput);
     });
 
     this.eventBus.subscribe('llm:reply_youtube_comment', (event) => {
@@ -90,10 +91,12 @@ export class LLMService {
     const comment = data.text;
     const videoTitle = data.videoTitle;
     const videoDescription = data.videoDescription;
+    const authorName = data.authorName;
     const reply = await this.replyYoutubeCommentAgent.reply(
       comment,
       videoTitle,
-      videoDescription
+      videoDescription,
+      authorName
     );
     this.eventBus.publish({
       type: 'youtube:reply_comment',
@@ -106,16 +109,30 @@ export class LLMService {
     });
   }
 
-  private async processTwitterReply(message: TwitterClientInput) {
-    // console.log(response);
-    // this.eventBus.publish({
-    //   type: 'twitter:post_message',
-    //   memoryZone: 'twitter:post',
-    //   data: {
-    //     text: response,
-    //     replyId: message.replyId,
-    //   } as TwitterClientInput,
-    // });
+  private async processTwitterReply(data: TwitterClientOutput) {
+    const text = data.text;
+    const replyId = data.replyId;
+    const authorName = data.authorName;
+    const myTweet = data.myTweet;
+
+    if (!text || !replyId || !authorName || !myTweet) {
+      console.error('Twitter reply data is invalid');
+      return;
+    }
+
+    const response = await this.replyTwitterCommentAgent.reply(
+      text,
+      authorName,
+      myTweet
+    );
+    this.eventBus.publish({
+      type: 'twitter:post_message',
+      memoryZone: 'twitter:post',
+      data: {
+        text: response,
+        replyId: replyId,
+      } as TwitterClientInput,
+    });
   }
 
   private async processWebMessage(message: OpenAIMessageInput) {

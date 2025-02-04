@@ -191,6 +191,13 @@ export interface TwitterClientInput extends ServiceInput {
   command?: TwitterSchedulePostEndpoint | null;
 }
 
+export interface TwitterClientOutput extends ServiceInput {
+  text: string;
+  replyId?: string | null;
+  authorName?: string | null;
+  myTweet?: string | null;
+}
+
 export interface OpenAIMessageOutput {
   type: ConversationType | "pong";
   text?: string | null;
@@ -248,10 +255,10 @@ export interface Event {
   memoryZone: MemoryZone;
   data:
     | TwitterClientInput
+    | TwitterClientOutput
     | OpenAIMessageInput
     | DiscordClientInput
     | ILog
-    | TwitterClientInput
     | OpenAIMessageOutput
     | DiscordClientOutput
     | MinecraftInput
