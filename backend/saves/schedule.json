@@ -3,39 +3,36 @@
     "time": "0 8 * * *",
     "name": "twitter:fortune",
     "data": {
-      "type": "twitter:post_scheduled_message",
+      "type": "llm:post_scheduled_message",
       "memoryZone": "twitter:post",
       "data": {
         "platform": "twitter",
-        "type": "fortune"
-      },
-      "targetMemoryZones": ["twitter:schedule_post"]
+        "command": "fortune"
+      }
     }
   },
   {
     "time": "0 12 * * *",
-    "name": "twitter:about_today",
+    "name": "llm:about_today",
     "data": {
       "type": "twitter:post_scheduled_message",
       "memoryZone": "twitter:post",
       "data": {
         "platform": "twitter",
-        "type": "about_today"
-      },
-      "targetMemoryZones": ["twitter:schedule_post"]
+        "command": "about_today"
+      }
     }
   },
   {
-    "time": "0 18 * * *",
+    "time": "45 19 * * *",
     "name": "twitter:forecast",
     "data": {
-      "type": "twitter:post_scheduled_message",
+      "type": "llm:post_scheduled_message",
       "memoryZone": "twitter:post",
       "data": {
         "platform": "twitter",
-        "type": "forecast"
-      },
-      "targetMemoryZones": ["twitter:schedule_post"]
+        "command": "forecast"
+      }
     }
   },
   {

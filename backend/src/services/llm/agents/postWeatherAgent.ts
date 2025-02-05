@@ -165,11 +165,14 @@ export class PostWeatherAgent {
 
   private getChanceOfRain(forecastData: any): string {
     const chanceOfRainData = forecastData['chanceOfRain'];
-    const t00_06 = chanceOfRainData['T00_06'];
-    const t06_12 = chanceOfRainData['T06_12'];
-    const t12_18 = chanceOfRainData['T12_18'];
-    const t18_24 = chanceOfRainData['T18_24'];
-    return `${t00_06}${t06_12}${t12_18}${t18_24}`;
+    console.log('chanceOfRainData:', chanceOfRainData);
+    const t00_06 = chanceOfRainData['T00_06'] || '0%';
+    const t06_12 = chanceOfRainData['T06_12'] || '0%';
+    const t12_18 = chanceOfRainData['T12_18'] || '0%';
+    const t18_24 = chanceOfRainData['T18_24'] || '0%';
+    const result = `${t00_06}${t06_12}${t12_18}${t18_24}`;
+    console.log('chanceOfRain result:', result);
+    return result;
   }
 
   private getWeather(forecastData: any): string {
@@ -211,10 +214,17 @@ export class PostWeatherAgent {
   }
 
   private async getMaxChanceOfRain(chanceOfRain: string): Promise<string> {
+    console.log('Input chanceOfRain:', chanceOfRain);
     const chanceOfRainList = chanceOfRain
       .split('%')
       .map(Number)
-      .filter(Boolean);
+      .filter((n) => !isNaN(n));
+    console.log('chanceOfRainList:', chanceOfRainList);
+
+    if (chanceOfRainList.length === 0) {
+      return '0%';
+    }
+
     const maxChanceOfRain = Math.max(...chanceOfRainList);
     return `${maxChanceOfRain}%`;
   }

@@ -75,7 +75,7 @@ export class LLMService {
     });
 
     this.eventBus.subscribe('llm:post_scheduled_message', (event) => {
-      this.processCreatePost(event.data as TwitterClientInput);
+      this.processCreateScheduledPost(event.data as TwitterClientInput);
     });
 
     this.eventBus.subscribe('llm:post_twitter_reply', (event) => {
@@ -256,7 +256,7 @@ export class LLMService {
     }
   }
 
-  private async processCreatePost(message: TwitterClientInput) {
+  private async processCreateScheduledPost(message: TwitterClientInput) {
     let post = '';
     let postForToyama = '';
     if (message.command === 'forecast') {

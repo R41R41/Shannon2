@@ -35,7 +35,7 @@ export class Scheduler extends BaseClient {
   public async initialize() {
     await this.setUpSchedule();
     await this.setupEventBus();
-    await this.scheduleCreatePost();
+    await this.schedule();
   }
 
   private async setUpSchedule() {
@@ -98,7 +98,7 @@ export class Scheduler extends BaseClient {
     }
   }
 
-  private async scheduleCreatePost() {
+  private async schedule() {
     this.schedules.forEach((schedule) => {
       cron.schedule(schedule.time, () => {
         this.eventBus.publish(schedule.data);

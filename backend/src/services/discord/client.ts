@@ -271,13 +271,14 @@ export class DiscordBot extends BaseClient {
     this.eventBus.subscribe('discord:post_message', (event) => {
       if (this.status !== 'running') return;
       if (event.type === 'discord:post_message') {
-        const { text, type, channelId, guildId, audio, command, imageUrl } =
+        let { text, type, channelId, guildId, audio, command, imageUrl } =
           event.data as DiscordClientOutput;
         if (
           command === 'forecast' ||
           command === 'fortune' ||
           command === 'about_today'
         ) {
+          guildId = this.toyamaGuildId ?? '';
           if (this.isTest) {
             const xChannelId = this.testXChannelId ?? '';
             const channel = this.client.channels.cache.get(xChannelId);
