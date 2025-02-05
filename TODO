@@ -6,7 +6,6 @@ Web:
   ☐ スキルの表示
   
 discord:  
-  ☐ channelログをllmに渡す @high(25-02-04 21:10)
   ☐ minecraft サーバーの状態を見れる
   ☐ minecraft サーバーの起動・停止ができる
   ☐ しょうもない機能たち*1 @high(25-02-04 21:10)
@@ -17,7 +16,6 @@ Twitter:
   ☐ ライ、ヤミーの投稿に返信*保留
   
 LLM:
-  ☐ 話しかけられているか判定ノード @high(25-02-03 20:40)
   ☐ スキル獲得
   ☐ ツールの動的読み込み
   ☐ ツール作成・テストノード
@@ -26,10 +24,10 @@ LLM:
   ☐ ステータスの更新ノード、必要ならプランの更新、今までのプランを読み込ませる
   
 Youtube:
-  ☐ 登録者数をdiscordに表示
+  ☐ 登録者数をdiscordに表示 @high(25-02-05 20:40)
   
 Minecraft:
-  ☐ Minecraft bot の統合
+  ☐ Minecraft bot の統合 @high(25-02-05 20:40)
   ☐ 呼び出せるスキルの追加・二重管理の解消
   ☐ 環境状態を LLM に読ませる
   ☐ 常時：座標、HP、空腹度、インベントリ
@@ -113,6 +111,8 @@ Minecraft:
   - **updated**: \x1b[36m - シアン（水色）
   - **others**: \x1b[37m - 白, \x1b[35m - マゼンタ（紫）
 Archive:
+  ✔ 話しかけられているか判定ノード @high(25-02-03 20:40) @done(25-02-05 20:39) @project(LLM)
+  ✔ channelログをllmに渡す @high(25-02-04 21:10) @done(25-02-05 20:24) @project(discord)
   ✔ web を https ＋ドメインで公開 @critical(25-02-03 20:40) @done(25-02-05 03:55) @project(その他)
   ✔ Youtube 自動返信*1 @done(25-02-04 21:10) @project(Youtube)
   ✔ 1 コメントにつき 1 返信*1 @done(25-02-04 21:10) @project(Youtube)

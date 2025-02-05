@@ -329,7 +329,11 @@ export class TaskGraph {
       .addNode('tools', this.toolNode)
       .addEdge(START, 'decision_maker')
       .addConditionalEdges('decision_maker', (state) => {
-        return state.decision === 'immediate' ? 'agent' : 'planning';
+        return state.decision === 'immediate'
+          ? 'agent'
+          : state.decision === 'plan'
+          ? 'planning'
+          : END;
       })
       .addEdge('planning', 'agent')
       .addConditionalEdges('agent', (state) => {

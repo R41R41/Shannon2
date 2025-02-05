@@ -171,6 +171,9 @@ export class LLMService {
           message.text,
           null
         );
+        if (response === '') {
+          return;
+        }
         this.eventBus.log('web', 'green', response, true);
         this.eventBus.publish({
           type: 'web:post_message',
@@ -224,6 +227,7 @@ export class LLMService {
           channelId: message.channelId,
           messageId: message.messageId,
           userId: message.userId,
+          recentMessages: message.recentMessages,
         };
         const infoMessage = JSON.stringify(info);
         const memoryZone = getDiscordMemoryZone(message.guildId);
@@ -236,6 +240,9 @@ export class LLMService {
           message.text,
           infoMessage
         );
+        if (response === '') {
+          return;
+        }
         this.eventBus.log(memoryZone, 'green', response, true);
         this.eventBus.publish({
           type: 'discord:post_message',
@@ -353,6 +360,10 @@ export class LLMService {
       console.log(result);
 
       const lastMessage = result.messages[result.messages.length - 1];
+
+      if (result.decision === 'ignore') {
+        return '';
+      }
 
       if (outputMemoryZones) {
         outputMemoryZones.forEach((memoryZone) => {

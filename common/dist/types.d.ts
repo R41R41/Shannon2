@@ -49,6 +49,12 @@ export interface WebMonitoringOutput {
     type: WebMonitoringOutputType | "pong";
     data?: ILog | ILog[];
 }
+export interface RecentMessage {
+    name: string;
+    content: string;
+    timestamp: number;
+    imageUrl?: string[];
+}
 export interface DiscordClientInput extends ServiceInput {
     type: ConversationType;
     channelId: string;
@@ -62,6 +68,7 @@ export interface DiscordClientInput extends ServiceInput {
     audio?: string | null;
     realtime_audio?: string | null;
     command?: RealTimeAPIEndpoint | null;
+    recentMessages?: RecentMessage[] | null;
 }
 export interface MinecraftInput {
     type: ConversationType;

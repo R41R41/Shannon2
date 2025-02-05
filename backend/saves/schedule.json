@@ -24,7 +24,7 @@
     }
   },
   {
-    "time": "45 19 * * *",
+    "time": "0 18 * * *",
     "name": "twitter:forecast",
     "data": {
       "type": "llm:post_scheduled_message",

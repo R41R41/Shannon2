@@ -194,7 +194,7 @@ export class DiscordBot extends BaseClient {
         });
       }
     });
-    this.client.on('messageCreate', (message) => {
+    this.client.on('messageCreate', async (message) => {
       if (this.status !== 'running') return;
       const isTestGuild = message.guildId === process.env.TEST_GUILD_ID;
       if (this.isTest !== isTestGuild) return;
@@ -207,6 +207,7 @@ export class DiscordBot extends BaseClient {
       const messageId = message.id;
       const userId = message.author.id;
       const guildId = message.guildId;
+      const recentMessages = await this.getRecentMessages(message.channelId);
       if (
         guildId === this.toyamaGuildId &&
         message.channelId !== this.toyamaChannelId
@@ -233,6 +234,7 @@ export class DiscordBot extends BaseClient {
           userName: nickname,
           messageId: messageId,
           userId: userId,
+          recentMessages: recentMessages,
         } as DiscordClientInput,
       });
     });
@@ -322,5 +324,54 @@ export class DiscordBot extends BaseClient {
         }
       }
     });
+  }
+
+  /**
+   * 指定したチャンネルの直近のメッセージを取得
+   * @param channelId 対象のチャンネルID
+   * @param limit 取得するメッセージ数（デフォルト10件）
+   * @returns 会話ログの配列
+   */
+  public async getRecentMessages(
+    channelId: string,
+    limit: number = 10
+  ): Promise<
+    {
+      name: string;
+      content: string;
+      timestamp: number;
+      imageUrl?: string[];
+    }[]
+  > {
+    try {
+      const channel = this.client.channels.cache.get(channelId);
+      if (!channel?.isTextBased() || !('messages' in channel)) {
+        throw new Error('Invalid channel or not a text channel');
+      }
+
+      const messages = await channel.messages.fetch({ limit });
+      const conversationLog = messages
+        .sort((a, b) => a.createdTimestamp - b.createdTimestamp) // 古い順にソート
+        .map((msg) => {
+          const nickname = this.getUserNickname(msg.author);
+          const imageUrls = msg.attachments.map((attachment) => attachment.url);
+          return {
+            name: nickname,
+            content: msg.content,
+            timestamp: msg.createdTimestamp,
+            ...(imageUrls.length > 0 && { imageUrl: imageUrls }),
+          };
+        });
+
+      return conversationLog;
+    } catch (error) {
+      console.error('Error fetching recent messages:', error);
+      this.eventBus.log(
+        'discord:aiminelab_server',
+        'red',
+        `Error fetching recent messages: ${error}`
+      );
+      return [];
+    }
   }
 }

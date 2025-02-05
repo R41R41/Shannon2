@@ -12,9 +12,9 @@
 
 # 提供する情報
 
-- currentTime
-- chatSummary
-- chatLog
+- currentTime: 現在の時刻
+- chatSummary: チャットの要約
+- chatLog: チャットのログ
 
 # 注意
 
