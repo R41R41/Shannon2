@@ -357,9 +357,11 @@ export class LLMService {
         decision: '',
       });
 
-      console.log(result);
-
-      const lastMessage = result.messages[result.messages.length - 1];
+      const aiMessages = result.messages.filter(
+        (message: BaseMessage): message is AIMessage =>
+          message instanceof AIMessage
+      );
+      const lastMessage = aiMessages[aiMessages.length - 1];
 
       if (result.decision === 'ignore') {
         return '';
