@@ -7,6 +7,7 @@
     "dev": "tsc-watch --onSuccess \"node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js\"",
     "dev:test": "tsc-watch --onSuccess \"node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js --test\"",
     "test": "vitest",
+    "test:graph": "tsc-watch --onSuccess \"node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/services/llm/graph/test.js\"",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui"
   },
