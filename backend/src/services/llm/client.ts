@@ -104,7 +104,7 @@ export class LLMService {
       data: {
         videoId: data.videoId,
         commentId: data.commentId,
-        reply,
+        reply: reply + ' by シャノン',
       } as YoutubeClientInput,
     });
   }
