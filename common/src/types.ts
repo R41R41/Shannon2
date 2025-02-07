@@ -1,4 +1,11 @@
-export type Platform = "web" | "discord" | "minecraft" | "twitter" | "youtube";
+export type Platform =
+  | "web"
+  | "discord"
+  | "minecraft"
+  | "scheduler"
+  | "twitter"
+  | "youtube"
+  | "minebot";
 
 export const promptTypes: PromptType[] = [
   "base_text",
@@ -66,7 +73,8 @@ export type MemoryZone =
   | "twitter:post"
   | "minecraft"
   | "youtube"
-  | "scheduler";
+  | "scheduler"
+  | "minebot";
 
 export type EventType =
   | "llm:post_scheduled_message"
@@ -341,7 +349,7 @@ export type ServiceStatus = "running" | "stopped" | "connecting";
 export type ServiceCommand = "start" | "stop" | "status";
 
 export interface StatusAgentInput extends ServiceInput {
-  service: "twitter" | "discord" | "minecraft" | "scheduler" | "youtube";
+  service: Platform;
   status: ServiceStatus;
 }
 

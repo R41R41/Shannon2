@@ -1,14 +1,10 @@
-import { ServiceStatus } from '@shannon/common';
+import { Platform, ServiceStatus } from '@shannon/common';
 import { EventBus } from '../eventBus.js';
 export abstract class BaseClient {
   public status: ServiceStatus = 'stopped';
 
   constructor(
-    private readonly serviceName:
-      | 'twitter'
-      | 'discord'
-      | 'scheduler'
-      | 'youtube',
+    private readonly serviceName: Platform,
     public eventBus: EventBus
   ) {}
 
