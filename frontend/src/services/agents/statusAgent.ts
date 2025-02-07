@@ -1,6 +1,6 @@
-import { ServiceStatus, StatusAgentOutput } from '@common/types';
-import { WebSocketClientBase } from '../common/WebSocketClient';
-import { URLS } from '../config/ports';
+import { ServiceStatus, StatusAgentOutput } from "@common/types";
+import { WebSocketClientBase } from "../common/WebSocketClient";
+import { URLS } from "../config/ports";
 
 type StatusCallback = (status: ServiceStatus) => void;
 
@@ -11,7 +11,7 @@ export class StatusAgent extends WebSocketClientBase {
   public static getInstance() {
     if (!StatusAgent.instance) {
       StatusAgent.instance = new StatusAgent(URLS.WEBSOCKET.STATUS);
-      console.log('StatusAgent instance created ', URLS.WEBSOCKET.STATUS);
+      console.log("StatusAgent instance created ", URLS.WEBSOCKET.STATUS);
     }
     return StatusAgent.instance;
   }
@@ -22,7 +22,7 @@ export class StatusAgent extends WebSocketClientBase {
 
   protected handleMessage(message: string) {
     const data = JSON.parse(message) as StatusAgentOutput;
-    if (data.type === 'pong') return;
+    if (data.type === "pong") return;
 
     const listeners = this.serviceStatusListeners.get(data.service);
     if (listeners && data.data) {
@@ -42,7 +42,7 @@ export class StatusAgent extends WebSocketClientBase {
     this.send(
       JSON.stringify({
         type: `service:command`,
-        command: 'status',
+        command: "status",
         service,
       })
     );
@@ -52,7 +52,7 @@ export class StatusAgent extends WebSocketClientBase {
     this.send(
       JSON.stringify({
         type: `service:command`,
-        command: 'start',
+        command: "start",
         service,
       })
     );
@@ -62,7 +62,7 @@ export class StatusAgent extends WebSocketClientBase {
     this.send(
       JSON.stringify({
         type: `service:command`,
-        command: 'stop',
+        command: "stop",
         service,
       })
     );

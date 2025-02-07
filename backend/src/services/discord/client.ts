@@ -1,7 +1,8 @@
 import {
   DiscordClientInput,
   DiscordClientOutput,
-  MinecraftInput,
+  MinecraftServerName,
+  ServiceInput,
 } from '@shannon/common';
 import {
   Client,
@@ -123,18 +124,19 @@ export class DiscordBot extends BaseClient {
         switch (interaction.commandName) {
           case 'minecraft_server_status':
             if (interaction.isChatInputCommand()) {
-              const serverName = interaction.options.getString(
-                'server_name',
-                true
-              );
+              const serverName: MinecraftServerName =
+                interaction.options.getString(
+                  'server_name',
+                  true
+                ) as MinecraftServerName;
               const data = {
                 type: 'command',
                 serverName: serverName,
-                command: 'get_status',
-              } as MinecraftInput;
+                command: 'status',
+              } as ServiceInput;
               try {
                 this.eventBus.publish({
-                  type: 'minecraft:get_status',
+                  type: `minecraft:${serverName}:status`,
                   memoryZone: 'minecraft',
                   data: data,
                 });
