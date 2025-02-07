@@ -7,7 +7,7 @@ export type TwitterSchedulePostEndpoint = "about_today" | "forecast" | "fortune"
 export type MinecraftServerStatusEndpoint = "get_status" | "start_server" | "stop_server";
 export type DiscordGuild = "discord:toyama_server" | "discord:aiminelab_server" | "discord:test_server";
 export type MemoryZone = "web" | DiscordGuild | "twitter:schedule_post" | "twitter:post" | "minecraft" | "youtube" | "scheduler";
-export type EventType = "llm:post_scheduled_message" | "llm:post_twitter_reply" | "llm:reply_youtube_comment" | "twitter:status" | "twitter:start" | "twitter:stop" | "twitter:post_scheduled_message" | "twitter:post_message" | "twitter:check_replies" | "twitter:get_message" | "youtube:get_stats" | "youtube:get_message" | "youtube:post_message" | "youtube:check_comments" | "youtube:reply_comment" | "llm:get_discord_message" | "discord:start" | "discord:stop" | "discord:status" | "discord:post_message" | "minecraft:get_status" | "minecraft:start_server" | "minecraft:stop_server" | "minecraft:action" | "minecraft:env_input" | "minecraft:get_message" | "minecraft:post_message" | "llm:get_web_message" | "web:post_message" | "scheduler:get_schedule" | "web:post_schedule" | "scheduler:call_schedule" | "web:log" | "web:status" | "youtube:status";
+export type EventType = "llm:post_scheduled_message" | "llm:post_twitter_reply" | "llm:reply_youtube_comment" | "twitter:status" | "twitter:start" | "twitter:stop" | "twitter:post_scheduled_message" | "twitter:post_message" | "twitter:check_replies" | "twitter:get_message" | "youtube:get_stats" | "youtube:get_message" | "youtube:post_message" | "youtube:check_comments" | "youtube:reply_comment" | "llm:get_discord_message" | "discord:start" | "discord:stop" | "discord:status" | "discord:post_message" | "minecraft:get_status" | "minecraft:start_server" | "minecraft:stop_server" | "minecraft:action" | "minecraft:env_input" | "minecraft:get_message" | "minecraft:post_message" | "llm:get_web_message" | "web:post_message" | "scheduler:get_schedule" | "web:post_schedule" | "scheduler:call_schedule" | "web:log" | "web:status" | "youtube:status" | `minebot:${string}`;
 export interface ServiceInput {
     serviceCommand?: ServiceCommand | null;
 }
@@ -134,10 +134,25 @@ export interface SchedulerOutput {
     type: "post_schedule";
     data: Schedule[];
 }
+export interface MinebotOutput {
+    success?: boolean | null;
+    result?: string | null;
+    skillName?: string | null;
+    senderName?: string | null;
+    message?: string | null;
+    senderPosition?: string | null;
+    botPosition?: string | null;
+    botHealth?: string | null;
+    botFoodLevel?: string | null;
+}
+export interface MinebotInput {
+    skillName?: string | null;
+    text?: string | null;
+}
 export interface Event {
     type: EventType;
     memoryZone: MemoryZone;
-    data: TwitterClientInput | TwitterClientOutput | OpenAIMessageInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput;
+    data: TwitterClientInput | TwitterClientOutput | OpenAIMessageInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput;
     targetMemoryZones?: MemoryZone[];
 }
 export type Color = "white" | "red" | "green" | "blue" | "yellow" | "magenta" | "cyan";

@@ -103,7 +103,8 @@ export type EventType =
   | "scheduler:call_schedule"
   | "web:log"
   | "web:status"
-  | "youtube:status";
+  | "youtube:status"
+  | `minebot:${string}`;
 
 export interface ServiceInput {
   serviceCommand?: ServiceCommand | null;
@@ -258,6 +259,23 @@ export interface SchedulerOutput {
   data: Schedule[];
 }
 
+export interface MinebotOutput {
+  success?: boolean | null;
+  result?: string | null;
+  skillName?: string | null;
+  senderName?: string | null;
+  message?: string | null;
+  senderPosition?: string | null;
+  botPosition?: string | null;
+  botHealth?: string | null;
+  botFoodLevel?: string | null;
+}
+
+export interface MinebotInput {
+  skillName?: string | null;
+  text?: string | null;
+}
+
 export interface Event {
   type: EventType;
   memoryZone: MemoryZone;
@@ -275,7 +293,9 @@ export interface Event {
     | SchedulerOutput
     | StatusAgentInput
     | ServiceInput
-    | YoutubeClientOutput;
+    | YoutubeClientOutput
+    | MinebotOutput
+    | MinebotInput;
   targetMemoryZones?: MemoryZone[];
 }
 

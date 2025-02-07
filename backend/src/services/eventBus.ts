@@ -51,6 +51,21 @@ export class EventBus {
       color,
       content,
     };
+    if (color === 'green') {
+      console.log(`\x1b[32m${content}\x1b[0m`);
+    } else if (color === 'red') {
+      console.error(`\x1b[31m${content}\x1b[0m`);
+    } else if (color === 'yellow') {
+      console.log(`\x1b[33m${content}\x1b[0m`);
+    } else if (color === 'blue') {
+      console.log(`\x1b[34m${content}\x1b[0m`);
+    } else if (color === 'magenta') {
+      console.log(`\x1b[35m${content}\x1b[0m`);
+    } else if (color === 'cyan') {
+      console.log(`\x1b[36m${content}\x1b[0m`);
+    } else {
+      console.log(content);
+    }
 
     if (isSave) {
       try {
