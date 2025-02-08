@@ -341,7 +341,7 @@ export class DiscordBot extends BaseClient {
     {
       name: string;
       content: string;
-      timestamp: number;
+      timestamp: string;
       imageUrl?: string[];
     }[]
   > {
@@ -353,14 +353,14 @@ export class DiscordBot extends BaseClient {
 
       const messages = await channel.messages.fetch({ limit });
       const conversationLog = messages
-        .sort((a, b) => a.createdTimestamp - b.createdTimestamp) // 古い順にソート
+        .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
         .map((msg) => {
           const nickname = this.getUserNickname(msg.author);
           const imageUrls = msg.attachments.map((attachment) => attachment.url);
           return {
             name: nickname,
             content: msg.content,
-            timestamp: msg.createdTimestamp,
+            timestamp: new Date(msg.createdTimestamp).toISOString(),
             ...(imageUrls.length > 0 && { imageUrl: imageUrls }),
           };
         });

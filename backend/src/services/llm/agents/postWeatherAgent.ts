@@ -314,17 +314,6 @@ export class PostWeatherAgent {
       memoryZone: 'discord:toyama_server',
       systemPrompt: prompt,
       infoMessage: infoMessage,
-      messages: [],
-      taskTree: {
-        goal: '',
-        plan: '',
-        status: 'pending',
-        subTasks: [],
-      },
-      conversationHistory: {
-        messages: [],
-      },
-      decision: '',
     });
     const postForToyama =
       result.messages[result.messages.length - 1].content.toString();

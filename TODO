@@ -2,53 +2,48 @@
 Web:
   ☐ 音声会話ができる
   ☐ minebot 起動・停止・状態
-  ☐ minecraft 起動・停止・状態
-  ☐ スキルの表示
+  ☐ スキルの表示 @today(25-02-08)
   
-discord:  
-  ☐ minecraft サーバーの状態を見れる
-  ☐ minecraft サーバーの起動・停止ができる
+discord:
   ☐ しょうもない機能たち*1 @high(25-02-04 21:10)
   
 Twitter:
-  ✔ 返信の一時的廃止 @done(25-02-07 20:29)
   ☐ 1日3回(12時、18時、24時)アイマイラボ・ヤミー・ライの投稿を取得
   ☐ アイマイラボの投稿リツイート*保留
   ☐ ライ、ヤミーの投稿に返信*保留
   
 LLM:
-  ☐ discordに投稿スキル
-  ☐ discordに顔文字スキル
+  ☐ discordに投稿スキル @today(25-02-08)
+  ☐ discordに顔文字スキル @today(25-02-08)
   ☐ スキル獲得
   ☐ ツールの動的読み込み
   ☐ ツール作成・テストノード
   ☐ ファイル操作系
   ☐ 何かのレスポンスを待つeventBus.subscribe
-  ☐ minebot専用スキルグラフ
-  ☐ 人間からのアドバイスstate
-  ☐ callModelの出力をjsonで必要最小限に
-  ☐ 与えるプロンプトを必要最小限に
+  ☐ minebot専用スキルグラフ @today(25-02-08)
+  ☐ 人間からのアドバイスstate 
+  ☐ callModelの出力をjsonで必要最小限に @today(25-02-08)
+  ☐ 与えるプロンプトを必要最小限に @today(25-02-08)
   
 Youtube:
   ☐ 登録者数をdiscordに表示 @high(25-02-05 20:40)
 
 Minebot:
-  ☐ Minecraft bot の統合 @high(25-02-05 20:40)
-  ☐ 呼び出せるスキルの追加・二重管理の解消
-  ☐ 環境状態を LLM に読ませる
-  ☐ 常時：座標、HP、空腹度、インベントリ
-  ☐ 検索：バイオーム、周囲ブロック、周囲エンティティ、画面
+  ☐ Minecraft bot の統合 @high(25-02-05 20:40) @today(25-02-08)
+  ☐ 環境状態を LLM に読ませる @today(25-02-08)
+    ☐ 常時：座標、HP、空腹度、インベントリ @today(25-02-08)
+    ☐ 検索：バイオーム、周囲ブロック、周囲エンティティ、画面 @today(25-02-08) 
   ☐ 最新バージョンで動作
-  
-Minecraft:
-  ☐ 状態確認・起動・停止
-  
+    
 その他:
   ☐ 管理者モード
   ☐ 自発性
   ☐ 内部思考Agent
   ☐ 感情状態 
-  ☐ Minecraft入力用mod
+
+Minecraft入力用mod:
+  ☐ チャット入出力
+  ☐ 音声会話
 
 各serviceのeventBus:
   web:
@@ -122,6 +117,9 @@ Minecraft:
   - **updated**: \x1b[36m - シアン（水色）
   - **others**: \x1b[37m - 白, \x1b[35m - マゼンタ（紫）
 Archive:
+  ✔ minecraft 起動・停止・状態 @done(25-02-08 08:09) @project(Web)
+  ✔ 返信の一時的廃止 @done(25-02-07 20:29) @project(Twitter)
+  ✔ 状態確認・起動・停止 @done(25-02-08 07:57) @project(Minecraft)
   ✔ ステータスの更新ノード、必要ならプランの更新、今までのプランを読み込ませる @done(25-02-06 11:53) @project(LLM)
   ✔ 話しかけられているか判定ノード @high(25-02-03 20:40) @done(25-02-05 20:39) @project(LLM)
   ✔ channelログをllmに渡す @high(25-02-04 21:10) @done(25-02-05 20:24) @project(discord)

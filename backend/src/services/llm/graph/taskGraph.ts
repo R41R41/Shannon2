@@ -9,7 +9,7 @@ import { JsonOutputParser } from '@langchain/core/output_parsers';
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { ChatOpenAI } from '@langchain/openai';
-import { MemoryZone, PromptType } from '@shannon/common';
+import { MemoryZone, PromptType, EmotionType } from '@shannon/common';
 import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
@@ -29,6 +29,20 @@ interface TaskTreeState {
   status: TaskStatus;
   error?: string;
   subTasks: TaskTreeState[];
+}
+
+interface TaskStateInput {
+  memoryZone?: MemoryZone;
+  systemPrompt?: string;
+  infoMessage?: string | null;
+  messages?: BaseMessage[];
+  emotion?: EmotionType | null;
+  taskTree?: TaskTreeState | null;
+  conversationHistory?: {
+    messages: BaseMessage[];
+    summary?: string | null;
+  };
+  decision?: string | null;
 }
 
 export class TaskGraph {
@@ -51,7 +65,12 @@ export class TaskGraph {
   }
 
   private async setupSystemPrompts(): Promise<void> {
-    const promptsName: PromptType[] = ['planning', 'decision'];
+    const promptsName: PromptType[] = [
+      'planning',
+      'decision',
+      'base_text',
+      'emotion',
+    ];
     for (const name of promptsName) {
       this.systemPrompts.set(name, await loadPrompt(name));
     }
@@ -219,13 +238,17 @@ export class TaskGraph {
       timeZone: 'Asia/Tokyo',
     });
     const chatSummary = state.conversationHistory.summary;
+    const historyMessages =
+      state.conversationHistory.messages.length > 10
+        ? state.conversationHistory.messages.slice(-10)
+        : state.conversationHistory.messages;
 
     const messages = [
       new SystemMessage(decisionPrompt),
       new SystemMessage(`currentTime: ${currentTime}`),
       state.infoMessage ? new SystemMessage(state.infoMessage) : null,
       chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
-      ...state.conversationHistory.messages.slice(-10),
+      ...historyMessages,
     ].filter((message): message is BaseMessage => message !== null);
 
     try {
@@ -249,16 +272,27 @@ export class TaskGraph {
       timeZone: 'Asia/Tokyo',
     });
     const chatSummary = state.conversationHistory.summary;
+    const historyMessages =
+      state.conversationHistory.messages.length > 10
+        ? state.conversationHistory.messages.slice(-10)
+        : state.conversationHistory.messages;
 
     const messages = [
       new SystemMessage(planningPrompt),
       new SystemMessage(`currentTime: ${currentTime}`),
       state.infoMessage ? new SystemMessage(state.infoMessage) : null,
       chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
-      ...state.conversationHistory.messages.slice(-10),
-      new SystemMessage(`goal: ${state.taskTree.goal}`),
-      new SystemMessage(`plan: ${state.taskTree.plan}`),
-      new SystemMessage(`subTasks: ${JSON.stringify(state.taskTree.subTasks)}`),
+      ...historyMessages,
+      state.emotion
+        ? new SystemMessage(`yourEmotion: ${JSON.stringify(state.emotion)}`)
+        : null,
+      state.taskTree ? new SystemMessage(`goal: ${state.taskTree.goal}`) : null,
+      state.taskTree ? new SystemMessage(`plan: ${state.taskTree.plan}`) : null,
+      state.taskTree
+        ? new SystemMessage(
+            `subTasks: ${JSON.stringify(state.taskTree.subTasks)}`
+          )
+        : null,
       new SystemMessage(`yourAction: ${JSON.stringify(state.messages)}`),
     ].filter((message): message is BaseMessage => message !== null);
 
@@ -281,6 +315,7 @@ export class TaskGraph {
       return this.errorHandler(state);
     }
   };
+
   private callToolModel = async (
     state: typeof this.TaskState.State,
     taskTree: TaskTreeState
@@ -296,12 +331,16 @@ export class TaskGraph {
     const goal = taskTree.goal;
     const plan = taskTree.plan;
     const subTasks = taskTree.subTasks;
+    const historyMessages =
+      state.conversationHistory.messages.length > 10
+        ? state.conversationHistory.messages.slice(-10)
+        : state.conversationHistory.messages;
     const messages = [
       new SystemMessage(state.systemPrompt),
       new SystemMessage(`currentTime: ${currentTime}`),
       state.infoMessage ? new SystemMessage(state.infoMessage) : null,
       chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
-      ...state.conversationHistory.messages.slice(-10),
+      ...historyMessages,
       ...state.messages.filter(
         (message): message is AIMessage | ToolMessage =>
           message instanceof AIMessage || message instanceof ToolMessage
@@ -317,6 +356,110 @@ export class TaskGraph {
     const response = await modelWithTools.invoke(messages);
     this.baseMessagesToLog([response], state.memoryZone);
     return response;
+  };
+
+  private responseNode = async (state: typeof this.TaskState.State) => {
+    const baseTextPrompt = this.systemPrompts.get('base_text');
+    if (!baseTextPrompt) {
+      throw new Error('Base text prompt not found');
+    }
+    const currentTime = new Date().toLocaleString('ja-JP', {
+      timeZone: 'Asia/Tokyo',
+    });
+    const chatSummary = state.conversationHistory.summary;
+    console.log('chatSummary', chatSummary);
+    const historyMessages =
+      state.conversationHistory.messages.length > 0
+        ? state.conversationHistory.messages.length > 10
+          ? state.conversationHistory.messages.slice(-10)
+          : state.conversationHistory.messages
+        : [];
+    const goal = state.taskTree?.goal;
+    const plan = state.taskTree?.plan;
+    const subTasks = state.taskTree?.subTasks;
+    const messages = [
+      new SystemMessage(baseTextPrompt),
+      new SystemMessage(`currentTime: ${currentTime}`),
+      state.infoMessage ? new SystemMessage(state.infoMessage) : null,
+      chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
+      historyMessages.length > 0
+        ? new SystemMessage(`chatLog: ${JSON.stringify(historyMessages)}`)
+        : null,
+      state.emotion
+        ? new SystemMessage(`yourEmotion: ${JSON.stringify(state.emotion)}`)
+        : null,
+      ...state.messages.filter(
+        (message): message is AIMessage | ToolMessage =>
+          message instanceof AIMessage || message instanceof ToolMessage
+      ),
+      goal ? new AIMessage(`goal: ${goal}`) : null,
+      plan ? new AIMessage(`plan: ${plan}`) : null,
+      subTasks && subTasks.length > 0
+        ? new AIMessage(
+            `subTasks: ${subTasks
+              .map((task) => `${task.goal} ${task.status}`)
+              .join(', ')}`
+          )
+        : null,
+    ].filter((message): message is BaseMessage => message !== null);
+
+    if (!this.mediumModel) {
+      throw new Error('Medium model not initialized');
+    }
+    const parser = new JsonOutputParser();
+    const chain = this.mediumModel?.pipe(parser);
+    try {
+      console.log('responseNode', messages);
+      const response = await chain.invoke(messages);
+      console.log('response', response);
+      return {
+        messages: [new AIMessage(response.response)],
+      };
+    } catch (error) {
+      console.error('JSONパースエラー:', error);
+      return this.errorHandler(state);
+    }
+  };
+
+  private emotionNode = async (state: typeof this.TaskState.State) => {
+    const emotionPrompt = this.systemPrompts.get('emotion');
+    if (!emotionPrompt) {
+      throw new Error('Emotion prompt not found');
+    }
+    const currentTime = new Date().toLocaleString('ja-JP', {
+      timeZone: 'Asia/Tokyo',
+    });
+    const chatSummary = state.conversationHistory.summary;
+    const historyMessages =
+      state.conversationHistory.messages.length > 10
+        ? state.conversationHistory.messages.slice(-10)
+        : state.conversationHistory.messages;
+    const messages = [
+      new SystemMessage(emotionPrompt),
+      new SystemMessage(`currentTime: ${currentTime}`),
+      state.infoMessage ? new SystemMessage(state.infoMessage) : null,
+      chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
+      ...historyMessages,
+      ...state.messages.filter(
+        (message): message is AIMessage | ToolMessage =>
+          message instanceof AIMessage || message instanceof ToolMessage
+      ),
+    ].filter((message): message is BaseMessage => message !== null);
+
+    if (!this.mediumModel) {
+      throw new Error('Medium model not initialized');
+    }
+    const parser = new JsonOutputParser();
+    const chain = this.mediumModel?.pipe(parser);
+    try {
+      const response = await chain.invoke(messages);
+      return {
+        emotion: response,
+      };
+    } catch (error) {
+      console.error('JSONパースエラー:', error);
+      return this.errorHandler(state);
+    }
   };
 
   private TaskState = Annotation.Root({
@@ -336,14 +479,13 @@ export class TaskGraph {
       reducer: (prev, next) => prev.concat(next),
       default: () => [],
     }),
-    taskTree: Annotation<TaskTreeState>({
+    emotion: Annotation<EmotionType | null>({
       reducer: (_, next) => next,
-      default: () => ({
-        goal: '',
-        plan: '',
-        status: 'pending',
-        subTasks: [],
-      }),
+      default: () => null,
+    }),
+    taskTree: Annotation<TaskTreeState | null>({
+      reducer: (_, next) => next,
+      default: () => null,
     }),
     conversationHistory: Annotation<{
       messages: BaseMessage[];
@@ -369,22 +511,41 @@ export class TaskGraph {
       .addNode('decision_maker', this.decisionNode)
       .addNode('agent', this.callModel)
       .addNode('tools', this.toolNode)
+      .addNode('response_maker', this.responseNode)
+      .addNode('emotion_maker', this.emotionNode)
       .addEdge(START, 'decision_maker')
       .addConditionalEdges('decision_maker', (state) => {
-        return state.decision === 'respond' ? 'agent' : END;
+        return state.decision === 'respond' ? 'emotion_maker' : END;
       })
+      .addEdge('emotion_maker', 'agent')
       .addConditionalEdges('agent', (state) => {
         const lastMessage = state.messages[
           state.messages.length - 1
         ] as AIMessage;
-        return lastMessage.tool_calls?.length ? 'tools' : END;
+        return lastMessage.tool_calls?.length ? 'tools' : 'response_maker';
       })
-      .addEdge('tools', 'agent');
+      .addEdge('tools', 'agent')
+      .addEdge('response_maker', END);
 
     return workflow.compile();
   }
 
-  public async invoke(state: typeof this.TaskState.State) {
+  public async invoke(partialState: TaskStateInput) {
+    // デフォルト値とマージ
+    let state: typeof this.TaskState.State = {
+      memoryZone: partialState.memoryZone ?? 'web',
+      systemPrompt: partialState.systemPrompt ?? '',
+      infoMessage: partialState.infoMessage ?? null,
+      messages: partialState.messages ?? [],
+      emotion: partialState.emotion ?? null,
+      taskTree: partialState.taskTree ?? null,
+      conversationHistory: partialState.conversationHistory ?? {
+        messages: [],
+        summary: null,
+      },
+      decision: partialState.decision ?? null,
+    };
+
     if (state.conversationHistory.messages.length > 10) {
       state = await this.summarizeConversation(state);
     }

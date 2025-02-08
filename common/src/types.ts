@@ -29,7 +29,8 @@ export type PromptType =
   | "reply_youtube_comment"
   | "planning"
   | "decision"
-  | "reply_twitter_comment";
+  | "reply_twitter_comment"
+  | "emotion";
 
 export type ConversationType =
   | "text"
@@ -114,6 +115,19 @@ export type EventType =
   | "youtube:status"
   | `minebot:${string}`;
 
+export interface EmotionType {
+  emotion: string;
+  parameters: {
+    joy: number;
+    trust: number;
+    fear: number;
+    surprise: number;
+    sadness: number;
+    disgust: number;
+    anger: number;
+    anticipation: number;
+  };
+}
 export interface ServiceInput {
   serviceCommand?: ServiceCommand | null;
 }
@@ -172,7 +186,7 @@ export interface WebMonitoringOutput {
 export interface RecentMessage {
   name: string;
   content: string;
-  timestamp: number;
+  timestamp: string;
   imageUrl?: string[];
 }
 

@@ -1,0 +1,16 @@
+{
+  "folders": [
+	{
+		"name": "Shannon-dev",
+		"path": "../../../../.."
+	},
+	{
+		"name": "shannon",
+		"path": "../../../../../../shannon"
+	},
+	{
+		"path": "../../../../../../minecraft"
+	}
+],
+  "settings": {}
+}
