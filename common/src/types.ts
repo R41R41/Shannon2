@@ -29,7 +29,8 @@ export type PromptType =
   | "reply_youtube_comment"
   | "planning"
   | "decision"
-  | "reply_twitter_comment";
+  | "reply_twitter_comment"
+  | "emotion";
 
 export type ConversationType =
   | "text"
@@ -56,10 +57,7 @@ export type TwitterSchedulePostEndpoint =
   | "fortune"
   | "check_replies";
 
-export type MinecraftServerStatusEndpoint =
-  | "get_status"
-  | "start_server"
-  | "stop_server";
+export type MinecraftServerEndpoint = "status" | "start" | "stop";
 
 export type DiscordGuild =
   | "discord:toyama_server"
@@ -97,9 +95,12 @@ export type EventType =
   | "discord:stop"
   | "discord:status"
   | "discord:post_message"
-  | "minecraft:get_status"
-  | "minecraft:start_server"
-  | "minecraft:stop_server"
+  | "minecraft:status"
+  | "minecraft:start"
+  | "minecraft:stop"
+  | `minecraft:${MinecraftServerName}:status`
+  | `minecraft:${MinecraftServerName}:start`
+  | `minecraft:${MinecraftServerName}:stop`
   | "minecraft:action"
   | "minecraft:env_input"
   | "minecraft:get_message"
@@ -114,8 +115,25 @@ export type EventType =
   | "youtube:status"
   | `minebot:${string}`;
 
+export interface EmotionType {
+  emotion: string;
+  parameters: {
+    joy: number;
+    trust: number;
+    fear: number;
+    surprise: number;
+    sadness: number;
+    disgust: number;
+    anger: number;
+    anticipation: number;
+  };
+}
 export interface ServiceInput {
   serviceCommand?: ServiceCommand | null;
+}
+
+export interface ServiceOutput {
+  status?: ServiceStatus | null;
 }
 
 export interface YoutubeClientInput extends ServiceInput {
@@ -168,7 +186,7 @@ export interface WebMonitoringOutput {
 export interface RecentMessage {
   name: string;
   content: string;
-  timestamp: number;
+  timestamp: string;
   imageUrl?: string[];
 }
 
@@ -186,19 +204,6 @@ export interface DiscordClientInput extends ServiceInput {
   realtime_audio?: string | null;
   command?: RealTimeAPIEndpoint | null;
   recentMessages?: RecentMessage[] | null;
-}
-
-export interface MinecraftInput {
-  type: ConversationType;
-  serverName?: string | null;
-  text?: string | null;
-  command?: RealTimeAPIEndpoint | MinecraftServerStatusEndpoint | null;
-}
-
-export interface MinecraftOutput {
-  type: ConversationType;
-  text?: string | null;
-  command?: RealTimeAPIEndpoint | null;
 }
 
 export interface TwitterClientInput extends ServiceInput {
@@ -284,6 +289,23 @@ export interface MinebotInput {
   text?: string | null;
 }
 
+export type MinecraftServerName =
+  | "1.19.0-youtube"
+  | "1.19.0-test"
+  | "1.19.0-play";
+
+export interface MinecraftInput {
+  serverName?: MinecraftServerName | null;
+  command?: MinecraftServerEndpoint | null;
+}
+
+export interface MinecraftOutput {
+  serverName?: MinecraftServerName | null;
+  success?: boolean | null;
+  message?: string | null;
+  statuses?: { serverName: MinecraftServerName; status: boolean }[] | null;
+}
+
 export interface Event {
   type: EventType;
   memoryZone: MemoryZone;
@@ -303,7 +325,8 @@ export interface Event {
     | ServiceInput
     | YoutubeClientOutput
     | MinebotOutput
-    | MinebotInput;
+    | MinebotInput
+    | ServiceOutput;
   targetMemoryZones?: MemoryZone[];
 }
 
@@ -357,6 +380,10 @@ export type StatusAgentOutputType = "service:status" | "service:command";
 
 export interface StatusAgentOutput {
   type: StatusAgentOutputType | "pong";
-  service: "twitter" | "discord" | "minecraft";
+  service:
+    | "twitter"
+    | "discord"
+    | "minecraft"
+    | `minecraft:${MinecraftServerName}`;
   data: ServiceStatus;
 }

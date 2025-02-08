@@ -1,15 +1,31 @@
 export type Platform = "web" | "discord" | "minecraft" | "scheduler" | "twitter" | "youtube" | "minebot";
 export declare const promptTypes: PromptType[];
-export type PromptType = TwitterSchedulePostEndpoint | "base_text" | "base_voice" | "discord" | "minecraft" | "weather_to_emoji" | "forecast_for_toyama_server" | "reply_youtube_comment" | "planning" | "decision" | "reply_twitter_comment";
+export type PromptType = TwitterSchedulePostEndpoint | "base_text" | "base_voice" | "discord" | "minecraft" | "weather_to_emoji" | "forecast_for_toyama_server" | "reply_youtube_comment" | "planning" | "decision" | "reply_twitter_comment" | "emotion";
 export type ConversationType = "text" | "audio" | "realtime_text" | "realtime_audio" | "command" | "log" | "user_transcript";
 export type RealTimeAPIEndpoint = "realtime_text_input" | "realtime_text_commit" | "realtime_audio_append" | "realtime_audio_commit" | "realtime_vad_on" | "realtime_vad_off" | "text_done" | "audio_done";
 export type TwitterSchedulePostEndpoint = "about_today" | "forecast" | "fortune" | "check_replies";
-export type MinecraftServerStatusEndpoint = "get_status" | "start_server" | "stop_server";
+export type MinecraftServerEndpoint = "status" | "start" | "stop";
 export type DiscordGuild = "discord:toyama_server" | "discord:aiminelab_server" | "discord:test_server";
 export type MemoryZone = "web" | DiscordGuild | "twitter:schedule_post" | "twitter:post" | "minecraft" | "youtube" | "scheduler" | "minebot";
-export type EventType = "llm:post_scheduled_message" | "llm:post_twitter_reply" | "llm:reply_youtube_comment" | "twitter:status" | "twitter:start" | "twitter:stop" | "twitter:post_scheduled_message" | "twitter:post_message" | "twitter:check_replies" | "twitter:get_message" | "youtube:get_stats" | "youtube:get_message" | "youtube:post_message" | "youtube:check_comments" | "youtube:reply_comment" | "llm:get_discord_message" | "discord:start" | "discord:stop" | "discord:status" | "discord:post_message" | "minecraft:get_status" | "minecraft:start_server" | "minecraft:stop_server" | "minecraft:action" | "minecraft:env_input" | "minecraft:get_message" | "minecraft:post_message" | "llm:get_web_message" | "web:post_message" | "scheduler:get_schedule" | "web:post_schedule" | "scheduler:call_schedule" | "web:log" | "web:status" | "youtube:status" | `minebot:${string}`;
+export type EventType = "llm:post_scheduled_message" | "llm:post_twitter_reply" | "llm:reply_youtube_comment" | "twitter:status" | "twitter:start" | "twitter:stop" | "twitter:post_scheduled_message" | "twitter:post_message" | "twitter:check_replies" | "twitter:get_message" | "youtube:get_stats" | "youtube:get_message" | "youtube:post_message" | "youtube:check_comments" | "youtube:reply_comment" | "llm:get_discord_message" | "discord:start" | "discord:stop" | "discord:status" | "discord:post_message" | "minecraft:status" | "minecraft:start" | "minecraft:stop" | `minecraft:${MinecraftServerName}:status` | `minecraft:${MinecraftServerName}:start` | `minecraft:${MinecraftServerName}:stop` | "minecraft:action" | "minecraft:env_input" | "minecraft:get_message" | "minecraft:post_message" | "llm:get_web_message" | "web:post_message" | "scheduler:get_schedule" | "web:post_schedule" | "scheduler:call_schedule" | "web:log" | "web:status" | "youtube:status" | `minebot:${string}`;
+export interface EmotionType {
+    emotion: string;
+    parameters: {
+        joy: number;
+        trust: number;
+        fear: number;
+        surprise: number;
+        sadness: number;
+        disgust: number;
+        anger: number;
+        anticipation: number;
+    };
+}
 export interface ServiceInput {
     serviceCommand?: ServiceCommand | null;
+}
+export interface ServiceOutput {
+    status?: ServiceStatus | null;
 }
 export interface YoutubeClientInput extends ServiceInput {
     videoId?: string | null;
@@ -52,7 +68,7 @@ export interface WebMonitoringOutput {
 export interface RecentMessage {
     name: string;
     content: string;
-    timestamp: number;
+    timestamp: string;
     imageUrl?: string[];
 }
 export interface DiscordClientInput extends ServiceInput {
@@ -69,17 +85,6 @@ export interface DiscordClientInput extends ServiceInput {
     realtime_audio?: string | null;
     command?: RealTimeAPIEndpoint | null;
     recentMessages?: RecentMessage[] | null;
-}
-export interface MinecraftInput {
-    type: ConversationType;
-    serverName?: string | null;
-    text?: string | null;
-    command?: RealTimeAPIEndpoint | MinecraftServerStatusEndpoint | null;
-}
-export interface MinecraftOutput {
-    type: ConversationType;
-    text?: string | null;
-    command?: RealTimeAPIEndpoint | null;
 }
 export interface TwitterClientInput extends ServiceInput {
     text: string;
@@ -149,10 +154,24 @@ export interface MinebotInput {
     skillName?: string | null;
     text?: string | null;
 }
+export type MinecraftServerName = "1.19.0-youtube" | "1.19.0-test" | "1.19.0-play";
+export interface MinecraftInput {
+    serverName?: MinecraftServerName | null;
+    command?: MinecraftServerEndpoint | null;
+}
+export interface MinecraftOutput {
+    serverName?: MinecraftServerName | null;
+    success?: boolean | null;
+    message?: string | null;
+    statuses?: {
+        serverName: MinecraftServerName;
+        status: boolean;
+    }[] | null;
+}
 export interface Event {
     type: EventType;
     memoryZone: MemoryZone;
-    data: TwitterClientInput | TwitterClientOutput | OpenAIMessageInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput;
+    data: TwitterClientInput | TwitterClientOutput | OpenAIMessageInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput | ServiceOutput;
     targetMemoryZones?: MemoryZone[];
 }
 export type Color = "white" | "red" | "green" | "blue" | "yellow" | "magenta" | "cyan";
@@ -190,6 +209,6 @@ export interface StatusAgentInput extends ServiceInput {
 export type StatusAgentOutputType = "service:status" | "service:command";
 export interface StatusAgentOutput {
     type: StatusAgentOutputType | "pong";
-    service: "twitter" | "discord" | "minecraft";
+    service: "twitter" | "discord" | "minecraft" | `minecraft:${MinecraftServerName}`;
     data: ServiceStatus;
 }

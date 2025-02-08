@@ -13,12 +13,19 @@ const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
   const [twitterStatus, setTwitterStatus] = useState<ServiceStatus>('stopped');
   const [discordStatus, setDiscordStatus] = useState<ServiceStatus>('stopped');
   const [youtubeStatus, setYoutubeStatus] = useState<ServiceStatus>('stopped');
-
+  const [minecraftStatus, setMinecraftStatus] = useState<ServiceStatus>('stopped');
+  const [minecraftPlayStatus, setMinecraftPlayStatus] = useState<ServiceStatus>('stopped');
+  const [minecraftTestStatus, setMinecraftTestStatus] = useState<ServiceStatus>('stopped');
+  const [minecraftYoutubeStatus, setMinecraftYoutubeStatus] = useState<ServiceStatus>('stopped');
   useEffect(() => {
     if (status?.status === 'connected') {
       status.getStatusService('twitter');
       status.getStatusService('discord');
       status.getStatusService('youtube');
+      status.getStatusService('minecraft');
+      status.getStatusService('minecraft:1.19.0-youtube');
+      status.getStatusService('minecraft:1.19.0-test');
+      status.getStatusService('minecraft:1.19.0-play');
       const cleanupTwitter = status.onServiceStatus(
         'twitter',
         setTwitterStatus
@@ -31,10 +38,30 @@ const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
         'youtube',
         setYoutubeStatus
       );
+      const cleanupMinecraft = status.onServiceStatus(
+        'minecraft',
+        setMinecraftStatus
+      );
+      const cleanupMinecraftYoutube = status.onServiceStatus(
+        'minecraft:1.19.0-youtube',
+        (status) => setMinecraftYoutubeStatus(status)
+      );
+      const cleanupMinecraftTest = status.onServiceStatus(
+        'minecraft:1.19.0-test',
+        (status) => setMinecraftTestStatus(status)
+      );
+      const cleanupMinecraftPlay = status.onServiceStatus(
+        'minecraft:1.19.0-play',
+        (status) => setMinecraftPlayStatus(status)
+      );
       return () => {
         cleanupTwitter();
         cleanupDiscord();
         cleanupYoutube();
+        cleanupMinecraft();
+        cleanupMinecraftYoutube();
+        cleanupMinecraftTest();
+        cleanupMinecraftPlay();
       };
     }
   }, [status]);
@@ -58,6 +85,30 @@ const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
         await status.stopService('youtube');
       } else {
         await status.startService('youtube');
+      }
+    } else if (service === 'minecraft') {
+      if (minecraftStatus === 'running') {
+        await status.stopService('minecraft');
+      } else {
+        await status.startService('minecraft');
+      }
+    } else if (service === 'minecraft:1.19.0-youtube') {
+      if (minecraftYoutubeStatus === 'running') {
+        await status.stopService('minecraft:1.19.0-youtube');
+      } else {
+        await status.startService('minecraft:1.19.0-youtube');
+      }
+    } else if (service === 'minecraft:1.19.0-test') {
+      if (minecraftTestStatus === 'running') {
+        await status.stopService('minecraft:1.19.0-test');
+      } else {
+        await status.startService('minecraft:1.19.0-test');
+      }
+    } else if (service === 'minecraft:1.19.0-play') {
+      if (minecraftPlayStatus === 'running') {
+        await status.stopService('minecraft:1.19.0-play');
+      } else {
+        await status.startService('minecraft:1.19.0-play');
       }
     }
   };
@@ -107,6 +158,91 @@ const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
               {youtubeStatus}
             </span>
           </div>
+          <button
+            className={`${styles.toggleButton} ${
+              youtubeStatus === 'stopped' ? styles.start : styles.stop
+            }`}
+            onClick={() => handleToggle('youtube')}
+            disabled={youtubeStatus === 'connecting'}
+          >
+            {youtubeStatus === 'running' ? <StopIcon /> : <PlayArrowIcon />}
+          </button>
+        </div>
+        <div className={styles.serviceItem}>
+          <div className={styles.info}>
+            <span className={styles.name}>Minecraft Client</span>
+            <span className={`${styles.status} ${styles[minecraftStatus]}`}>
+              {minecraftStatus}
+            </span>
+          </div>
+          <button
+            className={`${styles.toggleButton} ${
+              minecraftStatus === 'stopped' ? styles.start : styles.stop
+            }`}
+            onClick={() => handleToggle('minecraft')}
+            disabled={minecraftStatus === 'connecting'}
+          >
+            {minecraftStatus === 'running' ? <StopIcon /> : <PlayArrowIcon />}
+          </button>
+        </div>
+        <div className={styles.serviceItem}>
+          <div className={styles.info}>
+            <span className={styles.name}>Minecraft 1.19.0-youtube</span>
+            <span className={`${styles.status} ${styles[minecraftYoutubeStatus]}`}>
+              {minecraftYoutubeStatus}
+            </span>
+          </div>
+              <button
+            className={`${styles.toggleButton} ${
+              minecraftYoutubeStatus === 'stopped' ? styles.start : styles.stop
+            }`}
+            onClick={() => handleToggle('minecraft:1.19.0-youtube')}
+            disabled={minecraftYoutubeStatus === 'connecting'}
+          >
+              {minecraftYoutubeStatus === 'running' ? (
+                <StopIcon />
+              ) : (
+                <PlayArrowIcon />
+              )}
+          </button>
+        </div>
+        <div className={styles.serviceItem}>
+          <div className={styles.info}>
+            <span className={styles.name}>Minecraft 1.19.0-test</span>
+            <span className={`${styles.status} ${styles[minecraftTestStatus]}`}>
+              {minecraftTestStatus}
+            </span>
+          </div>
+          <button
+            className={`${styles.toggleButton} ${
+              minecraftTestStatus === 'stopped' ? styles.start : styles.stop
+            }`}
+            onClick={() => handleToggle('minecraft:1.19.0-test')}
+            disabled={minecraftTestStatus === 'connecting'}
+          >
+            {minecraftTestStatus === 'running' ? <StopIcon /> : <PlayArrowIcon />}
+          </button>
+        </div>
+        <div className={styles.serviceItem}>
+          <div className={styles.info}>
+            <span className={styles.name}>Minecraft 1.19.0-play</span>
+            <span className={`${styles.status} ${styles[minecraftPlayStatus]}`}>
+              {minecraftPlayStatus}
+            </span>
+          </div>
+          <button
+            className={`${styles.toggleButton} ${
+              minecraftPlayStatus === 'stopped' ? styles.start : styles.stop
+            }`}
+            onClick={() => handleToggle('minecraft:1.19.0-play')}
+            disabled={minecraftPlayStatus === 'connecting'}
+          >
+            {minecraftPlayStatus === 'running' ? (
+              <StopIcon />
+            ) : (
+              <PlayArrowIcon />
+            )}
+          </button>
         </div>
       </div>
     </div>

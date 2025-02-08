@@ -3,7 +3,6 @@ import mongoose from 'mongoose';
 import { DiscordBot } from './services/discord/client.js';
 import { Scheduler } from './services/scheduler/client.js';
 import { YoutubeClient } from './services/youtube/client.js';
-// import { MinecraftBot } from './services/minecraft/bot.js';
 import dotenv from 'dotenv';
 import { discordRoutes } from './routes/discord.routes.js';
 import { twitterRoutes } from './routes/twitter.routes.js';
@@ -11,7 +10,7 @@ import { EventBus } from './services/eventBus.js';
 import { LLMService } from './services/llm/client.js';
 import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
-
+import { MinecraftClient } from './services/minecraft/client.js';
 dotenv.config();
 
 class Server {
@@ -23,6 +22,7 @@ class Server {
   private twitterClient: TwitterClient;
   private scheduler: Scheduler;
   private youtubeClient: YoutubeClient;
+  private minecraftClient: MinecraftClient;
   //   private minecraftBot: MinecraftBot;
 
   constructor() {
@@ -34,6 +34,10 @@ class Server {
     this.twitterClient = TwitterClient.getInstance(this.eventBus, isTestMode);
     this.scheduler = Scheduler.getInstance(this.eventBus, isTestMode);
     this.youtubeClient = YoutubeClient.getInstance(this.eventBus, isTestMode);
+    this.minecraftClient = MinecraftClient.getInstance(
+      this.eventBus,
+      isTestMode
+    );
   }
 
   private setupRoutes() {
@@ -62,6 +66,7 @@ class Server {
         this.connectDatabase(),
         this.startScheduler(),
         this.startYoutubeClient(),
+        this.startMinecraftClient(),
       ]);
     } catch (error) {
       console.error(`\x1b[31mサービス起動エラー: ${error}\x1b[0m`);
@@ -96,6 +101,11 @@ class Server {
   private async startYoutubeClient() {
     await this.youtubeClient.start();
     console.log('\x1b[34mYoutube Client started\x1b[0m');
+  }
+
+  private async startMinecraftClient() {
+    await this.minecraftClient.start();
+    console.log('\x1b[34mMinecraft Client started\x1b[0m');
   }
 
   public async shutdown() {

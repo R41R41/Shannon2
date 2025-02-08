@@ -1,7 +1,8 @@
 import {
   DiscordClientInput,
   DiscordClientOutput,
-  MinecraftInput,
+  MinecraftServerName,
+  ServiceInput,
 } from '@shannon/common';
 import {
   Client,
@@ -123,18 +124,19 @@ export class DiscordBot extends BaseClient {
         switch (interaction.commandName) {
           case 'minecraft_server_status':
             if (interaction.isChatInputCommand()) {
-              const serverName = interaction.options.getString(
-                'server_name',
-                true
-              );
+              const serverName: MinecraftServerName =
+                interaction.options.getString(
+                  'server_name',
+                  true
+                ) as MinecraftServerName;
               const data = {
                 type: 'command',
                 serverName: serverName,
-                command: 'get_status',
-              } as MinecraftInput;
+                command: 'status',
+              } as ServiceInput;
               try {
                 this.eventBus.publish({
-                  type: 'minecraft:get_status',
+                  type: `minecraft:${serverName}:status`,
                   memoryZone: 'minecraft',
                   data: data,
                 });
@@ -339,7 +341,7 @@ export class DiscordBot extends BaseClient {
     {
       name: string;
       content: string;
-      timestamp: number;
+      timestamp: string;
       imageUrl?: string[];
     }[]
   > {
@@ -351,14 +353,14 @@ export class DiscordBot extends BaseClient {
 
       const messages = await channel.messages.fetch({ limit });
       const conversationLog = messages
-        .sort((a, b) => a.createdTimestamp - b.createdTimestamp) // 古い順にソート
+        .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
         .map((msg) => {
           const nickname = this.getUserNickname(msg.author);
           const imageUrls = msg.attachments.map((attachment) => attachment.url);
           return {
             name: nickname,
             content: msg.content,
-            timestamp: msg.createdTimestamp,
+            timestamp: new Date(msg.createdTimestamp).toISOString(),
             ...(imageUrls.length > 0 && { imageUrl: imageUrls }),
           };
         });

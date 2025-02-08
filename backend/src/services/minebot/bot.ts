@@ -1,4 +1,4 @@
-import { MinecraftInput, MinecraftOutput } from '@shannon/common';
+import { MinebotInput, MinebotOutput } from '@shannon/common';
 import dotenv from 'dotenv';
 import minecraftHawkEye from 'minecrafthawkeye';
 import mineflayer from 'mineflayer';
@@ -46,7 +46,6 @@ export class MinecraftBot {
     }) as CustomBot;
     this.setUpBot();
     this.eventBus = eventBus;
-    this.setupEvents();
   }
 
   private setUpBot() {
@@ -109,29 +108,6 @@ export class MinecraftBot {
         'red',
         `未処理のPromise拒否が発生しました: ${error.message}`
       );
-    });
-  }
-
-  private setupEvents() {
-    this.bot.on('chat', async (username, message) => {
-      if (username === this.bot.username) return;
-
-      const minecraftInput: MinecraftInput = {
-        type: 'text',
-        text: message,
-      };
-      this.eventBus.publish({
-        type: 'minecraft:get_message',
-        memoryZone: 'minecraft',
-        data: minecraftInput,
-      });
-    });
-
-    this.eventBus.subscribe('minecraft:post_message', (event) => {
-      const { type, text, command } = event.data as MinecraftOutput;
-      if (text && type === 'text') {
-        this.bot.chat(text);
-      }
     });
   }
 

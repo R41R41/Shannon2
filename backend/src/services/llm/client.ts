@@ -104,7 +104,7 @@ export class LLMService {
       data: {
         videoId: data.videoId,
         commentId: data.commentId,
-        reply,
+        reply: reply + ' by シャノン',
       } as YoutubeClientInput,
     });
   }
@@ -229,11 +229,11 @@ export class LLMService {
           userId: message.userId,
           recentMessages: message.recentMessages,
         };
-        const infoMessage = JSON.stringify(info);
+        const infoMessage = JSON.stringify(info, null, 2);
         const memoryZone = getDiscordMemoryZone(message.guildId);
 
         const response = await this.processMessage(
-          ['base_text', 'discord'],
+          ['discord'],
           memoryZone,
           [memoryZone],
           message.userName,
@@ -344,18 +344,12 @@ export class LLMService {
         memoryZone: inputMemoryZone,
         systemPrompt: prompt,
         infoMessage: infoMessage || null,
-        messages: messages,
-        taskTree: {
-          goal: '',
-          plan: '',
-          status: 'pending',
-          subTasks: [],
-        },
         conversationHistory: {
           messages: messages,
         },
-        decision: '',
       });
+
+      console.log(result);
 
       const aiMessages = result.messages.filter(
         (message: BaseMessage): message is AIMessage =>

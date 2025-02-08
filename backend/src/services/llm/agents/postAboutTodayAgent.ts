@@ -37,17 +37,6 @@ export class PostAboutTodayAgent {
       memoryZone: 'discord:toyama_server',
       systemPrompt: systemContent,
       infoMessage: infoMessage,
-      messages: [],
-      taskTree: {
-        goal: '',
-        plan: '',
-        status: 'pending',
-        subTasks: [],
-      },
-      conversationHistory: {
-        messages: [],
-      },
-      decision: '',
     });
     const aboutTodayMessage =
       result.messages[result.messages.length - 1].content.toString();

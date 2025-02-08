@@ -36,7 +36,7 @@
     }
   },
   {
-    "time": "0 */1 * * *",
+    "time": "0 0 */1 * *",
     "name": "twitter:check_replies",
     "data": {
       "type": "twitter:check_replies",
