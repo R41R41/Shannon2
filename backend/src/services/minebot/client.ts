@@ -6,7 +6,6 @@ import {
   ServiceOutput,
 } from '@shannon/common';
 import dotenv from 'dotenv';
-import minecraftHawkEye from 'minecrafthawkeye';
 import mineflayer from 'mineflayer';
 import { pathfinder } from 'mineflayer-pathfinder';
 import { plugin as collectBlock } from 'mineflayer-collectblock';
@@ -18,6 +17,7 @@ import { SkillAgent } from './skillAgent.js';
 import { ConstantSkills, CustomBot, InstantSkills } from './types.js';
 import { Utils } from './utils/index.js';
 import { BaseClient } from '../common/BaseClient.js';
+import minecraftHawkEye from 'minecrafthawkeye';
 dotenv.config();
 
 if (
@@ -79,6 +79,12 @@ export class MinebotClient extends BaseClient {
     this.bot.loadPlugin(projectile);
     this.bot.loadPlugin(pvp);
     this.bot.loadPlugin(toolPlugin);
+
+    try {
+      this.bot.loadPlugin(minecraftHawkEye);
+    } catch (error) {
+      console.log('error', error);
+    }
 
     this.bot.on('login', async () => {
       this.eventBus.log('minecraft', 'green', 'Bot has logged in.');
