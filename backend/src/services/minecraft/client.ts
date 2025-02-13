@@ -133,7 +133,6 @@ export class MinecraftClient extends BaseClient {
   private async setupEventBus() {
     this.eventBus.subscribe('minecraft:status', async (event) => {
       const { serviceCommand } = event.data as ServiceInput;
-      console.log(`\x1b[32mminecraft:status\x1b[0m`, serviceCommand);
       if (serviceCommand === 'start') {
         await this.start();
       } else if (serviceCommand === 'stop') {
@@ -154,13 +153,7 @@ export class MinecraftClient extends BaseClient {
       this.eventBus.subscribe(`minecraft:${server}:status`, async (event) => {
         if (this.status !== 'running') return;
         const { serviceCommand } = event.data as ServiceInput;
-        console.log(
-          `\x1b[34mminecraft:${server}:status\x1b[0m`,
-          serviceCommand
-        );
         if (serviceCommand === 'start') {
-          const result = await this.startServer(server);
-          console.log(`\x1b[34mminecraft:${server}:status\x1b[0m`, result);
           const status = await this.getServerStatus(server);
           this.eventBus.publish({
             type: `web:status`,
@@ -171,8 +164,6 @@ export class MinecraftClient extends BaseClient {
             } as ServiceOutput,
           });
         } else if (serviceCommand === 'stop') {
-          const result = await this.stopServer(server);
-          console.log(`\x1b[34mminecraft:${server}:status\x1b[0m`, result);
           const status = await this.getServerStatus(server);
           this.eventBus.publish({
             type: `web:status`,

@@ -286,6 +286,7 @@ export class LLMService {
       new AIMessage(postForToyama),
     ]);
     this.eventBus.log('twitter:schedule_post', 'green', post, true);
+    this.eventBus.log('discord:toyama_server', 'green', postForToyama, true);
     this.eventBus.publish({
       type: 'twitter:post_scheduled_message',
       memoryZone: 'twitter:schedule_post',

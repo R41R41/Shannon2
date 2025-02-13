@@ -37,7 +37,6 @@ export class StatusAgent extends WebSocketServiceBase {
       });
       this.eventBus.subscribe('web:status', (event) => {
         const status = event.data as StatusAgentInput;
-        console.log(`\x1b[32mweb:status\x1b[0m`, status);
         ws.send(
           JSON.stringify({
             type: 'service:status',

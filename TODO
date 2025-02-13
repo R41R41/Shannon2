@@ -1,7 +1,6 @@
 
 Web:
   ☐ 音声会話ができる
-  ☐ minebot 起動・停止・状態
   ☐ スキルの表示 @today(25-02-08)
   ☐ 感情状態の表示
   
@@ -116,6 +115,7 @@ Minecraft入力用mod:
   - **updated**: \x1b[36m - シアン（水色）
   - **others**: \x1b[37m - 白, \x1b[35m - マゼンタ（紫）
 Archive:
+  ✔ minebot 起動・停止・状態 @done(25-02-14 05:00) @project(Web)
   ✔ 感情状態 @done(25-02-09 04:46) @project(その他)
   ✔ 与えるプロンプトを必要最小限に @today(25-02-08) @done(25-02-09 04:45) @project(LLM)
   ✔ minecraft 起動・停止・状態 @done(25-02-08 08:09) @project(Web)

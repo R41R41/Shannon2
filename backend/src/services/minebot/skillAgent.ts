@@ -8,6 +8,7 @@ import {
   CustomBot,
   InstantSkills,
   ResponseType,
+  ConstantSkill,
 } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -86,7 +87,7 @@ export class SkillAgent {
 
   async registerRoutes() {
     this.eventBus.log('minecraft', 'blue', 'registerRoutes');
-    Object.keys(this.bot.instantSkills).forEach((skillName) => {
+    Object.keys(this.bot.instantSkills.skills).forEach((skillName) => {
       this.eventBus.log('minecraft', 'green', `✓ ${skillName}`);
       this.eventBus.subscribe(`minebot:${skillName}`, async (event) => {
         try {
@@ -145,8 +146,10 @@ export class SkillAgent {
 
   async registerConstantSkills() {
     this.eventBus.log('minecraft', 'blue', 'registerConstantSkills');
-    Object.keys(this.bot.constantSkills).forEach((skillName) => {
-      const skillInstance = this.bot.constantSkills.getSkill(skillName);
+    Object.keys(this.bot.constantSkills.skills).forEach((skillName) => {
+      const skillInstance = this.bot.constantSkills.getSkill(
+        skillName
+      ) as ConstantSkill;
       if (skillInstance.interval && skillInstance.interval > 0) {
         this.eventBus.log(
           'minecraft',
@@ -418,15 +421,7 @@ export class SkillAgent {
 
   async entitySpawn() {
     console.log(`\x1b[32m✓ entitySpawn\x1b[0m`);
-    this.bot.on('entitySpawn', async (entity) => {
-      if (this.bot.constantSkills.skills.autoPickUpItem.status) {
-        try {
-          this.bot.constantSkills.skills.autoPickUpItem.run(entity);
-        } catch (error) {
-          console.error('エラーが発生しました:', error);
-        }
-      }
-    });
+    this.bot.on('entitySpawn', async (entity) => {});
   }
 
   async entityHurt() {

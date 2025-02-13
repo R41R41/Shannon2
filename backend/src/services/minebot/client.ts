@@ -53,7 +53,7 @@ export class MinebotClient extends BaseClient {
     return MinebotClient.instance;
   }
 
-  private setUpBot(data: MinebotInput) {
+  private async setUpBot(data: MinebotInput) {
     const username = process.env.MINECRAFT_BOT_USER_NAME;
     const password = process.env.MINECRAFT_BOT_PASSWORD;
 
@@ -105,7 +105,15 @@ export class MinebotClient extends BaseClient {
     });
 
     this.skillAgent = new SkillAgent(this.bot, this.eventBus);
-    this.skillAgent.startAgent();
+    const result = await this.skillAgent.startAgent();
+    if (!result.success) {
+      this.eventBus.log(
+        'minecraft',
+        'red',
+        `Skill agent failed to start: ${result.result}`
+      );
+      throw new Error(`Skill agent failed to start: ${result.result}`);
+    }
 
     process.on('uncaughtException', (error) => {
       this.eventBus.log(
@@ -203,7 +211,7 @@ export class MinebotClient extends BaseClient {
 
   private async startBot(data: MinebotInput) {
     try {
-      this.setUpBot(data);
+      await this.setUpBot(data);
       this.eventBus.log('minecraft', 'green', 'Minecraft bot started');
       return true;
     } catch (error) {

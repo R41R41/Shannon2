@@ -62,6 +62,7 @@ export interface CustomBot extends Omit<Bot, 'on' | 'once' | 'emit'> {
   instantSkills: InstantSkills;
   constantSkills: ConstantSkills;
   utils: Utils;
+  isInWater: boolean;
 }
 
 export abstract class Skill {
@@ -75,10 +76,6 @@ export abstract class Skill {
     this.status = true;
     this.bot = bot;
   }
-  abstract run(...args: any[]): Promise<{
-    success: boolean;
-    result: string;
-  }>;
 }
 
 export abstract class ConstantSkill extends Skill {
@@ -99,10 +96,7 @@ export abstract class ConstantSkill extends Skill {
     if (!this.isLocked) return;
     this.isLocked = false;
   }
-  abstract run(...args: any[]): Promise<{
-    success: boolean;
-    result: string;
-  }>;
+  abstract run(...args: any[]): Promise<void>;
 }
 
 export abstract class InstantSkill extends Skill {
