@@ -130,6 +130,7 @@ export interface EmotionType {
 }
 export interface ServiceInput {
   serviceCommand?: ServiceCommand | null;
+  serverName?: string | null;
 }
 
 export interface ServiceOutput {
@@ -284,10 +285,16 @@ export interface MinebotOutput {
   botFoodLevel?: string | null;
 }
 
-export interface MinebotInput {
+export type MinebotStartOrStopInput = {
+  serverName?: string | null;
+};
+
+export type MinebotSkillInput = {
   skillName?: string | null;
   text?: string | null;
-}
+};
+
+export type MinebotInput = MinebotStartOrStopInput | MinebotSkillInput;
 
 export type MinecraftServerName =
   | "1.19.0-youtube"

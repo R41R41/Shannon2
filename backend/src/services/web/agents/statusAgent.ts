@@ -24,11 +24,13 @@ export class StatusAgent extends WebSocketServiceBase {
         if (data.type === 'service:command') {
           const service = data.service;
           const command = data.command;
+          const serverName = data.serverName ? data.serverName : null;
           this.eventBus.publish({
             type: `${service}:status` as EventType,
             memoryZone: 'web',
             data: {
               serviceCommand: command as ServiceCommand,
+              serverName,
             } as ServiceInput,
           });
         }

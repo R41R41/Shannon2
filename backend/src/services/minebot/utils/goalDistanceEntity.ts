@@ -1,7 +1,8 @@
-import { goals } from 'mineflayer-pathfinder';
+import pkg from 'mineflayer-pathfinder';
 import { Entity } from 'prismarine-entity';
 import { Vec3 } from 'vec3';
 import { CustomBot, ResponseType } from '../types.js';
+const { goals } = pkg;
 
 export class GoalDistanceEntity {
   bot: CustomBot;
@@ -67,5 +68,3 @@ export class GoalDistanceEntity {
     return new Vec3(botX + dx * ratio, 0, botZ + dz * ratio);
   }
 }
-
-module.exports = GoalDistanceEntity;

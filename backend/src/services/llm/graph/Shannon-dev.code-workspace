@@ -1,16 +1,20 @@
 {
   "folders": [
-	{
-		"name": "Shannon-dev",
-		"path": "../../../../.."
-	},
-	{
-		"name": "shannon",
-		"path": "../../../../../../shannon"
-	},
-	{
-		"path": "../../../../../../minecraft"
-	}
-],
+    {
+      "name": "Shannon-dev",
+      "path": "../../../../.."
+    },
+    {
+      "name": "minecraft",
+      "path": "../../../../../../minecraft"
+    },
+    {
+      "name": "shannon",
+      "path": "../../../../../../shannon"
+    },
+    {
+      "path": "../../../../../../Shannon-prod"
+    }
+  ],
   "settings": {}
 }

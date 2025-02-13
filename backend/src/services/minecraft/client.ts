@@ -93,10 +93,16 @@ export class MinecraftClient extends BaseClient {
   public async getServerStatus(
     serverName: MinecraftServerName
   ): Promise<ServiceStatus> {
-    const { stdout } = await execAsync('screen -ls');
-    const isRunning = stdout.includes(serverName.split('-')[1]);
-    this.serverStatuses.set(serverName, isRunning);
-    return isRunning ? 'running' : 'stopped';
+    try {
+      const { stdout } = await execAsync('screen -ls');
+      const isRunning = stdout.includes(serverName.split('-')[1]);
+      this.serverStatuses.set(serverName, isRunning);
+      return isRunning ? 'running' : 'stopped';
+    } catch (error) {
+      // screen -ls が失敗した場合は停止中と判断
+      this.serverStatuses.set(serverName, false);
+      return 'stopped';
+    }
   }
 
   public async getAllServerStatus(): Promise<
@@ -117,7 +123,7 @@ export class MinecraftClient extends BaseClient {
     } catch (error) {
       // screen -ls が失敗した場合は全て停止中と判断
       for (const server of this.VALID_SERVERS) {
-        const screenName = server.split('-')[1];
+        this.serverStatuses.set(server, false);
         statuses.push({ serverName: server, status: false });
       }
     }

@@ -1,13 +1,15 @@
 import { Bot } from 'mineflayer';
-import { ComputedPath, goals, Movements } from 'mineflayer-pathfinder';
+import pkg from 'mineflayer-pathfinder';
+const { goals, Movements } = pkg;
 import { Vec3 } from 'vec3';
 import { CustomBot } from '../types.js';
+
 export class GetPathToEntity {
   bot: CustomBot;
   constructor(bot: CustomBot) {
     this.bot = bot;
   }
-  async run(position: Vec3): Promise<ComputedPath> {
+  async run(position: Vec3): Promise<pkg.ComputedPath> {
     const goal = new goals.GoalBlock(position.x, position.y, position.z);
     const defaultMove = new Movements(this.bot as Bot);
     defaultMove.allow1by1towers = true;

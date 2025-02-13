@@ -1,6 +1,7 @@
-import { goals } from 'mineflayer-pathfinder';
+import pkg from 'mineflayer-pathfinder';
 import { Vec3 } from 'vec3';
 import { CustomBot, ResponseType } from '../types.js';
+const { goals } = pkg;
 
 export class GoalBlock {
   bot: CustomBot;

@@ -1,4 +1,4 @@
-export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
+export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
 export abstract class WebSocketClientBase {
   private ws: WebSocket | null = null;
@@ -8,27 +8,27 @@ export abstract class WebSocketClientBase {
   private pingInterval: number | null = null;
   private lastPongReceived = 0;
   private pingTimeoutId: number | null = null;
-  public status: ConnectionStatus = 'disconnected';
+  public status: ConnectionStatus = "disconnected";
   private statusListeners: Array<(status: ConnectionStatus) => void> = [];
 
   constructor(private url: string) {}
 
   public connect() {
-    console.log('Attempting to connect to:', this.url);
+    console.log("Attempting to connect to:", this.url);
     if (this.ws?.readyState === WebSocket.CONNECTING) {
-      console.log('Already connecting to WebSocket');
+      console.log("Already connecting to WebSocket");
       return;
     }
 
     try {
       this.ws = new WebSocket(this.url);
-      console.log('WebSocket instance created');
-      this.setStatus('connecting');
+      console.log("WebSocket instance created");
+      this.setStatus("connecting");
 
       this.ws.onopen = () => {
-        console.log('WebSocket connection opened');
+        console.log("WebSocket connection opened");
         this.reconnectAttempts = 0;
-        this.setStatus('connected');
+        this.setStatus("connected");
         this.startPing();
       };
 
@@ -38,16 +38,16 @@ export abstract class WebSocketClientBase {
       };
 
       this.ws.onclose = () => {
-        console.log('WebSocket connection closed');
-        this.setStatus('disconnected');
+        console.log("WebSocket connection closed");
+        this.setStatus("disconnected");
         this.reconnect();
       };
 
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error("WebSocket error:", error);
       };
     } catch (error) {
-      console.error('Error creating WebSocket:', error);
+      console.error("Error creating WebSocket:", error);
     }
   }
 
@@ -55,8 +55,8 @@ export abstract class WebSocketClientBase {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(data);
     } else {
-      console.warn('WebSocket is not connected. Current state:', this.status);
-      if (this.status === 'disconnected') {
+      console.warn("WebSocket is not connected. Current state:", this.status);
+      if (this.status === "disconnected") {
         this.connect();
       }
     }
@@ -66,11 +66,11 @@ export abstract class WebSocketClientBase {
     this.stopPing();
     this.pingInterval = window.setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({ type: 'ping' }));
+        this.ws.send(JSON.stringify({ type: "ping" }));
         this.lastPongReceived = Date.now();
         this.pingTimeoutId = window.setTimeout(() => {
           if (Date.now() - this.lastPongReceived > 30000) {
-            this.setStatus('disconnected');
+            this.setStatus("disconnected");
             this.ws?.close();
           }
         }, 5000);
@@ -87,11 +87,11 @@ export abstract class WebSocketClientBase {
 
   private reconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      this.setStatus('disconnected');
+      this.setStatus("disconnected");
       return;
     }
 
-    this.setStatus('connecting');
+    this.setStatus("connecting");
     this.reconnectAttempts++;
     setTimeout(() => this.connect(), this.reconnectDelay);
   }
@@ -119,9 +119,9 @@ export abstract class WebSocketClientBase {
 
   protected receivePong(data: string) {
     const message = JSON.parse(data);
-    if (message.type === 'pong') {
+    if (message.type === "pong") {
       this.lastPongReceived = Date.now();
-      this.setStatus('connected');
+      this.setStatus("connected");
       if (this.pingTimeoutId) {
         clearTimeout(this.pingTimeoutId);
         this.pingTimeoutId = null;

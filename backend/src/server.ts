@@ -11,6 +11,7 @@ import { LLMService } from './services/llm/client.js';
 import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
 import { MinecraftClient } from './services/minecraft/client.js';
+import { MinebotClient } from './services/minebot/client.js';
 dotenv.config();
 
 class Server {
@@ -23,7 +24,7 @@ class Server {
   private scheduler: Scheduler;
   private youtubeClient: YoutubeClient;
   private minecraftClient: MinecraftClient;
-  //   private minecraftBot: MinecraftBot;
+  private minebotClient: MinebotClient;
 
   constructor() {
     this.eventBus = new EventBus();
@@ -38,6 +39,7 @@ class Server {
       this.eventBus,
       isTestMode
     );
+    this.minebotClient = MinebotClient.getInstance(this.eventBus, isTestMode);
   }
 
   private setupRoutes() {
@@ -67,6 +69,7 @@ class Server {
         this.startScheduler(),
         this.startYoutubeClient(),
         this.startMinecraftClient(),
+        this.startMinebotClient(),
       ]);
     } catch (error) {
       console.error(`\x1b[31mサービス起動エラー: ${error}\x1b[0m`);
@@ -106,6 +109,11 @@ class Server {
   private async startMinecraftClient() {
     await this.minecraftClient.start();
     console.log('\x1b[34mMinecraft Client started\x1b[0m');
+  }
+
+  private async startMinebotClient() {
+    await this.minebotClient.start();
+    console.log('\x1b[34mMinebot Client started\x1b[0m');
   }
 
   public async shutdown() {

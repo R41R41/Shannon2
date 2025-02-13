@@ -11,7 +11,7 @@ import { MonitoringAgent } from '@/services/agents/monitoringAgent';
 import { SchedulerAgent } from '@/services/agents/schedulerAgent';
 import ScheduleTab from './ScheduleTab';
 import { StatusAgent } from '@/services/agents/statusAgent';
-import StatusTab from './StatusTab';
+import StatusTab from './StatusTab/StatusTab';
 import MonitorHeartOutlinedIcon from '@mui/icons-material/MonitorHeartOutlined';
 
 interface SidebarProps {

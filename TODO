@@ -3,6 +3,7 @@ Web:
   ☐ 音声会話ができる
   ☐ minebot 起動・停止・状態
   ☐ スキルの表示 @today(25-02-08)
+  ☐ 感情状態の表示
   
 discord:
   ☐ しょうもない機能たち*1 @high(25-02-04 21:10)
@@ -23,7 +24,6 @@ LLM:
   ☐ minebot専用スキルグラフ @today(25-02-08)
   ☐ 人間からのアドバイスstate 
   ☐ callModelの出力をjsonで必要最小限に @today(25-02-08)
-  ☐ 与えるプロンプトを必要最小限に @today(25-02-08)
   
 Youtube:
   ☐ 登録者数をdiscordに表示 @high(25-02-05 20:40)
@@ -39,7 +39,6 @@ Minebot:
   ☐ 管理者モード
   ☐ 自発性
   ☐ 内部思考Agent
-  ☐ 感情状態 
 
 Minecraft入力用mod:
   ☐ チャット入出力
@@ -117,6 +116,8 @@ Minecraft入力用mod:
   - **updated**: \x1b[36m - シアン（水色）
   - **others**: \x1b[37m - 白, \x1b[35m - マゼンタ（紫）
 Archive:
+  ✔ 感情状態 @done(25-02-09 04:46) @project(その他)
+  ✔ 与えるプロンプトを必要最小限に @today(25-02-08) @done(25-02-09 04:45) @project(LLM)
   ✔ minecraft 起動・停止・状態 @done(25-02-08 08:09) @project(Web)
   ✔ 返信の一時的廃止 @done(25-02-07 20:29) @project(Twitter)
   ✔ 状態確認・起動・停止 @done(25-02-08 07:57) @project(Minecraft)
