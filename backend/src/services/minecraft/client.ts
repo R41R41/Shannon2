@@ -8,7 +8,7 @@ import {
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { BaseClient } from '../common/BaseClient.js';
-import { EventBus } from '../eventBus.js';
+import { EventBus } from '../eventBus/eventBus.js';
 import dotenv from 'dotenv';
 dotenv.config();
 const execAsync = promisify(exec);

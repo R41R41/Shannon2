@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import { OAuth2Client } from 'google-auth-library';
 import { google, youtube_v3 } from 'googleapis';
 import { BaseClient } from '../common/BaseClient.js';
-import { EventBus } from '../eventBus.js';
+import { EventBus } from '../eventBus/eventBus.js';
 
 dotenv.config();
 

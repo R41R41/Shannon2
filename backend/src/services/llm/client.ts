@@ -14,7 +14,7 @@ import {
   YoutubeClientOutput,
 } from '@shannon/common';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
-import { EventBus } from '../eventBus.js';
+import { EventBus } from '../eventBus/eventBus.js';
 import { PostAboutTodayAgent } from './agents/postAboutTodayAgent.js';
 import { PostFortuneAgent } from './agents/postFortuneAgent.js';
 import { PostWeatherAgent } from './agents/postWeatherAgent.js';
@@ -227,7 +227,6 @@ export class LLMService {
           channelId: message.channelId,
           messageId: message.messageId,
           userId: message.userId,
-          recentMessages: message.recentMessages,
         };
         const infoMessage = JSON.stringify(info, null, 2);
         const memoryZone = getDiscordMemoryZone(message.guildId);

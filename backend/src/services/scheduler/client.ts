@@ -8,7 +8,7 @@ import {
 import fs from 'fs';
 import cron from 'node-cron';
 import { BaseClient } from '../common/BaseClient.js';
-import { EventBus } from '../eventBus.js';
+import { EventBus } from '../eventBus/eventBus.js';
 
 export class Scheduler extends BaseClient {
   private static instance: Scheduler;

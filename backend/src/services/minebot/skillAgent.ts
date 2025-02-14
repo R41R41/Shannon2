@@ -2,7 +2,7 @@ import { MinebotInput, MinebotSkillInput } from '@shannon/common';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { EventBus } from '../eventBus.js';
+import { EventBus } from '../eventBus/eventBus.js';
 import {
   ConstantSkills,
   CustomBot,

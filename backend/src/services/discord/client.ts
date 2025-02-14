@@ -14,7 +14,7 @@ import {
 import dotenv from 'dotenv';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { BaseClient } from '../common/BaseClient.js';
-import { EventBus } from '../eventBus.js';
+import { EventBus } from '../eventBus/eventBus.js';
 dotenv.config();
 
 export class DiscordBot extends BaseClient {

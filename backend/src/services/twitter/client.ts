@@ -2,7 +2,7 @@ import { TwitterClientInput } from '@shannon/common';
 import dotenv from 'dotenv';
 import { TwitterApi } from 'twitter-api-v2';
 import { BaseClient } from '../common/BaseClient.js';
-import { EventBus } from '../eventBus.js';
+import { EventBus } from '../eventBus/eventBus.js';
 
 dotenv.config();
 

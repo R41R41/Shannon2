@@ -12,7 +12,7 @@ import { plugin as collectBlock } from 'mineflayer-collectblock';
 import { plugin as projectile } from 'mineflayer-projectile';
 import { plugin as pvp } from 'mineflayer-pvp';
 import { plugin as toolPlugin } from 'mineflayer-tool';
-import { EventBus } from '../eventBus.js';
+import { EventBus } from '../eventBus/eventBus.js';
 import { SkillAgent } from './skillAgent.js';
 import { ConstantSkills, CustomBot, InstantSkills } from './types.js';
 import { Utils } from './utils/index.js';

@@ -6,7 +6,7 @@ import { YoutubeClient } from './services/youtube/client.js';
 import dotenv from 'dotenv';
 import { discordRoutes } from './routes/discord.routes.js';
 import { twitterRoutes } from './routes/twitter.routes.js';
-import { EventBus } from './services/eventBus.js';
+import { EventBus } from './services/eventBus/eventBus.js';
 import { LLMService } from './services/llm/client.js';
 import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';

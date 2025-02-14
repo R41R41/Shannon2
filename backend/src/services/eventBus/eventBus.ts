@@ -1,5 +1,5 @@
 import { Color, Event, EventType, ILog, MemoryZone } from '@shannon/common';
-import Log from '../models/Log.js';
+import Log from '../../models/Log.js';
 
 export class EventBus {
   private listeners: Map<EventType, Array<(event: Event) => void>> = new Map();

@@ -1,5 +1,5 @@
 import { Platform, ServiceStatus } from '@shannon/common';
-import { EventBus } from '../eventBus.js';
+import { EventBus } from '../eventBus/eventBus.js';
 export abstract class BaseClient {
   public status: ServiceStatus = 'stopped';
 

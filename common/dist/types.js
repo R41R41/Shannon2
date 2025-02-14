@@ -7,4 +7,10 @@ export const promptTypes = [
     "discord",
     "forecast",
     "forecast_for_toyama_server",
+    "decision",
+    "reply_twitter_comment",
+    "emotion",
+    "think_next_action",
+    "make_response_message",
+    "use_tool",
 ];

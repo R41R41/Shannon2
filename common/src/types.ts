@@ -16,6 +16,12 @@ export const promptTypes: PromptType[] = [
   "discord",
   "forecast",
   "forecast_for_toyama_server",
+  "decision",
+  "reply_twitter_comment",
+  "emotion",
+  "think_next_action",
+  "make_response_message",
+  "use_tool",
 ];
 
 export type PromptType =
@@ -30,7 +36,10 @@ export type PromptType =
   | "planning"
   | "decision"
   | "reply_twitter_comment"
-  | "emotion";
+  | "emotion"
+  | "think_next_action"
+  | "make_response_message"
+  | "use_tool";
 
 export type ConversationType =
   | "text"
@@ -195,11 +204,11 @@ export interface DiscordClientInput extends ServiceInput {
   type: ConversationType;
   channelId: string;
   guildId: string;
-  userName: string;
-  guildName: DiscordGuild;
-  channelName: string;
-  messageId: string;
-  userId: string;
+  userName?: string | null;
+  guildName?: DiscordGuild | null;
+  channelName?: string | null;
+  messageId?: string | null;
+  userId?: string | null;
   text?: string | null;
   audio?: string | null;
   realtime_audio?: string | null;

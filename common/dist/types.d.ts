@@ -1,6 +1,6 @@
 export type Platform = "web" | "discord" | "minecraft" | "scheduler" | "twitter" | "youtube" | "minebot";
 export declare const promptTypes: PromptType[];
-export type PromptType = TwitterSchedulePostEndpoint | "base_text" | "base_voice" | "discord" | "minecraft" | "weather_to_emoji" | "forecast_for_toyama_server" | "reply_youtube_comment" | "planning" | "decision" | "reply_twitter_comment" | "emotion";
+export type PromptType = TwitterSchedulePostEndpoint | "base_text" | "base_voice" | "discord" | "minecraft" | "weather_to_emoji" | "forecast_for_toyama_server" | "reply_youtube_comment" | "planning" | "decision" | "reply_twitter_comment" | "emotion" | "think_next_action" | "make_response_message" | "use_tool";
 export type ConversationType = "text" | "audio" | "realtime_text" | "realtime_audio" | "command" | "log" | "user_transcript";
 export type RealTimeAPIEndpoint = "realtime_text_input" | "realtime_text_commit" | "realtime_audio_append" | "realtime_audio_commit" | "realtime_vad_on" | "realtime_vad_off" | "text_done" | "audio_done";
 export type TwitterSchedulePostEndpoint = "about_today" | "forecast" | "fortune" | "check_replies";
@@ -76,11 +76,11 @@ export interface DiscordClientInput extends ServiceInput {
     type: ConversationType;
     channelId: string;
     guildId: string;
-    userName: string;
-    guildName: DiscordGuild;
-    channelName: string;
-    messageId: string;
-    userId: string;
+    userName?: string | null;
+    guildName?: DiscordGuild | null;
+    channelName?: string | null;
+    messageId?: string | null;
+    userId?: string | null;
     text?: string | null;
     audio?: string | null;
     realtime_audio?: string | null;

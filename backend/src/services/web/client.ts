@@ -1,5 +1,5 @@
 import { PORTS } from '../../config/ports.js';
-import { EventBus } from '../eventBus.js';
+import { EventBus } from '../eventBus/eventBus.js';
 import { MonitoringAgent } from './agents/monitoringAgent.js';
 import { OpenAIClientService } from './agents/openaiAgent.js';
 import { ScheduleAgent } from './agents/scheduleAgent.js';

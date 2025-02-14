@@ -14,7 +14,7 @@ import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { EventBus } from '../../eventBus.js';
+import { EventBus } from '../../eventBus/eventBus.js';
 import { loadPrompt } from '../config/prompts.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -22,6 +22,7 @@ const __dirname = dirname(__filename);
 dotenv.config();
 
 type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'error';
+type NextAction = 'use_tool' | 'make_message' | 'plan' | 'feel_emotion';
 
 interface TaskTreeState {
   goal: string;
@@ -35,7 +36,6 @@ interface TaskStateInput {
   memoryZone?: MemoryZone;
   systemPrompt?: string;
   infoMessage?: string | null;
-  messages?: BaseMessage[];
   emotion?: EmotionType | null;
   taskTree?: TaskTreeState | null;
   conversationHistory?: {
@@ -43,6 +43,8 @@ interface TaskStateInput {
     summary?: string | null;
   };
   decision?: string | null;
+  nextAction?: NextAction | null;
+  messages?: BaseMessage[];
 }
 
 export class TaskGraph {
@@ -64,12 +66,72 @@ export class TaskGraph {
     this.setupSystemPrompts();
   }
 
+  private prompt = (
+    state: typeof this.TaskState.State,
+    prompt: string,
+    isInfoMessage: boolean = false,
+    isEmotion: boolean = false,
+    isTaskTree: boolean = false,
+    isActions: boolean = false,
+    isCurrentTime: boolean = false,
+    isSystemPrompt: boolean = false
+  ) => {
+    const currentTime = new Date().toLocaleString('ja-JP', {
+      timeZone: 'Asia/Tokyo',
+    });
+    const chatSummary = state.conversationHistory.summary;
+    const historyMessages =
+      state.conversationHistory.messages.length > 10
+        ? state.conversationHistory.messages.slice(-10)
+        : state.conversationHistory.messages;
+    const infoMessage = isInfoMessage
+      ? state.infoMessage
+        ? `infoMessage: ${JSON.stringify(state.infoMessage)}`
+        : null
+      : null;
+    const currentTimeMessage = isCurrentTime
+      ? `currentTime: ${currentTime}`
+      : '';
+
+    const messages = [
+      new SystemMessage(prompt),
+      isSystemPrompt
+        ? state.systemPrompt
+          ? new SystemMessage(state.systemPrompt)
+          : null
+        : null,
+      chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
+      ...historyMessages,
+      ...state.messages,
+      isEmotion
+        ? state.emotion
+          ? new SystemMessage(`yourEmotion: ${JSON.stringify(state.emotion)}`)
+          : null
+        : null,
+      isTaskTree
+        ? state.taskTree
+          ? new SystemMessage(
+              `goal: ${state.taskTree.goal}\nplan: ${
+                state.taskTree.plan
+              }\nsubTasks: ${JSON.stringify(state.taskTree.subTasks)}`
+            )
+          : null
+        : null,
+      new SystemMessage(`${infoMessage}\n${currentTimeMessage}`),
+    ].filter((message): message is BaseMessage => message !== null);
+    return messages;
+  };
+
   private async setupSystemPrompts(): Promise<void> {
     const promptsName: PromptType[] = [
       'planning',
       'decision',
       'base_text',
+      'discord',
       'emotion',
+      'think_next_action',
+      'make_response_message',
+      'use_tool',
     ];
     for (const name of promptsName) {
       this.systemPrompts.set(name, await loadPrompt(name));
@@ -181,18 +243,6 @@ export class TaskGraph {
     console.log('-------------------------------');
   }
 
-  private callModel = async (state: typeof this.TaskState.State) => {
-    console.log('\x1b[31mcallModel\x1b[0m');
-    const taskTree = await this.planning(state);
-    console.log('\x1b[31mtaskTree', taskTree, '\x1b[0m');
-    const response = await this.callToolModel(state, taskTree);
-    console.log('\x1b[31mresponse', response, '\x1b[0m');
-    return {
-      taskTree,
-      messages: [response],
-    };
-  };
-
   private summarizeConversation = async (
     state: typeof this.TaskState.State
   ): Promise<typeof this.TaskState.State> => {
@@ -221,80 +271,44 @@ export class TaskGraph {
     } as TaskTreeState;
   };
 
-  private decisionNode = async (state: typeof this.TaskState.State) => {
-    const decisionPrompt = this.systemPrompts.get('decision');
-    if (!decisionPrompt) {
-      throw new Error('Decision prompt not found');
+  private toolAgentNode = async (state: typeof this.TaskState.State) => {
+    const systemPrompt = this.systemPrompts.get('use_tool');
+    if (!systemPrompt) {
+      throw new Error('use_tool prompt not found');
     }
-
-    if (!this.smallModel) {
-      throw new Error('Small model not initialized');
+    const messages = this.prompt(
+      state,
+      systemPrompt,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false
+    );
+    if (!this.largeModel) {
+      throw new Error('Large model not initialized');
     }
-
-    const parser = new JsonOutputParser();
-    const chain = this.smallModel.pipe(parser);
-
-    const currentTime = new Date().toLocaleString('ja-JP', {
-      timeZone: 'Asia/Tokyo',
-    });
-    const chatSummary = state.conversationHistory.summary;
-    const historyMessages =
-      state.conversationHistory.messages.length > 10
-        ? state.conversationHistory.messages.slice(-10)
-        : state.conversationHistory.messages;
-
-    const messages = [
-      new SystemMessage(decisionPrompt),
-      new SystemMessage(`currentTime: ${currentTime}`),
-      state.infoMessage ? new SystemMessage(state.infoMessage) : null,
-      chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
-      ...historyMessages,
-    ].filter((message): message is BaseMessage => message !== null);
-
+    const modelWithTools = this.largeModel.bindTools(this.tools);
     try {
-      const response = await chain.invoke(messages);
-      return { decision: response.decision };
+      console.log('use_tool', messages);
+      const response = await modelWithTools.invoke(messages);
+      console.log('\x1b[35muse_tool', response, '\x1b[0m');
+      return {
+        messages: [response],
+      };
     } catch (error) {
       console.error('JSONパースエラー:', error);
       return this.errorHandler(state);
     }
   };
 
-  private planning = async (
-    state: typeof this.TaskState.State
-  ): Promise<TaskTreeState> => {
+  private planningNode = async (state: typeof this.TaskState.State) => {
     const planningPrompt = this.systemPrompts.get('planning');
     if (!planningPrompt) {
       throw new Error('Planning prompt not found');
     }
-
-    const currentTime = new Date().toLocaleString('ja-JP', {
-      timeZone: 'Asia/Tokyo',
-    });
-    const chatSummary = state.conversationHistory.summary;
-    const historyMessages =
-      state.conversationHistory.messages.length > 10
-        ? state.conversationHistory.messages.slice(-10)
-        : state.conversationHistory.messages;
-
-    const messages = [
-      new SystemMessage(planningPrompt),
-      new SystemMessage(`currentTime: ${currentTime}`),
-      state.infoMessage ? new SystemMessage(state.infoMessage) : null,
-      chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
-      ...historyMessages,
-      state.emotion
-        ? new SystemMessage(`yourEmotion: ${JSON.stringify(state.emotion)}`)
-        : null,
-      state.taskTree ? new SystemMessage(`goal: ${state.taskTree.goal}`) : null,
-      state.taskTree ? new SystemMessage(`plan: ${state.taskTree.plan}`) : null,
-      state.taskTree
-        ? new SystemMessage(
-            `subTasks: ${JSON.stringify(state.taskTree.subTasks)}`
-          )
-        : null,
-      new SystemMessage(`yourAction: ${JSON.stringify(state.messages)}`),
-    ].filter((message): message is BaseMessage => message !== null);
+    const messages = this.prompt(state, planningPrompt, true, true, true, true);
 
     if (!this.mediumModel) {
       throw new Error('Medium model not initialized');
@@ -316,92 +330,47 @@ export class TaskGraph {
     }
   };
 
-  private callToolModel = async (
-    state: typeof this.TaskState.State,
-    taskTree: TaskTreeState
-  ) => {
-    const modelWithTools = this.largeModel?.bindTools(this.tools);
-    if (!modelWithTools) {
-      throw new Error('Model or tools not initialized');
+  private thinkingNextNode = async (state: typeof this.TaskState.State) => {
+    const thinkNextPrompt = this.systemPrompts.get('think_next_action');
+    if (!thinkNextPrompt) {
+      throw new Error('Think next prompt not found');
     }
-    const currentTime = new Date().toLocaleString('ja-JP', {
-      timeZone: 'Asia/Tokyo',
-    });
-    const chatSummary = state.conversationHistory.summary;
-    const goal = taskTree.goal;
-    const plan = taskTree.plan;
-    const subTasks = taskTree.subTasks;
-    const historyMessages =
-      state.conversationHistory.messages.length > 10
-        ? state.conversationHistory.messages.slice(-10)
-        : state.conversationHistory.messages;
-    const messages = [
-      new SystemMessage(state.systemPrompt),
-      new SystemMessage(`currentTime: ${currentTime}`),
-      state.infoMessage ? new SystemMessage(state.infoMessage) : null,
-      chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
-      ...historyMessages,
-      ...state.messages.filter(
-        (message): message is AIMessage | ToolMessage =>
-          message instanceof AIMessage || message instanceof ToolMessage
-      ),
-      goal ? new AIMessage(`goal: ${goal}`) : null,
-      plan ? new AIMessage(`plan: ${plan}`) : null,
-      subTasks.length > 0
-        ? new AIMessage(`subTasks: ${JSON.stringify(subTasks)}`)
-        : null,
-    ].filter((message): message is BaseMessage => message !== null);
+    if (!this.largeModel) {
+      throw new Error('Large model not initialized');
+    }
+    const modelWithTools = this.largeModel?.bindTools(this.tools);
+    const messages = this.prompt(
+      state,
+      thinkNextPrompt,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false
+    );
 
-    this.baseMessagesToLog(messages, state.memoryZone);
-    const response = await modelWithTools.invoke(messages);
-    this.baseMessagesToLog([response], state.memoryZone);
-    return response;
+    const parser = new JsonOutputParser();
+    const chain = modelWithTools.pipe(parser);
+
+    try {
+      console.log('think_next_action', messages);
+      const response = await chain.invoke(messages);
+      console.log('\x1b[35mresponse', response, '\x1b[0m');
+      console.log('\x1b[35mthink_next_action', response.nextAction, '\x1b[0m');
+      return { nextAction: response.nextAction };
+    } catch (error) {
+      console.error('JSONパースエラー:', error);
+      return this.errorHandler(state);
+    }
   };
 
   private responseNode = async (state: typeof this.TaskState.State) => {
-    const baseTextPrompt = this.systemPrompts.get('base_text');
-    if (!baseTextPrompt) {
-      throw new Error('Base text prompt not found');
+    const responsePrompt = this.systemPrompts.get('make_response_message');
+    if (!responsePrompt) {
+      throw new Error('Response prompt not found');
     }
-    const currentTime = new Date().toLocaleString('ja-JP', {
-      timeZone: 'Asia/Tokyo',
-    });
-    const chatSummary = state.conversationHistory.summary;
-    console.log('chatSummary', chatSummary);
-    const historyMessages =
-      state.conversationHistory.messages.length > 0
-        ? state.conversationHistory.messages.length > 10
-          ? state.conversationHistory.messages.slice(-10)
-          : state.conversationHistory.messages
-        : [];
-    const goal = state.taskTree?.goal;
-    const plan = state.taskTree?.plan;
-    const subTasks = state.taskTree?.subTasks;
-    const messages = [
-      new SystemMessage(baseTextPrompt),
-      new SystemMessage(`currentTime: ${currentTime}`),
-      state.infoMessage ? new SystemMessage(state.infoMessage) : null,
-      chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
-      historyMessages.length > 0
-        ? new SystemMessage(`chatLog: ${JSON.stringify(historyMessages)}`)
-        : null,
-      state.emotion
-        ? new SystemMessage(`yourEmotion: ${JSON.stringify(state.emotion)}`)
-        : null,
-      ...state.messages.filter(
-        (message): message is AIMessage | ToolMessage =>
-          message instanceof AIMessage || message instanceof ToolMessage
-      ),
-      goal ? new AIMessage(`goal: ${goal}`) : null,
-      plan ? new AIMessage(`plan: ${plan}`) : null,
-      subTasks && subTasks.length > 0
-        ? new AIMessage(
-            `subTasks: ${subTasks
-              .map((task) => `${task.goal} ${task.status}`)
-              .join(', ')}`
-          )
-        : null,
-    ].filter((message): message is BaseMessage => message !== null);
+    const messages = this.prompt(state, responsePrompt, true, true, true, true);
 
     if (!this.mediumModel) {
       throw new Error('Medium model not initialized');
@@ -409,11 +378,14 @@ export class TaskGraph {
     const parser = new JsonOutputParser();
     const chain = this.mediumModel?.pipe(parser);
     try {
-      console.log('responseNode', messages);
       const response = await chain.invoke(messages);
-      console.log('response', response);
+      console.log(
+        '\x1b[35mmake_response_message',
+        response.responseMessage,
+        '\x1b[0m'
+      );
       return {
-        messages: [new AIMessage(response.response)],
+        messages: [new AIMessage(response.responseMessage)],
       };
     } catch (error) {
       console.error('JSONパースエラー:', error);
@@ -426,25 +398,14 @@ export class TaskGraph {
     if (!emotionPrompt) {
       throw new Error('Emotion prompt not found');
     }
-    const currentTime = new Date().toLocaleString('ja-JP', {
-      timeZone: 'Asia/Tokyo',
-    });
-    const chatSummary = state.conversationHistory.summary;
-    const historyMessages =
-      state.conversationHistory.messages.length > 10
-        ? state.conversationHistory.messages.slice(-10)
-        : state.conversationHistory.messages;
-    const messages = [
-      new SystemMessage(emotionPrompt),
-      new SystemMessage(`currentTime: ${currentTime}`),
-      state.infoMessage ? new SystemMessage(state.infoMessage) : null,
-      chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
-      ...historyMessages,
-      ...state.messages.filter(
-        (message): message is AIMessage | ToolMessage =>
-          message instanceof AIMessage || message instanceof ToolMessage
-      ),
-    ].filter((message): message is BaseMessage => message !== null);
+    const messages = this.prompt(
+      state,
+      emotionPrompt,
+      false,
+      true,
+      false,
+      false
+    );
 
     if (!this.mediumModel) {
       throw new Error('Medium model not initialized');
@@ -453,6 +414,7 @@ export class TaskGraph {
     const chain = this.mediumModel?.pipe(parser);
     try {
       const response = await chain.invoke(messages);
+      console.log('\x1b[35memotion', response, '\x1b[0m');
       return {
         emotion: response,
       };
@@ -504,28 +466,51 @@ export class TaskGraph {
       reducer: (_, next) => next,
       default: () => null,
     }),
+    nextAction: Annotation<NextAction | null>({
+      reducer: (_, next) => next,
+      default: () => null,
+    }),
   });
 
   private createGraph() {
     const workflow = new StateGraph(this.TaskState)
-      .addNode('decision_maker', this.decisionNode)
-      .addNode('agent', this.callModel)
-      .addNode('tools', this.toolNode)
-      .addNode('response_maker', this.responseNode)
-      .addNode('emotion_maker', this.emotionNode)
-      .addEdge(START, 'decision_maker')
-      .addConditionalEdges('decision_maker', (state) => {
-        return state.decision === 'respond' ? 'emotion_maker' : END;
-      })
-      .addEdge('emotion_maker', 'agent')
+      .addNode('think_next_action', this.thinkingNextNode)
+      .addNode('plan', this.planningNode)
+      .addNode('agent', this.toolAgentNode)
+      .addNode('use_tool', this.toolNode)
+      .addNode('make_message', this.responseNode)
+      .addNode('feel_emotion', this.emotionNode)
       .addConditionalEdges('agent', (state) => {
         const lastMessage = state.messages[
           state.messages.length - 1
         ] as AIMessage;
-        return lastMessage.tool_calls?.length ? 'tools' : 'response_maker';
+        console.log('lastMessage', lastMessage);
+        return lastMessage.tool_calls?.length
+          ? 'use_tool'
+          : 'think_next_action';
       })
-      .addEdge('tools', 'agent')
-      .addEdge('response_maker', END);
+      .addEdge(START, 'think_next_action')
+      .addConditionalEdges('plan', (state) => {
+        return 'think_next_action';
+      })
+      .addConditionalEdges('think_next_action', (state) => {
+        switch (state.nextAction) {
+          case 'use_tool':
+            return 'agent';
+          case 'make_message':
+            return 'make_message';
+          case 'plan':
+            return 'plan';
+          case 'feel_emotion':
+            return 'feel_emotion';
+          default:
+            return END;
+        }
+      })
+      .addEdge('use_tool', 'think_next_action')
+      .addEdge('make_message', 'think_next_action')
+      .addEdge('plan', 'think_next_action')
+      .addEdge('feel_emotion', 'think_next_action');
 
     return workflow.compile();
   }
@@ -544,6 +529,7 @@ export class TaskGraph {
         summary: null,
       },
       decision: partialState.decision ?? null,
+      nextAction: partialState.nextAction ?? null,
     };
 
     if (state.conversationHistory.messages.length > 10) {
