@@ -12,12 +12,12 @@ import { plugin as collectBlock } from 'mineflayer-collectblock';
 import { plugin as projectile } from 'mineflayer-projectile';
 import { plugin as pvp } from 'mineflayer-pvp';
 import { plugin as toolPlugin } from 'mineflayer-tool';
-import { EventBus } from '../eventBus/eventBus.js';
 import { SkillAgent } from './skillAgent.js';
 import { ConstantSkills, CustomBot, InstantSkills } from './types.js';
 import { Utils } from './utils/index.js';
 import { BaseClient } from '../common/BaseClient.js';
 import minecraftHawkEye from 'minecrafthawkeye';
+import { getEventBus } from '../eventBus/index.js';
 dotenv.config();
 
 if (
@@ -32,22 +32,18 @@ if (
 export class MinebotClient extends BaseClient {
   private bot: CustomBot | null = null;
   public isTest: boolean = false;
-  public eventBus: EventBus;
   private static instance: MinebotClient;
   private skillAgent: SkillAgent | null = null;
 
-  constructor(
-    serviceName: 'minebot',
-    eventBus: EventBus,
-    isTest: boolean = false
-  ) {
+  constructor(serviceName: 'minebot', isTest: boolean) {
+    const eventBus = getEventBus();
     super(serviceName, eventBus);
-    this.eventBus = eventBus;
   }
 
-  public static getInstance(eventBus: EventBus, isTest: boolean = false) {
+  public static getInstance(isTest: boolean = false) {
+    const eventBus = getEventBus();
     if (!MinebotClient.instance) {
-      MinebotClient.instance = new MinebotClient('minebot', eventBus, isTest);
+      MinebotClient.instance = new MinebotClient('minebot', isTest);
     }
     MinebotClient.instance.isTest = isTest;
     return MinebotClient.instance;

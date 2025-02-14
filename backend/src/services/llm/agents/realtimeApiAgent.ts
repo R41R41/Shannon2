@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
-import { EventBus } from '../../eventBus';
+import { getEventBus } from '../../eventBus/index.js';
+import { EventBus } from '../../eventBus/eventBus.js';
 
 export class RealtimeAPIService {
   private ws: WebSocket | null = null;
@@ -25,7 +26,8 @@ export class RealtimeAPIService {
   private maxReconnectAttempts: number = 5;
   private reconnectDelay: number = 5000; // 5秒
 
-  constructor(eventBus: EventBus) {
+  constructor() {
+    const eventBus = getEventBus();
     this.eventBus = eventBus;
     this.initialized = false; // 初期化状態を追跡
     this.onTextResponse = null; // テキストレスポンス用コールバック

@@ -23,9 +23,6 @@ Please analyze the following messages and determine whether a response is needed
 - Always output "respond" when users make any greetings or questions
 
 # Output Format
-
-```json
 {
   "decision": "chat/planning/emoji/ignore"
 }
-```

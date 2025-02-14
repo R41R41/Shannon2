@@ -23,6 +23,7 @@ import { ReplyTwitterCommentAgent } from './agents/replyTwitterComment.js';
 import { ReplyYoutubeCommentAgent } from './agents/replyYoutubeComment.js';
 import { loadPrompt } from './config/prompts.js';
 import { TaskGraph } from './graph/taskGraph.js';
+import { getEventBus } from '../eventBus/index.js';
 
 export class LLMService {
   private eventBus: EventBus;
@@ -36,10 +37,10 @@ export class LLMService {
   private replyTwitterCommentAgent!: ReplyTwitterCommentAgent;
   private replyYoutubeCommentAgent!: ReplyYoutubeCommentAgent;
 
-  constructor(eventBus: EventBus) {
-    this.eventBus = eventBus;
-    this.realtimeApi = new RealtimeAPIService(eventBus);
-    this.taskGraph = new TaskGraph(eventBus);
+  constructor() {
+    this.eventBus = getEventBus();
+    this.realtimeApi = new RealtimeAPIService();
+    this.taskGraph = new TaskGraph(this.eventBus);
     this.systemPrompts = new Map();
     this.conversationHistories = new Map();
     this.setupEventBus();
@@ -344,20 +345,14 @@ export class LLMService {
         memoryZone: inputMemoryZone,
         systemPrompt: prompt,
         infoMessage: infoMessage || null,
-        conversationHistory: {
-          messages: messages,
-        },
+        messages: messages,
       });
 
       console.log(result);
 
-      const aiMessages = result.messages.filter(
-        (message: BaseMessage): message is AIMessage =>
-          message instanceof AIMessage
-      );
-      const lastMessage = aiMessages[aiMessages.length - 1];
+      const lastMessage = result.responseMessage;
 
-      if (result.decision === 'ignore') {
+      if (!lastMessage) {
         return '';
       }
 
@@ -365,16 +360,16 @@ export class LLMService {
         outputMemoryZones.forEach((memoryZone) => {
           this.saveConversationHistory(memoryZone, [
             ...this.getConversationHistory(memoryZone),
-            new AIMessage(lastMessage.content.toString()),
+            new AIMessage(lastMessage),
           ]);
         });
       } else {
         this.saveConversationHistory(inputMemoryZone, [
           ...this.getConversationHistory(inputMemoryZone),
-          new AIMessage(lastMessage.content.toString()),
+          new AIMessage(lastMessage),
         ]);
       }
-      return lastMessage.content.toString();
+      return '';
     } catch (error) {
       console.error(`\x1b[31mLLM処理エラー:${error}\n\x1b[0m`);
       this.eventBus.log(inputMemoryZone, 'red', `Error: ${error}`, true);

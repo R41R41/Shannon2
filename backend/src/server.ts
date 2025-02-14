@@ -6,7 +6,6 @@ import { YoutubeClient } from './services/youtube/client.js';
 import dotenv from 'dotenv';
 import { discordRoutes } from './routes/discord.routes.js';
 import { twitterRoutes } from './routes/twitter.routes.js';
-import { EventBus } from './services/eventBus/eventBus.js';
 import { LLMService } from './services/llm/client.js';
 import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
@@ -16,7 +15,6 @@ dotenv.config();
 
 class Server {
   private app = express();
-  private eventBus: EventBus;
   private llmService: LLMService;
   private discordBot: DiscordBot;
   private webClient: WebClient;
@@ -27,19 +25,15 @@ class Server {
   private minebotClient: MinebotClient;
 
   constructor() {
-    this.eventBus = new EventBus();
-    this.llmService = new LLMService(this.eventBus);
+    this.llmService = new LLMService();
     const isTestMode = process.argv.includes('--test');
-    this.discordBot = DiscordBot.getInstance(this.eventBus, isTestMode);
-    this.webClient = new WebClient(this.eventBus, isTestMode);
-    this.twitterClient = TwitterClient.getInstance(this.eventBus, isTestMode);
-    this.scheduler = Scheduler.getInstance(this.eventBus, isTestMode);
-    this.youtubeClient = YoutubeClient.getInstance(this.eventBus, isTestMode);
-    this.minecraftClient = MinecraftClient.getInstance(
-      this.eventBus,
-      isTestMode
-    );
-    this.minebotClient = MinebotClient.getInstance(this.eventBus, isTestMode);
+    this.discordBot = DiscordBot.getInstance(isTestMode);
+    this.webClient = new WebClient(isTestMode);
+    this.twitterClient = TwitterClient.getInstance(isTestMode);
+    this.scheduler = Scheduler.getInstance(isTestMode);
+    this.youtubeClient = YoutubeClient.getInstance(isTestMode);
+    this.minecraftClient = MinecraftClient.getInstance(isTestMode);
+    this.minebotClient = MinebotClient.getInstance(isTestMode);
   }
 
   private setupRoutes() {

@@ -8,7 +8,7 @@ import {
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { BaseClient } from '../common/BaseClient.js';
-import { EventBus } from '../eventBus/eventBus.js';
+import { getEventBus } from '../eventBus/index.js';
 import dotenv from 'dotenv';
 dotenv.config();
 const execAsync = promisify(exec);
@@ -25,23 +25,17 @@ export class MinecraftClient extends BaseClient {
   private readonly SERVER_BASE_PATH = process.env.SERVER_BASE_PATH;
   public isTest: boolean = false;
 
-  public static getInstance(eventBus: EventBus, isTest: boolean = false) {
+  public static getInstance(isTest: boolean = false) {
+    const eventBus = getEventBus();
     if (!MinecraftClient.instance) {
-      MinecraftClient.instance = new MinecraftClient(
-        'minecraft',
-        eventBus,
-        isTest
-      );
+      MinecraftClient.instance = new MinecraftClient('minecraft', isTest);
     }
     MinecraftClient.instance.isTest = isTest;
     return MinecraftClient.instance;
   }
 
-  constructor(
-    serviceName: 'minecraft',
-    eventBus: EventBus,
-    isTest: boolean = false
-  ) {
+  constructor(serviceName: 'minecraft', isTest: boolean) {
+    const eventBus = getEventBus();
     super(serviceName, eventBus);
     this.minecraftClients = [];
   }

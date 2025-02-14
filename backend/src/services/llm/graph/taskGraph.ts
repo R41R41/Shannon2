@@ -38,13 +38,9 @@ interface TaskStateInput {
   infoMessage?: string | null;
   emotion?: EmotionType | null;
   taskTree?: TaskTreeState | null;
-  conversationHistory?: {
-    messages: BaseMessage[];
-    summary?: string | null;
-  };
-  decision?: string | null;
   nextAction?: NextAction | null;
   messages?: BaseMessage[];
+  responseMessage?: string | null;
 }
 
 export class TaskGraph {
@@ -66,59 +62,62 @@ export class TaskGraph {
     this.setupSystemPrompts();
   }
 
-  private prompt = (
+  private getPrompt = (
     state: typeof this.TaskState.State,
-    prompt: string,
+    prompt: string | null = null,
     isInfoMessage: boolean = false,
     isEmotion: boolean = false,
     isTaskTree: boolean = false,
-    isActions: boolean = false,
     isCurrentTime: boolean = false,
-    isSystemPrompt: boolean = false
+    isSystemPrompt: boolean = false,
+    isMemoryZone: boolean = false
   ) => {
     const currentTime = new Date().toLocaleString('ja-JP', {
       timeZone: 'Asia/Tokyo',
     });
-    const chatSummary = state.conversationHistory.summary;
-    const historyMessages =
-      state.conversationHistory.messages.length > 10
-        ? state.conversationHistory.messages.slice(-10)
-        : state.conversationHistory.messages;
-    const infoMessage = isInfoMessage
-      ? state.infoMessage
-        ? `infoMessage: ${JSON.stringify(state.infoMessage)}`
-        : null
-      : null;
+
+    const infoMessage =
+      isInfoMessage && state.infoMessage
+        ? `infoMessage: ${JSON.stringify(state.infoMessage, null, 2)
+            .replace(/\\n/g, '\n')
+            .replace(/\\/g, '')}`
+        : null;
+
     const currentTimeMessage = isCurrentTime
       ? `currentTime: ${currentTime}`
       : '';
+    const memoryZoneMessage = isMemoryZone
+      ? `memoryZone: ${state.memoryZone}`
+      : '';
 
     const messages = [
-      new SystemMessage(prompt),
-      isSystemPrompt
-        ? state.systemPrompt
-          ? new SystemMessage(state.systemPrompt)
-          : null
+      prompt ? new SystemMessage(prompt) : null,
+      isSystemPrompt && state.systemPrompt
+        ? new SystemMessage(state.systemPrompt)
         : null,
-      chatSummary ? new SystemMessage(`chatSummary: ${chatSummary}`) : null,
-      ...historyMessages,
-      ...state.messages,
-      isEmotion
-        ? state.emotion
-          ? new SystemMessage(`yourEmotion: ${JSON.stringify(state.emotion)}`)
-          : null
+      ...state.messages.slice(-16),
+      state.responseMessage
+        ? new SystemMessage(`ResponseMessage: ${state.responseMessage}`)
         : null,
-      isTaskTree
-        ? state.taskTree
-          ? new SystemMessage(
-              `goal: ${state.taskTree.goal}\nplan: ${
-                state.taskTree.plan
-              }\nsubTasks: ${JSON.stringify(state.taskTree.subTasks)}`
-            )
-          : null
+      isEmotion && state.emotion
+        ? new SystemMessage(`yourEmotion: ${JSON.stringify(state.emotion)}`)
         : null,
-      new SystemMessage(`${infoMessage}\n${currentTimeMessage}`),
+      isTaskTree && state.taskTree
+        ? new SystemMessage(
+            `goal: ${state.taskTree.goal}\nplan: ${
+              state.taskTree.plan
+            }\nsubTasks: ${JSON.stringify(state.taskTree.subTasks)}`
+          )
+        : null,
+      infoMessage || currentTimeMessage || memoryZoneMessage
+        ? new SystemMessage(
+            [infoMessage, currentTimeMessage, memoryZoneMessage]
+              .filter(Boolean)
+              .join('\n')
+          )
+        : null,
     ].filter((message): message is BaseMessage => message !== null);
+
     return messages;
   };
 
@@ -243,26 +242,6 @@ export class TaskGraph {
     console.log('-------------------------------');
   }
 
-  private summarizeConversation = async (
-    state: typeof this.TaskState.State
-  ): Promise<typeof this.TaskState.State> => {
-    if (!this.smallModel) {
-      throw new Error('Small model not initialized');
-    }
-    const summary = await this.smallModel.invoke([
-      new SystemMessage('これまでの会話を簡潔に要約してください。'),
-      ...state.conversationHistory.messages,
-    ]);
-
-    return {
-      ...state,
-      conversationHistory: {
-        messages: state.conversationHistory.messages.slice(-10),
-        summary: summary.content.toString(),
-      },
-    };
-  };
-
   private errorHandler = async (state: typeof this.TaskState.State) => {
     return {
       ...state.taskTree,
@@ -272,11 +251,12 @@ export class TaskGraph {
   };
 
   private toolAgentNode = async (state: typeof this.TaskState.State) => {
+    console.log('toolAgentNode');
     const systemPrompt = this.systemPrompts.get('use_tool');
     if (!systemPrompt) {
       throw new Error('use_tool prompt not found');
     }
-    const messages = this.prompt(
+    const messages = this.getPrompt(
       state,
       systemPrompt,
       true,
@@ -284,14 +264,13 @@ export class TaskGraph {
       true,
       true,
       true,
-      false
+      true
     );
     if (!this.largeModel) {
       throw new Error('Large model not initialized');
     }
     const modelWithTools = this.largeModel.bindTools(this.tools);
     try {
-      console.log('use_tool', messages);
       const response = await modelWithTools.invoke(messages);
       console.log('\x1b[35muse_tool', response, '\x1b[0m');
       return {
@@ -304,12 +283,21 @@ export class TaskGraph {
   };
 
   private planningNode = async (state: typeof this.TaskState.State) => {
+    console.log('planningNode');
     const planningPrompt = this.systemPrompts.get('planning');
     if (!planningPrompt) {
       throw new Error('Planning prompt not found');
     }
-    const messages = this.prompt(state, planningPrompt, true, true, true, true);
-
+    const messages = this.getPrompt(
+      state,
+      planningPrompt,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false
+    );
     if (!this.mediumModel) {
       throw new Error('Medium model not initialized');
     }
@@ -331,6 +319,7 @@ export class TaskGraph {
   };
 
   private thinkingNextNode = async (state: typeof this.TaskState.State) => {
+    console.log('thinkingNextNode');
     const thinkNextPrompt = this.systemPrompts.get('think_next_action');
     if (!thinkNextPrompt) {
       throw new Error('Think next prompt not found');
@@ -338,8 +327,7 @@ export class TaskGraph {
     if (!this.largeModel) {
       throw new Error('Large model not initialized');
     }
-    const modelWithTools = this.largeModel?.bindTools(this.tools);
-    const messages = this.prompt(
+    const messages = this.getPrompt(
       state,
       thinkNextPrompt,
       true,
@@ -351,12 +339,11 @@ export class TaskGraph {
     );
 
     const parser = new JsonOutputParser();
-    const chain = modelWithTools.pipe(parser);
+    const chain = this.largeModel.pipe(parser);
 
     try {
       console.log('think_next_action', messages);
       const response = await chain.invoke(messages);
-      console.log('\x1b[35mresponse', response, '\x1b[0m');
       console.log('\x1b[35mthink_next_action', response.nextAction, '\x1b[0m');
       return { nextAction: response.nextAction };
     } catch (error) {
@@ -366,12 +353,21 @@ export class TaskGraph {
   };
 
   private responseNode = async (state: typeof this.TaskState.State) => {
+    console.log('responseNode');
     const responsePrompt = this.systemPrompts.get('make_response_message');
     if (!responsePrompt) {
       throw new Error('Response prompt not found');
     }
-    const messages = this.prompt(state, responsePrompt, true, true, true, true);
-
+    const messages = this.getPrompt(
+      state,
+      responsePrompt,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false
+    );
     if (!this.mediumModel) {
       throw new Error('Medium model not initialized');
     }
@@ -385,6 +381,7 @@ export class TaskGraph {
         '\x1b[0m'
       );
       return {
+        responseMessage: response.responseMessage,
         messages: [new AIMessage(response.responseMessage)],
       };
     } catch (error) {
@@ -394,15 +391,18 @@ export class TaskGraph {
   };
 
   private emotionNode = async (state: typeof this.TaskState.State) => {
+    console.log('emotionNode');
     const emotionPrompt = this.systemPrompts.get('emotion');
     if (!emotionPrompt) {
       throw new Error('Emotion prompt not found');
     }
-    const messages = this.prompt(
+    const messages = this.getPrompt(
       state,
       emotionPrompt,
       false,
       true,
+      false,
+      false,
       false,
       false
     );
@@ -449,24 +449,11 @@ export class TaskGraph {
       reducer: (_, next) => next,
       default: () => null,
     }),
-    conversationHistory: Annotation<{
-      messages: BaseMessage[];
-      summary?: string | null;
-    }>({
-      reducer: (prev, next) => ({
-        messages: [...prev.messages, ...next.messages],
-        summary: next.summary || prev.summary,
-      }),
-      default: () => ({
-        messages: [],
-        summary: null,
-      }),
-    }),
-    decision: Annotation<string | null>({
+    nextAction: Annotation<NextAction | null>({
       reducer: (_, next) => next,
       default: () => null,
     }),
-    nextAction: Annotation<NextAction | null>({
+    responseMessage: Annotation<string | null>({
       reducer: (_, next) => next,
       default: () => null,
     }),
@@ -484,7 +471,6 @@ export class TaskGraph {
         const lastMessage = state.messages[
           state.messages.length - 1
         ] as AIMessage;
-        console.log('lastMessage', lastMessage);
         return lastMessage.tool_calls?.length
           ? 'use_tool'
           : 'think_next_action';
@@ -524,17 +510,9 @@ export class TaskGraph {
       messages: partialState.messages ?? [],
       emotion: partialState.emotion ?? null,
       taskTree: partialState.taskTree ?? null,
-      conversationHistory: partialState.conversationHistory ?? {
-        messages: [],
-        summary: null,
-      },
-      decision: partialState.decision ?? null,
       nextAction: partialState.nextAction ?? null,
+      responseMessage: partialState.responseMessage ?? null,
     };
-
-    if (state.conversationHistory.messages.length > 10) {
-      state = await this.summarizeConversation(state);
-    }
     return await this.graph.invoke(state);
   }
 }

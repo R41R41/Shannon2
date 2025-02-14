@@ -2,7 +2,7 @@ import { TwitterClientInput } from '@shannon/common';
 import dotenv from 'dotenv';
 import { TwitterApi } from 'twitter-api-v2';
 import { BaseClient } from '../common/BaseClient.js';
-import { EventBus } from '../eventBus/eventBus.js';
+import { getEventBus } from '../eventBus/index.js';
 
 dotenv.config();
 
@@ -13,20 +13,18 @@ export class TwitterClient extends BaseClient {
 
   private static instance: TwitterClient;
 
-  public static getInstance(eventBus: EventBus, isTest: boolean = false) {
+  public static getInstance(isTest: boolean = false) {
+    const eventBus = getEventBus();
     if (!TwitterClient.instance) {
-      TwitterClient.instance = new TwitterClient('twitter', eventBus, isTest);
+      TwitterClient.instance = new TwitterClient('twitter', isTest);
     }
     TwitterClient.instance.isTest = isTest;
     TwitterClient.instance.myUserId = process.env.TWITTER_USER_ID || null;
     return TwitterClient.instance;
   }
 
-  private constructor(
-    serviceName: 'twitter',
-    eventBus: EventBus,
-    isTest: boolean
-  ) {
+  private constructor(serviceName: 'twitter', isTest: boolean) {
+    const eventBus = getEventBus();
     super(serviceName, eventBus);
     const apiKey = process.env.TWITTER_API_KEY;
     const apiKeySecret = process.env.TWITTER_API_KEY_SECRET;

@@ -6,13 +6,10 @@ Based on the information provided, determine what you would feel like if you wer
 Output the data in the following json format.
 
 # Output Format
-
-```json
 {
   "emotion": string,
   "parameters": {"joy": number, "trust": number, "fear": number, "surprise": number, "sadness": number, "disgust": number, "anger": number, "anticipation": number}
 }
-```
 
 # Input
 
