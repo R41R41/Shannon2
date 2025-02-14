@@ -17,6 +17,9 @@ const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
   const [minecraftPlayStatus, setMinecraftPlayStatus] = useState<ServiceStatus>('stopped');
   const [minecraftTestStatus, setMinecraftTestStatus] = useState<ServiceStatus>('stopped');
   const [minecraftYoutubeStatus, setMinecraftYoutubeStatus] = useState<ServiceStatus>('stopped');
+  const [minebotClientStatus, setMinebotClientStatus] = useState<ServiceStatus>('stopped');
+  const [minebotBotStatus, setMinebotBotStatus] = useState<ServiceStatus>('stopped');
+  const [showServerList, setShowServerList] = useState<boolean>(false);
   useEffect(() => {
     if (status?.status === 'connected') {
       status.getStatusService('twitter');
@@ -26,6 +29,8 @@ const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
       status.getStatusService('minecraft:1.19.0-youtube');
       status.getStatusService('minecraft:1.19.0-test');
       status.getStatusService('minecraft:1.19.0-play');
+      status.getStatusService('minebot');
+      status.getStatusService('minebot:bot');
       const cleanupTwitter = status.onServiceStatus(
         'twitter',
         setTwitterStatus
@@ -54,6 +59,14 @@ const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
         'minecraft:1.19.0-play',
         (status) => setMinecraftPlayStatus(status)
       );
+      const cleanupMinebot = status.onServiceStatus(
+        'minebot',
+        (status) => setMinebotClientStatus(status)
+      );
+      const cleanupMinebotBot = status.onServiceStatus(
+        'minebot:bot',
+        (status) => setMinebotBotStatus(status)
+      );
       return () => {
         cleanupTwitter();
         cleanupDiscord();
@@ -62,9 +75,29 @@ const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
         cleanupMinecraftYoutube();
         cleanupMinecraftTest();
         cleanupMinecraftPlay();
+        cleanupMinebot();
+        cleanupMinebotBot();
       };
     }
   }, [status]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest(`.${styles.serverList}`) && 
+          !target.closest(`.${styles.toggleButton}`)) {
+        setShowServerList(false);
+      }
+    };
+
+    if (showServerList) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showServerList]);
 
   const handleToggle = async (service: string) => {
     if (!status) return;
@@ -110,7 +143,30 @@ const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
       } else {
         await status.startService('minecraft:1.19.0-play');
       }
+    } else if (service === 'minebot') {
+      if (minebotClientStatus === 'running') {
+        await status.stopService('minebot');
+      } else {
+        await status.startService('minebot');
+      }
+    } else if (service === 'minebot:bot') {
+      if (minebotBotStatus === 'running') {
+        await status.stopService('minebot:bot');
+      } else {
+        const serverName = window.prompt(
+          'サーバーを選択してください (1.19.0-test, 1.19.0-youtube, 1.19.0-play):',
+          '1.19.0-test'
+        );
+        if (serverName) {
+          await status.startService('minebot:bot', { serverName });
+        }
+      }
     }
+  };
+
+  const handleMinebotBotStart = async (serverName: string) => {
+    await status?.startService('minebot:bot', { serverName });
+    setShowServerList(false);
   };
 
   return (
@@ -243,6 +299,78 @@ const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
               <PlayArrowIcon />
             )}
           </button>
+        </div>
+        <div className={styles.serviceItem}>
+          <div className={styles.info}>
+            <span className={styles.name}>Minebot Client</span>
+            <span className={`${styles.status} ${styles[minebotClientStatus]}`}>
+              {minebotClientStatus}
+            </span>
+          </div>
+          <button
+            className={`${styles.toggleButton} ${
+              minebotClientStatus === 'stopped' ? styles.start : styles.stop
+            }`}
+            onClick={() => handleToggle('minebot')}
+            disabled={minebotClientStatus === 'connecting'}
+          >
+            {minebotClientStatus === 'running' ? (
+              <StopIcon />
+            ) : (
+              <PlayArrowIcon />
+            )}
+          </button>
+        </div>
+        <div className={styles.serviceItem}>
+          <div className={styles.info}>
+            <span className={styles.name}>Minebot Bot</span>
+            <span className={`${styles.status} ${styles[minebotBotStatus]}`}>
+              {minebotBotStatus}
+            </span>
+          </div>
+          <div className={styles.controlContainer}>
+            {minebotBotStatus === 'running' ? (
+              <button
+                className={`${styles.toggleButton} ${styles.stop}`}
+                onClick={() => handleToggle('minebot:bot')}
+                disabled={minebotBotStatus !== 'running'}
+              >
+                <StopIcon />
+              </button>
+            ) : (
+              <>
+                <button
+                  className={`${styles.toggleButton} ${styles.start}`}
+                  onClick={() => setShowServerList(!showServerList)}
+                  disabled={minebotBotStatus === 'connecting'}
+                >
+                  <PlayArrowIcon />
+                </button>
+                {showServerList && (
+                  <div className={styles.serverList}>
+                    <button
+                      className={styles.serverButton}
+                      onClick={() => handleMinebotBotStart('1.19.0-test')}
+                    >
+                      1.19.0-test
+                    </button>
+                    <button
+                      className={styles.serverButton}
+                      onClick={() => handleMinebotBotStart('1.19.0-youtube')}
+                    >
+                      1.19.0-youtube
+                    </button>
+                    <button
+                      className={styles.serverButton}
+                      onClick={() => handleMinebotBotStart('1.19.0-play')}
+                    >
+                      1.19.0-play
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

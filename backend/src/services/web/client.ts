@@ -1,15 +1,17 @@
 import { PORTS } from '../../config/ports.js';
-import { EventBus } from '../eventBus.js';
 import { MonitoringAgent } from './agents/monitoringAgent.js';
 import { OpenAIClientService } from './agents/openaiAgent.js';
 import { ScheduleAgent } from './agents/scheduleAgent.js';
 import { StatusAgent } from './agents/statusAgent.js';
+import { getEventBus } from '../eventBus/index.js';
+
 export class WebClient {
   private openaiService: OpenAIClientService;
   private monitoringService: MonitoringAgent;
   private scheduleService: ScheduleAgent;
   private statusService: StatusAgent;
-  constructor(eventBus: EventBus, isTest: boolean) {
+  constructor(isTest: boolean) {
+    const eventBus = getEventBus();
     this.openaiService = new OpenAIClientService({
       port: isTest
         ? Number(PORTS.WEBSOCKET.OPENAI) + 10000

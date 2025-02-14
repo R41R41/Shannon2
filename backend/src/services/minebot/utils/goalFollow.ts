@@ -1,6 +1,7 @@
-import { goals } from 'mineflayer-pathfinder';
+import pkg from 'mineflayer-pathfinder';
 import { Entity } from 'prismarine-entity';
 import { CustomBot, ResponseType } from '../types.js';
+const { goals } = pkg;
 
 export class GoalFollow {
   bot: CustomBot;

@@ -14,7 +14,7 @@ import {
 import dotenv from 'dotenv';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { BaseClient } from '../common/BaseClient.js';
-import { EventBus } from '../eventBus.js';
+import { getEventBus } from '../eventBus/index.js';
 dotenv.config();
 
 export class DiscordBot extends BaseClient {
@@ -27,20 +27,16 @@ export class DiscordBot extends BaseClient {
   private testXChannelId: string | null = null;
   private static instance: DiscordBot;
   public isTest: boolean = false;
-
-  public static getInstance(eventBus: EventBus, isTest: boolean = false) {
+  public static getInstance(isTest: boolean = false) {
     if (!DiscordBot.instance) {
-      DiscordBot.instance = new DiscordBot('discord', eventBus, isTest);
+      DiscordBot.instance = new DiscordBot('discord', isTest);
     }
     DiscordBot.instance.isTest = isTest;
     return DiscordBot.instance;
   }
 
-  private constructor(
-    serviceName: 'discord',
-    eventBus: EventBus,
-    isTest: boolean = false
-  ) {
+  private constructor(serviceName: 'discord', isTest: boolean = false) {
+    const eventBus = getEventBus();
     super(serviceName, eventBus);
     this.client = new Client({
       intents: [

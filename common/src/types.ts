@@ -16,6 +16,12 @@ export const promptTypes: PromptType[] = [
   "discord",
   "forecast",
   "forecast_for_toyama_server",
+  "decision",
+  "reply_twitter_comment",
+  "emotion",
+  "think_next_action",
+  "make_response_message",
+  "use_tool",
 ];
 
 export type PromptType =
@@ -30,7 +36,10 @@ export type PromptType =
   | "planning"
   | "decision"
   | "reply_twitter_comment"
-  | "emotion";
+  | "emotion"
+  | "think_next_action"
+  | "make_response_message"
+  | "use_tool";
 
 export type ConversationType =
   | "text"
@@ -130,6 +139,7 @@ export interface EmotionType {
 }
 export interface ServiceInput {
   serviceCommand?: ServiceCommand | null;
+  serverName?: string | null;
 }
 
 export interface ServiceOutput {
@@ -194,11 +204,11 @@ export interface DiscordClientInput extends ServiceInput {
   type: ConversationType;
   channelId: string;
   guildId: string;
-  userName: string;
-  guildName: DiscordGuild;
-  channelName: string;
-  messageId: string;
-  userId: string;
+  userName?: string | null;
+  guildName?: DiscordGuild | null;
+  channelName?: string | null;
+  messageId?: string | null;
+  userId?: string | null;
   text?: string | null;
   audio?: string | null;
   realtime_audio?: string | null;
@@ -284,10 +294,16 @@ export interface MinebotOutput {
   botFoodLevel?: string | null;
 }
 
-export interface MinebotInput {
+export type MinebotStartOrStopInput = {
+  serverName?: string | null;
+};
+
+export type MinebotSkillInput = {
   skillName?: string | null;
   text?: string | null;
-}
+};
+
+export type MinebotInput = MinebotStartOrStopInput | MinebotSkillInput;
 
 export type MinecraftServerName =
   | "1.19.0-youtube"

@@ -8,26 +8,24 @@ import {
 import fs from 'fs';
 import cron from 'node-cron';
 import { BaseClient } from '../common/BaseClient.js';
-import { EventBus } from '../eventBus.js';
+import { getEventBus } from '../eventBus/index.js';
 
 export class Scheduler extends BaseClient {
   private static instance: Scheduler;
   private schedules: Schedule[];
   public isTest: boolean = false;
 
-  public static getInstance(eventBus: EventBus, isTest: boolean = false) {
+  public static getInstance(isTest: boolean = false) {
+    const eventBus = getEventBus();
     if (!Scheduler.instance) {
-      Scheduler.instance = new Scheduler('scheduler', eventBus, isTest);
+      Scheduler.instance = new Scheduler('scheduler', isTest);
     }
     Scheduler.instance.isTest = isTest;
     return Scheduler.instance;
   }
 
-  constructor(
-    serviceName: 'scheduler',
-    eventBus: EventBus,
-    isTest: boolean = false
-  ) {
+  constructor(serviceName: 'scheduler', isTest: boolean = false) {
+    const eventBus = getEventBus();
     super(serviceName, eventBus);
     this.schedules = [];
   }

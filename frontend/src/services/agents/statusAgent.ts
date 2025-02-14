@@ -31,6 +31,7 @@ export class StatusAgent extends WebSocketClientBase {
   }
 
   public onServiceStatus(service: string, callback: StatusCallback) {
+    console.log("onServiceStatus", service, callback);
     if (!this.serviceStatusListeners.has(service)) {
       this.serviceStatusListeners.set(service, new Set());
     }
@@ -48,12 +49,16 @@ export class StatusAgent extends WebSocketClientBase {
     );
   }
 
-  public async startService(service: string) {
+  public async startService(
+    service: string,
+    options?: { serverName?: string }
+  ) {
     this.send(
       JSON.stringify({
         type: `service:command`,
         command: "start",
         service,
+        ...options,
       })
     );
   }

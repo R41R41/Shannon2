@@ -1,5 +1,6 @@
-import { goals } from 'mineflayer-pathfinder';
+import pkg from 'mineflayer-pathfinder';
 import { CustomBot, ResponseType } from '../types.js';
+const { goals } = pkg;
 
 export class GoalXZ {
   bot: CustomBot;

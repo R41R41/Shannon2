@@ -1,21 +1,4 @@
-@use "../../styles/variables" as *;
-
-.container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding-bottom: 0.5rem;
-}
-
-.title {
-  padding: 0.5rem;
-  font-size: 12px;
-}
-
-.serviceList {
-  display: grid;
-  gap: 8px;
-}
+@use "../../../styles/variables" as *;
 
 .serviceItem {
   display: flex;
@@ -66,6 +49,12 @@
   }
 }
 
+.controlContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .toggleButton {
   width: 32px;
   height: 32px;
@@ -106,24 +95,6 @@
   }
 }
 
-@keyframes pulse {
-  0% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.5;
-  }
-}
-
-.controlContainer {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
 .serverList {
   width: 160px;
   position: absolute;
@@ -156,5 +127,17 @@
 
   &:active {
     background-color: #5c5c5c;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.5;
   }
 }

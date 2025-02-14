@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import { OAuth2Client } from 'google-auth-library';
 import { google, youtube_v3 } from 'googleapis';
 import { BaseClient } from '../common/BaseClient.js';
-import { EventBus } from '../eventBus.js';
+import { getEventBus } from '../eventBus/index.js';
 
 dotenv.config();
 
@@ -14,19 +14,17 @@ export class YoutubeClient extends BaseClient {
   public isTest: boolean = false;
   private static instance: YoutubeClient;
 
-  public static getInstance(eventBus: EventBus, isTest: boolean = false) {
+  public static getInstance(isTest: boolean = false) {
+    const eventBus = getEventBus();
     if (!YoutubeClient.instance) {
-      YoutubeClient.instance = new YoutubeClient('youtube', eventBus, isTest);
+      YoutubeClient.instance = new YoutubeClient('youtube', isTest);
     }
     YoutubeClient.instance.isTest = isTest;
     return YoutubeClient.instance;
   }
 
-  private constructor(
-    serviceName: 'youtube',
-    eventBus: EventBus,
-    isTest: boolean
-  ) {
+  private constructor(serviceName: 'youtube', isTest: boolean) {
+    const eventBus = getEventBus();
     super(serviceName, eventBus);
 
     const clientId = process.env.YOUTUBE_CLIENT_ID;

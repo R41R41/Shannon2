@@ -1,24 +1,30 @@
-import { MinebotInput } from '@shannon/common';
+import { MinebotInput, MinebotSkillInput } from '@shannon/common';
 import fs from 'fs';
-import path from 'path';
-import { EventBus } from '../eventBus.js';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { EventBus } from '../eventBus/eventBus.js';
 import {
   ConstantSkills,
   CustomBot,
   InstantSkills,
   ResponseType,
+  ConstantSkill,
 } from './types.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 export class SkillAgent {
-  bot: CustomBot;
-  instantSkillDir: string;
-  constantSkillDir: string;
-  eventBus: EventBus;
+  private instantSkillDir: string;
+  private constantSkillDir: string;
+  private bot: CustomBot;
+  private eventBus: EventBus;
+
   constructor(bot: CustomBot, eventBus: EventBus) {
     this.bot = bot;
-    this.instantSkillDir = path.join(__dirname, 'instantSkills');
-    this.constantSkillDir = path.join(__dirname, 'constantSkills');
     this.eventBus = eventBus;
+    this.instantSkillDir = join(__dirname, 'instantSkills');
+    this.constantSkillDir = join(__dirname, 'constantSkills');
   }
 
   async loadInstantSkills(): Promise<ResponseType> {
@@ -29,7 +35,7 @@ export class SkillAgent {
         try {
           if (file.endsWith('.js')) {
             const { default: skillClass } = await import(
-              path.join(this.instantSkillDir, file)
+              join(this.instantSkillDir, file)
             );
             const skillInstance = new skillClass(this.bot);
             console.log(`\x1b[32m✓ ${skillInstance.skillName}\x1b[0m`);
@@ -56,7 +62,7 @@ export class SkillAgent {
         try {
           if (file.endsWith('.js')) {
             const { default: skillClass } = await import(
-              path.join(this.constantSkillDir, file)
+              join(this.constantSkillDir, file)
             );
             const skillInstance = new skillClass(this.bot);
             this.eventBus.log(
@@ -81,7 +87,7 @@ export class SkillAgent {
 
   async registerRoutes() {
     this.eventBus.log('minecraft', 'blue', 'registerRoutes');
-    Object.keys(this.bot.instantSkills).forEach((skillName) => {
+    Object.keys(this.bot.instantSkills.skills).forEach((skillName) => {
       this.eventBus.log('minecraft', 'green', `✓ ${skillName}`);
       this.eventBus.subscribe(`minebot:${skillName}`, async (event) => {
         try {
@@ -140,8 +146,10 @@ export class SkillAgent {
 
   async registerConstantSkills() {
     this.eventBus.log('minecraft', 'blue', 'registerConstantSkills');
-    Object.keys(this.bot.constantSkills).forEach((skillName) => {
-      const skillInstance = this.bot.constantSkills.getSkill(skillName);
+    Object.keys(this.bot.constantSkills.skills).forEach((skillName) => {
+      const skillInstance = this.bot.constantSkills.getSkill(
+        skillName
+      ) as ConstantSkill;
       if (skillInstance.interval && skillInstance.interval > 0) {
         this.eventBus.log(
           'minecraft',
@@ -182,7 +190,7 @@ export class SkillAgent {
   async registerPost() {
     this.eventBus.subscribe('minebot:stopInstantSkill', async (event) => {
       try {
-        const { skillName } = event.data as MinebotInput;
+        const { skillName } = event.data as MinebotSkillInput;
         if (!skillName) {
           return;
         }
@@ -197,7 +205,7 @@ export class SkillAgent {
           },
         });
       } catch (error) {
-        const { skillName } = event.data as MinebotInput;
+        const { skillName } = event.data as MinebotSkillInput;
         this.eventBus.publish({
           type: `minebot:skillResult`,
           memoryZone: 'minecraft',
@@ -404,7 +412,7 @@ export class SkillAgent {
       });
     });
     this.eventBus.subscribe('minebot:chat', async (event) => {
-      const { text } = event.data as MinebotInput;
+      const { text } = event.data as MinebotSkillInput;
       if (text) {
         this.bot.chat(text);
       }
@@ -413,15 +421,7 @@ export class SkillAgent {
 
   async entitySpawn() {
     console.log(`\x1b[32m✓ entitySpawn\x1b[0m`);
-    this.bot.on('entitySpawn', async (entity) => {
-      if (this.bot.constantSkills.skills.autoPickUpItem.status) {
-        try {
-          this.bot.constantSkills.skills.autoPickUpItem.run(entity);
-        } catch (error) {
-          console.error('エラーが発生しました:', error);
-        }
-      }
-    });
+    this.bot.on('entitySpawn', async (entity) => {});
   }
 
   async entityHurt() {
@@ -460,7 +460,7 @@ export class SkillAgent {
     });
   }
 
-  async startServer() {
+  async startAgent() {
     try {
       const initSkillsResponse = await this.initSkills();
       if (!initSkillsResponse.success) {
@@ -473,7 +473,7 @@ export class SkillAgent {
       await this.entityMoved();
       await this.entityHurt();
       await this.health();
-      return { success: true, result: 'server started' };
+      return { success: true, result: 'agent started' };
     } catch (error) {
       console.log(`error: ${error}`);
       return { success: false, result: error };
