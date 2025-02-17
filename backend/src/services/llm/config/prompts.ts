@@ -6,13 +6,26 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export const loadPrompt = async (promptType: PromptType): Promise<string> => {
+export const loadPrompt = async (
+  promptType: PromptType,
+  directoryName: string | null = null
+): Promise<string> => {
   try {
-    const path = join(
-      __dirname,
-      '../../../../saves/prompts',
-      `${promptType}.md`
-    );
+    let path: string;
+    if (directoryName) {
+      path = join(
+        __dirname,
+        '../../../../saves/prompts',
+        directoryName,
+        `${promptType}.md`
+      );
+    } else {
+      path = join(
+        __dirname,
+        '../../../../saves/prompts/others',
+        `${promptType}.md`
+      );
+    }
     console.log('Loading prompt from:', path);
     return readFileSync(path, 'utf-8').trim();
   } catch (error) {

@@ -11,6 +11,7 @@ export const promptTypes = [
     "reply_twitter_comment",
     "emotion",
     "think_next_action",
-    "make_response_message",
+    "make_message",
     "use_tool",
+    "send_message",
 ];

@@ -1,1 +1,17 @@
-{\"lc\":1,\"type\":\"constructor\",\"id\":[\"langchain_core\",\"messages\",\"AIMessage\"],\"kwargs\":{\"content\":\"こんにちは、らいらいさん！今日はどんなことを話しましょうか？😊\",\"additional_kwargs\":{},\"response_metadata\":{\"tokenUsage\":{\"promptTokens\":360,\"completionTokens\":20,\"totalTokens\":380},\"finish_reason\":\"stop\",\"model_name\":\"gpt-4o-mini-2024-07-18\",\"usage\":{\"prompt_tokens\":360,\"completion_tokens\":20,\"total_tokens\":380,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"audio_tokens\":0,\"accepted_prediction_tokens\":0,\"rejected_prediction_tokens\":0}},\"system_fingerprint\":\"fp_00428b782a\"},\"id\":\"chatcmpl-B0hVrOw3vDrd3UL1MjARJc0C2gM0B\",\"tool_calls\":[],\"invalid_tool_calls\":[],\"usage_metadata\":{\"output_tokens\":20,\"input_tokens\":360,\"total_tokens\":380,\"input_token_details\":{\"audio\":0,\"cache_read\":0},\"output_token_details\":{\"audio\":0,\"reasoning\":0}}}}
+{
+  "infoMessage": {
+    "guildName": "discord:test_server",
+    "channelName": "twitter",
+    "guildId": "1240653981739389029",
+    "channelId": "1240656190220795915",
+    "messageId": "1340016571275411506",
+    "userId": "542398543038644226"
+  },
+  "systemPrompt": "You are a helpful assistant.",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hello, how are you?"
+    }
+  ]
+}

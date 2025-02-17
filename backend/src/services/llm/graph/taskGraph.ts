@@ -5,43 +5,22 @@ import {
   SystemMessage,
   ToolMessage,
 } from '@langchain/core/messages';
-import { JsonOutputParser } from '@langchain/core/output_parsers';
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { ChatOpenAI } from '@langchain/openai';
-import { MemoryZone, PromptType, EmotionType } from '@shannon/common';
+import { MemoryZone, EmotionType } from '@shannon/common';
+import { TaskTreeState, TaskStateInput, NextAction } from './types.js';
 import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { EventBus } from '../../eventBus/eventBus.js';
-import { loadPrompt } from '../config/prompts.js';
+import { z } from 'zod';
+import { Prompt } from './prompt.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 dotenv.config();
-
-type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'error';
-type NextAction = 'use_tool' | 'make_message' | 'plan' | 'feel_emotion';
-
-interface TaskTreeState {
-  goal: string;
-  plan: string;
-  status: TaskStatus;
-  error?: string;
-  subTasks: TaskTreeState[];
-}
-
-interface TaskStateInput {
-  memoryZone?: MemoryZone;
-  systemPrompt?: string;
-  infoMessage?: string | null;
-  emotion?: EmotionType | null;
-  taskTree?: TaskTreeState | null;
-  nextAction?: NextAction | null;
-  messages?: BaseMessage[];
-  responseMessage?: string | null;
-}
 
 export class TaskGraph {
   private largeModel: ChatOpenAI | null = null;
@@ -51,90 +30,14 @@ export class TaskGraph {
   private toolNode: ToolNode;
   private graph: any;
   private eventBus: EventBus | null = null;
-  private systemPrompts: Map<PromptType, string>;
+  private prompt: Prompt;
   constructor(eventBus?: EventBus) {
     this.eventBus = eventBus ?? null;
     this.initializeModel();
     this.initializeTools();
     this.toolNode = new ToolNode(this.tools);
     this.graph = this.createGraph();
-    this.systemPrompts = new Map();
-    this.setupSystemPrompts();
-  }
-
-  private getPrompt = (
-    state: typeof this.TaskState.State,
-    prompt: string | null = null,
-    isInfoMessage: boolean = false,
-    isEmotion: boolean = false,
-    isTaskTree: boolean = false,
-    isCurrentTime: boolean = false,
-    isSystemPrompt: boolean = false,
-    isMemoryZone: boolean = false
-  ) => {
-    const currentTime = new Date().toLocaleString('ja-JP', {
-      timeZone: 'Asia/Tokyo',
-    });
-
-    const infoMessage =
-      isInfoMessage && state.infoMessage
-        ? `infoMessage: ${JSON.stringify(state.infoMessage, null, 2)
-            .replace(/\\n/g, '\n')
-            .replace(/\\/g, '')}`
-        : null;
-
-    const currentTimeMessage = isCurrentTime
-      ? `currentTime: ${currentTime}`
-      : '';
-    const memoryZoneMessage = isMemoryZone
-      ? `memoryZone: ${state.memoryZone}`
-      : '';
-
-    const messages = [
-      prompt ? new SystemMessage(prompt) : null,
-      isSystemPrompt && state.systemPrompt
-        ? new SystemMessage(state.systemPrompt)
-        : null,
-      ...state.messages.slice(-16),
-      state.responseMessage
-        ? new SystemMessage(`ResponseMessage: ${state.responseMessage}`)
-        : null,
-      isEmotion && state.emotion
-        ? new SystemMessage(`yourEmotion: ${JSON.stringify(state.emotion)}`)
-        : null,
-      isTaskTree && state.taskTree
-        ? new SystemMessage(
-            `goal: ${state.taskTree.goal}\nplan: ${
-              state.taskTree.plan
-            }\nsubTasks: ${JSON.stringify(state.taskTree.subTasks)}`
-          )
-        : null,
-      infoMessage || currentTimeMessage || memoryZoneMessage
-        ? new SystemMessage(
-            [infoMessage, currentTimeMessage, memoryZoneMessage]
-              .filter(Boolean)
-              .join('\n')
-          )
-        : null,
-    ].filter((message): message is BaseMessage => message !== null);
-
-    return messages;
-  };
-
-  private async setupSystemPrompts(): Promise<void> {
-    const promptsName: PromptType[] = [
-      'planning',
-      'decision',
-      'base_text',
-      'discord',
-      'emotion',
-      'think_next_action',
-      'make_response_message',
-      'use_tool',
-    ];
-    for (const name of promptsName) {
-      this.systemPrompts.set(name, await loadPrompt(name));
-    }
+    this.prompt = new Prompt();
   }
 
   private async initializeModel() {
@@ -252,26 +155,16 @@ export class TaskGraph {
 
   private toolAgentNode = async (state: typeof this.TaskState.State) => {
     console.log('toolAgentNode');
-    const systemPrompt = this.systemPrompts.get('use_tool');
-    if (!systemPrompt) {
-      throw new Error('use_tool prompt not found');
-    }
-    const messages = this.getPrompt(
-      state,
-      systemPrompt,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true
-    );
+    const messages = this.prompt.getMessages(state, 'use_tool', true);
     if (!this.largeModel) {
       throw new Error('Large model not initialized');
     }
-    const modelWithTools = this.largeModel.bindTools(this.tools);
+    const llmWithTools = this.largeModel.bindTools(this.tools);
+    const forcedToolLLM = llmWithTools.bind({
+      tool_choice: 'any',
+    });
     try {
-      const response = await modelWithTools.invoke(messages);
+      const response = await forcedToolLLM.invoke(messages);
       console.log('\x1b[35muse_tool', response, '\x1b[0m');
       return {
         messages: [response],
@@ -283,103 +176,56 @@ export class TaskGraph {
   };
 
   private planningNode = async (state: typeof this.TaskState.State) => {
-    console.log('planningNode');
-    const planningPrompt = this.systemPrompts.get('planning');
-    if (!planningPrompt) {
-      throw new Error('Planning prompt not found');
-    }
-    const messages = this.getPrompt(
-      state,
-      planningPrompt,
-      true,
-      true,
-      true,
-      true,
-      false,
-      false
-    );
+    console.log('planning');
     if (!this.mediumModel) {
       throw new Error('Medium model not initialized');
     }
-    const parser = new JsonOutputParser();
-    const chain = this.mediumModel.pipe(parser);
+    const llmWithTools = this.mediumModel.bindTools(this.tools);
+    const forcedToolLLM = llmWithTools.bind({
+      tool_choice: { type: 'function', function: { name: 'planning' } },
+    });
+    const messages = this.prompt.getMessages(state, 'planning', true);
 
     try {
-      const response = await chain.invoke(messages);
+      const response = await forcedToolLLM.invoke(messages);
+      const toolCall = response.additional_kwargs.tool_calls?.[0];
+      if (!toolCall) throw new Error('No tool call found');
+      const result = JSON.parse(toolCall.function.arguments);
+
       return {
-        ...state.taskTree,
-        goal: response.goal,
-        plan: response.plan,
-        subTasks: response.subTasks,
-      } as TaskTreeState;
+        taskTree: {
+          status: result.status,
+          goal: result.goal,
+          plan: result.plan,
+          subTasks: result.subTasks,
+        } as TaskTreeState,
+        nextAction: result.nextAction,
+      };
     } catch (error) {
       console.error('JSONパースエラー:', error);
       return this.errorHandler(state);
     }
   };
 
-  private thinkingNextNode = async (state: typeof this.TaskState.State) => {
-    console.log('thinkingNextNode');
-    const thinkNextPrompt = this.systemPrompts.get('think_next_action');
-    if (!thinkNextPrompt) {
-      throw new Error('Think next prompt not found');
-    }
-    if (!this.largeModel) {
-      throw new Error('Large model not initialized');
-    }
-    const messages = this.getPrompt(
-      state,
-      thinkNextPrompt,
-      true,
-      true,
-      true,
-      true,
-      false,
-      false
-    );
-
-    const parser = new JsonOutputParser();
-    const chain = this.largeModel.pipe(parser);
-
-    try {
-      console.log('think_next_action', messages);
-      const response = await chain.invoke(messages);
-      console.log('\x1b[35mthink_next_action', response.nextAction, '\x1b[0m');
-      return { nextAction: response.nextAction };
-    } catch (error) {
-      console.error('JSONパースエラー:', error);
-      return this.errorHandler(state);
-    }
-  };
-
-  private responseNode = async (state: typeof this.TaskState.State) => {
-    console.log('responseNode');
-    const responsePrompt = this.systemPrompts.get('make_response_message');
-    if (!responsePrompt) {
-      throw new Error('Response prompt not found');
-    }
-    const messages = this.getPrompt(
-      state,
-      responsePrompt,
-      true,
-      true,
-      true,
-      true,
-      false,
-      false
-    );
+  private makeMessageNode = async (state: typeof this.TaskState.State) => {
+    console.log('makeMessageNode');
+    const messages = this.prompt.getMessages(state, 'make_message', true);
     if (!this.mediumModel) {
       throw new Error('Medium model not initialized');
     }
-    const parser = new JsonOutputParser();
-    const chain = this.mediumModel?.pipe(parser);
+    const ResponseMessageSchema = z.object({
+      responseMessage: z.string(),
+    });
+    const structuredLLM = this.mediumModel.withStructuredOutput(
+      ResponseMessageSchema,
+      {
+        name: 'ResponseMessage',
+      }
+    );
+
     try {
-      const response = await chain.invoke(messages);
-      console.log(
-        '\x1b[35mmake_response_message',
-        response.responseMessage,
-        '\x1b[0m'
-      );
+      const response = await structuredLLM.invoke(messages);
+      console.log('\x1b[35mmake_message', response, '\x1b[0m');
       return {
         responseMessage: response.responseMessage,
         messages: [new AIMessage(response.responseMessage)],
@@ -390,33 +236,59 @@ export class TaskGraph {
     }
   };
 
+  private sendMessageNode = async (state: typeof this.TaskState.State) => {
+    console.log('sendMessageNode');
+    const messages = this.prompt.getMessages(state, 'send_message', true);
+    if (!this.mediumModel) {
+      throw new Error('Medium model not initialized');
+    }
+    const llmWithTools = this.mediumModel.bindTools(this.tools);
+    const forcedToolLLM = llmWithTools.bind({
+      tool_choice: { type: 'function', function: { name: 'chat-on-discord' } },
+    });
+    try {
+      const response = await forcedToolLLM.invoke(messages);
+      console.log('\x1b[35msend_message', response, '\x1b[0m');
+      return {
+        messages: [response],
+      };
+    } catch (error) {
+      console.error('JSONパースエラー:', error);
+      return this.errorHandler(state);
+    }
+  };
+
   private emotionNode = async (state: typeof this.TaskState.State) => {
     console.log('emotionNode');
-    const emotionPrompt = this.systemPrompts.get('emotion');
-    if (!emotionPrompt) {
-      throw new Error('Emotion prompt not found');
-    }
-    const messages = this.getPrompt(
-      state,
-      emotionPrompt,
-      false,
-      true,
-      false,
-      false,
-      false,
-      false
-    );
+    const messages = this.prompt.getMessages(state, 'emotion', true);
 
     if (!this.mediumModel) {
       throw new Error('Medium model not initialized');
     }
-    const parser = new JsonOutputParser();
-    const chain = this.mediumModel?.pipe(parser);
+    const EmotionSchema = z.object({
+      emotion: z.string(),
+      parameters: z.object({
+        joy: z.number(),
+        trust: z.number(),
+        fear: z.number(),
+        surprise: z.number(),
+        sadness: z.number(),
+        disgust: z.number(),
+        anger: z.number(),
+        anticipation: z.number(),
+      }),
+    });
+    const structuredLLM = this.mediumModel.withStructuredOutput(EmotionSchema, {
+      name: 'Emotion',
+    });
     try {
-      const response = await chain.invoke(messages);
+      const response = await structuredLLM.invoke(messages);
       console.log('\x1b[35memotion', response, '\x1b[0m');
       return {
-        emotion: response,
+        emotion: {
+          emotion: response.emotion,
+          parameters: response.parameters,
+        },
       };
     } catch (error) {
       console.error('JSONパースエラー:', error);
@@ -429,11 +301,19 @@ export class TaskGraph {
       reducer: (_, next) => next,
       default: () => 'web',
     }),
-    systemPrompt: Annotation<string>({
+    environmentState: Annotation<string | null>({
       reducer: (_, next) => next,
-      default: () => '',
+      default: () => null,
     }),
-    infoMessage: Annotation<string | null>({
+    selfState: Annotation<string | null>({
+      reducer: (_, next) => next,
+      default: () => null,
+    }),
+    humanFeedback: Annotation<string | null>({
+      reducer: (_, next) => next,
+      default: () => null,
+    }),
+    selfFeedback: Annotation<string | null>({
       reducer: (_, next) => next,
       default: () => null,
     }),
@@ -461,42 +341,33 @@ export class TaskGraph {
 
   private createGraph() {
     const workflow = new StateGraph(this.TaskState)
-      .addNode('think_next_action', this.thinkingNextNode)
-      .addNode('plan', this.planningNode)
-      .addNode('agent', this.toolAgentNode)
-      .addNode('use_tool', this.toolNode)
-      .addNode('make_message', this.responseNode)
+      .addNode('planning', this.planningNode)
       .addNode('feel_emotion', this.emotionNode)
-      .addConditionalEdges('agent', (state) => {
-        const lastMessage = state.messages[
-          state.messages.length - 1
-        ] as AIMessage;
-        return lastMessage.tool_calls?.length
-          ? 'use_tool'
-          : 'think_next_action';
+      .addNode('tool_agent', this.toolAgentNode)
+      .addNode('use_tool', this.toolNode)
+      .addNode('make_message', this.makeMessageNode)
+      .addNode('send_message', this.sendMessageNode)
+      .addEdge('tool_agent', 'use_tool')
+      .addConditionalEdges('use_tool', (state) => {
+        this.baseMessagesToLog(state.messages, state.memoryZone);
+        return 'planning';
       })
-      .addEdge(START, 'think_next_action')
-      .addConditionalEdges('plan', (state) => {
-        return 'think_next_action';
-      })
-      .addConditionalEdges('think_next_action', (state) => {
+      .addEdge('feel_emotion', 'make_message')
+      .addEdge('make_message', 'send_message')
+      .addEdge('send_message', 'use_tool')
+      .addEdge(START, 'planning')
+      .addConditionalEdges('planning', (state) => {
         switch (state.nextAction) {
           case 'use_tool':
-            return 'agent';
-          case 'make_message':
-            return 'make_message';
-          case 'plan':
-            return 'plan';
-          case 'feel_emotion':
+            return 'tool_agent';
+          case 'make_and_send_message':
             return 'feel_emotion';
+          case 'END':
+            return END;
           default:
             return END;
         }
-      })
-      .addEdge('use_tool', 'think_next_action')
-      .addEdge('make_message', 'think_next_action')
-      .addEdge('plan', 'think_next_action')
-      .addEdge('feel_emotion', 'think_next_action');
+      });
 
     return workflow.compile();
   }
@@ -505,8 +376,10 @@ export class TaskGraph {
     // デフォルト値とマージ
     let state: typeof this.TaskState.State = {
       memoryZone: partialState.memoryZone ?? 'web',
-      systemPrompt: partialState.systemPrompt ?? '',
-      infoMessage: partialState.infoMessage ?? null,
+      environmentState: partialState.environmentState ?? null,
+      selfState: partialState.selfState ?? null,
+      humanFeedback: partialState.humanFeedback ?? null,
+      selfFeedback: partialState.selfFeedback ?? null,
       messages: partialState.messages ?? [],
       emotion: partialState.emotion ?? null,
       taskTree: partialState.taskTree ?? null,

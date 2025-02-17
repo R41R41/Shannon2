@@ -29,7 +29,6 @@ export class LLMService {
   private eventBus: EventBus;
   private realtimeApi: RealtimeAPIService;
   private taskGraph: TaskGraph;
-  private systemPrompts: Map<PromptType, string>;
   private conversationHistories: Map<MemoryZone, BaseMessage[]>;
   private aboutTodayAgent!: PostAboutTodayAgent;
   private weatherAgent!: PostWeatherAgent;
@@ -41,29 +40,18 @@ export class LLMService {
     this.eventBus = getEventBus();
     this.realtimeApi = new RealtimeAPIService();
     this.taskGraph = new TaskGraph(this.eventBus);
-    this.systemPrompts = new Map();
     this.conversationHistories = new Map();
     this.setupEventBus();
     this.setupRealtimeAPICallback();
   }
 
   public async initialize() {
-    await this.setupSystemPrompts();
     this.aboutTodayAgent = await PostAboutTodayAgent.create();
     this.weatherAgent = await PostWeatherAgent.create();
     this.fortuneAgent = await PostFortuneAgent.create();
     this.replyTwitterCommentAgent = await ReplyTwitterCommentAgent.create();
     this.replyYoutubeCommentAgent = await ReplyYoutubeCommentAgent.create();
     console.log('\x1b[36mLLM Service initialized\x1b[0m');
-  }
-
-  private async setupSystemPrompts() {
-    for (const promptType of promptTypes) {
-      const prompt = await loadPrompt(promptType);
-      if (prompt) {
-        this.systemPrompts.set(promptType, prompt);
-      }
-    }
   }
 
   private setupEventBus() {
@@ -165,7 +153,6 @@ export class LLMService {
         return;
       } else if (message.type === 'text') {
         const response = await this.processMessage(
-          ['base_text'],
           'web',
           ['web'],
           null,
@@ -233,7 +220,6 @@ export class LLMService {
         const memoryZone = getDiscordMemoryZone(message.guildId);
 
         const response = await this.processMessage(
-          ['discord'],
           memoryZone,
           [memoryZone],
           message.userName,
@@ -318,7 +304,6 @@ export class LLMService {
    * @returns 応答メッセージ
    */
   private async processMessage(
-    promptTypes: PromptType[],
     inputMemoryZone: MemoryZone,
     outputMemoryZones?: MemoryZone[] | null,
     userName?: string | null,
@@ -326,11 +311,6 @@ export class LLMService {
     infoMessage?: string | null
   ): Promise<string> {
     try {
-      const prompts = promptTypes.map((promptType) =>
-        this.systemPrompts.get(promptType)
-      );
-      const prompt = prompts.join('\n');
-
       const newMessage = new HumanMessage(`${userName}: ${message}`);
 
       this.saveConversationHistory(inputMemoryZone, [
@@ -343,9 +323,9 @@ export class LLMService {
 
       const result = await this.taskGraph.invoke({
         memoryZone: inputMemoryZone,
-        systemPrompt: prompt,
-        infoMessage: infoMessage || null,
+        environmentState: infoMessage || null,
         messages: messages,
+        userMessage: `${userName}: ${message}`,
       });
 
       console.log(result);
