@@ -1,6 +1,6 @@
 export type Platform = "web" | "discord" | "minecraft" | "scheduler" | "twitter" | "youtube" | "minebot";
 export declare const promptTypes: PromptType[];
-export type PromptType = TwitterSchedulePostEndpoint | "base_text" | "base_voice" | "discord" | "minecraft" | "weather_to_emoji" | "forecast_for_toyama_server" | "reply_youtube_comment" | "planning" | "decision" | "reply_twitter_comment" | "emotion" | "think_next_action" | "make_response_message" | "use_tool";
+export type PromptType = TwitterSchedulePostEndpoint | "base_text" | "base_voice" | "discord" | "minecraft" | "weather_to_emoji" | "forecast_for_toyama_server" | "reply_youtube_comment" | "planning" | "decision" | "reply_twitter_comment" | "emotion" | "think_next_action" | "make_message" | "use_tool" | "send_message";
 export type ConversationType = "text" | "audio" | "realtime_text" | "realtime_audio" | "command" | "log" | "user_transcript";
 export type RealTimeAPIEndpoint = "realtime_text_input" | "realtime_text_commit" | "realtime_audio_append" | "realtime_audio_commit" | "realtime_vad_on" | "realtime_vad_off" | "text_done" | "audio_done";
 export type TwitterSchedulePostEndpoint = "about_today" | "forecast" | "fortune" | "check_replies";

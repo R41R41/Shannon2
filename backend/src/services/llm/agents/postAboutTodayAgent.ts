@@ -36,7 +36,7 @@ export class PostAboutTodayAgent {
     const result = await this.taskGraph.invoke({
       memoryZone: 'discord:toyama_server',
       systemPrompt: systemContent,
-      infoMessage: infoMessage,
+      environmentState: infoMessage,
     });
     const aboutTodayMessage =
       result.messages[result.messages.length - 1].content.toString();

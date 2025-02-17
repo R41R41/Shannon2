@@ -20,8 +20,9 @@ export const promptTypes: PromptType[] = [
   "reply_twitter_comment",
   "emotion",
   "think_next_action",
-  "make_response_message",
+  "make_message",
   "use_tool",
+  "send_message",
 ];
 
 export type PromptType =
@@ -38,8 +39,9 @@ export type PromptType =
   | "reply_twitter_comment"
   | "emotion"
   | "think_next_action"
-  | "make_response_message"
-  | "use_tool";
+  | "make_message"
+  | "use_tool"
+  | "send_message";
 
 export type ConversationType =
   | "text"

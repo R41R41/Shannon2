@@ -313,7 +313,7 @@ export class PostWeatherAgent {
     const result = await this.taskGraph.invoke({
       memoryZone: 'discord:toyama_server',
       systemPrompt: prompt,
-      infoMessage: infoMessage,
+      environmentState: infoMessage,
     });
     const postForToyama =
       result.messages[result.messages.length - 1].content.toString();
