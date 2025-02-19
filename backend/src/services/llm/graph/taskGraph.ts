@@ -201,13 +201,13 @@ export class TaskGraph {
     const PlanningSchema = z.object({
       status: z.enum(['pending', 'in_progress', 'completed', 'error']),
       goal: z.string(),
-      plan: z.string(),
+      strategy: z.string(),
       subTasks: z
         .array(
           z.object({
             status: z.enum(['pending', 'in_progress', 'completed', 'error']),
             goal: z.string(),
-            plan: z.string(),
+            strategy: z.string(),
           })
         )
         .nullable(),
@@ -236,7 +236,7 @@ export class TaskGraph {
         taskTree: {
           status: response.status,
           goal: response.goal,
-          plan: response.plan,
+          strategy: response.strategy,
           subTasks: response.subTasks,
         } as TaskTreeState,
       };
@@ -306,7 +306,24 @@ export class TaskGraph {
       default: () => null,
     }),
     messages: Annotation<BaseMessage[]>({
-      reducer: (prev, next) => prev.concat(next),
+      reducer: (prev, next) => {
+        // nextの各メッセージをチェック
+        const validNext = next.filter((message, index, array) => {
+          if (message instanceof ToolMessage) {
+            // 直前のメッセージがAIMessageでtool_callsを持っているか確認
+            const prevMessage = array[index - 1];
+            return (
+              prevMessage instanceof AIMessage &&
+              prevMessage.additional_kwargs.tool_calls?.some(
+                (call) => call.id === message.tool_call_id
+              )
+            );
+          }
+          return true; // ToolMessage以外は全て保持
+        });
+
+        return prev.concat(validNext);
+      },
       default: () => [],
     }),
     userMessage: Annotation<string | null>({

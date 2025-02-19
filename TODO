@@ -25,7 +25,6 @@ LLM:
   ☐ 終了する @today(25-02-17 16:54)
   ☐ フィードバック入力 @today(25-02-17 16:54)
   ☐ centralAgentの作成 @today(25-02-17 16:54)
-  ☐ taskTreeをwebに表示する @today(25-02-19 15:46)
   ☐ postAboutTodayとpostWeatherAgentをTaskGraphと別にする
 
 Youtube:
@@ -117,6 +116,7 @@ Minecraft入力用mod:
   - **updated**: \x1b[36m - シアン（水色）
   - **others**: \x1b[37m - 白, \x1b[35m - マゼンタ（紫）
 Archive:
+  ✔ taskTreeをwebに表示する @today(25-02-19 15:46) @done(25-02-20 06:29) @project(LLM)
   ✔ 何かのレスポンスを待つeventBus.subscribe @today(25-02-17 16:54) @done(25-02-19 15:46) @project(LLM)
   ✔ 指定時間だけ一時停止する、指定時刻まで一時停止するtool @today(25-02-17 16:54) @done(25-02-19 15:46) @project(LLM)
   ✔ callModelの出力をjsonで必要最小限に @today(25-02-08) @done(25-02-17 16:54) @project(LLM)

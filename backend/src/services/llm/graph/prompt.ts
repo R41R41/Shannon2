@@ -84,8 +84,8 @@ export class Prompt {
         : null,
       state.taskTree
         ? new SystemMessage(
-            `goal: ${state.taskTree.goal}\nplan: ${
-              state.taskTree.plan
+            `goal: ${state.taskTree.goal}\nstrategy: ${
+              state.taskTree.strategy
             }\nstatus: ${state.taskTree.status}\nsubTasks: ${JSON.stringify(
               state.taskTree.subTasks
             )}`

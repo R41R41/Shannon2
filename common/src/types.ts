@@ -336,7 +336,7 @@ export type TaskStatus = "pending" | "in_progress" | "completed" | "error";
 
 export interface TaskTreeState {
   goal: string;
-  plan: string;
+  strategy: string;
   status: TaskStatus;
   error?: string | null;
   subTasks?: TaskTreeState[] | null;

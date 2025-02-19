@@ -99,7 +99,7 @@ const StatusLog: React.FC<StatusLogProps> = ({
       </div>
       
       <div className={styles.taskTree}>
-        <h4>Current Task</h4>
+        <h4>タスク1</h4>
         <div className={styles.taskStatus}>
           <span>Status: </span>
           <span className={styles[taskTree?.status ?? 'pending']}>
@@ -111,8 +111,8 @@ const StatusLog: React.FC<StatusLogProps> = ({
           <span>{taskTree?.goal ?? '-'}</span>
         </div>
         <div className={styles.taskPlan}>
-          <span>Plan: </span>
-          <span>{taskTree?.plan ?? '-'}</span>
+          <span>Strategy: </span>
+          <span>{taskTree?.strategy ?? '-'}</span>
         </div>
         {taskTree?.error && (
           <div className={styles.taskError}>

@@ -3,7 +3,7 @@
 .container {
   display: flex;
   flex-direction: column;
-  width: 200px;
+
   gap: 0.1rem;
   padding: 0.5rem;
 }
@@ -12,6 +12,7 @@
   display: flex;
   align-items: center;
   text-align: center;
+  width: 200px;
   gap: 0.5rem;
   font-size: 0.8rem;
   color: color(text, secondary);
@@ -58,6 +59,7 @@
   border: 1px solid #ccc;
   border-radius: 4px;
   color: color(text, secondary);
+  width: 50%;
 
   h4 {
     margin: 0 0 0.5rem;
