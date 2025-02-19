@@ -196,13 +196,15 @@ export class TaskGraph {
       status: z.enum(['pending', 'in_progress', 'completed', 'error']),
       goal: z.string(),
       plan: z.string(),
-      subTasks: z.array(
-        z.object({
-          status: z.enum(['pending', 'in_progress', 'completed', 'error']),
-          goal: z.string(),
-          plan: z.string(),
-        })
-      ),
+      subTasks: z
+        .array(
+          z.object({
+            status: z.enum(['pending', 'in_progress', 'completed', 'error']),
+            goal: z.string(),
+            plan: z.string(),
+          })
+        )
+        .nullable(),
     });
     const structuredLLM = this.mediumModel.withStructuredOutput(
       PlanningSchema,
