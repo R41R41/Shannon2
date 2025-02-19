@@ -86,6 +86,8 @@ export type MemoryZone =
   | "minebot";
 
 export type EventType =
+  | "task:stop"
+  | "task:start"
   | "llm:post_scheduled_message"
   | "llm:post_twitter_reply"
   | "llm:reply_youtube_comment"
@@ -125,6 +127,11 @@ export type EventType =
   | "web:status"
   | "youtube:status"
   | `minebot:${string}`;
+
+export interface TaskInput {
+  waitSeconds?: number | null;
+  date?: Date | null;
+}
 
 export interface EmotionType {
   emotion: string;
@@ -344,7 +351,8 @@ export interface Event {
     | YoutubeClientOutput
     | MinebotOutput
     | MinebotInput
-    | ServiceOutput;
+    | ServiceOutput
+    | TaskInput;
   targetMemoryZones?: MemoryZone[];
 }
 

@@ -33,7 +33,10 @@ export default class ChatOnDiscordTool extends StructuredTool {
           text: data.message,
         } as DiscordClientInput,
       });
-      return `discordに「${data.message}」というメッセージを送信しました。`;
+      const currentTime = new Date().toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+      });
+      return `${currentTime} discordに「${data.message}」というメッセージを送信しました。`;
     } catch (error) {
       console.error('Bing search error:', error);
       return `検索中にエラーが発生しました: ${error}`;

@@ -39,7 +39,7 @@ export class LLMService {
   constructor() {
     this.eventBus = getEventBus();
     this.realtimeApi = new RealtimeAPIService();
-    this.taskGraph = new TaskGraph(this.eventBus);
+    this.taskGraph = new TaskGraph();
     this.conversationHistories = new Map();
     this.setupEventBus();
     this.setupRealtimeAPICallback();
@@ -311,7 +311,12 @@ export class LLMService {
     infoMessage?: string | null
   ): Promise<string> {
     try {
-      const newMessage = new HumanMessage(`${userName}: ${message}`);
+      const currentTime = new Date().toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+      });
+      const newMessage = new HumanMessage(
+        `${currentTime} ${userName}: ${message}`
+      );
 
       this.saveConversationHistory(inputMemoryZone, [
         ...this.getConversationHistory(inputMemoryZone),
@@ -325,10 +330,8 @@ export class LLMService {
         memoryZone: inputMemoryZone,
         environmentState: infoMessage || null,
         messages: messages,
-        userMessage: `${userName}: ${message}`,
+        userMessage: `${currentTime} ${userName}: ${message}`,
       });
-
-      console.log(result);
 
       const lastMessage = result.responseMessage;
 

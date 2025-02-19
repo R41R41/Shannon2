@@ -8,8 +8,8 @@ import {
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { ChatOpenAI } from '@langchain/openai';
-import { MemoryZone, EmotionType } from '@shannon/common';
-import { TaskTreeState, TaskStateInput, NextAction } from './types.js';
+import { MemoryZone, EmotionType, TaskInput } from '@shannon/common';
+import { TaskTreeState, TaskStateInput } from './types.js';
 import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
@@ -31,13 +31,32 @@ export class TaskGraph {
   private graph: any;
   private eventBus: EventBus | null = null;
   private prompt: Prompt;
-  constructor(eventBus?: EventBus) {
-    this.eventBus = eventBus ?? null;
+  private isRunning: boolean = true;
+  private waitSeconds: number | null = null;
+  constructor() {
     this.initializeModel();
     this.initializeTools();
     this.toolNode = new ToolNode(this.tools);
     this.graph = this.createGraph();
-    this.prompt = new Prompt();
+    this.initializeEventBus();
+    this.prompt = new Prompt(this.tools);
+  }
+
+  private async initializeEventBus() {
+    this.eventBus = new EventBus();
+    this.eventBus.subscribe('task:stop', (event) => {
+      console.log(`タスクを停止します`);
+      this.isRunning = false;
+      const { waitSeconds } = event.data as TaskInput;
+      if (waitSeconds) {
+        this.waitSeconds = waitSeconds;
+      }
+    });
+    this.eventBus.subscribe('task:start', () => {
+      console.log(`タスクを再開します`);
+      this.isRunning = true;
+      this.waitSeconds = null;
+    });
   }
 
   private async initializeModel() {
@@ -100,9 +119,6 @@ export class TaskGraph {
           console.log(`\x1b[37m${message.content}\x1b[0m`);
         } else if (message instanceof AIMessage) {
           if (message.additional_kwargs.tool_calls) {
-            console.log(
-              `\x1b[32m${message.additional_kwargs.tool_calls[0].function.name}\x1b[0m`
-            );
             if (this.eventBus) {
               this.eventBus.log(
                 memoryZone,
@@ -111,9 +127,6 @@ export class TaskGraph {
                 true
               );
             }
-            console.log(
-              `\x1b[32m${message.additional_kwargs.tool_calls[0].function.arguments}\x1b[0m`
-            );
             if (this.eventBus) {
               this.eventBus.log(
                 memoryZone,
@@ -128,7 +141,6 @@ export class TaskGraph {
         } else if (message instanceof SystemMessage) {
           console.log(`\x1b[37m${message.content}\x1b[0m`);
         } else if (message instanceof ToolMessage) {
-          console.log(`\x1b[34m${message.content}\x1b[0m`);
           if (this.eventBus) {
             this.eventBus.log(
               memoryZone,
@@ -180,77 +192,36 @@ export class TaskGraph {
     if (!this.mediumModel) {
       throw new Error('Medium model not initialized');
     }
-    const llmWithTools = this.mediumModel.bindTools(this.tools);
-    const forcedToolLLM = llmWithTools.bind({
-      tool_choice: { type: 'function', function: { name: 'planning' } },
-    });
-    const messages = this.prompt.getMessages(state, 'planning', true);
-
-    try {
-      const response = await forcedToolLLM.invoke(messages);
-      const toolCall = response.additional_kwargs.tool_calls?.[0];
-      if (!toolCall) throw new Error('No tool call found');
-      const result = JSON.parse(toolCall.function.arguments);
-
-      return {
-        taskTree: {
-          status: result.status,
-          goal: result.goal,
-          plan: result.plan,
-          subTasks: result.subTasks,
-        } as TaskTreeState,
-        nextAction: result.nextAction,
-      };
-    } catch (error) {
-      console.error('JSONパースエラー:', error);
-      return this.errorHandler(state);
-    }
-  };
-
-  private makeMessageNode = async (state: typeof this.TaskState.State) => {
-    console.log('makeMessageNode');
-    const messages = this.prompt.getMessages(state, 'make_message', true);
-    if (!this.mediumModel) {
-      throw new Error('Medium model not initialized');
-    }
-    const ResponseMessageSchema = z.object({
-      responseMessage: z.string(),
+    const PlanningSchema = z.object({
+      status: z.enum(['pending', 'in_progress', 'completed', 'error']),
+      goal: z.string(),
+      plan: z.string(),
+      subTasks: z.array(
+        z.object({
+          status: z.enum(['pending', 'in_progress', 'completed', 'error']),
+          goal: z.string(),
+          plan: z.string(),
+        })
+      ),
     });
     const structuredLLM = this.mediumModel.withStructuredOutput(
-      ResponseMessageSchema,
+      PlanningSchema,
       {
-        name: 'ResponseMessage',
+        name: 'Planning',
       }
     );
+    const messages = this.prompt.getMessages(state, 'planning', true, true);
 
     try {
+      console.log('planning', messages);
       const response = await structuredLLM.invoke(messages);
-      console.log('\x1b[35mmake_message', response, '\x1b[0m');
       return {
-        responseMessage: response.responseMessage,
-        messages: [new AIMessage(response.responseMessage)],
-      };
-    } catch (error) {
-      console.error('JSONパースエラー:', error);
-      return this.errorHandler(state);
-    }
-  };
-
-  private sendMessageNode = async (state: typeof this.TaskState.State) => {
-    console.log('sendMessageNode');
-    const messages = this.prompt.getMessages(state, 'send_message', true);
-    if (!this.mediumModel) {
-      throw new Error('Medium model not initialized');
-    }
-    const llmWithTools = this.mediumModel.bindTools(this.tools);
-    const forcedToolLLM = llmWithTools.bind({
-      tool_choice: { type: 'function', function: { name: 'chat-on-discord' } },
-    });
-    try {
-      const response = await forcedToolLLM.invoke(messages);
-      console.log('\x1b[35msend_message', response, '\x1b[0m');
-      return {
-        messages: [response],
+        taskTree: {
+          status: response.status,
+          goal: response.goal,
+          plan: response.plan,
+          subTasks: response.subTasks,
+        } as TaskTreeState,
       };
     } catch (error) {
       console.error('JSONパースエラー:', error);
@@ -321,15 +292,15 @@ export class TaskGraph {
       reducer: (prev, next) => prev.concat(next),
       default: () => [],
     }),
+    userMessage: Annotation<string | null>({
+      reducer: (_, next) => next,
+      default: () => null,
+    }),
     emotion: Annotation<EmotionType | null>({
       reducer: (_, next) => next,
       default: () => null,
     }),
     taskTree: Annotation<TaskTreeState | null>({
-      reducer: (_, next) => next,
-      default: () => null,
-    }),
-    nextAction: Annotation<NextAction | null>({
       reducer: (_, next) => next,
       default: () => null,
     }),
@@ -345,35 +316,25 @@ export class TaskGraph {
       .addNode('feel_emotion', this.emotionNode)
       .addNode('tool_agent', this.toolAgentNode)
       .addNode('use_tool', this.toolNode)
-      .addNode('make_message', this.makeMessageNode)
-      .addNode('send_message', this.sendMessageNode)
+      .addEdge(START, 'feel_emotion')
+      .addEdge('feel_emotion', 'planning')
+      .addConditionalEdges('planning', (state) => {
+        if (state.taskTree?.status === 'completed') {
+          console.log('taskTree completed');
+          return END;
+        } else {
+          return 'tool_agent';
+        }
+      })
       .addEdge('tool_agent', 'use_tool')
       .addConditionalEdges('use_tool', (state) => {
         this.baseMessagesToLog(state.messages, state.memoryZone);
-        return 'planning';
-      })
-      .addEdge('feel_emotion', 'make_message')
-      .addEdge('make_message', 'send_message')
-      .addEdge('send_message', 'use_tool')
-      .addEdge(START, 'planning')
-      .addConditionalEdges('planning', (state) => {
-        switch (state.nextAction) {
-          case 'use_tool':
-            return 'tool_agent';
-          case 'make_and_send_message':
-            return 'feel_emotion';
-          case 'END':
-            return END;
-          default:
-            return END;
-        }
+        return 'feel_emotion';
       });
-
     return workflow.compile();
   }
 
   public async invoke(partialState: TaskStateInput) {
-    // デフォルト値とマージ
     let state: typeof this.TaskState.State = {
       memoryZone: partialState.memoryZone ?? 'web',
       environmentState: partialState.environmentState ?? null,
@@ -381,11 +342,11 @@ export class TaskGraph {
       humanFeedback: partialState.humanFeedback ?? null,
       selfFeedback: partialState.selfFeedback ?? null,
       messages: partialState.messages ?? [],
+      userMessage: partialState.userMessage ?? null,
       emotion: partialState.emotion ?? null,
       taskTree: partialState.taskTree ?? null,
-      nextAction: partialState.nextAction ?? null,
       responseMessage: partialState.responseMessage ?? null,
     };
-    return await this.graph.invoke(state);
+    return await this.graph.invoke(state, { recursionLimit: 32 });
   }
 }

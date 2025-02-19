@@ -3,6 +3,7 @@ Web:
   ☐ 音声会話ができる
   ☐ スキルの表示 @today(25-02-08)
   ☐ 感情状態の表示
+  ☐ 管理者モード
   
 discord:
   ☐ しょうもない機能たち*1 @high(25-02-04 21:10)
@@ -13,31 +14,31 @@ Twitter:
   ☐ ライ、ヤミーの投稿に返信*保留
   
 LLM:
-  ☐ discordに投稿スキル @today(25-02-08)
   ☐ discordに顔文字スキル @today(25-02-08)
+  ☐ ShannonUIにチャットスキル @today(25-02-17 16:54)
   ☐ スキル獲得
   ☐ ツールの動的読み込み
   ☐ ツール作成・テストノード
   ☐ ファイル操作系
-  ☐ 何かのレスポンスを待つeventBus.subscribe
-  ☐ minebot専用スキルグラフ @today(25-02-08)
-  ☐ 人間からのアドバイスstate 
-  ☐ callModelの出力をjsonで必要最小限に @today(25-02-08)
-  
+  ☐ 一時停止する @today(25-02-17 16:54)
+  ☐ 再開する @today(25-02-17 16:54)
+  ☐ 終了する @today(25-02-17 16:54)
+  ☐ フィードバック入力 @today(25-02-17 16:54)
+  ☐ centralAgentの作成 @today(25-02-17 16:54)
+  ☐ postAboutTodayとpostWeatherAgentをTaskGraphと別にする
+
 Youtube:
   ☐ 登録者数をdiscordに表示 @high(25-02-05 20:40)
 
 Minebot:
-  ☐ Minecraft bot の統合 @high(25-02-05 20:40) @today(25-02-08)
-  ☐ 環境状態を LLM に読ませる @today(25-02-08)
-    ☐ 常時：座標、HP、空腹度、インベントリ @today(25-02-08)
-    ☐ 検索：バイオーム、周囲ブロック、周囲エンティティ、画面 @today(25-02-08) 
+  ☐ Minecraft bot の統合 @high(25-02-05 20:40)
+  ☐ 環境状態を LLM に読ませる
+    ☐ 常時：座標、HP、空腹度、インベントリ
+    ☐ 検索：バイオーム、周囲ブロック、周囲エンティティ、画面
   ☐ 最新バージョンで動作
     
 その他:
-  ☐ 管理者モード
   ☐ 自発性
-  ☐ 内部思考Agent
 
 Minecraft入力用mod:
   ☐ チャット入出力
@@ -115,6 +116,11 @@ Minecraft入力用mod:
   - **updated**: \x1b[36m - シアン（水色）
   - **others**: \x1b[37m - 白, \x1b[35m - マゼンタ（紫）
 Archive:
+  ✔ 何かのレスポンスを待つeventBus.subscribe @today(25-02-17 16:54) @done(25-02-19 15:46) @project(LLM)
+  ✔ 指定時間だけ一時停止する、指定時刻まで一時停止するtool @today(25-02-17 16:54) @done(25-02-19 15:46) @project(LLM)
+  ✔ callModelの出力をjsonで必要最小限に @today(25-02-08) @done(25-02-17 16:54) @project(LLM)
+  ✔ 人間からのアドバイスstate @done(25-02-17 16:54) @project(LLM)
+  ✔ discordに投稿スキル @today(25-02-08) @done(25-02-17 16:53) @project(LLM)
   ✔ minebot 起動・停止・状態 @done(25-02-14 05:00) @project(Web)
   ✔ 感情状態 @done(25-02-09 04:46) @project(その他)
   ✔ 与えるプロンプトを必要最小限に @today(25-02-08) @done(25-02-09 04:45) @project(LLM)
