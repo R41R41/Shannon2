@@ -1,4 +1,4 @@
-@use '@styles/variables.scss' as *;
+@use "@styles/variables.scss" as *;
 
 .container {
   display: flex;
@@ -49,5 +49,44 @@
   }
   100% {
     opacity: 1;
+  }
+}
+
+.taskTree {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  color: color(text, secondary);
+
+  h4 {
+    margin: 0 0 0.5rem;
+  }
+
+  .taskStatus,
+  .taskGoal,
+  .taskPlan,
+  .taskError {
+    margin-bottom: 0.5rem;
+  }
+
+  .pending {
+    color: #888;
+  }
+  .in_progress {
+    color: #2196f3;
+  }
+  .completed {
+    color: #4caf50;
+  }
+  .error {
+    color: #f44336;
+  }
+
+  .subTasks {
+    ul {
+      margin: 0.5rem 0;
+      padding-left: 1.5rem;
+    }
   }
 }

@@ -47,7 +47,7 @@
     }
   },
   {
-    "time": "*/30 * * * *",
+    "time": "0 */1 * * *",
     "name": "youtube:check_comments",
     "data": {
       "type": "youtube:check_comments",

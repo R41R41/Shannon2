@@ -22,7 +22,7 @@ export default class ChatOnDiscordTool extends StructuredTool {
 
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
     try {
-      console.log('\x1b[35mchat-on-discord', data, '\x1b[0m');
+      // console.log('\x1b[35mchat-on-discord', data, '\x1b[0m');
       this.eventBus.publish({
         type: 'discord:post_message',
         memoryZone: data.memoryZone as MemoryZone,

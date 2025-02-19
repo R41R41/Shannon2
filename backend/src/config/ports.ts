@@ -8,5 +8,6 @@ export const PORTS = {
     MONITORING: process.env.WS_MONITORING_PORT || 5011,
     SCHEDULE: process.env.WS_SCHEDULE_PORT || 5012,
     STATUS: process.env.WS_STATUS_PORT || 5013,
+    PLANNING: process.env.WS_PLANNING_PORT || 5014,
   },
 } as const;

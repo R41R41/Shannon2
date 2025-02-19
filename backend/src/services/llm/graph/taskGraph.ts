@@ -8,8 +8,13 @@ import {
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { ChatOpenAI } from '@langchain/openai';
-import { MemoryZone, EmotionType, TaskInput } from '@shannon/common';
-import { TaskTreeState, TaskStateInput } from './types.js';
+import {
+  MemoryZone,
+  EmotionType,
+  TaskInput,
+  TaskTreeState,
+} from '@shannon/common';
+import { TaskStateInput } from './types.js';
 import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
@@ -17,6 +22,7 @@ import { fileURLToPath } from 'url';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { z } from 'zod';
 import { Prompt } from './prompt.js';
+import { getEventBus } from '../../eventBus/index.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -29,11 +35,12 @@ export class TaskGraph {
   private tools: any[] = [];
   private toolNode: ToolNode;
   private graph: any;
-  private eventBus: EventBus | null = null;
+  private eventBus: EventBus;
   private prompt: Prompt;
   private isRunning: boolean = true;
   private waitSeconds: number | null = null;
   constructor() {
+    this.eventBus = getEventBus();
     this.initializeModel();
     this.initializeTools();
     this.toolNode = new ToolNode(this.tools);
@@ -43,7 +50,6 @@ export class TaskGraph {
   }
 
   private async initializeEventBus() {
-    this.eventBus = new EventBus();
     this.eventBus.subscribe('task:stop', (event) => {
       console.log(`タスクを停止します`);
       this.isRunning = false;
@@ -215,8 +221,17 @@ export class TaskGraph {
     const messages = this.prompt.getMessages(state, 'planning', true, true);
 
     try {
-      console.log('planning', messages);
+      // console.log('planning', messages);
       const response = await structuredLLM.invoke(messages);
+      if (this.eventBus) {
+        console.log('eventBus publish');
+        this.eventBus.publish({
+          type: 'web:planning',
+          memoryZone: 'web',
+          data: response,
+          targetMemoryZones: ['web'],
+        });
+      }
       return {
         taskTree: {
           status: response.status,
@@ -256,7 +271,7 @@ export class TaskGraph {
     });
     try {
       const response = await structuredLLM.invoke(messages);
-      console.log('\x1b[35memotion', response, '\x1b[0m');
+      // console.log('\x1b[35memotion', response, '\x1b[0m');
       return {
         emotion: {
           emotion: response.emotion,
@@ -321,16 +336,27 @@ export class TaskGraph {
       .addEdge(START, 'feel_emotion')
       .addEdge('feel_emotion', 'planning')
       .addConditionalEdges('planning', (state) => {
-        if (state.taskTree?.status === 'completed') {
+        if (
+          state.taskTree?.status === 'completed' ||
+          state.taskTree?.status === 'error'
+        ) {
           console.log('taskTree completed');
           return END;
         } else {
           return 'tool_agent';
         }
       })
-      .addEdge('tool_agent', 'use_tool')
+      .addConditionalEdges('tool_agent', (state) => {
+        if (
+          state.messages[state.messages.length - 1].additional_kwargs.tool_calls
+        ) {
+          return 'use_tool';
+        } else {
+          return END;
+        }
+      })
       .addConditionalEdges('use_tool', (state) => {
-        this.baseMessagesToLog(state.messages, state.memoryZone);
+        // this.baseMessagesToLog(state.messages, state.memoryZone);
         return 'feel_emotion';
       });
     return workflow.compile();

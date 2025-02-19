@@ -6,8 +6,6 @@ import {
   MemoryZone,
   OpenAIMessageInput,
   OpenAIMessageOutput,
-  PromptType,
-  promptTypes,
   TwitterClientInput,
   TwitterClientOutput,
   YoutubeClientInput,
@@ -21,7 +19,6 @@ import { PostWeatherAgent } from './agents/postWeatherAgent.js';
 import { RealtimeAPIService } from './agents/realtimeApiAgent.js';
 import { ReplyTwitterCommentAgent } from './agents/replyTwitterComment.js';
 import { ReplyYoutubeCommentAgent } from './agents/replyYoutubeComment.js';
-import { loadPrompt } from './config/prompts.js';
 import { TaskGraph } from './graph/taskGraph.js';
 import { getEventBus } from '../eventBus/index.js';
 

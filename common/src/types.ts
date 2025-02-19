@@ -124,6 +124,7 @@ export type EventType =
   | "web:post_schedule"
   | "scheduler:call_schedule"
   | "web:log"
+  | "web:planning"
   | "web:status"
   | "youtube:status"
   | `minebot:${string}`;
@@ -331,6 +332,15 @@ export interface MinecraftOutput {
   statuses?: { serverName: MinecraftServerName; status: boolean }[] | null;
 }
 
+export type TaskStatus = "pending" | "in_progress" | "completed" | "error";
+
+export interface TaskTreeState {
+  goal: string;
+  plan: string;
+  status: TaskStatus;
+  error?: string | null;
+  subTasks?: TaskTreeState[] | null;
+}
 export interface Event {
   type: EventType;
   memoryZone: MemoryZone;
@@ -352,7 +362,8 @@ export interface Event {
     | MinebotOutput
     | MinebotInput
     | ServiceOutput
-    | TaskInput;
+    | TaskInput
+    | TaskTreeState;
   targetMemoryZones?: MemoryZone[];
 }
 

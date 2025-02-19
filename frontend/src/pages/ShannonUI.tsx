@@ -10,6 +10,7 @@ import { OpenAIAgent } from '@/services/agents/openaiAgent';
 import { WebClient } from '@/services/client';
 import { SchedulerAgent } from '@/services/agents/schedulerAgent';
 import { StatusAgent } from '@/services/agents/statusAgent';
+import { PlanningAgent } from '@/services/agents/planningAgent';
 const ResizeHandle = ({ className = '' }) => (
   <PanelResizeHandle className={`${styles.resizeHandle} ${className}`} />
 );
@@ -19,6 +20,7 @@ const ShannonUI: React.FC = () => {
   const [openai, setOpenai] = useState<OpenAIAgent | null>(null);
   const [scheduler, setScheduler] = useState<SchedulerAgent | null>(null);
   const [status, setStatus] = useState<StatusAgent | null>(null);
+  const [planning, setPlanning] = useState<PlanningAgent | null>(null);
   useEffect(() => {
     const webClient = new WebClient();
     webClient.start();
@@ -26,6 +28,7 @@ const ShannonUI: React.FC = () => {
     setOpenai(webClient.openaiService);
     setScheduler(webClient.schedulerService);
     setStatus(webClient.statusService);
+    setPlanning(webClient.planningService);
   }, []);
   return (
     <div className={styles.container}>
@@ -47,6 +50,7 @@ const ShannonUI: React.FC = () => {
               monitoring={monitoring}
               openai={openai}
               status={status}
+              planning={planning}
             />
           </Panel>
 

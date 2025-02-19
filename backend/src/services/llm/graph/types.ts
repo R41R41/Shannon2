@@ -1,15 +1,5 @@
-import { MemoryZone, EmotionType } from '@shannon/common';
+import { MemoryZone, EmotionType, TaskTreeState } from '@shannon/common';
 import { BaseMessage } from '@langchain/core/messages';
-
-export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'error';
-
-export interface TaskTreeState {
-  goal: string;
-  plan: string;
-  status: TaskStatus;
-  error?: string | null;
-  subTasks?: TaskTreeState[] | null;
-}
 
 export interface TaskStateInput {
   emotion?: EmotionType | null;
