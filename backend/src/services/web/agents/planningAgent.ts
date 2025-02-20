@@ -41,7 +41,6 @@ export class PlanningAgent extends WebSocketServiceBase {
     console.log('\x1b[31mplanningAgent subscribe\x1b[0m');
 
     this.eventBus.subscribe('web:planning', (event) => {
-      console.log('web:planning', event);
       const data = event.data as TaskTreeState;
       this.broadcast({
         type: 'web:planning',

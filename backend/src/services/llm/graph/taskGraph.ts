@@ -315,30 +315,33 @@ export class TaskGraph {
     }),
     messages: Annotation<BaseMessage[]>({
       reducer: (prev, next) => {
+        // 変更可能な新しい配列を作成
+        let updatedPrev = [...prev];
+
         // nextの各メッセージをチェック
         const validNext = next.filter((message, index, array) => {
           if (message instanceof ToolMessage) {
             // 直前のメッセージがAIMessageでtool_callsを持っているか確認
-            const prevMessage = prev[prev.length - 1];
+            const prevMessage = updatedPrev[updatedPrev.length - 1];
             return (
               prevMessage instanceof AIMessage &&
               prevMessage.additional_kwargs.tool_calls
             );
           } else {
             // ToolMessage以外の場合、直前のメッセージをチェック
-            const prevMessage = prev[prev.length - 1];
+            const prevMessage = updatedPrev[updatedPrev.length - 1];
             if (
               prevMessage instanceof AIMessage &&
               prevMessage.additional_kwargs.tool_calls
             ) {
               // tool_callsを含むメッセージを削除
-              prev.splice(prev.length - 1, 1);
+              updatedPrev = updatedPrev.slice(0, -1);
             }
           }
           return true; // ToolMessage以外は全て保持
         });
 
-        return prev.concat(validNext);
+        return updatedPrev.concat(validNext);
       },
       default: () => [],
     }),
@@ -405,7 +408,7 @@ export class TaskGraph {
       messages: partialState.messages ?? [],
       userMessage: partialState.userMessage ?? null,
       emotion: partialState.emotion ?? null,
-      taskTree: partialState.taskTree ?? null,
+      taskTree: null,
       responseMessage: partialState.responseMessage ?? null,
     };
     return await this.graph.invoke(state, { recursionLimit: 32 });

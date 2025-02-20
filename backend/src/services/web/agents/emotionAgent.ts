@@ -41,7 +41,6 @@ export class EmotionAgent extends WebSocketServiceBase {
     console.log('\x1b[31mEmotionAgent subscribe\x1b[0m');
 
     this.eventBus.subscribe('web:emotion', (event) => {
-      console.log('web:emotion', event);
       const data = event.data as EmotionType;
       this.broadcast({
         type: 'web:emotion',
