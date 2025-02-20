@@ -114,6 +114,15 @@ Minecraft入力用mod:
   - **started**: \x1b[34m - 青
   - **updated**: \x1b[36m - シアン（水色）
   - **others**: \x1b[37m - 白, \x1b[35m - マゼンタ（紫）
+
+wsを追加したときにやること:
+  - sudo nano /etc/nginx/sites-available/shannon.confの変更
+  - 設定ファイルの構文チェック sudo nginx -t
+  - 問題なければNginxを再読み込み sudo nginx -s reload
+  - または完全に再起動 sudo systemctl restart nginx
+  - ポートの確認 sudo ss -tulpn | grep LISTEN
+  - ログの確認 sudo tail -f /var/log/nginx/error.log
+
 Archive:
   ✔ postAboutTodayとpostWeatherAgentをTaskGraphと別にする @today(25-02-20 16:01) @high(25-02-20 16:01) @done(25-02-20 22:40) @project(LLM)
   ✔ 計算スキル @today(25-02-19 16:54) @done(25-02-20 21:28) @project(LLM)
