@@ -11,8 +11,16 @@ import {
 } from '../../common/WebSocketService.js';
 
 export class StatusAgent extends WebSocketServiceBase {
-  constructor(config: WebSocketServiceConfig) {
+  private static instance: StatusAgent;
+  private constructor(config: WebSocketServiceConfig) {
     super(config);
+  }
+
+  public static getInstance(config: WebSocketServiceConfig): StatusAgent {
+    if (!StatusAgent.instance) {
+      StatusAgent.instance = new StatusAgent(config);
+    }
+    return StatusAgent.instance;
   }
 
   protected override initialize() {
