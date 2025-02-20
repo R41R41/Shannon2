@@ -1,7 +1,7 @@
 
 Web:
   ☐ 音声会話ができる
-  ☐ スキルの表示 
+  ☐ スキルの表示 @today(25-02-20 16:01) @high(25-02-20 16:01)
   ☐ 管理者モード
   
 discord:
@@ -13,7 +13,6 @@ Twitter:
   ☐ ライ、ヤミーの投稿に返信*保留
   
 LLM:
-  ☐ 計算スキル @today(25-02-19 16:54)
   ☐ スキル獲得
   ☐ ツールの動的読み込み
   ☐ ツール作成・テストノード 
@@ -23,7 +22,6 @@ LLM:
   ☐ 終了する @today(25-02-17 16:54)
   ☐ フィードバック入力 @today(25-02-17 16:54)
   ☐ centralAgentの作成 @today(25-02-17 16:54)
-  ☐ postAboutTodayとpostWeatherAgentをTaskGraphと別にする @today(25-02-20 16:01) @high(25-02-20 16:01)
 
 Youtube:
   ☐ 登録者数をdiscordに表示 @high(25-02-05 20:40)
@@ -114,6 +112,8 @@ Minecraft入力用mod:
   - **updated**: \x1b[36m - シアン（水色）
   - **others**: \x1b[37m - 白, \x1b[35m - マゼンタ（紫）
 Archive:
+  ✔ postAboutTodayとpostWeatherAgentをTaskGraphと別にする @today(25-02-20 16:01) @high(25-02-20 16:01) @done(25-02-20 22:40) @project(LLM)
+  ✔ 計算スキル @today(25-02-19 16:54) @done(25-02-20 21:28) @project(LLM)
   ✔ ShannonUIにチャットスキル @today(25-02-17 16:54) @done(25-02-20 16:01) @project(LLM)
   ✔ discordに顔文字スキル @today(25-02-08) @done(25-02-20 15:22) @project(LLM)
   ✔ 感情状態の表示 @today(25-02-19 15:46) @done(25-02-20 09:06) @project(Web)

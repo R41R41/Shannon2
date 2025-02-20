@@ -6,7 +6,11 @@ import { addDays, format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import dotenv from 'dotenv';
 import { loadPrompt } from '../config/prompts.js';
-import { TaskGraph } from '../graph/taskGraph.js';
+import { AgentExecutor } from 'langchain/agents';
+import { pull } from 'langchain/hub';
+import { ChatPromptTemplate } from '@langchain/core/prompts';
+import BingSearchTool from '../tools/bingSearch.js';
+import { createOpenAIToolsAgent } from 'langchain/agents';
 
 dotenv.config();
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -35,7 +39,9 @@ export class PostWeatherAgent {
     'weather',
     'chanceOfRain',
   ];
-  private taskGraph: TaskGraph;
+  private tools: any[];
+  private agent: any;
+  private executor: AgentExecutor | null;
 
   constructor(
     systemPrompts: Map<PromptType, string>,
@@ -46,7 +52,10 @@ export class PostWeatherAgent {
       temperature: 0.8,
       apiKey: OPENAI_API_KEY,
     });
-    this.taskGraph = new TaskGraph();
+    this.executor = null;
+    this.tools = [];
+    this.setTools();
+    this.initializeAgent();
     this.cities = [
       ['稚内', '011000'],
       ['根室', '014010'],
@@ -121,6 +130,32 @@ export class PostWeatherAgent {
     this.systemPrompts = systemPrompts;
   }
 
+  private setTools() {
+    const bingSearchTool = new BingSearchTool();
+    this.tools = [bingSearchTool];
+  }
+
+  private async initializeAgent() {
+    // AgentのPromptをHubから取得
+    const prompt = (await pull(
+      'hwchase17/openai-tools-agent'
+    )) as ChatPromptTemplate;
+
+    // Agentを作成
+    this.agent = await createOpenAIToolsAgent({
+      llm: this.model,
+      tools: this.tools,
+      prompt: prompt,
+    });
+
+    // ExecutorでAgentを実行可能に
+    this.executor = new AgentExecutor({
+      agent: this.agent,
+      tools: this.tools,
+      verbose: true,
+    });
+  }
+
   public static async create(): Promise<PostWeatherAgent> {
     const promptsName: PromptType[] = [
       'forecast',
@@ -132,6 +167,23 @@ export class PostWeatherAgent {
       systemPrompts.set(name, await loadPrompt(name));
     }
     return new PostWeatherAgent(systemPrompts);
+  }
+
+  private async llm(systemPrompt: string): Promise<string> {
+    if (!this.executor) {
+      throw new Error('Executor is not initialized');
+    }
+    try {
+      // AgentExecutorを使用して実行
+      const result = await this.executor.invoke({
+        input: systemPrompt,
+      });
+
+      return result.output;
+    } catch (error) {
+      console.error('Agent execution error:', error);
+      throw error;
+    }
   }
 
   private async getUrl(city: string): Promise<any> {
@@ -310,13 +362,7 @@ export class PostWeatherAgent {
     if (!prompt) {
       throw new Error('forecast_for_toyama_server prompt not found');
     }
-    const result = await this.taskGraph.invoke({
-      memoryZone: 'discord:toyama_server',
-      systemPrompt: prompt,
-      environmentState: infoMessage,
-    });
-    const postForToyama =
-      result.messages[result.messages.length - 1].content.toString();
-    return `${postForToyama}`;
+    const result = await this.llm(prompt + '\n' + infoMessage);
+    return `${result}`;
   }
 }

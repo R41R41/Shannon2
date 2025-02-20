@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Schedule } from '@common/types';
+import { Schedule } from '@common/types/scheduler';
 import { SchedulerAgent } from '@/services/agents/schedulerAgent';
 import styles from './ScheduleTab.module.scss';
 import cronstrue from 'cronstrue';

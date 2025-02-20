@@ -230,7 +230,6 @@ export class LLMService {
         command: message.command,
         text: postForToyama,
       } as DiscordScheduledPostInput,
-      targetMemoryZones: ['discord:toyama_server'],
     });
   }
 
