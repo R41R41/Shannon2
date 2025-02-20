@@ -403,13 +403,13 @@ export class TaskGraph {
       memoryZone: partialState.memoryZone ?? 'web',
       environmentState: partialState.environmentState ?? null,
       selfState: partialState.selfState ?? null,
-      humanFeedback: partialState.humanFeedback ?? null,
-      selfFeedback: partialState.selfFeedback ?? null,
+      humanFeedback: null,
+      selfFeedback: null,
       messages: partialState.messages ?? [],
       userMessage: partialState.userMessage ?? null,
       emotion: partialState.emotion ?? null,
       taskTree: null,
-      responseMessage: partialState.responseMessage ?? null,
+      responseMessage: null,
     };
     return await this.graph.invoke(state, { recursionLimit: 32 });
   }
