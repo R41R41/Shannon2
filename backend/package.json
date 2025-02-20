@@ -18,6 +18,7 @@
     "@langchain/openai": "^0.3.17",
     "@shannon/common": "*",
     "@types/twit": "^2.2.35",
+    "@wolfram-alpha/wolfram-alpha-api": "^23.1004.144821-RELEASE",
     "axios": "^1.7.9",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
@@ -40,7 +41,8 @@
     "openai": "^4.80.0",
     "twit": "^2.2.11",
     "twitter-api-v2": "^1.19.0",
-    "winston": "^3.10.0"
+    "winston": "^3.10.0",
+    "wolfram-alpha-api": "^0.2.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.0",

@@ -11,6 +11,7 @@ import {
 import { OpenAIAgent } from '@/services/agents/openaiAgent';
 import '@chatscope/chat-ui-kit-styles/dist/default/styles.min.css';
 import './ChatScope.scss';
+import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 
 interface ChatScopeProps {
   openai: OpenAIAgent | null;
@@ -18,21 +19,33 @@ interface ChatScopeProps {
 
 export const ChatScope: React.FC<ChatScopeProps> = ({ openai }) => {
   const [isTyping] = useState(false);
-  const [chatMessages, setChatMessages] = useState<
-    { content: string; sender: string }[]
-  >([]);
+  const [chatMessages, setChatMessages] = useState<BaseMessage[]>([]);
   const [processingChatMessageIndex, setProcessingChatMessageIndex] =
     useState<number>(0);
   const [isRealTimeChat, setIsRealTimeChat] = useState(false);
 
   const handleSendMessage = async (message: string) => {
     try {
-      setChatMessages((prev) => [
-        ...prev,
-        { content: message, sender: 'User' },
-      ]);
+      // HTML要素を除去してプレーンテキストに変換
+      const cleanMessage = message
+        .replace(/<br\s*\/?>/g, '\n')  // <br>タグを改行に変換
+        .replace(/&lt;/g, '<')         // &lt; を < に変換
+        .replace(/&gt;/g, '>')         // &gt; を > に変換
+        .replace(/&amp;/g, '&')        // &amp; を & に変換
+        .replace(/&quot;/g, '"')       // &quot; を " に変換
+        .replace(/&#39;/g, "'")        // &#39; を ' に変換
+        .replace(/&nbsp;/g, ' ')       // &nbsp; を空白に変換
+        .replace(/&#x2F;/g, '/')       // &#x2F; を / に変換
+        .replace(/<[^>]*>/g, '')       // その他のHTMLタグを除去
+        .trim();
+      const currentTime = new Date().toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+      });
+
+      setChatMessages((prev) => [...prev, new HumanMessage(currentTime + ' ' + "User:" + ' ' + cleanMessage)]);
+      
       if (openai) {
-        await openai.sendMessage(message, isRealTimeChat);
+        await openai.sendMessage(cleanMessage, isRealTimeChat, chatMessages.slice(-10));
       }
     } catch (error) {
       console.error('メッセージの送信に失敗しました:', error);
@@ -41,29 +54,40 @@ export const ChatScope: React.FC<ChatScopeProps> = ({ openai }) => {
 
   if (openai) {
     openai.textCallback = (text: string) => {
-      if (processingChatMessageIndex > chatMessages.length) {
+      const modifiedText = text.replace(/\\n/g, '\n');
+      if (processingChatMessageIndex > chatMessages.length-1) {
         setChatMessages((prev) => {
-          return [...prev, { content: text, sender: 'AI' }];
+          const currentTime = new Date().toLocaleString('ja-JP', {
+            timeZone: 'Asia/Tokyo',
+          });
+          return [...prev, new AIMessage(currentTime + ' ' + "AI:" + ' ' + modifiedText)];
         });
       } else {
         setChatMessages((prev) => {
           const lastMessage = prev[prev.length - 1];
-          if (lastMessage && lastMessage.sender === 'AI') {
+          if (lastMessage && lastMessage instanceof AIMessage) {
             return [
               ...prev.slice(0, -1),
-              { content: lastMessage.content + text, sender: 'AI' },
+              new AIMessage(lastMessage.content + modifiedText),
             ];
           } else {
-            return [...prev, { content: text, sender: 'AI' }];
+            const currentTime = new Date().toLocaleString('ja-JP', {
+              timeZone: 'Asia/Tokyo',
+            });
+            return [...prev, new AIMessage(currentTime + ' ' + "AI:" + ' ' + modifiedText)];
           }
         });
       }
     };
     openai.textDoneCallback = () => {
+      console.log('textDoneCallback');
       setProcessingChatMessageIndex(chatMessages.length + 1);
     };
     openai.userTranscriptCallback = (text: string) => {
-      setChatMessages((prev) => [...prev, { content: text, sender: 'User' }]);
+      const currentTime = new Date().toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+      });
+      setChatMessages((prev) => [...prev, new HumanMessage(currentTime + ' ' + "User:" + ' ' + text)]);
     };
   }
 
@@ -75,7 +99,7 @@ export const ChatScope: React.FC<ChatScopeProps> = ({ openai }) => {
             isTyping ? (
               <TypingIndicator
                 content={`${
-                  chatMessages[chatMessages.length - 1]?.sender
+                  chatMessages[chatMessages.length - 1] instanceof HumanMessage ? 'User' : 'AI'
                 }が入力中...`}
               />
             ) : null
@@ -85,12 +109,13 @@ export const ChatScope: React.FC<ChatScopeProps> = ({ openai }) => {
             <Message
               key={index}
               model={{
-                message: msg.content,
+                message: msg instanceof HumanMessage ? String(msg.content).split('User: ')[1] : String(msg.content).split('AI: ')[1],
                 sentTime: 'just now',
-                sender: msg.sender,
-                direction: msg.sender === 'User' ? 'outgoing' : 'incoming',
+                sender: msg instanceof HumanMessage ? 'User' : 'AI',
+                direction: msg instanceof HumanMessage ? 'outgoing' : 'incoming',
                 position: 'single',
               }}
+              className="copyable-message"
             />
           ))}
         </MessageList>

@@ -8,8 +8,13 @@ import {
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { ChatOpenAI } from '@langchain/openai';
-import { MemoryZone, EmotionType } from '@shannon/common';
-import { TaskTreeState, TaskStateInput, NextAction } from './types.js';
+import {
+  MemoryZone,
+  EmotionType,
+  TaskInput,
+  TaskTreeState,
+} from '@shannon/common';
+import { TaskStateInput } from './types.js';
 import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
@@ -17,6 +22,8 @@ import { fileURLToPath } from 'url';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { z } from 'zod';
 import { Prompt } from './prompt.js';
+import { getEventBus } from '../../eventBus/index.js';
+import { BadRequestError } from 'openai';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -29,15 +36,34 @@ export class TaskGraph {
   private tools: any[] = [];
   private toolNode: ToolNode;
   private graph: any;
-  private eventBus: EventBus | null = null;
+  private eventBus: EventBus;
   private prompt: Prompt;
-  constructor(eventBus?: EventBus) {
-    this.eventBus = eventBus ?? null;
+  private isRunning: boolean = true;
+  private waitSeconds: number | null = null;
+  constructor() {
+    this.eventBus = getEventBus();
     this.initializeModel();
     this.initializeTools();
     this.toolNode = new ToolNode(this.tools);
     this.graph = this.createGraph();
-    this.prompt = new Prompt();
+    this.initializeEventBus();
+    this.prompt = new Prompt(this.tools);
+  }
+
+  private async initializeEventBus() {
+    this.eventBus.subscribe('task:stop', (event) => {
+      console.log(`タスクを停止します`);
+      this.isRunning = false;
+      const { waitSeconds } = event.data as TaskInput;
+      if (waitSeconds) {
+        this.waitSeconds = waitSeconds;
+      }
+    });
+    this.eventBus.subscribe('task:start', () => {
+      console.log(`タスクを再開します`);
+      this.isRunning = true;
+      this.waitSeconds = null;
+    });
   }
 
   private async initializeModel() {
@@ -100,9 +126,6 @@ export class TaskGraph {
           console.log(`\x1b[37m${message.content}\x1b[0m`);
         } else if (message instanceof AIMessage) {
           if (message.additional_kwargs.tool_calls) {
-            console.log(
-              `\x1b[32m${message.additional_kwargs.tool_calls[0].function.name}\x1b[0m`
-            );
             if (this.eventBus) {
               this.eventBus.log(
                 memoryZone,
@@ -111,9 +134,6 @@ export class TaskGraph {
                 true
               );
             }
-            console.log(
-              `\x1b[32m${message.additional_kwargs.tool_calls[0].function.arguments}\x1b[0m`
-            );
             if (this.eventBus) {
               this.eventBus.log(
                 memoryZone,
@@ -128,7 +148,6 @@ export class TaskGraph {
         } else if (message instanceof SystemMessage) {
           console.log(`\x1b[37m${message.content}\x1b[0m`);
         } else if (message instanceof ToolMessage) {
-          console.log(`\x1b[34m${message.content}\x1b[0m`);
           if (this.eventBus) {
             this.eventBus.log(
               memoryZone,
@@ -145,12 +164,27 @@ export class TaskGraph {
     console.log('-------------------------------');
   }
 
-  private errorHandler = async (state: typeof this.TaskState.State) => {
+  private errorHandler = async (
+    state: typeof this.TaskState.State,
+    error: Error
+  ) => {
+    if (error instanceof BadRequestError) {
+      console.log(
+        '\x1b[31mAn assistant message with "tool_calls" must be followed by tool messages responding to each "tool_call_id".\x1b[0m'
+      );
+      return {
+        taskTree: {
+          status: 'error',
+          ...state.taskTree,
+        } as TaskTreeState,
+      };
+    }
     return {
-      ...state.taskTree,
-      status: 'error',
-      error: '処理中にエラーが発生しました',
-    } as TaskTreeState;
+      taskTree: {
+        status: 'error',
+        ...state.taskTree,
+      } as TaskTreeState,
+    };
   };
 
   private toolAgentNode = async (state: typeof this.TaskState.State) => {
@@ -164,97 +198,63 @@ export class TaskGraph {
       tool_choice: 'any',
     });
     try {
+      // console.log('messages', JSON.stringify(messages, null, 2));
       const response = await forcedToolLLM.invoke(messages);
-      console.log('\x1b[35muse_tool', response, '\x1b[0m');
+      // console.log('\x1b[35muse_tool', response, '\x1b[0m');
       return {
         messages: [response],
       };
     } catch (error) {
-      console.error('JSONパースエラー:', error);
-      return this.errorHandler(state);
+      return this.errorHandler(state, error as Error);
     }
   };
 
   private planningNode = async (state: typeof this.TaskState.State) => {
     console.log('planning');
-    if (!this.mediumModel) {
-      throw new Error('Medium model not initialized');
+    if (!this.largeModel) {
+      throw new Error('Large model not initialized');
     }
-    const llmWithTools = this.mediumModel.bindTools(this.tools);
-    const forcedToolLLM = llmWithTools.bind({
-      tool_choice: { type: 'function', function: { name: 'planning' } },
+    const PlanningSchema = z.object({
+      status: z.enum(['pending', 'in_progress', 'completed', 'error']),
+      goal: z.string(),
+      strategy: z.string(),
+      subTasks: z
+        .array(
+          z.object({
+            status: z.enum(['pending', 'in_progress', 'completed', 'error']),
+            goal: z.string(),
+            strategy: z.string(),
+          })
+        )
+        .nullable(),
     });
-    const messages = this.prompt.getMessages(state, 'planning', true);
+    const structuredLLM = this.largeModel.withStructuredOutput(PlanningSchema, {
+      name: 'Planning',
+    });
+    const messages = this.prompt.getMessages(state, 'planning', true, true);
 
     try {
-      const response = await forcedToolLLM.invoke(messages);
-      const toolCall = response.additional_kwargs.tool_calls?.[0];
-      if (!toolCall) throw new Error('No tool call found');
-      const result = JSON.parse(toolCall.function.arguments);
-
+      console.log('planning', JSON.stringify(messages, null, 2));
+      const response = await structuredLLM.invoke(messages);
+      if (this.eventBus) {
+        console.log('eventBus publish');
+        this.eventBus.publish({
+          type: 'web:planning',
+          memoryZone: 'web',
+          data: response,
+          targetMemoryZones: ['web'],
+        });
+      }
       return {
         taskTree: {
-          status: result.status,
-          goal: result.goal,
-          plan: result.plan,
-          subTasks: result.subTasks,
+          status: response.status,
+          goal: response.goal,
+          strategy: response.strategy,
+          subTasks: response.subTasks,
         } as TaskTreeState,
-        nextAction: result.nextAction,
       };
     } catch (error) {
-      console.error('JSONパースエラー:', error);
-      return this.errorHandler(state);
-    }
-  };
-
-  private makeMessageNode = async (state: typeof this.TaskState.State) => {
-    console.log('makeMessageNode');
-    const messages = this.prompt.getMessages(state, 'make_message', true);
-    if (!this.mediumModel) {
-      throw new Error('Medium model not initialized');
-    }
-    const ResponseMessageSchema = z.object({
-      responseMessage: z.string(),
-    });
-    const structuredLLM = this.mediumModel.withStructuredOutput(
-      ResponseMessageSchema,
-      {
-        name: 'ResponseMessage',
-      }
-    );
-
-    try {
-      const response = await structuredLLM.invoke(messages);
-      console.log('\x1b[35mmake_message', response, '\x1b[0m');
-      return {
-        responseMessage: response.responseMessage,
-        messages: [new AIMessage(response.responseMessage)],
-      };
-    } catch (error) {
-      console.error('JSONパースエラー:', error);
-      return this.errorHandler(state);
-    }
-  };
-
-  private sendMessageNode = async (state: typeof this.TaskState.State) => {
-    console.log('sendMessageNode');
-    const messages = this.prompt.getMessages(state, 'send_message', true);
-    if (!this.mediumModel) {
-      throw new Error('Medium model not initialized');
-    }
-    const llmWithTools = this.mediumModel.bindTools(this.tools);
-    const forcedToolLLM = llmWithTools.bind({
-      tool_choice: { type: 'function', function: { name: 'chat-on-discord' } },
-    });
-    try {
-      const response = await forcedToolLLM.invoke(messages);
-      console.log('\x1b[35msend_message', response, '\x1b[0m');
-      return {
-        messages: [response],
-      };
-    } catch (error) {
-      console.error('JSONパースエラー:', error);
-      return this.errorHandler(state);
+      return this.errorHandler(state, error as Error);
     }
   };
 
@@ -282,17 +282,25 @@ export class TaskGraph {
       name: 'Emotion',
     });
     try {
+      // console.log('emotionNode', JSON.stringify(messages, null, 2));
       const response = await structuredLLM.invoke(messages);
-      console.log('\x1b[35memotion', response, '\x1b[0m');
+      // console.log('\x1b[35memotion', response, '\x1b[0m');
+      if (this.eventBus) {
+        this.eventBus.publish({
+          type: 'web:emotion',
+          memoryZone: 'web',
+          data: response,
+          targetMemoryZones: ['web'],
+        });
+      }
       return {
         emotion: {
           emotion: response.emotion,
           parameters: response.parameters,
         },
       };
-    } catch (error) {
-      console.error('JSONパースエラー:', error);
-      return this.errorHandler(state);
+    } catch (error: any) {
+      return this.errorHandler(state, error as Error);
     }
   };
 
@@ -318,22 +326,46 @@ export class TaskGraph {
       default: () => null,
     }),
     messages: Annotation<BaseMessage[]>({
-      reducer: (prev, next) => prev.concat(next),
+      reducer: (prev, next) => {
+        // 変更可能な新しい配列を作成
+        let updatedPrev = [...prev];
+
+        // nextの各メッセージをチェック
+        const validNext = next.filter((message, index, array) => {
+          if (message instanceof ToolMessage) {
+            // 直前のメッセージがAIMessageでtool_callsを持っているか確認
+            const prevMessage = updatedPrev[updatedPrev.length - 1];
+            return (
+              prevMessage instanceof AIMessage &&
+              prevMessage.additional_kwargs.tool_calls
+            );
+          } else {
+            // ToolMessage以外の場合、直前のメッセージをチェック
+            const prevMessage = updatedPrev[updatedPrev.length - 1];
+            if (
+              prevMessage instanceof AIMessage &&
+              prevMessage.additional_kwargs.tool_calls
+            ) {
+              // tool_callsを含むメッセージを削除
+              updatedPrev = updatedPrev.slice(0, -1);
+            }
+          }
+          return true; // ToolMessage以外は全て保持
+        });
+
+        return updatedPrev.concat(validNext);
+      },
       default: () => [],
+    }),
+    userMessage: Annotation<string | null>({
+      reducer: (_, next) => next,
+      default: () => null,
     }),
     emotion: Annotation<EmotionType | null>({
       reducer: (_, next) => next,
       default: () => null,
     }),
     taskTree: Annotation<TaskTreeState | null>({
-      reducer: (_, next) => next,
-      default: () => null,
-    }),
-    nextAction: Annotation<NextAction | null>({
-      reducer: (_, next) => next,
-      default: () => null,
-    }),
-    responseMessage: Annotation<string | null>({
       reducer: (_, next) => next,
       default: () => null,
     }),
@@ -345,47 +377,47 @@ export class TaskGraph {
       .addNode('feel_emotion', this.emotionNode)
       .addNode('tool_agent', this.toolAgentNode)
       .addNode('use_tool', this.toolNode)
-      .addNode('make_message', this.makeMessageNode)
-      .addNode('send_message', this.sendMessageNode)
-      .addEdge('tool_agent', 'use_tool')
-      .addConditionalEdges('use_tool', (state) => {
-        this.baseMessagesToLog(state.messages, state.memoryZone);
-        return 'planning';
-      })
-      .addEdge('feel_emotion', 'make_message')
-      .addEdge('make_message', 'send_message')
-      .addEdge('send_message', 'use_tool')
-      .addEdge(START, 'planning')
+      .addEdge(START, 'feel_emotion')
+      .addEdge('feel_emotion', 'planning')
       .addConditionalEdges('planning', (state) => {
-        switch (state.nextAction) {
-          case 'use_tool':
-            return 'tool_agent';
-          case 'make_and_send_message':
-            return 'feel_emotion';
-          case 'END':
-            return END;
-          default:
-            return END;
+        if (
+          state.taskTree?.status === 'completed' ||
+          state.taskTree?.status === 'error'
+        ) {
+          console.log('taskTree completed');
+          return END;
+        } else {
+          return 'tool_agent';
         }
+      })
+      .addConditionalEdges('tool_agent', (state) => {
+        if (
+          state.messages[state.messages.length - 1].additional_kwargs.tool_calls
+        ) {
+          return 'use_tool';
+        } else {
+          return END;
+        }
+      })
+      .addConditionalEdges('use_tool', (state) => {
+        // this.baseMessagesToLog(state.messages, state.memoryZone);
+        return 'feel_emotion';
       });
-
     return workflow.compile();
   }
 
   public async invoke(partialState: TaskStateInput) {
-    // デフォルト値とマージ
     let state: typeof this.TaskState.State = {
       memoryZone: partialState.memoryZone ?? 'web',
       environmentState: partialState.environmentState ?? null,
       selfState: partialState.selfState ?? null,
-      humanFeedback: partialState.humanFeedback ?? null,
-      selfFeedback: partialState.selfFeedback ?? null,
+      humanFeedback: null,
+      selfFeedback: null,
       messages: partialState.messages ?? [],
+      userMessage: partialState.userMessage ?? null,
       emotion: partialState.emotion ?? null,
-      taskTree: partialState.taskTree ?? null,
-      nextAction: partialState.nextAction ?? null,
-      responseMessage: partialState.responseMessage ?? null,
+      taskTree: null,
     };
-    return await this.graph.invoke(state);
+    return await this.graph.invoke(state, { recursionLimit: 32 });
   }
 }

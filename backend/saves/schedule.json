@@ -13,9 +13,9 @@
   },
   {
     "time": "0 12 * * *",
-    "name": "llm:about_today",
+    "name": "twitter:about_today",
     "data": {
-      "type": "twitter:post_scheduled_message",
+      "type": "llm:post_scheduled_message",
       "memoryZone": "twitter:post",
       "data": {
         "platform": "twitter",
@@ -47,7 +47,7 @@
     }
   },
   {
-    "time": "*/30 * * * *",
+    "time": "0 */1 * * *",
     "name": "youtube:check_comments",
     "data": {
       "type": "youtube:check_comments",

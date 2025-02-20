@@ -1,4 +1,5 @@
-import { ServiceStatus, StatusAgentOutput } from "@common/types";
+import { ServiceStatus } from "@common/types/common";
+import { StatusAgentOutput } from "@common/types/web";
 import { WebSocketClientBase } from "../common/WebSocketClient";
 import { URLS } from "../config/ports";
 

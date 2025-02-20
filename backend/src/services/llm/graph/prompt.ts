@@ -1,23 +1,26 @@
-import { BaseMessage, SystemMessage } from '@langchain/core/messages';
+import {
+  AIMessage,
+  BaseMessage,
+  SystemMessage,
+  ToolMessage,
+} from '@langchain/core/messages';
 import { loadPrompt } from '../config/prompts.js';
 import { PromptType } from '@shannon/common';
 import { TaskStateInput } from './types.js';
+import { Tool } from '@langchain/core/tools';
 
 export class Prompt {
   public prompts: Map<PromptType, string>;
-  constructor() {
+  private tools: Tool[];
+
+  constructor(tools: Tool[]) {
     this.prompts = new Map();
+    this.tools = tools;
     this.setupPrompts();
   }
 
   private async setupPrompts(): Promise<void> {
-    const promptsName: PromptType[] = [
-      'planning',
-      'emotion',
-      'make_message',
-      'send_message',
-      'use_tool',
-    ];
+    const promptsName: PromptType[] = ['planning', 'emotion', 'use_tool'];
     for (const name of promptsName) {
       this.prompts.set(name, await loadPrompt(name, 'taskGraph'));
     }
@@ -31,10 +34,22 @@ export class Prompt {
     return prompt.replace(/\\n/g, '\n').replace(/\\/g, '').replace(/"/g, "'");
   };
 
+  private getToolsInfo(): string {
+    return this.tools
+      .map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.schema, // JSONSchemaの形式でパラメータ情報を含む
+      }))
+      .map((tool) => `Tool: ${tool.name}\nDescription: ${tool.description}`)
+      .join('\n\n');
+  }
+
   public getMessages = (
     state: TaskStateInput,
     promptName: PromptType,
-    isMemoryZone: boolean = false
+    isMemoryZone: boolean = false,
+    isToolInfo: boolean = false
   ): BaseMessage[] => {
     const prompt = this.getPrompt(promptName);
     const currentTime = new Date().toLocaleString('ja-JP', {
@@ -50,19 +65,14 @@ export class Prompt {
     const memoryZoneMessage = isMemoryZone
       ? `memoryZone: ${state.memoryZone}`
       : '';
+    const toolInfoMessage = isToolInfo
+      ? `Available Tools:\n${this.getToolsInfo()}`
+      : '';
+
     const messages = [
-      new SystemMessage(currentTimeMessage),
       new SystemMessage(prompt),
-      ...(state.messages?.slice(-16) ?? []),
       state.responseMessage
         ? new SystemMessage(`responseMessage: ${state.responseMessage}`)
-        : null,
-      state.taskTree
-        ? new SystemMessage(
-            `goal: ${state.taskTree.goal}\nplan: ${
-              state.taskTree.plan
-            }\nsubTasks: ${JSON.stringify(state.taskTree.subTasks)}`
-          )
         : null,
       new SystemMessage(
         [environmentState, currentTimeMessage, memoryZoneMessage]
@@ -71,6 +81,15 @@ export class Prompt {
       ),
       state.selfState
         ? new SystemMessage(`selfState: ${JSON.stringify(state.selfState)}`)
+        : null,
+      state.taskTree
+        ? new SystemMessage(
+            `goal: ${state.taskTree.goal}\nstrategy: ${
+              state.taskTree.strategy
+            }\nstatus: ${state.taskTree.status}\nsubTasks: ${JSON.stringify(
+              state.taskTree.subTasks
+            )}`
+          )
         : null,
       state.humanFeedback
         ? new SystemMessage(
@@ -83,8 +102,27 @@ export class Prompt {
           )
         : null,
       state.emotion
-        ? new SystemMessage(`yourEmotion: ${JSON.stringify(state.emotion)}`)
+        ? new SystemMessage(`myEmotion: ${JSON.stringify(state.emotion)}`)
         : null,
+      isToolInfo ? new SystemMessage(toolInfoMessage) : null,
+      new SystemMessage(`the actionLog is as follows.`),
+      ...(state.messages
+        ?.reduce((validMessages: BaseMessage[], message, index, array) => {
+          if (message instanceof ToolMessage) {
+            // 直前のメッセージがAIMessageでtool_callsを持っているか確認
+            const prevMessage = array[index - 1];
+            if (
+              prevMessage instanceof AIMessage &&
+              prevMessage.additional_kwargs.tool_calls
+            ) {
+              validMessages.push(message);
+            }
+          } else {
+            validMessages.push(message);
+          }
+          return validMessages;
+        }, [])
+        .slice(-16) ?? []),
     ].filter((message): message is BaseMessage => message !== null);
 
     return messages;

@@ -13,12 +13,11 @@ Output the data in the following json format.
 
 # Input
 
-- chatSummary
-- chatLog
-- goal
-- plan
-- subTasks
-- messages
+- environmentState: information about the platform and user, current time, etc.
+- goal,plan,status,subTasks: your goal, plan, status, and subTasks.
+- myEmotion: your emotion
+- availableTools: tools you can use
+- actionLog: chatLog and your action history
 
 # Output Rules
 

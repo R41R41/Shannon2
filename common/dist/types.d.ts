@@ -6,8 +6,12 @@ export type RealTimeAPIEndpoint = "realtime_text_input" | "realtime_text_commit"
 export type TwitterSchedulePostEndpoint = "about_today" | "forecast" | "fortune" | "check_replies";
 export type MinecraftServerEndpoint = "status" | "start" | "stop";
 export type DiscordGuild = "discord:toyama_server" | "discord:aiminelab_server" | "discord:test_server";
-export type MemoryZone = "web" | DiscordGuild | "twitter:schedule_post" | "twitter:post" | "minecraft" | "youtube" | "scheduler" | "minebot";
-export type EventType = "llm:post_scheduled_message" | "llm:post_twitter_reply" | "llm:reply_youtube_comment" | "twitter:status" | "twitter:start" | "twitter:stop" | "twitter:post_scheduled_message" | "twitter:post_message" | "twitter:check_replies" | "twitter:get_message" | "youtube:get_stats" | "youtube:get_message" | "youtube:post_message" | "youtube:check_comments" | "youtube:reply_comment" | "llm:get_discord_message" | "discord:start" | "discord:stop" | "discord:status" | "discord:post_message" | "minecraft:status" | "minecraft:start" | "minecraft:stop" | `minecraft:${MinecraftServerName}:status` | `minecraft:${MinecraftServerName}:start` | `minecraft:${MinecraftServerName}:stop` | "minecraft:action" | "minecraft:env_input" | "minecraft:get_message" | "minecraft:post_message" | "llm:get_web_message" | "web:post_message" | "scheduler:get_schedule" | "web:post_schedule" | "scheduler:call_schedule" | "web:log" | "web:status" | "youtube:status" | `minebot:${string}`;
+export type MemoryZone = "web" | DiscordGuild | "twitter:schedule_post" | "twitter:post" | "minecraft" | "youtube" | "scheduler" | "minebot" | "null";
+export type EventType = "task:stop" | "task:start" | "llm:post_scheduled_message" | "llm:post_twitter_reply" | "llm:reply_youtube_comment" | "twitter:status" | "twitter:start" | "twitter:stop" | "twitter:post_scheduled_message" | "twitter:post_message" | "twitter:check_replies" | "twitter:get_message" | "youtube:get_stats" | "youtube:get_message" | "youtube:post_message" | "youtube:check_comments" | "youtube:reply_comment" | "llm:get_discord_message" | "discord:start" | "discord:stop" | "discord:status" | "discord:post_message" | "discord:get_server_emoji" | "minecraft:status" | "minecraft:start" | "minecraft:stop" | `minecraft:${MinecraftServerName}:status` | `minecraft:${MinecraftServerName}:start` | `minecraft:${MinecraftServerName}:stop` | "minecraft:action" | "minecraft:env_input" | "minecraft:get_message" | "minecraft:post_message" | "llm:get_web_message" | "web:post_message" | "scheduler:get_schedule" | "web:post_schedule" | "scheduler:call_schedule" | "web:log" | "web:planning" | "web:emotion" | "web:status" | "youtube:status" | `minebot:${string}`;
+export interface TaskInput {
+    waitSeconds?: number | null;
+    date?: Date | null;
+}
 export interface EmotionType {
     emotion: string;
     parameters: {
@@ -72,21 +76,34 @@ export interface RecentMessage {
     timestamp: string;
     imageUrl?: string[];
 }
-export interface DiscordClientInput extends ServiceInput {
-    type: ConversationType;
+export interface DiscordGetServerEmojiInput extends ServiceInput {
+    guildId: string;
+}
+export interface DiscordSendServerEmojiInput extends ServiceInput {
+    guildId: string;
+    channelId: string;
+    messageId: string;
+    emojiId: string;
+}
+export interface DiscordSendTextMessageInput extends ServiceInput {
     channelId: string;
     guildId: string;
-    userName?: string | null;
-    guildName?: DiscordGuild | null;
-    channelName?: string | null;
-    messageId?: string | null;
-    userId?: string | null;
-    text?: string | null;
-    audio?: string | null;
-    realtime_audio?: string | null;
-    command?: RealTimeAPIEndpoint | null;
-    recentMessages?: RecentMessage[] | null;
+    text: string;
 }
+export type DiscordClientInput = DiscordGetServerEmojiInput | DiscordSendServerEmojiInput | DiscordSendTextMessageInput;
+export interface DiscordGetServerEmojiOutput extends ServiceOutput {
+    emojis: string[];
+}
+export interface DiscordSendTextMessageOutput extends ServiceOutput {
+    type: "text";
+    guildName: string;
+    channelName: string;
+    guildId: string;
+    channelId: string;
+    messageId: string;
+    userId: string;
+}
+export type DiscordClientOutput = DiscordGetServerEmojiOutput | DiscordSendTextMessageOutput;
 export interface TwitterClientInput extends ServiceInput {
     text: string;
     replyId?: string | null;
@@ -115,15 +132,6 @@ export type WebScheduleOutputType = "post_schedule" | "call_schedule";
 export interface WebScheduleOutput {
     type: WebScheduleOutputType | "pong";
     data?: Schedule[];
-}
-export interface DiscordClientOutput {
-    type: ConversationType;
-    guildId: string;
-    channelId: string;
-    text?: string | null;
-    audio?: Uint8Array | null;
-    command?: RealTimeAPIEndpoint | TwitterSchedulePostEndpoint | null;
-    imageUrl?: string | null;
 }
 export interface ILog {
     timestamp: Date;
@@ -173,10 +181,18 @@ export interface MinecraftOutput {
         status: boolean;
     }[] | null;
 }
+export type TaskStatus = "pending" | "in_progress" | "completed" | "error";
+export interface TaskTreeState {
+    goal: string;
+    strategy: string;
+    status: TaskStatus;
+    error?: string | null;
+    subTasks?: TaskTreeState[] | null;
+}
 export interface Event {
     type: EventType;
     memoryZone: MemoryZone;
-    data: TwitterClientInput | TwitterClientOutput | OpenAIMessageInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput | ServiceOutput;
+    data: TwitterClientInput | TwitterClientOutput | OpenAIMessageInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput | ServiceOutput | TaskInput | TaskTreeState | EmotionType;
     targetMemoryZones?: MemoryZone[];
 }
 export type Color = "white" | "red" | "green" | "blue" | "yellow" | "magenta" | "cyan";

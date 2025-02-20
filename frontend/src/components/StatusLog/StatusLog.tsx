@@ -5,17 +5,25 @@ import CircleIcon from '@mui/icons-material/Circle';
 import { MonitoringAgent } from '@/services/agents/monitoringAgent';
 import { OpenAIAgent } from '@/services/agents/openaiAgent';
 import { StatusAgent } from '@/services/agents/statusAgent';
+import { PlanningAgent } from '@/services/agents/planningAgent';
+import TaskTree from './TaskTree/TaskTree';
+import { EmotionAgent } from '@/services/agents/emotionAgent';
+import Emotion from './Emotion/Emotion';
 
 interface StatusLogProps {
   monitoring: MonitoringAgent | null;
   openai: OpenAIAgent | null;
   status: StatusAgent | null;
+  planning: PlanningAgent | null;
+  emotion: EmotionAgent | null;
 }
 
 const StatusLog: React.FC<StatusLogProps> = ({
   monitoring,
   openai,
   status,
+  planning,
+  emotion,
 }) => {
   const [monitoringStatus, setMonitoringStatus] =
     useState<ConnectionStatus>('disconnected');
@@ -23,6 +31,7 @@ const StatusLog: React.FC<StatusLogProps> = ({
     useState<ConnectionStatus>('disconnected');
   const [statusStatus, setStatusStatus] =
     useState<ConnectionStatus>('disconnected');
+  
 
   useEffect(() => {
     const updateMonitoringStatus = (status: ConnectionStatus) => {
@@ -31,7 +40,6 @@ const StatusLog: React.FC<StatusLogProps> = ({
     const updateOpenaiStatus = (status: ConnectionStatus) => {
       setOpenaiStatus(status);
     };
-
     const updateStatusStatus = (status: ConnectionStatus) => {
       setStatusStatus(status);
     };
@@ -39,6 +47,7 @@ const StatusLog: React.FC<StatusLogProps> = ({
     monitoring?.addStatusListener(updateMonitoringStatus);
     openai?.addStatusListener(updateOpenaiStatus);
     status?.addStatusListener(updateStatusStatus);
+
     return () => {
       monitoring?.removeStatusListener(updateMonitoringStatus);
       openai?.removeStatusListener(updateOpenaiStatus);
@@ -86,6 +95,10 @@ const StatusLog: React.FC<StatusLogProps> = ({
         <CircleIcon className={getStatusColor(statusStatus)} />
         <span>StatusMonitor</span>
         <span className={styles.statusText}>{getStatusText(statusStatus)}</span>
+      </div>
+      <div className={styles.planningAndEmotion}>
+        <TaskTree planning={planning} />
+        <Emotion emotion={emotion} />
       </div>
     </div>
   );

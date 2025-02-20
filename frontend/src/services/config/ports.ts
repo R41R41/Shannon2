@@ -1,8 +1,8 @@
-export const isTest = import.meta.env.MODE === 'test';
+export const isTest = import.meta.env.MODE === "test";
 
 // プロトコルを動的に決定
-const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const protocol = window.location.protocol === "https:" ? "https:" : "http:";
+const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 
 // 実際のホスト名を使用
 const hostname = window.location.hostname; // 'sh4nnon.com' など
@@ -41,10 +41,16 @@ export const URLS = {
     STATUS: isTest
       ? `${wsProtocol}//${hostname}:16013/ws/status`
       : `${wsProtocol}//${host}/ws/status`,
+    PLANNING: isTest
+      ? `${wsProtocol}//${hostname}:16014/ws/planning`
+      : `${wsProtocol}//${host}/ws/planning`,
+    EMOTION: isTest
+      ? `${wsProtocol}//${hostname}:16015/ws/emotion`
+      : `${wsProtocol}//${host}/ws/emotion`,
   },
 } as const;
 
 // デバッグ用ログ
-console.log('Environment:', import.meta.env.MODE);
-console.log('Hostname:', hostname);
-console.log('WebSocket URLs:', URLS.WEBSOCKET);
+console.log("Environment:", import.meta.env.MODE);
+console.log("Hostname:", hostname);
+console.log("WebSocket URLs:", URLS.WEBSOCKET);

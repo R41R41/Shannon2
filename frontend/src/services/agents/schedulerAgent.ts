@@ -1,7 +1,7 @@
-import { isWebScheduleOutput } from '@common/checkTypes';
-import { WebSocketClientBase } from '../common/WebSocketClient';
-import { Schedule, WebScheduleInput } from '@common/types';
-import { URLS } from '../config/ports';
+import { WebSocketClientBase } from "../common/WebSocketClient";
+import { Schedule } from "@common/types/scheduler";
+import { WebScheduleInput } from "@common/types/web";
+import { URLS } from "../config/ports";
 
 type UpdateScheduleCallback = (schedule: Schedule[]) => void;
 
@@ -13,7 +13,7 @@ export class SchedulerAgent extends WebSocketClientBase {
   public static getInstance() {
     if (!SchedulerAgent.instance) {
       SchedulerAgent.instance = new SchedulerAgent(URLS.WEBSOCKET.SCHEDULER);
-      console.log('SchedulerAgent instance created ', URLS.WEBSOCKET.SCHEDULER);
+      console.log("SchedulerAgent instance created ", URLS.WEBSOCKET.SCHEDULER);
     }
     return SchedulerAgent.instance;
   }
@@ -29,12 +29,8 @@ export class SchedulerAgent extends WebSocketClientBase {
 
   protected handleMessage(message: string) {
     const data = JSON.parse(message);
-    if (!isWebScheduleOutput(data)) {
-      console.error('Invalid message', data);
-      return;
-    }
-    if (data.type === 'pong') return;
-    if (data.type === 'post_schedule') {
+    if (data.type === "pong") return;
+    if (data.type === "post_schedule") {
       this.searchListeners.forEach((listener) =>
         listener(data.data as Schedule[])
       );
@@ -46,12 +42,12 @@ export class SchedulerAgent extends WebSocketClientBase {
   }
 
   public async getSchedules(): Promise<void> {
-    this.send(JSON.stringify({ type: 'get_schedule' }));
+    this.send(JSON.stringify({ type: "get_schedule" }));
   }
 
   public async callSchedule(name: string): Promise<void> {
     this.send(
-      JSON.stringify({ type: 'call_schedule', name } as WebScheduleInput)
+      JSON.stringify({ type: "call_schedule", name } as WebScheduleInput)
     );
   }
 
@@ -69,7 +65,7 @@ export class SchedulerAgent extends WebSocketClientBase {
 
       this.searchListeners.add(handleAllSchedules);
 
-      this.send(JSON.stringify({ type: 'get_schedule' }));
+      this.send(JSON.stringify({ type: "get_schedule" }));
     });
   }
 }

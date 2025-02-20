@@ -1,4 +1,4 @@
-import { ILog } from '@shannon/common/src/types';
+import { ILog } from '@shannon/common';
 import mongoose from 'mongoose';
 
 const LogSchema = new mongoose.Schema<ILog>({

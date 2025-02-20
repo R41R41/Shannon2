@@ -1,17 +1,19 @@
-@use '@styles/variables.scss' as *;
+@use "@styles/variables.scss" as *;
 
 .container {
   display: flex;
   flex-direction: column;
-  width: 200px;
+  background-color: color(background, secondary);
   gap: 0.1rem;
   padding: 0.5rem;
+  height: 100%;
 }
 
 .status {
   display: flex;
   align-items: center;
   text-align: center;
+  width: 200px;
   gap: 0.5rem;
   font-size: 0.8rem;
   color: color(text, secondary);
@@ -50,4 +52,12 @@
   100% {
     opacity: 1;
   }
+}
+
+.planningAndEmotion {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  gap: 0.5rem;
+  height: 100%;
 }

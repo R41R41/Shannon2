@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import styles from './ActivityLog.module.scss';
-import { ILog, MemoryZone } from '@common/types';
-import { isILog } from '@common/checkTypes';
+import { ILog, MemoryZone } from '@common/types/common';
 import { MonitoringAgent } from '@/services/agents/monitoringAgent';
 
 interface ActivityLogProps {
@@ -85,9 +84,6 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
   };
 
   const filteredLogs: ILog[] = logs.filter((log) => {
-    if (!isILog(log)) {
-      return false;
-    }
     return selectedMemoryZone === ''
       ? true
       : log.memoryZone.includes(selectedMemoryZone);

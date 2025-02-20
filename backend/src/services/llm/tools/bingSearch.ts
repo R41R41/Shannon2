@@ -5,9 +5,13 @@ import { z } from 'zod';
 export default class BingSearchTool extends StructuredTool {
   name = 'bing-search';
   description =
-    'bing検索ツール。最終的な応答には必ずどのサイトを調べたのかソースを含めてください。';
+    'A bing search tool. Always include the source of the final response.';
   schema = z.object({
-    query: z.string().describe('検索したい内容（検索内容に適した言語で指定）'),
+    query: z
+      .string()
+      .describe(
+        'The content you want to search for (specify in the language appropriate for the search content)'
+      ),
   });
   private bingSerpAPI: BingSerpAPI;
 
@@ -30,7 +34,7 @@ export default class BingSearchTool extends StructuredTool {
       return await this.bingSerpAPI.invoke(data.query);
     } catch (error) {
       console.error('Bing search error:', error);
-      return `検索中にエラーが発生しました: ${error}`;
+      return `An error occurred while searching: ${error}`;
     }
   }
 }

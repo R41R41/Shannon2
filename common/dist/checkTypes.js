@@ -93,30 +93,3 @@ export const isWebScheduleOutput = (message) => {
         message.type === "call_schedule" ||
         message.type === "pong");
 };
-export const isDiscordClientInput = (message) => {
-    return (typeof message === "object" &&
-        message !== null &&
-        (message.type === "text" ||
-            message.type === "audio" ||
-            message.type === "realtime_audio" ||
-            message.type === "command") &&
-        typeof message.channelId === "string" &&
-        typeof message.guildId === "string" &&
-        typeof message.userName === "string" &&
-        isDiscordGuild(message.guildName) &&
-        typeof message.channelName === "string" &&
-        typeof message.messageId === "string" &&
-        typeof message.userId === "string" &&
-        (message.text === undefined ||
-            typeof message.text === "string" ||
-            message.text === null) &&
-        (message.audio === undefined ||
-            typeof message.audio === "string" ||
-            message.audio === null) &&
-        (message.realtime_audio === undefined ||
-            typeof message.realtime_audio === "string" ||
-            message.realtime_audio === null) &&
-        (message.command === undefined ||
-            isRealTimeAPIEndpoint(message.command) ||
-            message.command === null));
-};

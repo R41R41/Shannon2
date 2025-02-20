@@ -1,7 +1,7 @@
-import { ILog, SearchQuery } from '@common/types';
-import { isWebMonitoringOutput } from '@common/checkTypes';
-import { WebSocketClientBase } from '../common/WebSocketClient';
-import { URLS } from '../config/ports';
+import { ILog } from "@common/types/common";
+import { SearchQuery } from "@common/types/web";
+import { WebSocketClientBase } from "../common/WebSocketClient";
+import { URLS } from "../config/ports";
 
 type LogCallback = (log: ILog) => void;
 type SearchCallback = (results: ILog[]) => void;
@@ -13,7 +13,7 @@ export class MonitoringAgent extends WebSocketClientBase {
     if (!MonitoringAgent.instance) {
       MonitoringAgent.instance = new MonitoringAgent(URLS.WEBSOCKET.MONITORING);
       console.log(
-        'MonitoringAgent instance created ',
+        "MonitoringAgent instance created ",
         URLS.WEBSOCKET.MONITORING
       );
     }
@@ -30,15 +30,11 @@ export class MonitoringAgent extends WebSocketClientBase {
 
   protected handleMessage(message: string) {
     const data = JSON.parse(message);
-    if (!isWebMonitoringOutput(data)) {
-      console.error('Invalid message', data);
-      return;
-    }
-    if (data.type === 'pong') return;
-    if (data.type === 'web:searchResults') {
+    if (data.type === "pong") return;
+    if (data.type === "web:searchResults") {
       this.searchListeners.forEach((listener) => listener(data.data as ILog[]));
     }
-    if (data.type === 'web:log') {
+    if (data.type === "web:log") {
       this.logCallback?.(data.data as ILog);
     }
   }
@@ -50,7 +46,7 @@ export class MonitoringAgent extends WebSocketClientBase {
   public async searchLogs(query: SearchQuery) {
     this.send(
       JSON.stringify({
-        type: 'search',
+        type: "search",
         query,
       })
     );
@@ -72,8 +68,8 @@ export class MonitoringAgent extends WebSocketClientBase {
 
       this.send(
         JSON.stringify({
-          type: 'search',
-          query: { memoryZone: '' },
+          type: "search",
+          query: { memoryZone: "" },
         })
       );
     });
