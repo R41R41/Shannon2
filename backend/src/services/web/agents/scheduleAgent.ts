@@ -1,5 +1,4 @@
 import {
-  isWebScheduleInput,
   SchedulerInput,
   SchedulerOutput,
   WebScheduleOutput,
@@ -28,20 +27,15 @@ export class ScheduleAgent extends WebSocketServiceBase {
       ws.on('message', async (message) => {
         const data = JSON.parse(message.toString());
 
-        if (isWebScheduleInput(data)) {
-          if (data.type === 'ping') {
-            this.broadcast({ type: 'pong' } as WebScheduleOutput);
-            return;
-          }
-          console.log(
-            `\x1b[34mvalid web message received in schedule agent: ${JSON.stringify(
-              data
-            )}\x1b[0m`
-          );
-        } else {
-          console.error('Invalid message format:', data);
+        if (data.type === 'ping') {
+          this.broadcast({ type: 'pong' } as WebScheduleOutput);
           return;
         }
+        console.log(
+          `\x1b[34mvalid web message received in schedule agent: ${JSON.stringify(
+            data
+          )}\x1b[0m`
+        );
         if (data.type === 'get_schedule') {
           const name = data.name as string;
           this.eventBus.publish({

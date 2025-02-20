@@ -1,4 +1,4 @@
-import { EmotionType } from "@common/types";
+import { EmotionType } from "@common/types/taskGraph";
 import { WebSocketClientBase } from "../common/WebSocketClient";
 import { URLS } from "../config/ports";
 

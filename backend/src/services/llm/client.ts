@@ -1,8 +1,8 @@
 import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import {
-  DiscordClientInput,
-  DiscordClientOutput,
-  isDiscordClientInput,
+  DiscordSendTextMessageInput,
+  DiscordSendTextMessageOutput,
+  DiscordScheduledPostInput,
   MemoryZone,
   OpenAIMessageInput,
   OpenAIMessageOutput,
@@ -57,7 +57,7 @@ export class LLMService {
     });
 
     this.eventBus.subscribe('llm:get_discord_message', (event) => {
-      this.processDiscordMessage(event.data as DiscordClientInput);
+      this.processDiscordMessage(event.data as DiscordSendTextMessageOutput);
     });
 
     this.eventBus.subscribe('llm:post_scheduled_message', (event) => {
@@ -176,35 +176,9 @@ export class LLMService {
     }
   }
 
-  private async processDiscordMessage(message: DiscordClientInput) {
+  private async processDiscordMessage(message: DiscordSendTextMessageOutput) {
     try {
-      if (!isDiscordClientInput(message)) {
-        console.error(
-          `Invalid discord message input: ${JSON.stringify(message)}`
-        );
-        return;
-      }
-      if (
-        message.type === 'realtime_audio' &&
-        message.command === 'realtime_audio_append'
-      ) {
-        if (message.realtime_audio) {
-          await this.realtimeApi.inputAudioBufferAppend(message.realtime_audio);
-        }
-        return;
-      } else if (
-        message.type === 'realtime_audio' &&
-        message.command === 'realtime_audio_commit'
-      ) {
-        await this.realtimeApi.inputAudioBufferCommit();
-        return;
-      } else if (message.command === 'realtime_vad_on') {
-        await this.realtimeApi.vadModeChange(true);
-        return;
-      } else if (message.command === 'realtime_vad_off') {
-        await this.realtimeApi.vadModeChange(false);
-        return;
-      } else if (message.type === 'text') {
+      if (message.type === 'text') {
         const info = {
           guildName: message.guildName,
           channelName: message.channelName,
@@ -214,7 +188,7 @@ export class LLMService {
           userId: message.userId,
         };
         const infoMessage = JSON.stringify(info, null, 2);
-        const memoryZone = getDiscordMemoryZone(message.guildId);
+        const memoryZone = await getDiscordMemoryZone(message.guildId);
 
         const response = await this.processMessage(
           memoryZone,
@@ -235,7 +209,7 @@ export class LLMService {
             type: 'text',
             channelId: message.channelId,
             guildId: message.guildId,
-          } as DiscordClientOutput,
+          } as DiscordSendTextMessageInput,
           targetMemoryZones: [memoryZone],
         });
         return;
@@ -280,12 +254,13 @@ export class LLMService {
       targetMemoryZones: ['twitter:schedule_post'],
     });
     this.eventBus.publish({
-      type: 'discord:post_message',
+      type: 'discord:scheduled_post',
       memoryZone: 'discord:toyama_server',
       data: {
         command: message.command,
         text: postForToyama,
-      } as DiscordClientOutput,
+      } as DiscordScheduledPostInput,
+      targetMemoryZones: ['discord:toyama_server'],
     });
   }
 

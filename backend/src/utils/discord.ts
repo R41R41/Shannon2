@@ -7,7 +7,9 @@ const DISCORD_GUILD_ID_TOYAMA_SERVER = process.env.TOYAMA_GUILD_ID;
 const DISCORD_GUILD_ID_AIMINELAB_SERVER = process.env.AIMINE_GUILD_ID;
 const DISCORD_GUILD_ID_TEST_SERVER = process.env.TEST_GUILD_ID;
 
-export const getDiscordMemoryZone = (guildId: string): DiscordGuild => {
+export const getDiscordMemoryZone = async (
+  guildId: string
+): Promise<DiscordGuild> => {
   if (guildId === DISCORD_GUILD_ID_TOYAMA_SERVER) {
     return 'discord:toyama_server';
   }

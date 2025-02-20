@@ -1,9 +1,4 @@
-import {
-  ILog,
-  isWebMonitoringInput,
-  MemoryZone,
-  WebMonitoringOutput,
-} from '@shannon/common';
+import { ILog, MemoryZone, WebMonitoringOutput } from '@shannon/common';
 import Log from '../../../models/Log.js';
 import {
   WebSocketServiceBase,
@@ -38,22 +33,17 @@ export class MonitoringAgent extends WebSocketServiceBase {
       ws.on('message', async (message) => {
         const data = JSON.parse(message.toString());
 
-        if (isWebMonitoringInput(data)) {
-          if (data.type === 'ping') {
-            this.broadcast({ type: 'pong' } as WebMonitoringOutput);
-            return;
-          }
-          console.log(
-            `\x1b[34mvalid web message received in monitoring agent: ${
-              data.type === 'search'
-                ? JSON.stringify(data.query)
-                : JSON.stringify(data)
-            }\x1b[0m`
-          );
-        } else {
-          console.error('Invalid message format:', data);
+        if (data.type === 'ping') {
+          this.broadcast({ type: 'pong' } as WebMonitoringOutput);
           return;
         }
+        console.log(
+          `\x1b[34mvalid web message received in monitoring agent: ${
+            data.type === 'search'
+              ? JSON.stringify(data.query)
+              : JSON.stringify(data)
+          }\x1b[0m`
+        );
         if (data.type === 'search') {
           const query = data.query as SearchQuery;
           const searchResults = await this.searchLogs(query);

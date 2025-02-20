@@ -1,4 +1,4 @@
-import { TaskTreeState } from "@common/types";
+import { TaskTreeState } from "@common/types/taskGraph";
 import { WebSocketClientBase } from "../common/WebSocketClient";
 import { URLS } from "../config/ports";
 

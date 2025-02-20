@@ -1,8 +1,4 @@
-import {
-  isOpenAIMessageInput,
-  OpenAIMessageInput,
-  OpenAIMessageOutput,
-} from '@shannon/common';
+import { OpenAIMessageInput, OpenAIMessageOutput } from '@shannon/common';
 import {
   WebSocketServiceBase,
   WebSocketServiceConfig,
@@ -17,23 +13,20 @@ export class OpenAIClientService extends WebSocketServiceBase {
       ws.on('message', (message) => {
         try {
           const data = JSON.parse(message.toString());
-          if (isOpenAIMessageInput(data)) {
-            if (data.type === 'ping') {
-              this.broadcast({ type: 'pong' } as OpenAIMessageOutput);
-              return;
-            }
-            console.log(
-              `\x1b[34mvalid web message received in openai agent: ${
-                data.type === 'realtime_audio'
-                  ? data.type + ' ' + data.realtime_audio?.length
-                  : data.type === 'audio'
-                  ? data.type + ' ' + data.audio?.length
-                  : JSON.stringify(data)
-              }\x1b[0m`
-            );
-          } else {
-            throw new Error('Invalid message format');
+
+          if (data.type === 'ping') {
+            this.broadcast({ type: 'pong' } as OpenAIMessageOutput);
+            return;
           }
+          console.log(
+            `\x1b[34mvalid web message received in openai agent: ${
+              data.type === 'realtime_audio'
+                ? data.type + ' ' + data.realtime_audio?.length
+                : data.type === 'audio'
+                ? data.type + ' ' + data.audio?.length
+                : JSON.stringify(data)
+            }\x1b[0m`
+          );
           if (data.type === 'realtime_text' && data.realtime_text) {
             this.eventBus.log('web', 'white', data.realtime_text);
             const message: OpenAIMessageInput = {

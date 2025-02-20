@@ -1,8 +1,13 @@
 import {
   DiscordClientInput,
-  DiscordClientOutput,
   MinecraftServerName,
   ServiceInput,
+  DiscordScheduledPostInput,
+  DiscordSendTextMessageInput,
+  DiscordGetServerEmojiInput,
+  DiscordGetServerEmojiOutput,
+  DiscordSendServerEmojiInput,
+  DiscordSendServerEmojiOutput,
 } from '@shannon/common';
 import {
   Client,
@@ -201,7 +206,7 @@ export class DiscordBot extends BaseClient {
       const nickname = this.getUserNickname(message.author);
       const channelName = this.getChannelName(message.channelId);
       const guildName = this.getGuildName(message.channelId);
-      const memoryZone = getDiscordMemoryZone(message.guildId ?? '');
+      const memoryZone = await getDiscordMemoryZone(message.guildId ?? '');
       const messageId = message.id;
       const userId = message.author.id;
       const guildId = message.guildId;
@@ -236,9 +241,7 @@ export class DiscordBot extends BaseClient {
         } as DiscordClientInput,
       });
     });
-
-    // 音声メッセージの処理
-    this.client.on('speech', (speech) => {
+    this.client.on('speech', async (speech) => {
       if (this.status !== 'running') return;
       // テストモードの場合はテストサーバーのみ、それ以外の場合はテストサーバー以外を処理
       const channel = this.client.channels.cache.get(speech.channelId);
@@ -247,7 +250,7 @@ export class DiscordBot extends BaseClient {
       const isTestGuild = channel.guild.id === process.env.TEST_GUILD_ID;
       if (this.isTest !== isTestGuild) return;
 
-      const memoryZone = getDiscordMemoryZone(channel.guildId);
+      const memoryZone = await getDiscordMemoryZone(channel.guildId);
 
       const nickname = this.getUserNickname(speech.user);
       this.eventBus.publish({
@@ -268,58 +271,108 @@ export class DiscordBot extends BaseClient {
     });
 
     // LLMからの応答を処理
-    this.eventBus.subscribe('discord:post_message', (event) => {
+    this.eventBus.subscribe('discord:post_message', async (event) => {
       if (this.status !== 'running') return;
-      if (event.type === 'discord:post_message') {
-        let { text, type, channelId, guildId, audio, command, imageUrl } =
-          event.data as DiscordClientOutput;
-        if (
-          command === 'forecast' ||
-          command === 'fortune' ||
-          command === 'about_today'
-        ) {
-          guildId = this.toyamaGuildId ?? '';
-          if (this.isTest) {
-            const xChannelId = this.testXChannelId ?? '';
-            const channel = this.client.channels.cache.get(xChannelId);
-            if (channel?.isTextBased() && 'send' in channel) {
-              channel.send(text ?? '');
-            }
-          } else {
-            const xChannelId = this.aiminelabXChannelId ?? '';
-            const channel = this.client.channels.cache.get(xChannelId);
-            if (channel?.isTextBased() && 'send' in channel) {
-              channel.send(text ?? '');
-            }
-            const toyamaChannel = this.client.channels.cache.get(
-              this.toyamaChannelId ?? ''
-            );
-            if (toyamaChannel?.isTextBased() && 'send' in toyamaChannel) {
-              toyamaChannel.send(text ?? '');
-            }
-          }
-          return;
-        }
+      let { text, channelId, guildId } =
+        event.data as DiscordSendTextMessageInput;
+      const channel = this.client.channels.cache.get(channelId);
+      const channelName = this.getChannelName(channelId);
+      const guildName = this.getGuildName(channelId);
+      const memoryZone = await getDiscordMemoryZone(guildId);
 
-        const channel = this.client.channels.cache.get(channelId);
-        const channelName = this.getChannelName(channelId);
-        const guildName = this.getGuildName(channelId);
-        const memoryZone = getDiscordMemoryZone(guildId);
-
-        if (channel?.isTextBased() && 'send' in channel) {
-          if (type === 'text') {
-            this.eventBus.log(
-              memoryZone,
-              'white',
-              `${guildName} ${channelName}\nShannon: ${text}`,
-              true
-            );
-            console.log('\x1b[34m' + guildName + ' ' + channelName + '\x1b[0m');
-            console.log('\x1b[34m' + 'shannon: ' + text + '\x1b[0m');
+      if (channel?.isTextBased() && 'send' in channel) {
+        this.eventBus.log(
+          memoryZone,
+          'white',
+          `${guildName} ${channelName}\nShannon: ${text}`,
+          true
+        );
+        console.log('\x1b[34m' + guildName + ' ' + channelName + '\x1b[0m');
+        console.log('\x1b[34m' + 'shannon: ' + text + '\x1b[0m');
+        channel.send(text ?? '');
+      }
+    });
+    this.eventBus.subscribe('discord:scheduled_post', async (event) => {
+      if (this.status !== 'running') return;
+      const { text, command } = event.data as DiscordScheduledPostInput;
+      if (
+        command === 'forecast' ||
+        command === 'fortune' ||
+        command === 'about_today'
+      ) {
+        if (this.isTest) {
+          const xChannelId = this.testXChannelId ?? '';
+          const channel = this.client.channels.cache.get(xChannelId);
+          if (channel?.isTextBased() && 'send' in channel) {
             channel.send(text ?? '');
-          } else if (type === 'realtime_audio' && audio) {
+          }
+        } else {
+          const xChannelId = this.aiminelabXChannelId ?? '';
+          const channel = this.client.channels.cache.get(xChannelId);
+          if (channel?.isTextBased() && 'send' in channel) {
+            channel.send(text ?? '');
+          }
+          const toyamaChannel = this.client.channels.cache.get(
+            this.toyamaChannelId ?? ''
+          );
+          if (toyamaChannel?.isTextBased() && 'send' in toyamaChannel) {
+            toyamaChannel.send(text ?? '');
           }
         }
+        return;
+      }
+    });
+    this.eventBus.subscribe('discord:get_server_emoji', async (event) => {
+      if (this.status !== 'running') return;
+      const data = event.data as DiscordGetServerEmojiInput;
+      const { guildId } = data;
+      const guild = this.client.guilds.cache.get(guildId);
+      const memoryZone = await getDiscordMemoryZone(guildId);
+      if (guild) {
+        const emojis = guild.emojis.cache.map((emoji) => emoji.toString());
+        this.eventBus.publish({
+          type: 'tool:get_server_emoji',
+          memoryZone: memoryZone,
+          data: {
+            emojis: emojis,
+          } as DiscordGetServerEmojiOutput,
+        });
+      }
+    });
+    this.eventBus.subscribe('discord:send_server_emoji', async (event) => {
+      if (this.status !== 'running') return;
+      try {
+        const data = event.data as DiscordSendServerEmojiInput;
+        const { guildId, channelId, messageId, emojiId } = data;
+        const guild = this.client.guilds.cache.get(guildId);
+        const channel = this.client.channels.cache.get(channelId);
+        if (!channel?.isTextBased() || !('messages' in channel)) return;
+        const message = await channel.messages.fetch(messageId);
+        if (guild && message) {
+          const emoji = guild.emojis.cache.get(emojiId);
+          if (emoji) {
+            await message.react(emoji);
+          }
+        }
+        this.eventBus.publish({
+          type: 'tool:send_server_emoji',
+          memoryZone: 'null',
+          data: {
+            isSuccess: true,
+            errorMessage: '',
+          } as DiscordSendServerEmojiOutput,
+        });
+      } catch (error) {
+        console.error('Error sending server emoji:', error);
+        this.eventBus.publish({
+          type: 'tool:send_server_emoji',
+          memoryZone: 'null',
+          data: {
+            isSuccess: false,
+            errorMessage:
+              error instanceof Error ? error.message : 'Unknown error',
+          } as DiscordSendServerEmojiOutput,
+        });
       }
     });
   }
