@@ -1,0 +1,41 @@
+@use "@styles/variables.scss" as *;
+
+.taskTree {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: color(background, primary);
+  color: color(text, secondary);
+  width: 50%;
+  height: 100%;
+
+  h4 {
+    margin: 0 0 0.5rem;
+  }
+
+  .taskStatus,
+  .taskGoal,
+  .taskPlan,
+  .taskError {
+    margin-bottom: 0.5rem;
+  }
+
+  .pending {
+    color: #888;
+  }
+  .in_progress {
+    color: #2196f3;
+  }
+  .completed {
+    color: #4caf50;
+  }
+  .error {
+    color: #f44336;
+  }
+
+  .subTasks {
+    ul {
+      margin: 0.5rem 0;
+      padding-left: 1.5rem;
+    }
+  }
+}

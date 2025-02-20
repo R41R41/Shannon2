@@ -1,0 +1,24 @@
+@use "@styles/variables.scss" as *;
+
+.emotion {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: color(background, primary);
+  color: color(text, secondary);
+  width: 50%;
+  height: 100%;
+
+  .emotionName {
+    margin-bottom: 1rem;
+  }
+
+  .chart {
+    height: 300px;
+    width: 100%;
+    position: relative;
+
+    canvas {
+      transition: all 2s linear;
+    }
+  }
+}

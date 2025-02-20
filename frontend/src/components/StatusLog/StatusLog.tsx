@@ -5,14 +5,17 @@ import CircleIcon from '@mui/icons-material/Circle';
 import { MonitoringAgent } from '@/services/agents/monitoringAgent';
 import { OpenAIAgent } from '@/services/agents/openaiAgent';
 import { StatusAgent } from '@/services/agents/statusAgent';
-import { TaskTreeState } from '@common/types';
 import { PlanningAgent } from '@/services/agents/planningAgent';
+import TaskTree from './TaskTree/TaskTree';
+import { EmotionAgent } from '@/services/agents/emotionAgent';
+import Emotion from './Emotion/Emotion';
 
 interface StatusLogProps {
   monitoring: MonitoringAgent | null;
   openai: OpenAIAgent | null;
   status: StatusAgent | null;
   planning: PlanningAgent | null;
+  emotion: EmotionAgent | null;
 }
 
 const StatusLog: React.FC<StatusLogProps> = ({
@@ -20,6 +23,7 @@ const StatusLog: React.FC<StatusLogProps> = ({
   openai,
   status,
   planning,
+  emotion,
 }) => {
   const [monitoringStatus, setMonitoringStatus] =
     useState<ConnectionStatus>('disconnected');
@@ -27,7 +31,7 @@ const StatusLog: React.FC<StatusLogProps> = ({
     useState<ConnectionStatus>('disconnected');
   const [statusStatus, setStatusStatus] =
     useState<ConnectionStatus>('disconnected');
-  const [taskTree, setTaskTree] = useState<TaskTreeState | null>(null);
+  
 
   useEffect(() => {
     const updateMonitoringStatus = (status: ConnectionStatus) => {
@@ -36,7 +40,6 @@ const StatusLog: React.FC<StatusLogProps> = ({
     const updateOpenaiStatus = (status: ConnectionStatus) => {
       setOpenaiStatus(status);
     };
-
     const updateStatusStatus = (status: ConnectionStatus) => {
       setStatusStatus(status);
     };
@@ -45,16 +48,12 @@ const StatusLog: React.FC<StatusLogProps> = ({
     openai?.addStatusListener(updateOpenaiStatus);
     status?.addStatusListener(updateStatusStatus);
 
-    planning?.onUpdatePlanning((newTaskTree) => {
-      setTaskTree(newTaskTree);
-    });
-
     return () => {
       monitoring?.removeStatusListener(updateMonitoringStatus);
       openai?.removeStatusListener(updateOpenaiStatus);
       status?.removeStatusListener(updateStatusStatus);
     };
-  }, [monitoring, openai, status, planning]);
+  }, [monitoring, openai, status]);
 
   const getStatusColor = (status: ConnectionStatus) => {
     switch (status) {
@@ -97,42 +96,9 @@ const StatusLog: React.FC<StatusLogProps> = ({
         <span>StatusMonitor</span>
         <span className={styles.statusText}>{getStatusText(statusStatus)}</span>
       </div>
-      
-      <div className={styles.taskTree}>
-        <h4>タスク1</h4>
-        <div className={styles.taskStatus}>
-          <span>Status: </span>
-          <span className={styles[taskTree?.status ?? 'pending']}>
-            {taskTree?.status ?? 'pending'}
-          </span>
-        </div>
-        <div className={styles.taskGoal}>
-          <span>Goal: </span>
-          <span>{taskTree?.goal ?? '-'}</span>
-        </div>
-        <div className={styles.taskPlan}>
-          <span>Strategy: </span>
-          <span>{taskTree?.strategy ?? '-'}</span>
-        </div>
-        {taskTree?.error && (
-          <div className={styles.taskError}>
-            <span>Error: </span>
-            <span>{taskTree.error}</span>
-          </div>
-        )}
-        {taskTree?.subTasks && taskTree.subTasks.length > 0 && (
-          <div className={styles.subTasks}>
-            <span>SubTasks: </span>
-            <ul>
-              {taskTree.subTasks.map((subTask, index) => (
-                <li key={index}>
-                  <span className={styles[subTask.status]}>{subTask.status}</span>
-                  : {subTask.goal}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+      <div className={styles.planningAndEmotion}>
+        <TaskTree planning={planning} />
+        <Emotion emotion={emotion} />
       </div>
     </div>
   );

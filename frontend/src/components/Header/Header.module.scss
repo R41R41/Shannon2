@@ -1,5 +1,5 @@
-@use 'sass:map';
-@use '@styles/variables.scss' as *;
+@use "sass:map";
+@use "@styles/variables.scss" as *;
 
 .header {
   display: flex;
@@ -23,7 +23,7 @@
 }
 
 .version {
-  font-family: 'kunai';
+  font-family: "kunai";
   font-size: 0.8rem;
   color: color(text, primary);
   margin-left: 16px;
@@ -76,14 +76,14 @@
     border-left: 30px solid transparent;
     border-bottom: 30px solid color(border, primary);
     &::before {
-      content: '';
+      content: "";
       position: absolute;
       top: 1px;
       width: 0px;
       height: 0px;
       border-right: 30px solid transparent;
       border-left: 30px solid transparent;
-      border-bottom: 30px solid color(background, primary);
+      border-bottom: 30px solid color(background, secondary);
     }
   }
   .leftTriangle {
@@ -108,7 +108,7 @@
     width: 50%;
     height: 32px;
     z-index: 100;
-    background-color: color(background, primary);
+    background-color: color(background, secondary);
     border-top: 1px solid color(border, primary);
   }
 }

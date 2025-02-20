@@ -3,9 +3,10 @@
 .container {
   display: flex;
   flex-direction: column;
-
+  background-color: color(background, secondary);
   gap: 0.1rem;
   padding: 0.5rem;
+  height: 100%;
 }
 
 .status {
@@ -53,42 +54,10 @@
   }
 }
 
-.taskTree {
-  margin-top: 1rem;
-  padding: 1rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  color: color(text, secondary);
-  width: 50%;
-
-  h4 {
-    margin: 0 0 0.5rem;
-  }
-
-  .taskStatus,
-  .taskGoal,
-  .taskPlan,
-  .taskError {
-    margin-bottom: 0.5rem;
-  }
-
-  .pending {
-    color: #888;
-  }
-  .in_progress {
-    color: #2196f3;
-  }
-  .completed {
-    color: #4caf50;
-  }
-  .error {
-    color: #f44336;
-  }
-
-  .subTasks {
-    ul {
-      margin: 0.5rem 0;
-      padding-left: 1.5rem;
-    }
-  }
+.planningAndEmotion {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  gap: 0.5rem;
+  height: 100%;
 }

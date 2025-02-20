@@ -7,11 +7,13 @@ import { MonitoringAgent } from '@/services/agents/monitoringAgent';
 import { OpenAIAgent } from '@/services/agents/openaiAgent';
 import { StatusAgent } from '@/services/agents/statusAgent';
 import { PlanningAgent } from '@/services/agents/planningAgent';
+import { EmotionAgent } from '@/services/agents/emotionAgent';
 interface MainContentProps {
   monitoring: MonitoringAgent | null;
   openai: OpenAIAgent | null;
   status: StatusAgent | null;
   planning: PlanningAgent | null;
+  emotion: EmotionAgent | null;
 }
 
 const ResizeHandle = () => (
@@ -23,6 +25,7 @@ const MainContent: React.FC<MainContentProps> = ({
   openai,
   status,
   planning,
+  emotion,
 }) => {
   return (
     <div className={styles.container}>
@@ -33,6 +36,7 @@ const MainContent: React.FC<MainContentProps> = ({
             openai={openai}
             status={status}
             planning={planning}
+            emotion={emotion}
           />
         </Panel>
 

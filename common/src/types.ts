@@ -125,6 +125,7 @@ export type EventType =
   | "scheduler:call_schedule"
   | "web:log"
   | "web:planning"
+  | "web:emotion"
   | "web:status"
   | "youtube:status"
   | `minebot:${string}`;
@@ -363,7 +364,8 @@ export interface Event {
     | MinebotInput
     | ServiceOutput
     | TaskInput
-    | TaskTreeState;
+    | TaskTreeState
+    | EmotionType;
   targetMemoryZones?: MemoryZone[];
 }
 

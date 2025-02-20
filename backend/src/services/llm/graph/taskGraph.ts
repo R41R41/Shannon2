@@ -272,6 +272,14 @@ export class TaskGraph {
     try {
       const response = await structuredLLM.invoke(messages);
       // console.log('\x1b[35memotion', response, '\x1b[0m');
+      if (this.eventBus) {
+        this.eventBus.publish({
+          type: 'web:emotion',
+          memoryZone: 'web',
+          data: response,
+          targetMemoryZones: ['web'],
+        });
+      }
       return {
         emotion: {
           emotion: response.emotion,
@@ -311,13 +319,21 @@ export class TaskGraph {
         const validNext = next.filter((message, index, array) => {
           if (message instanceof ToolMessage) {
             // 直前のメッセージがAIMessageでtool_callsを持っているか確認
-            const prevMessage = array[index - 1];
+            const prevMessage = prev[prev.length - 1];
             return (
               prevMessage instanceof AIMessage &&
-              prevMessage.additional_kwargs.tool_calls?.some(
-                (call) => call.id === message.tool_call_id
-              )
+              prevMessage.additional_kwargs.tool_calls
             );
+          } else {
+            // ToolMessage以外の場合、直前のメッセージをチェック
+            const prevMessage = prev[prev.length - 1];
+            if (
+              prevMessage instanceof AIMessage &&
+              prevMessage.additional_kwargs.tool_calls
+            ) {
+              // tool_callsを含むメッセージを削除
+              prev.splice(prev.length - 1, 1);
+            }
           }
           return true; // ToolMessage以外は全て保持
         });
