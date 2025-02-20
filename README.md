@@ -7,7 +7,7 @@ Shannon2は、OpenAI APIを活用したマルチモーダルなAIアシスタン
 
 ## デモ
 
-![デモGIFやスクリーンショット](frontend/public/demo.gif)
+![デモGIFやスクリーンショット](frontend/public/demo.png)
 
 ## 特徴
 
