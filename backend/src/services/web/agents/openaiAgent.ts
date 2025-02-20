@@ -1,4 +1,10 @@
-import { OpenAIMessageInput, OpenAIMessageOutput } from '@shannon/common';
+import {
+  OpenAIMessageOutput,
+  OpenAITextInput,
+  OpenAIRealTimeTextInput,
+  OpenAIRealTimeAudioInput,
+  OpenAICommandInput,
+} from '@shannon/common';
 import {
   WebSocketServiceBase,
   WebSocketServiceConfig,
@@ -29,7 +35,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
           );
           if (data.type === 'realtime_text' && data.realtime_text) {
             this.eventBus.log('web', 'white', data.realtime_text);
-            const message: OpenAIMessageInput = {
+            const message: OpenAIRealTimeTextInput = {
               type: 'realtime_text',
               realtime_text: data.realtime_text,
             };
@@ -39,11 +45,12 @@ export class OpenAIClientService extends WebSocketServiceBase {
               memoryZone: 'web',
               data: message,
             });
-          } else if (data.type === 'text' && data.text) {
+          } else if (data.type === 'text' && data.text && data.recentChatLog) {
             this.eventBus.log('web', 'white', data.text, true);
-            const message: OpenAIMessageInput = {
+            const message: OpenAITextInput = {
               type: 'text',
               text: data.text,
+              recentChatLog: data.recentChatLog,
             };
             this.eventBus.publish({
               type: 'llm:get_web_message',
@@ -51,7 +58,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
               data: message,
             });
           } else if (data.type === 'realtime_audio' && data.realtime_audio) {
-            const message: OpenAIMessageInput = {
+            const message: OpenAIRealTimeAudioInput = {
               type: 'realtime_audio',
               realtime_audio: data.realtime_audio,
               command: 'realtime_audio_append',
@@ -66,8 +73,8 @@ export class OpenAIClientService extends WebSocketServiceBase {
             data.type === 'realtime_audio' &&
             data.command === 'realtime_audio_commit'
           ) {
-            const message: OpenAIMessageInput = {
-              type: 'realtime_audio',
+            const message: OpenAICommandInput = {
+              type: 'command',
               command: 'realtime_audio_commit',
             };
 
@@ -83,7 +90,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
               'received realtime voice commit',
               true
             );
-            const message: OpenAIMessageInput = {
+            const message: OpenAICommandInput = {
               type: 'command',
               command: data.command,
             };
@@ -95,7 +102,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
             });
           } else if (data.command === 'realtime_vad_on') {
             this.eventBus.log('web', 'white', 'received realtime vad on');
-            const message: OpenAIMessageInput = {
+            const message: OpenAICommandInput = {
               type: 'command',
               command: data.command,
             };
@@ -107,7 +114,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
             });
           } else if (data.command === 'realtime_vad_off') {
             this.eventBus.log('web', 'white', 'received realtime vad off');
-            const message: OpenAIMessageInput = {
+            const message: OpenAICommandInput = {
               type: 'command',
               command: data.command,
             };
@@ -130,6 +137,8 @@ export class OpenAIClientService extends WebSocketServiceBase {
       });
 
       this.eventBus.subscribe('web:post_message', (event) => {
+        const data = event.data as OpenAITextInput;
+        this.eventBus.log('web', 'white', data.text);
         if (event.memoryZone === 'web') {
           ws.send(JSON.stringify(event.data));
         }

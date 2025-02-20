@@ -8,13 +8,11 @@ discord:
   ☐ しょうもない機能たち*1 @high(25-02-04 21:10)
   
 Twitter:
-  ☐ 1日3回(12時、18時、24時)アイマイラボ・ヤミー・ライの投稿を取得
+  ☐ 1日1回(24時)アイマイラボ・ヤミー・ライの投稿を取得
   ☐ アイマイラボの投稿リツイート*保留
   ☐ ライ、ヤミーの投稿に返信*保留
   
 LLM:
-  ☐ discordに顔文字スキル @today(25-02-08)
-  ☐ ShannonUIにチャットスキル @today(25-02-17 16:54)
   ☐ 計算スキル @today(25-02-19 16:54)
   ☐ スキル獲得
   ☐ ツールの動的読み込み
@@ -116,6 +114,8 @@ Minecraft入力用mod:
   - **updated**: \x1b[36m - シアン（水色）
   - **others**: \x1b[37m - 白, \x1b[35m - マゼンタ（紫）
 Archive:
+  ✔ ShannonUIにチャットスキル @today(25-02-17 16:54) @done(25-02-20 16:01) @project(LLM)
+  ✔ discordに顔文字スキル @today(25-02-08) @done(25-02-20 15:22) @project(LLM)
   ✔ 感情状態の表示 @today(25-02-19 15:46) @done(25-02-20 09:06) @project(Web)
   ✔ taskTreeをwebに表示する @today(25-02-19 15:46) @done(25-02-20 06:29) @project(LLM)
   ✔ 何かのレスポンスを待つeventBus.subscribe @today(25-02-17 16:54) @done(25-02-19 15:46) @project(LLM)

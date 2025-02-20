@@ -1,11 +1,13 @@
-import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
+import { BaseMessage, HumanMessage } from '@langchain/core/messages';
 import {
-  DiscordSendTextMessageInput,
   DiscordSendTextMessageOutput,
   DiscordScheduledPostInput,
   MemoryZone,
-  OpenAIMessageInput,
   OpenAIMessageOutput,
+  OpenAIRealTimeTextInput,
+  OpenAIRealTimeAudioInput,
+  OpenAICommandInput,
+  OpenAITextInput,
   TwitterClientInput,
   TwitterClientOutput,
   YoutubeClientInput,
@@ -26,7 +28,6 @@ export class LLMService {
   private eventBus: EventBus;
   private realtimeApi: RealtimeAPIService;
   private taskGraph: TaskGraph;
-  private conversationHistories: Map<MemoryZone, BaseMessage[]>;
   private aboutTodayAgent!: PostAboutTodayAgent;
   private weatherAgent!: PostWeatherAgent;
   private fortuneAgent!: PostFortuneAgent;
@@ -37,7 +38,6 @@ export class LLMService {
     this.eventBus = getEventBus();
     this.realtimeApi = new RealtimeAPIService();
     this.taskGraph = new TaskGraph();
-    this.conversationHistories = new Map();
     this.setupEventBus();
     this.setupRealtimeAPICallback();
   }
@@ -53,7 +53,7 @@ export class LLMService {
 
   private setupEventBus() {
     this.eventBus.subscribe('llm:get_web_message', (event) => {
-      this.processWebMessage(event.data as OpenAIMessageInput);
+      this.processWebMessage(event.data as OpenAIMessageOutput);
     });
 
     this.eventBus.subscribe('llm:get_discord_message', (event) => {
@@ -121,10 +121,10 @@ export class LLMService {
     });
   }
 
-  private async processWebMessage(message: OpenAIMessageInput) {
+  private async processWebMessage(message: any) {
     try {
       if (message.type === 'realtime_text') {
-        if (message.realtime_text) {
+        if (message as OpenAIRealTimeTextInput) {
           await this.realtimeApi.inputText(message.realtime_text);
         }
         return;
@@ -132,7 +132,7 @@ export class LLMService {
         message.type === 'realtime_audio' &&
         message.command === 'realtime_audio_append'
       ) {
-        if (message.realtime_audio) {
+        if (message as OpenAIRealTimeAudioInput) {
           await this.realtimeApi.inputAudioBufferAppend(message.realtime_audio);
         }
         return;
@@ -140,36 +140,30 @@ export class LLMService {
         message.type === 'realtime_audio' &&
         message.command === 'realtime_audio_commit'
       ) {
-        await this.realtimeApi.inputAudioBufferCommit();
+        if (message as OpenAICommandInput) {
+          await this.realtimeApi.inputAudioBufferCommit();
+        }
         return;
       } else if (message.command === 'realtime_vad_on') {
-        await this.realtimeApi.vadModeChange(true);
+        if (message as OpenAICommandInput) {
+          await this.realtimeApi.vadModeChange(true);
+        }
         return;
       } else if (message.command === 'realtime_vad_off') {
-        await this.realtimeApi.vadModeChange(false);
+        if (message as OpenAICommandInput) {
+          await this.realtimeApi.vadModeChange(false);
+        }
         return;
       } else if (message.type === 'text') {
-        const response = await this.processMessage(
-          'web',
-          ['web'],
-          null,
-          message.text,
-          null
-        );
-        if (response === '') {
-          return;
+        if (message as OpenAITextInput) {
+          await this.processMessage(
+            'web',
+            'null',
+            message.text,
+            'This message is from ShannonUI',
+            message.recentChatLog
+          );
         }
-        this.eventBus.log('web', 'green', response, true);
-        this.eventBus.publish({
-          type: 'web:post_message',
-          memoryZone: 'web',
-          data: {
-            text: response,
-            type: 'text',
-          } as OpenAIMessageOutput,
-          targetMemoryZones: ['web'],
-        });
-        return;
       }
     } catch (error) {
       console.error('LLM処理エラー:', error);
@@ -190,28 +184,12 @@ export class LLMService {
         const infoMessage = JSON.stringify(info, null, 2);
         const memoryZone = await getDiscordMemoryZone(message.guildId);
 
-        const response = await this.processMessage(
+        await this.processMessage(
           memoryZone,
-          [memoryZone],
           message.userName,
           message.text,
           infoMessage
         );
-        if (response === '') {
-          return;
-        }
-        this.eventBus.log(memoryZone, 'green', response, true);
-        this.eventBus.publish({
-          type: 'discord:post_message',
-          memoryZone: memoryZone,
-          data: {
-            text: response,
-            type: 'text',
-            channelId: message.channelId,
-            guildId: message.guildId,
-          } as DiscordSendTextMessageInput,
-          targetMemoryZones: [memoryZone],
-        });
         return;
       }
     } catch (error) {
@@ -233,15 +211,6 @@ export class LLMService {
       post = await this.aboutTodayAgent.createPost();
       postForToyama = post;
     }
-
-    this.saveConversationHistory('twitter:schedule_post', [
-      ...this.getConversationHistory('twitter:schedule_post'),
-      new AIMessage(post),
-    ]);
-    this.saveConversationHistory('discord:toyama_server', [
-      ...this.getConversationHistory('discord:toyama_server'),
-      new AIMessage(postForToyama),
-    ]);
     this.eventBus.log('twitter:schedule_post', 'green', post, true);
     this.eventBus.log('discord:toyama_server', 'green', postForToyama, true);
     this.eventBus.publish({
@@ -264,67 +233,24 @@ export class LLMService {
     });
   }
 
-  /**
-   * メッセージを処理する
-   * @param promptType プロンプトタイプ
-   * @param platform プラットフォーム
-   * @param userName ユーザー名
-   * @param message メッセージ
-   * @param infoMessage 追加情報
-   * @param inputMemoryZone 入力メモリゾーン
-   * @param outputMemoryZones 出力メモリゾーン
-   * @returns 応答メッセージ
-   */
   private async processMessage(
     inputMemoryZone: MemoryZone,
-    outputMemoryZones?: MemoryZone[] | null,
     userName?: string | null,
     message?: string | null,
-    infoMessage?: string | null
-  ): Promise<string> {
+    infoMessage?: string | null,
+    recentMessages?: BaseMessage[] | null
+  ) {
     try {
       const currentTime = new Date().toLocaleString('ja-JP', {
         timeZone: 'Asia/Tokyo',
       });
-      const newMessage = new HumanMessage(
-        `${currentTime} ${userName}: ${message}`
-      );
-
-      this.saveConversationHistory(inputMemoryZone, [
-        ...this.getConversationHistory(inputMemoryZone),
-        newMessage,
-      ]);
-      const messages = inputMemoryZone
-        ? this.getConversationHistory(inputMemoryZone)
-        : [];
-
-      const result = await this.taskGraph.invoke({
+      const newMessage = `${currentTime} ${userName}: ${message}`;
+      await this.taskGraph.invoke({
         memoryZone: inputMemoryZone,
         environmentState: infoMessage || null,
-        messages: messages,
-        userMessage: `${currentTime} ${userName}: ${message}`,
+        messages: recentMessages?.concat([new HumanMessage(newMessage)]) || [],
+        userMessage: newMessage,
       });
-
-      const lastMessage = result.responseMessage;
-
-      if (!lastMessage) {
-        return '';
-      }
-
-      if (outputMemoryZones) {
-        outputMemoryZones.forEach((memoryZone) => {
-          this.saveConversationHistory(memoryZone, [
-            ...this.getConversationHistory(memoryZone),
-            new AIMessage(lastMessage),
-          ]);
-        });
-      } else {
-        this.saveConversationHistory(inputMemoryZone, [
-          ...this.getConversationHistory(inputMemoryZone),
-          new AIMessage(lastMessage),
-        ]);
-      }
-      return '';
     } catch (error) {
       console.error(`\x1b[31mLLM処理エラー:${error}\n\x1b[0m`);
       this.eventBus.log(inputMemoryZone, 'red', `Error: ${error}`, true);
@@ -393,19 +319,5 @@ export class LLMService {
         targetMemoryZones: ['web'],
       });
     });
-  }
-
-  private getConversationHistory(memoryZone: MemoryZone): BaseMessage[] {
-    return this.conversationHistories.get(memoryZone) || [];
-  }
-
-  private saveConversationHistory(
-    memoryZone: MemoryZone,
-    messages: BaseMessage[]
-  ) {
-    if (messages.length > 50) {
-      messages = messages.slice(Math.max(messages.length - 50, 0));
-    }
-    this.conversationHistories.set(memoryZone, messages);
   }
 }

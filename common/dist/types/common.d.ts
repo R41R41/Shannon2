@@ -1,5 +1,5 @@
 import { TwitterClientInput, TwitterClientOutput, TwitterEventType, TwitterSchedulePostEndpoint } from "./twitter";
-import { OpenAIMessageInput, OpenAIMessageOutput, WebEventType } from "./web";
+import { OpenAIMessageOutput, OpenAIInput, WebEventType } from "./web";
 import { DiscordClientInput, DiscordClientOutput, DiscordEventType, DiscordGuild } from "./discord";
 import { MinecraftInput, MinecraftOutput, MinecraftEventType } from "./minecraft";
 import { YoutubeClientOutput, YoutubeEventType } from "./youtube";
@@ -31,7 +31,7 @@ export type EventType = TaskEventType | TwitterEventType | YoutubeEventType | Mi
 export interface Event {
     type: EventType;
     memoryZone: MemoryZone;
-    data: TwitterClientInput | TwitterClientOutput | OpenAIMessageInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput | ServiceOutput | TaskInput | TaskTreeState | EmotionType;
+    data: TwitterClientInput | TwitterClientOutput | OpenAIInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput | ServiceOutput | TaskInput | TaskTreeState | EmotionType;
     targetMemoryZones?: MemoryZone[];
 }
 export interface ILog {

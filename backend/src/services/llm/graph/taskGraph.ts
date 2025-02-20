@@ -23,6 +23,7 @@ import { EventBus } from '../../eventBus/eventBus.js';
 import { z } from 'zod';
 import { Prompt } from './prompt.js';
 import { getEventBus } from '../../eventBus/index.js';
+import { BadRequestError } from 'openai';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -163,12 +164,27 @@ export class TaskGraph {
     console.log('-------------------------------');
   }
 
-  private errorHandler = async (state: typeof this.TaskState.State) => {
+  private errorHandler = async (
+    state: typeof this.TaskState.State,
+    error: Error
+  ) => {
+    if (error instanceof BadRequestError) {
+      console.log(
+        '\x1b[31mAn assistant message with "tool_calls" must be followed by tool messages responding to each "tool_call_id".\x1b[0m'
+      );
+      return {
+        taskTree: {
+          status: 'error',
+          ...state.taskTree,
+        } as TaskTreeState,
+      };
+    }
     return {
-      ...state.taskTree,
-      status: 'error',
-      error: '処理中にエラーが発生しました',
-    } as TaskTreeState;
+      taskTree: {
+        status: 'error',
+        ...state.taskTree,
+      } as TaskTreeState,
+    };
   };
 
   private toolAgentNode = async (state: typeof this.TaskState.State) => {
@@ -182,14 +198,14 @@ export class TaskGraph {
       tool_choice: 'any',
     });
     try {
+      // console.log('messages', JSON.stringify(messages, null, 2));
       const response = await forcedToolLLM.invoke(messages);
-      console.log('\x1b[35muse_tool', response, '\x1b[0m');
+      // console.log('\x1b[35muse_tool', response, '\x1b[0m');
       return {
         messages: [response],
       };
     } catch (error) {
-      console.error('JSONパースエラー:', error);
-      return this.errorHandler(state);
+      return this.errorHandler(state, error as Error);
     }
   };
 
@@ -221,7 +237,7 @@ export class TaskGraph {
     const messages = this.prompt.getMessages(state, 'planning', true, true);
 
     try {
-      // console.log('planning', messages);
+      console.log('planning', JSON.stringify(messages, null, 2));
       const response = await structuredLLM.invoke(messages);
       if (this.eventBus) {
         console.log('eventBus publish');
@@ -241,8 +257,7 @@ export class TaskGraph {
         } as TaskTreeState,
       };
     } catch (error) {
-      console.error('JSONパースエラー:', error);
-      return this.errorHandler(state);
+      return this.errorHandler(state, error as Error);
     }
   };
 
@@ -270,6 +285,7 @@ export class TaskGraph {
       name: 'Emotion',
     });
     try {
+      // console.log('emotionNode', JSON.stringify(messages, null, 2));
       const response = await structuredLLM.invoke(messages);
       // console.log('\x1b[35memotion', response, '\x1b[0m');
       if (this.eventBus) {
@@ -286,9 +302,8 @@ export class TaskGraph {
           parameters: response.parameters,
         },
       };
-    } catch (error) {
-      console.error('JSONパースエラー:', error);
-      return this.errorHandler(state);
+    } catch (error: any) {
+      return this.errorHandler(state, error as Error);
     }
   };
 
@@ -357,10 +372,6 @@ export class TaskGraph {
       reducer: (_, next) => next,
       default: () => null,
     }),
-    responseMessage: Annotation<string | null>({
-      reducer: (_, next) => next,
-      default: () => null,
-    }),
   });
 
   private createGraph() {
@@ -409,7 +420,6 @@ export class TaskGraph {
       userMessage: partialState.userMessage ?? null,
       emotion: partialState.emotion ?? null,
       taskTree: null,
-      responseMessage: null,
     };
     return await this.graph.invoke(state, { recursionLimit: 32 });
   }

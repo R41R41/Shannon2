@@ -102,7 +102,7 @@ export class Prompt {
           )
         : null,
       state.emotion
-        ? new AIMessage(`myEmotion: ${JSON.stringify(state.emotion)}`)
+        ? new SystemMessage(`myEmotion: ${JSON.stringify(state.emotion)}`)
         : null,
       isToolInfo ? new SystemMessage(toolInfoMessage) : null,
       new SystemMessage(`the actionLog is as follows.`),

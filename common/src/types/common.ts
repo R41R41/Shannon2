@@ -4,7 +4,7 @@ import {
   TwitterEventType,
   TwitterSchedulePostEndpoint,
 } from "./twitter";
-import { OpenAIMessageInput, OpenAIMessageOutput, WebEventType } from "./web";
+import { OpenAIMessageOutput, OpenAIInput, WebEventType } from "./web";
 import {
   DiscordClientInput,
   DiscordClientOutput,
@@ -135,7 +135,7 @@ export interface Event {
   data:
     | TwitterClientInput
     | TwitterClientOutput
-    | OpenAIMessageInput
+    | OpenAIInput
     | DiscordClientInput
     | ILog
     | OpenAIMessageOutput

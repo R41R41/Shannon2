@@ -1,6 +1,7 @@
 import { OpenAIMessageOutput } from "@common/types/web";
 import { WebSocketClientBase } from "../common/WebSocketClient";
 import { URLS } from "../config/ports";
+import { BaseMessage } from "@langchain/core/messages";
 export class OpenAIAgent extends WebSocketClientBase {
   private static instance: OpenAIAgent;
 
@@ -33,6 +34,7 @@ export class OpenAIAgent extends WebSocketClientBase {
       this.audioDoneCallback?.();
     } else if (data.type === "text" && data.text) {
       this.textCallback?.(data.text);
+      this.textDoneCallback?.();
     } else if (data.type === "realtime_text" && data.realtime_text) {
       this.textCallback?.(data.realtime_text);
     } else if (data.type === "realtime_audio" && data.realtime_audio) {
@@ -43,7 +45,11 @@ export class OpenAIAgent extends WebSocketClientBase {
     }
   }
 
-  async sendMessage(message: string, isRealTimeChat: boolean) {
+  async sendMessage(
+    message: string,
+    isRealTimeChat: boolean,
+    recentChatLog?: BaseMessage[]
+  ) {
     try {
       let messageData: string;
       if (isRealTimeChat) {
@@ -55,6 +61,7 @@ export class OpenAIAgent extends WebSocketClientBase {
         messageData = JSON.stringify({
           type: "text",
           text: message,
+          recentChatLog: recentChatLog,
         });
       }
 

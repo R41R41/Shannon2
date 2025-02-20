@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styles from './Emotion.module.scss';
-import { EmotionType } from '@common/types';
+import { EmotionType } from '@common/types/taskGraph';
 import { EmotionAgent } from '@/services/agents/emotionAgent';
 import { Radar } from 'react-chartjs-2';
 import {
@@ -42,10 +42,10 @@ const Emotion: React.FC<EmotionProps> = ({ emotion }) => {
 
   // 感情値から色を計算
   const calculateColor = (values: number[]) => {
-    const positive = (values[0] + values[1] + values[7]) / 300; // joy, trust, anticipation
+    const positive = (values[0] + values[1]) / 200; // joy, trust, anticipation
     const negative = (values[2] + values[4] + values[5]) / 300; // fear, sadness, disgust
     const anger = values[6] / 100; // anger
-    const surprise = values[3] / 100; // surprise
+    const surprise = (values[3] + values[7]) / 200; // surprise
 
     // 各色の重みを計算
     const r = (emotionColors.positive.r * positive + 

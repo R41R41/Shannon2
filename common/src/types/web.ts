@@ -6,15 +6,35 @@ import {
 } from "./common";
 import { MinecraftServerName } from "./minecraft";
 import { Schedule } from "./scheduler";
+import { BaseMessage } from "@langchain/core/messages";
 
-export interface OpenAIMessageInput {
+export interface OpenAITextInput {
   type: ConversationType | "ping";
-  text?: string | null;
-  audio?: string | null;
-  realtime_text?: string | null;
-  realtime_audio?: string | null;
+  text: string;
+  recentChatLog: BaseMessage[] | null;
+}
+
+export interface OpenAICommandInput {
+  type: ConversationType | "ping";
+  command: RealTimeAPIEndpoint;
+}
+
+export interface OpenAIRealTimeTextInput {
+  type: ConversationType | "ping";
+  realtime_text: string;
   command?: RealTimeAPIEndpoint | null;
 }
+
+export interface OpenAIRealTimeAudioInput {
+  type: ConversationType | "ping";
+  realtime_audio: string;
+  command?: RealTimeAPIEndpoint | null;
+}
+export type OpenAIInput =
+  | OpenAITextInput
+  | OpenAIRealTimeTextInput
+  | OpenAIRealTimeAudioInput
+  | OpenAICommandInput;
 
 export interface OpenAIMessageOutput {
   type: ConversationType | "pong";
