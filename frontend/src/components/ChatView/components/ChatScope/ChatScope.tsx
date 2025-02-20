@@ -38,7 +38,7 @@ export const ChatScope: React.FC<ChatScopeProps> = ({ openai }) => {
       setChatMessages((prev) => [...prev, new HumanMessage(currentTime + ' ' + "User:" + ' ' + cleanMessage)]);
       
       if (openai) {
-        await openai.sendMessage(cleanMessage, isRealTimeChat, chatMessages);
+        await openai.sendMessage(cleanMessage, isRealTimeChat, chatMessages.slice(-10));
       }
     } catch (error) {
       console.error('メッセージの送信に失敗しました:', error);

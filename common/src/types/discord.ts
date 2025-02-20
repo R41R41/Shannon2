@@ -1,6 +1,6 @@
 import { ServiceInput, ServiceOutput } from "./common";
 import { TwitterSchedulePostEndpoint } from "./twitter";
-
+import { BaseMessage } from "@langchain/core/messages";
 export type DiscordGuild =
   | "discord:toyama_server"
   | "discord:aiminelab_server"
@@ -53,6 +53,7 @@ export interface DiscordSendTextMessageOutput extends ServiceOutput {
   userId: string;
   userName: string;
   text: string;
+  recentMessages: BaseMessage[];
 }
 
 export type DiscordClientOutput =

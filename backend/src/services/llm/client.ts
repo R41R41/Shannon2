@@ -188,7 +188,8 @@ export class LLMService {
           memoryZone,
           message.userName,
           message.text,
-          infoMessage
+          infoMessage,
+          message.recentMessages
         );
         return;
       }

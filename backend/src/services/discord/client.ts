@@ -20,6 +20,7 @@ import dotenv from 'dotenv';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
+import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 dotenv.config();
 
 export class DiscordBot extends BaseClient {
@@ -238,7 +239,7 @@ export class DiscordBot extends BaseClient {
           messageId: messageId,
           userId: userId,
           recentMessages: recentMessages,
-        } as DiscordClientInput,
+        } as DiscordSendTextMessageInput,
       });
     });
     this.client.on('speech', async (speech) => {
@@ -386,14 +387,7 @@ export class DiscordBot extends BaseClient {
   public async getRecentMessages(
     channelId: string,
     limit: number = 10
-  ): Promise<
-    {
-      name: string;
-      content: string;
-      timestamp: string;
-      imageUrl?: string[];
-    }[]
-  > {
+  ): Promise<BaseMessage[]> {
     try {
       const channel = this.client.channels.cache.get(channelId);
       if (!channel?.isTextBased() || !('messages' in channel)) {
@@ -405,13 +399,21 @@ export class DiscordBot extends BaseClient {
         .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
         .map((msg) => {
           const nickname = this.getUserNickname(msg.author);
-          const imageUrls = msg.attachments.map((attachment) => attachment.url);
-          return {
-            name: nickname,
-            content: msg.content,
-            timestamp: new Date(msg.createdTimestamp).toISOString(),
-            ...(imageUrls.length > 0 && { imageUrl: imageUrls }),
-          };
+          const timestamp = new Date(msg.createdTimestamp).toLocaleString(
+            'ja-JP',
+            {
+              timeZone: 'Asia/Tokyo',
+            }
+          );
+          if (msg.author.bot) {
+            return new AIMessage(
+              timestamp + ' ' + nickname + 'AI: ' + msg.content
+            );
+          } else {
+            return new HumanMessage(
+              timestamp + ' ' + nickname + ': ' + msg.content
+            );
+          }
         });
 
       return conversationLog;
