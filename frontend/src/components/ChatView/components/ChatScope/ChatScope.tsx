@@ -29,6 +29,13 @@ export const ChatScope: React.FC<ChatScopeProps> = ({ openai }) => {
       // HTML要素を除去してプレーンテキストに変換
       const cleanMessage = message
         .replace(/<br\s*\/?>/g, '\n')  // <br>タグを改行に変換
+        .replace(/&lt;/g, '<')         // &lt; を < に変換
+        .replace(/&gt;/g, '>')         // &gt; を > に変換
+        .replace(/&amp;/g, '&')        // &amp; を & に変換
+        .replace(/&quot;/g, '"')       // &quot; を " に変換
+        .replace(/&#39;/g, "'")        // &#39; を ' に変換
+        .replace(/&nbsp;/g, ' ')       // &nbsp; を空白に変換
+        .replace(/&#x2F;/g, '/')       // &#x2F; を / に変換
         .replace(/<[^>]*>/g, '')       // その他のHTMLタグを除去
         .trim();
       const currentTime = new Date().toLocaleString('ja-JP', {
@@ -48,7 +55,6 @@ export const ChatScope: React.FC<ChatScopeProps> = ({ openai }) => {
   if (openai) {
     openai.textCallback = (text: string) => {
       const modifiedText = text.replace(/\\n/g, '\n');
-      console.log(processingChatMessageIndex, chatMessages.length);
       if (processingChatMessageIndex > chatMessages.length-1) {
         setChatMessages((prev) => {
           const currentTime = new Date().toLocaleString('ja-JP', {

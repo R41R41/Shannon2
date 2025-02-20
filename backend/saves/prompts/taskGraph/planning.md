@@ -38,19 +38,21 @@ To answer the user's message, plan what you should do and output it in the follo
 - If you need to update goal, strategy, status, or subTasks according to the actionLog, update it.
 - Make a plan(goal, strategy, subTasks) that is detailed and specific so that you can refer to it later.
 ## goal
-- Goal must be the minimum thing you should do to achieve the user's message.
+- Goal must be the minimum thing you should do to answer the user's message including using tools and sending messages to the user.
 - If the user's message can be answered in one response like a greeting, goal is just response to the user's message.
 - If the user's message is a question, the goal is not only to search the Internet but also to answer the question by using the tools(chat-on-web, chat-on-discord, etc.).
 ## strategy
 - Strategy must be the strategy to achieve the goal in one sentence.
 ## status
 - According to the actionLog, update status.
+- When you are trying to achieve your goal, top level status must be in_progress.
 - When your goal is achieved, status must be completed.
-- Do not set status to completed until you confirm that you have successfully sent a message to the user using tools like chat-on-web or chat-on-discord.
-- When you think you cannot achieve your goal, you should send a message about it to the user and after that set status to error.
+- Do not set top level status to completed until you confirm that you have successfully sent a message to the user using tools like chat-on-web or chat-on-discord.
+- If you try multiple times and fail to achieve your goal, report the reason to the user and then set top level status to error and end.
 ## subtasks
 - Subtasks should be listed in order of what to do.
 - If the goal is simple enough that it doesn't require listing subtasks, subtasks can be null.
 - For example, if the user's message can be answered in one response like a greeting, subtasks should be null.
 - If you know what message to send or which tool to use, clearly specify it so it's easy to understand when referring to it later.
 - If the user's message contains "do XX at YY time", create a subtask to use wait tool to wait until YY time
+- If an error occurs when using a tool, read the error message and update subtasks to try appropriate method.

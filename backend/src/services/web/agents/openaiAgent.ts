@@ -138,7 +138,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
 
       this.eventBus.subscribe('web:post_message', (event) => {
         const data = event.data as OpenAITextInput;
-        this.eventBus.log('web', 'white', data.text);
+        this.eventBus.log('web', 'white', data.text, true);
         if (event.memoryZone === 'web') {
           ws.send(JSON.stringify(event.data));
         }

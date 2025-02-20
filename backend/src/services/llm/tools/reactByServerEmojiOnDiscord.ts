@@ -59,13 +59,13 @@ export default class ReactByServerEmojiOnDiscordTool extends StructuredTool {
         timeZone: 'Asia/Tokyo',
       });
       if (result.isSuccess) {
-        return `${currentTime} リアクションを送信しました。`;
+        return `${currentTime} Reaction sent.`;
       } else {
-        return `${currentTime} リアクションを送信できませんでした。${result.errorMessage}`;
+        return `${currentTime} Could not send reaction. ${result.errorMessage}`;
       }
     } catch (error) {
       console.error('Discord emoji error:', error);
-      return `絵文字の送信中にエラーが発生しました: ${error}`;
+      return `An error occurred while sending an emoji: ${error}`;
     }
   }
 }

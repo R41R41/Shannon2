@@ -211,8 +211,8 @@ export class TaskGraph {
 
   private planningNode = async (state: typeof this.TaskState.State) => {
     console.log('planning');
-    if (!this.mediumModel) {
-      throw new Error('Medium model not initialized');
+    if (!this.largeModel) {
+      throw new Error('Large model not initialized');
     }
     const PlanningSchema = z.object({
       status: z.enum(['pending', 'in_progress', 'completed', 'error']),
@@ -228,12 +228,9 @@ export class TaskGraph {
         )
         .nullable(),
     });
-    const structuredLLM = this.mediumModel.withStructuredOutput(
-      PlanningSchema,
-      {
-        name: 'Planning',
-      }
-    );
+    const structuredLLM = this.largeModel.withStructuredOutput(PlanningSchema, {
+      name: 'Planning',
+    });
     const messages = this.prompt.getMessages(state, 'planning', true, true);
 
     try {

@@ -9,9 +9,9 @@ import { EventBus } from '../../eventBus/eventBus.js';
 
 export default class GetServerEmojiOnDiscordTool extends StructuredTool {
   name = 'get-server-emoji-on-discord';
-  description = 'Discordでサーバー固有絵文字を取得するツール。';
+  description = 'A tool to get server-specific emojis on Discord.';
   schema = z.object({
-    guildId: z.string().describe('取得したいサーバーのGuildId'),
+    guildId: z.string().describe('The GuildId of the server you want to get.'),
   });
 
   private eventBus: EventBus;

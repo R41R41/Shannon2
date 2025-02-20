@@ -64,8 +64,6 @@ export class OpenAIAgent extends WebSocketClientBase {
           recentChatLog: recentChatLog,
         });
       }
-
-      console.log("\x1b[32msendMessage\x1b[0m", messageData);
       this.send(messageData);
     } catch (error) {
       console.error("Error sending message:", error);

@@ -4,12 +4,12 @@ import { z } from 'zod';
 export default class WaitTool extends StructuredTool {
   name = 'wait';
   description =
-    '指定された秒数だけ待機するツール。実際に待機する時間から5秒引いた秒数を設定してください。待機時間が5秒以下の場合はこのtoolを使用する必要はありません。';
+    'A tool to wait for a specified number of seconds. Set the number of seconds to wait by subtracting 5 seconds from the actual waiting time. Do not use this tool if the waiting time is less than 5 seconds.';
   schema = z.object({
     seconds: z
       .number()
       .describe(
-        '待機する秒数。実際に待機する時間から5秒引いた秒数を設定してください。例えば1分待機する場合は55(60秒-5秒)を設定してください。'
+        'The number of seconds to wait. Set the number of seconds to wait by subtracting 5 seconds from the actual waiting time. For example, if you want to wait for 1 minute, set 55 (60 seconds - 5 seconds).'
       ),
   });
 

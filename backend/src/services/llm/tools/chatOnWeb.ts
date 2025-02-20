@@ -30,10 +30,10 @@ export default class ChatOnWebTool extends StructuredTool {
       const currentTime = new Date().toLocaleString('ja-JP', {
         timeZone: 'Asia/Tokyo',
       });
-      return `${currentTime} ShannonUIに「${data.message}」というメッセージを送信しました。`;
+      return `${currentTime} Sent a message to ShannonUI: ${data.message}`;
     } catch (error) {
       console.error('Bing search error:', error);
-      return `検索中にエラーが発生しました: ${error}`;
+      return `An error occurred while searching: ${error}`;
     }
   }
 }
