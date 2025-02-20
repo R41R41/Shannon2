@@ -12,8 +12,16 @@ interface SearchQuery {
 }
 
 export class MonitoringAgent extends WebSocketServiceBase {
-  public constructor(config: WebSocketServiceConfig) {
+  private static instance: MonitoringAgent;
+  private constructor(config: WebSocketServiceConfig) {
     super(config);
+  }
+
+  public static getInstance(config: WebSocketServiceConfig): MonitoringAgent {
+    if (!MonitoringAgent.instance) {
+      MonitoringAgent.instance = new MonitoringAgent(config);
+    }
+    return MonitoringAgent.instance;
   }
 
   protected override initialize() {

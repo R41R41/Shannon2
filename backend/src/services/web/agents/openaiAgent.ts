@@ -9,9 +9,21 @@ import {
   WebSocketServiceBase,
   WebSocketServiceConfig,
 } from '../../common/WebSocketService.js';
+
 export class OpenAIClientService extends WebSocketServiceBase {
-  constructor(config: WebSocketServiceConfig) {
+  private static instance: OpenAIClientService | null = null;
+
+  private constructor(config: WebSocketServiceConfig) {
     super(config);
+  }
+
+  public static getInstance(
+    config: WebSocketServiceConfig
+  ): OpenAIClientService {
+    if (!OpenAIClientService.instance) {
+      OpenAIClientService.instance = new OpenAIClientService(config);
+    }
+    return OpenAIClientService.instance;
   }
 
   protected initialize() {
