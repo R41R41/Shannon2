@@ -16,7 +16,7 @@ export class WebClient {
   private emotionService: EmotionAgent;
   constructor(isTest: boolean) {
     const eventBus = getEventBus();
-    this.openaiService = new OpenAIClientService({
+    this.openaiService = OpenAIClientService.getInstance({
       port: isTest
         ? Number(PORTS.WEBSOCKET.OPENAI) + 10000
         : Number(PORTS.WEBSOCKET.OPENAI),
@@ -24,7 +24,7 @@ export class WebClient {
       serviceName: 'openai',
     });
 
-    this.monitoringService = new MonitoringAgent({
+    this.monitoringService = MonitoringAgent.getInstance({
       port: isTest
         ? Number(PORTS.WEBSOCKET.MONITORING) + 10000
         : Number(PORTS.WEBSOCKET.MONITORING),
@@ -32,7 +32,7 @@ export class WebClient {
       serviceName: 'monitoring',
     });
 
-    this.statusService = new StatusAgent({
+    this.statusService = StatusAgent.getInstance({
       port: isTest
         ? Number(PORTS.WEBSOCKET.STATUS) + 10000
         : Number(PORTS.WEBSOCKET.STATUS),

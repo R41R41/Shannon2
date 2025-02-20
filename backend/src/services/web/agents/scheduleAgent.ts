@@ -10,11 +10,11 @@ import {
 
 export class ScheduleAgent extends WebSocketServiceBase {
   private static instance: ScheduleAgent;
-  public constructor(config: WebSocketServiceConfig) {
+  private constructor(config: WebSocketServiceConfig) {
     super(config);
   }
 
-  public static getInstance(config: WebSocketServiceConfig) {
+  public static getInstance(config: WebSocketServiceConfig): ScheduleAgent {
     if (!ScheduleAgent.instance) {
       ScheduleAgent.instance = new ScheduleAgent(config);
     }

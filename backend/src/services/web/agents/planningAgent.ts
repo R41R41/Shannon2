@@ -6,11 +6,11 @@ import {
 
 export class PlanningAgent extends WebSocketServiceBase {
   private static instance: PlanningAgent;
-  public constructor(config: WebSocketServiceConfig) {
+  private constructor(config: WebSocketServiceConfig) {
     super(config);
   }
 
-  public static getInstance(config: WebSocketServiceConfig) {
+  public static getInstance(config: WebSocketServiceConfig): PlanningAgent {
     if (!PlanningAgent.instance) {
       PlanningAgent.instance = new PlanningAgent(config);
     }

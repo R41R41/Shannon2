@@ -6,11 +6,11 @@ import {
 
 export class EmotionAgent extends WebSocketServiceBase {
   private static instance: EmotionAgent;
-  public constructor(config: WebSocketServiceConfig) {
+  private constructor(config: WebSocketServiceConfig) {
     super(config);
   }
 
-  public static getInstance(config: WebSocketServiceConfig) {
+  public static getInstance(config: WebSocketServiceConfig): EmotionAgent {
     if (!EmotionAgent.instance) {
       EmotionAgent.instance = new EmotionAgent(config);
     }
