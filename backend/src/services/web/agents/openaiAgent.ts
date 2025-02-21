@@ -57,7 +57,6 @@ export class OpenAIClientService extends WebSocketServiceBase {
       ws.on('message', (message) => {
         try {
           const data = JSON.parse(message.toString());
-          console.log('hello');
 
           if (data.type === 'ping') {
             this.broadcast({ type: 'pong' } as OpenAIMessageOutput);

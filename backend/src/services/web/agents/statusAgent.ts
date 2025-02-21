@@ -24,11 +24,11 @@ export class StatusAgent extends WebSocketServiceBase {
     this.messageSubscription = this.eventBus.subscribe(
       'web:status',
       (event) => {
-        const status = event.data as StatusAgentInput;
+        const data = event.data as StatusAgentInput;
         this.broadcast({
           type: 'service:status',
-          service: status.service,
-          data: status.status,
+          service: data.service,
+          data: data.status,
         } as StatusAgentOutput);
       }
     );
@@ -56,15 +56,27 @@ export class StatusAgent extends WebSocketServiceBase {
         if (data.type === 'service:command') {
           const service = data.service;
           const command = data.command;
-          const serverName = data.serverName ? data.serverName : null;
-          this.eventBus.publish({
-            type: `${service}:status` as EventType,
-            memoryZone: 'web',
-            data: {
-              serviceCommand: command as ServiceCommand,
-              serverName,
-            } as ServiceInput,
-          });
+          if (data.service === 'minebot:bot') {
+            const serverName = data.serverName ? data.serverName : null;
+            this.eventBus.publish({
+              type: `${service}:status` as EventType,
+              memoryZone: 'web',
+              data: {
+                serviceCommand: command as ServiceCommand,
+                serverName,
+              } as ServiceInput,
+            });
+          } else {
+            const serverName = data.service ? data.service : null;
+            this.eventBus.publish({
+              type: `${service}:status` as EventType,
+              memoryZone: 'web',
+              data: {
+                serviceCommand: command as ServiceCommand,
+                serverName,
+              } as ServiceInput,
+            });
+          }
         }
       });
     });
