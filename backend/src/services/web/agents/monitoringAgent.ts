@@ -25,8 +25,18 @@ export class MonitoringAgent extends WebSocketServiceBase {
   }
 
   protected override initialize() {
+    if (this.wss) {
+      this.wss.clients.forEach((client) => {
+        client.close();
+      });
+    }
+
     this.wss.on('connection', async (ws) => {
       console.log('\x1b[34mMonitoring client connected\x1b[0m');
+
+      ws.on('close', () => {
+        console.log('\x1b[31mMonitoring client disconnected\x1b[0m');
+      });
 
       const logs = await Log.find().sort({ timestamp: -1 }).limit(200);
       const sortedLogs = logs.sort(

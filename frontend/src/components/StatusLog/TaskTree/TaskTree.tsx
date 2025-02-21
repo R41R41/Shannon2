@@ -41,8 +41,11 @@ const TaskTree: React.FC<TaskTreeProps> = ({ planning }) => {
         {taskTree?.subTasks && taskTree.subTasks.length > 0 && (
           <div className={styles.subTasks}>
             <ul>
-              {taskTree.subTasks.map((subTask) => (
-                <div className={styles.subTask}>
+              {taskTree.subTasks.map((subTask, index) => (
+                <div
+                  key={`${subTask.subTaskGoal}-${index}`}
+                  className={styles.subTask}
+                >
                   <div className={styles.subTaskTitle}>
                     <div
                       className={`${styles.status} ${

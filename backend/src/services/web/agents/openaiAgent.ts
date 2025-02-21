@@ -27,7 +27,20 @@ export class OpenAIClientService extends WebSocketServiceBase {
   }
 
   protected initialize() {
+    // 既存の接続をクリーンアップ
+    if (this.wss) {
+      this.wss.clients.forEach((client) => {
+        client.close();
+      });
+    }
+
     this.wss.on('connection', (ws) => {
+      console.log('\x1b[34mNew OpenAI client connected\x1b[0m');
+
+      ws.on('close', () => {
+        console.log('\x1b[31mOpenAI client disconnected\x1b[0m');
+      });
+
       ws.on('message', (message) => {
         try {
           const data = JSON.parse(message.toString());

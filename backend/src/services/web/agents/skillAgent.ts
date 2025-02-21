@@ -17,8 +17,18 @@ export class SkillAgent extends WebSocketServiceBase {
     return SkillAgent.instance;
   }
   protected override initialize() {
+    if (this.wss) {
+      this.wss.clients.forEach((client) => {
+        client.close();
+      });
+    }
+
     this.wss.on('connection', async (ws) => {
       console.log('\x1b[34mSkill client connected\x1b[0m');
+
+      ws.on('close', () => {
+        console.log('\x1b[31mSkill client disconnected\x1b[0m');
+      });
 
       ws.on('message', async (message) => {
         const data = JSON.parse(message.toString());
