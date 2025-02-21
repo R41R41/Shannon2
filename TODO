@@ -1,10 +1,8 @@
 
 Web:
-  ☐ 音声会話ができる @today(25-02-20 16:01) @high(25-02-20 16:01)
-  ☐ スキルの表示 @today(25-02-20 16:01) @high(25-02-20 16:01)
+  ☐ 音声会話ができる
   ☐ 管理者モード
   ☐ 画像認識送付機能
-  ☐ 2段階認証 @critical(25-02-20 16:01)
   
 discord:
   ☐ しょうもない機能たち*1 @high(25-02-04 21:10)
@@ -15,7 +13,6 @@ Twitter:
   ☐ ライ、ヤミーの投稿に返信*保留
   
 LLM:
-  ☐ 画像認識ツールの作成 @today(25-02-20 16:01)
   ☐ スキル獲得
   ☐ ツールの動的読み込み
   ☐ ツール作成・テストノード 
@@ -25,7 +22,7 @@ LLM:
   ☐ 終了する @today(25-02-17 16:54)
   ☐ フィードバック入力 @today(25-02-17 16:54)
   ☐ centralAgentの作成 @today(25-02-17 16:54)
-
+  
 Youtube:
   ☐ 登録者数をdiscordに表示 @high(25-02-05 20:40)
 
@@ -114,7 +111,20 @@ Minecraft入力用mod:
   - **started**: \x1b[34m - 青
   - **updated**: \x1b[36m - シアン（水色）
   - **others**: \x1b[37m - 白, \x1b[35m - マゼンタ（紫）
+
+wsを追加したときにやること:
+  - sudo nano /etc/nginx/sites-available/shannon.confの変更
+  - 設定ファイルの構文チェック sudo nginx -t
+  - 問題なければNginxを再読み込み sudo nginx -s reload
+  - または完全に再起動 sudo systemctl restart nginx
+  - ポートの確認 sudo ss -tulpn | grep LISTEN
+  - ログの確認 sudo tail -f /var/log/nginx/error.log
+
 Archive:
+  ✔ gmail認証 @critical(25-02-20 16:01) @done(25-02-21 13:53) @project(Web)
+  ✔ 画像認識ツールの作成 @today(25-02-20 16:01) @done(25-02-21 12:14) @project(LLM)
+  ✔ 画像添付 @today(25-02-20 16:01) @done(25-02-21 12:14) @project(discord)
+  ✔ スキルの表示 @today(25-02-20 16:01) @high(25-02-20 16:01) @done(25-02-21 10:34) @project(Web)
   ✔ postAboutTodayとpostWeatherAgentをTaskGraphと別にする @today(25-02-20 16:01) @high(25-02-20 16:01) @done(25-02-20 22:40) @project(LLM)
   ✔ 計算スキル @today(25-02-19 16:54) @done(25-02-20 21:28) @project(LLM)
   ✔ ShannonUIにチャットスキル @today(25-02-17 16:54) @done(25-02-20 16:01) @project(LLM)

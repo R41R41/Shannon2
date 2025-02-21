@@ -5,6 +5,7 @@ import { BaseMessage } from "@langchain/core/messages";
 export interface OpenAITextInput {
     type: ConversationType | "ping";
     text: string;
+    senderName: string;
     recentChatLog: BaseMessage[] | null;
 }
 export interface OpenAICommandInput {
@@ -28,6 +29,7 @@ export interface OpenAIMessageOutput {
     realtime_text?: string | null;
     realtime_audio?: string | null;
     command?: RealTimeAPIEndpoint | null;
+    senderName?: string | null;
 }
 export type WebScheduleInputType = "get_schedule" | "call_schedule";
 export interface WebScheduleInput {
@@ -61,4 +63,13 @@ export interface WebMonitoringOutput {
     type: WebMonitoringOutputType | "pong";
     data?: ILog | ILog[];
 }
-export type WebEventType = "web:post_message" | "web:post_schedule" | "web:log" | "web:planning" | "web:emotion" | "web:status";
+export type WebSkillInputType = "get_skills" | "ping";
+export interface WebSkillInput {
+    type: WebSkillInputType;
+}
+export type WebEventType = "web:post_message" | "web:post_schedule" | "web:log" | "web:planning" | "web:emotion" | "web:status" | "web:skill";
+export interface UserInfo {
+    name: string;
+    email: string;
+    isAdmin: boolean;
+}

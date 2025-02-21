@@ -1,11 +1,8 @@
-import express from 'express';
 import mongoose from 'mongoose';
 import { DiscordBot } from './services/discord/client.js';
 import { Scheduler } from './services/scheduler/client.js';
 import { YoutubeClient } from './services/youtube/client.js';
 import dotenv from 'dotenv';
-import { discordRoutes } from './routes/discord.routes.js';
-import { twitterRoutes } from './routes/twitter.routes.js';
 import { LLMService } from './services/llm/client.js';
 import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
@@ -14,7 +11,6 @@ import { MinebotClient } from './services/minebot/client.js';
 dotenv.config();
 
 class Server {
-  private app = express();
   private llmService: LLMService;
   private discordBot: DiscordBot;
   private webClient: WebClient;
@@ -36,17 +32,16 @@ class Server {
     this.minebotClient = MinebotClient.getInstance(isTestMode);
   }
 
-  private setupRoutes() {
-    // APIルートの設定
-    this.app.use('/api/twitter', twitterRoutes);
-    this.app.use('/api/discord', discordRoutes);
-    // その他のルート
-  }
-
   private async connectDatabase() {
     try {
-      await mongoose.connect(process.env.MONGODB_URI as string);
-      console.log('\x1b[34mMongoDB connected\x1b[0m');
+      const uri = process.env.MONGODB_URI as string;
+      console.log('Connecting to MongoDB:', uri); // URIを確認
+      await mongoose.connect(uri);
+      console.log(
+        '\x1b[34mMongoDB connected to:',
+        mongoose.connection.db.databaseName,
+        '\x1b[0m'
+      ); // DB名を確認
     } catch (error) {
       console.error(`\x1b[31mMongoDB connection error: ${error}\x1b[0m`);
     }
@@ -54,12 +49,14 @@ class Server {
 
   public async start() {
     try {
+      // データベース接続を最初に行う
+      await this.connectDatabase();
+
       await Promise.all([
         this.startDiscordBot(),
         this.startWebClient(),
         this.startLLMService(),
         this.startTwitterClient(),
-        this.connectDatabase(),
         this.startScheduler(),
         this.startYoutubeClient(),
         this.startMinecraftClient(),

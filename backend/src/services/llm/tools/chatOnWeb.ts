@@ -5,9 +5,9 @@ import { EventBus } from '../../eventBus/eventBus.js';
 
 export default class ChatOnWebTool extends StructuredTool {
   name = 'chat-on-web';
-  description = 'ShannonUIにチャットを送信するツール。';
+  description = 'A tool to send chat messages to ShannonUI.';
   schema = z.object({
-    message: z.string().describe('送信したいメッセージ'),
+    message: z.string().describe('Message to send'),
   });
   private eventBus: EventBus;
 

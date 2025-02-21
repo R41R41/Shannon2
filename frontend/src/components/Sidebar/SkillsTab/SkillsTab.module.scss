@@ -1,0 +1,71 @@
+@use "@styles/variables.scss" as *;
+
+.skillsContainer {
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.skillCard {
+  background-color: color(surface, primary);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background-color: color(surface, hover);
+  }
+
+  &:active {
+    background-color: color(surface, active);
+  }
+}
+
+.skillHeader {
+  .skillTitle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      color: color(text, primary);
+    }
+  }
+
+  .description {
+    margin: 4px 0 0;
+    font-size: 0.9rem;
+    color: color(text, secondary);
+  }
+}
+
+.parameters {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid color(surface, hover);
+
+  h4 {
+    margin: 0 0 8px;
+    font-size: 0.9rem;
+    color: color(text, primary);
+  }
+
+  .parameter {
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+
+    .paramName {
+      font-weight: 600;
+      color: color(text, primary);
+      margin-right: 8px;
+    }
+
+    .paramDesc {
+      color: color(text, secondary);
+    }
+  }
+}

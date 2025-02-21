@@ -71,8 +71,8 @@ export class Prompt {
 
     const messages = [
       new SystemMessage(prompt),
-      state.responseMessage
-        ? new SystemMessage(`responseMessage: ${state.responseMessage}`)
+      state.userMessage
+        ? new SystemMessage(`userMessage: ${state.userMessage}`)
         : null,
       new SystemMessage(
         [environmentState, currentTimeMessage, memoryZoneMessage]
@@ -122,7 +122,7 @@ export class Prompt {
           }
           return validMessages;
         }, [])
-        .slice(-16) ?? []),
+        .slice(-8) ?? []),
     ].filter((message): message is BaseMessage => message !== null);
 
     return messages;

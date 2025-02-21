@@ -10,5 +10,7 @@ export const PORTS = {
     STATUS: process.env.WS_STATUS_PORT || 5013,
     PLANNING: process.env.WS_PLANNING_PORT || 5014,
     EMOTION: process.env.WS_EMOTION_PORT || 5015,
+    SKILL: process.env.WS_SKILL_PORT || 5016,
+    AUTH: process.env.WS_AUTH_PORT || 5017,
   },
 } as const;

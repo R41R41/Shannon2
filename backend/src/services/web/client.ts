@@ -6,7 +6,8 @@ import { StatusAgent } from './agents/statusAgent.js';
 import { getEventBus } from '../eventBus/index.js';
 import { PlanningAgent } from './agents/planningAgent.js';
 import { EmotionAgent } from './agents/emotionAgent.js';
-
+import { SkillAgent } from './agents/skillAgent.js';
+import { AuthAgent } from './agents/authAgent.js';
 export class WebClient {
   private openaiService: OpenAIClientService;
   private monitoringService: MonitoringAgent;
@@ -14,6 +15,8 @@ export class WebClient {
   private statusService: StatusAgent;
   private planningService: PlanningAgent;
   private emotionService: EmotionAgent;
+  private skillService: SkillAgent;
+  private authService: AuthAgent;
   constructor(isTest: boolean) {
     const eventBus = getEventBus();
     this.openaiService = OpenAIClientService.getInstance({
@@ -63,6 +66,22 @@ export class WebClient {
       eventBus: eventBus,
       serviceName: 'emotion',
     });
+
+    this.skillService = SkillAgent.getInstance({
+      port: isTest
+        ? Number(PORTS.WEBSOCKET.SKILL) + 10000
+        : Number(PORTS.WEBSOCKET.SKILL),
+      eventBus: eventBus,
+      serviceName: 'skill',
+    });
+
+    this.authService = AuthAgent.getInstance({
+      port: isTest
+        ? Number(PORTS.WEBSOCKET.AUTH) + 10000
+        : Number(PORTS.WEBSOCKET.AUTH),
+      eventBus: eventBus,
+      serviceName: 'auth',
+    });
   }
 
   public start() {
@@ -72,5 +91,7 @@ export class WebClient {
     this.scheduleService.start();
     this.planningService.start();
     this.emotionService.start();
+    this.skillService.start();
+    this.authService.start();
   }
 }

@@ -8,7 +8,11 @@ export interface TaskTreeState {
     strategy: string;
     status: TaskStatus;
     error?: string | null;
-    subTasks?: TaskTreeState[] | null;
+    subTasks?: {
+        subTaskGoal: string;
+        subTaskStrategy: string;
+        subTaskStatus: TaskStatus;
+    }[] | null;
 }
 export interface EmotionType {
     emotion: string;

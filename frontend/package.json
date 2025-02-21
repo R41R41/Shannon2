@@ -21,6 +21,7 @@
     "chart.js": "^4.4.8",
     "chartjs-plugin-datalabels": "^2.2.0",
     "cronstrue": "^2.54.0",
+    "firebase": "^11.3.1",
     "langchain": "^0.3.19",
     "mobx": "^6.13.5",
     "mobx-react-lite": "^4.1.0",

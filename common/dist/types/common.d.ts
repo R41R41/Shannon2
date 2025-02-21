@@ -1,12 +1,12 @@
 import { TwitterClientInput, TwitterClientOutput, TwitterEventType, TwitterSchedulePostEndpoint } from "./twitter";
-import { OpenAIMessageOutput, OpenAIInput, WebEventType } from "./web";
+import { OpenAIMessageOutput, OpenAIInput, WebEventType, WebSkillInput } from "./web";
 import { DiscordClientInput, DiscordClientOutput, DiscordEventType, DiscordGuild } from "./discord";
 import { MinecraftInput, MinecraftOutput, MinecraftEventType } from "./minecraft";
 import { YoutubeClientOutput, YoutubeEventType } from "./youtube";
 import { MinebotOutput, MinebotInput, MinebotEventType } from "./minebot";
 import { TaskInput, TaskTreeState, EmotionType, TaskEventType } from "./taskGraph";
 import { SchedulerInput, SchedulerOutput, SchedulerEventType } from "./scheduler";
-import { LLMEventType } from "./llm";
+import { LLMEventType, SkillInfo } from "./llm";
 import { ToolEventType } from "./tools";
 export type Platform = "web" | "discord" | "minecraft" | "scheduler" | "twitter" | "youtube" | "minebot";
 export type ConversationType = "text" | "audio" | "realtime_text" | "realtime_audio" | "command" | "log" | "user_transcript";
@@ -31,7 +31,7 @@ export type EventType = TaskEventType | TwitterEventType | YoutubeEventType | Mi
 export interface Event {
     type: EventType;
     memoryZone: MemoryZone;
-    data: TwitterClientInput | TwitterClientOutput | OpenAIInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput | ServiceOutput | TaskInput | TaskTreeState | EmotionType;
+    data: TwitterClientInput | TwitterClientOutput | OpenAIInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput | ServiceOutput | TaskInput | TaskTreeState | EmotionType | SkillInfo[] | WebSkillInput;
     targetMemoryZones?: MemoryZone[];
 }
 export interface ILog {

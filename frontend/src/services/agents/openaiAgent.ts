@@ -46,6 +46,7 @@ export class OpenAIAgent extends WebSocketClientBase {
   }
 
   async sendMessage(
+    name: string,
     message: string,
     isRealTimeChat: boolean,
     recentChatLog?: BaseMessage[]
@@ -61,6 +62,7 @@ export class OpenAIAgent extends WebSocketClientBase {
         messageData = JSON.stringify({
           type: "text",
           text: message,
+          senderName: name,
           recentChatLog: recentChatLog,
         });
       }

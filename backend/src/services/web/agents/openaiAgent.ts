@@ -27,7 +27,20 @@ export class OpenAIClientService extends WebSocketServiceBase {
   }
 
   protected initialize() {
+    // 既存の接続をクリーンアップ
+    if (this.wss) {
+      this.wss.clients.forEach((client) => {
+        client.close();
+      });
+    }
+
     this.wss.on('connection', (ws) => {
+      console.log('\x1b[34mNew OpenAI client connected\x1b[0m');
+
+      ws.on('close', () => {
+        console.log('\x1b[31mOpenAI client disconnected\x1b[0m');
+      });
+
       ws.on('message', (message) => {
         try {
           const data = JSON.parse(message.toString());
@@ -57,11 +70,17 @@ export class OpenAIClientService extends WebSocketServiceBase {
               memoryZone: 'web',
               data: message,
             });
-          } else if (data.type === 'text' && data.text && data.recentChatLog) {
+          } else if (
+            data.type === 'text' &&
+            data.text &&
+            data.recentChatLog &&
+            data.senderName
+          ) {
             this.eventBus.log('web', 'white', data.text, true);
             const message: OpenAITextInput = {
               type: 'text',
               text: data.text,
+              senderName: data.senderName,
               recentChatLog: data.recentChatLog,
             };
             this.eventBus.publish({

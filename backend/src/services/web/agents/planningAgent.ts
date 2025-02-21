@@ -17,8 +17,18 @@ export class PlanningAgent extends WebSocketServiceBase {
     return PlanningAgent.instance;
   }
   protected override initialize() {
+    if (this.wss) {
+      this.wss.clients.forEach((client) => {
+        client.close();
+      });
+    }
+
     this.wss.on('connection', async (ws) => {
       console.log('\x1b[34mPlanning client connected\x1b[0m');
+
+      ws.on('close', () => {
+        console.log('\x1b[31mPlanning client disconnected\x1b[0m');
+      });
 
       ws.on('message', async (message) => {
         const data = JSON.parse(message.toString());

@@ -4,7 +4,12 @@ import {
   TwitterEventType,
   TwitterSchedulePostEndpoint,
 } from "./twitter";
-import { OpenAIMessageOutput, OpenAIInput, WebEventType } from "./web";
+import {
+  OpenAIMessageOutput,
+  OpenAIInput,
+  WebEventType,
+  WebSkillInput,
+} from "./web";
 import {
   DiscordClientInput,
   DiscordClientOutput,
@@ -29,7 +34,7 @@ import {
   SchedulerOutput,
   SchedulerEventType,
 } from "./scheduler";
-import { LLMEventType } from "./llm";
+import { LLMEventType, SkillInfo } from "./llm";
 import { ToolEventType } from "./tools";
 
 export type Platform =
@@ -152,7 +157,9 @@ export interface Event {
     | ServiceOutput
     | TaskInput
     | TaskTreeState
-    | EmotionType;
+    | EmotionType
+    | SkillInfo[]
+    | WebSkillInput;
   targetMemoryZones?: MemoryZone[];
 }
 
