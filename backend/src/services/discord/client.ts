@@ -212,6 +212,18 @@ export class DiscordBot extends BaseClient {
       const userId = message.author.id;
       const guildId = message.guildId;
       const recentMessages = await this.getRecentMessages(message.channelId);
+
+      // 画像URLを取得
+      const imageUrls = message.attachments
+        .filter((attachment) => attachment.contentType?.startsWith('image/'))
+        .map((attachment) => attachment.url);
+
+      // テキストと画像URLを結合
+      const contentWithImages =
+        imageUrls.length > 0
+          ? `${message.content}\n画像: ${imageUrls.join('\n')}`
+          : message.content;
+
       if (
         guildId === this.toyamaGuildId &&
         message.channelId !== this.toyamaChannelId
@@ -220,16 +232,16 @@ export class DiscordBot extends BaseClient {
       this.eventBus.log(
         memoryZone,
         'white',
-        `${guildName} ${channelName}\n${nickname}: ${message.content}`,
+        `${guildName} ${channelName}\n${nickname}: ${contentWithImages}`,
         true
       );
       console.log('\x1b[34m' + guildName + ' ' + channelName + '\x1b[0m');
-      console.log('\x1b[34m' + nickname + ': ' + message.content + '\x1b[0m');
+      console.log('\x1b[34m' + nickname + ': ' + contentWithImages + '\x1b[0m');
       this.eventBus.publish({
         type: 'llm:get_discord_message',
         memoryZone: memoryZone,
         data: {
-          text: message.content,
+          text: contentWithImages,
           type: 'text',
           guildName: memoryZone,
           channelId: message.channelId,
@@ -401,17 +413,29 @@ export class DiscordBot extends BaseClient {
           const nickname = this.getUserNickname(msg.author);
           const timestamp = new Date(msg.createdTimestamp).toLocaleString(
             'ja-JP',
-            {
-              timeZone: 'Asia/Tokyo',
-            }
+            { timeZone: 'Asia/Tokyo' }
           );
+
+          // 画像URLを取得
+          const imageUrls = msg.attachments
+            .filter((attachment) =>
+              attachment.contentType?.startsWith('image/')
+            )
+            .map((attachment) => attachment.url);
+
+          // テキストと画像URLを結合
+          const contentWithImages =
+            imageUrls.length > 0
+              ? `${msg.content}\n画像: ${imageUrls.join('\n')}`
+              : msg.content;
+
           if (msg.author.bot) {
             return new AIMessage(
-              timestamp + ' ' + nickname + 'AI: ' + msg.content
+              timestamp + ' ' + nickname + 'AI: ' + contentWithImages
             );
           } else {
             return new HumanMessage(
-              timestamp + ' ' + nickname + ': ' + msg.content
+              timestamp + ' ' + nickname + ': ' + contentWithImages
             );
           }
         });

@@ -1,13 +1,13 @@
 
 Web:
-  ☐ 音声会話ができる @today(25-02-20 16:01) @high(25-02-20 16:01)
-  ☐ スキルの表示 @today(25-02-20 16:01) @high(25-02-20 16:01)
+  ☐ 音声会話ができる
   ☐ 管理者モード
-  ☐ 画像認識送付機能
+  ☐ 画像認識送付機能 @today(25-02-20 16:01)
   ☐ 2段階認証 @critical(25-02-20 16:01)
   
 discord:
   ☐ しょうもない機能たち*1 @high(25-02-04 21:10)
+  ☐ 画像添付 @today(25-02-20 16:01)
   
 Twitter:
   ☐ 1日1回(24時)アイマイラボ・ヤミー・ライの投稿を取得
@@ -124,6 +124,7 @@ wsを追加したときにやること:
   - ログの確認 sudo tail -f /var/log/nginx/error.log
 
 Archive:
+  ✔ スキルの表示 @today(25-02-20 16:01) @high(25-02-20 16:01) @done(25-02-21 10:34) @project(Web)
   ✔ postAboutTodayとpostWeatherAgentをTaskGraphと別にする @today(25-02-20 16:01) @high(25-02-20 16:01) @done(25-02-20 22:40) @project(LLM)
   ✔ 計算スキル @today(25-02-19 16:54) @done(25-02-20 21:28) @project(LLM)
   ✔ ShannonUIにチャットスキル @today(25-02-17 16:54) @done(25-02-20 16:01) @project(LLM)

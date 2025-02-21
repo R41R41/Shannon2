@@ -2,40 +2,100 @@
 
 .taskTree {
   margin-top: 1rem;
-  padding: 1rem;
-  background-color: color(background, primary);
-  color: color(text, secondary);
+  color: color(text, primary);
   width: 50%;
   height: 100%;
 
-  h4 {
-    margin: 0 0 0.5rem;
+  .plan {
+    background-color: color(background, primary);
+    padding: 1rem;
+    color: color(text, primary);
+    width: 100%;
   }
 
-  .taskStatus,
+  .taskTitle,
   .taskGoal,
   .taskPlan,
   .taskError {
     margin-bottom: 0.5rem;
   }
 
+  .taskTitle {
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
+  }
+
+  @keyframes pulse {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  .status {
+    font-size: 0.8rem;
+    margin-right: 0.5rem;
+    margin-top: 3px;
+    padding: 0.4rem 0.4rem;
+    border-radius: 8px;
+    width: 16px;
+    height: 16px;
+    margin-bottom: 0.5rem;
+  }
+
   .pending {
-    color: #888;
+    background-color: color(warning);
+    animation: pulse 2s infinite;
   }
   .in_progress {
-    color: #2196f3;
+    background-color: color(primary);
+    animation: pulse 2s infinite;
   }
   .completed {
-    color: #4caf50;
+    background-color: color(success);
   }
   .error {
-    color: #f44336;
+    background-color: color(danger);
   }
 
   .subTasks {
-    ul {
-      margin: 0.5rem 0;
-      padding-left: 1.5rem;
-    }
+    margin-left: 1rem;
+  }
+  .subTask {
+    margin-bottom: 0.5rem;
+  }
+  .subTaskTitle {
+    display: flex;
+  }
+
+  .taskPlan {
+    margin-left: 0.5rem;
+    font-size: 0.9rem;
+    color: color(text, secondary);
+  }
+  .subTaskStrategy {
+    margin-left: 24px;
+    font-size: 0.8rem;
+    color: color(text, secondary);
+  }
+  .legend {
+    padding: 1rem;
+    display: flex;
+    flex-direction: row;
+    gap: 30px;
+  }
+  .legendItem {
+    display: flex;
+    flex-direction: row;
+  }
+  .legendItemText {
+    font-size: 0.8rem;
+    color: color(text, secondary);
   }
 }

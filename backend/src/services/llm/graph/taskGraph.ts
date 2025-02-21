@@ -116,6 +116,7 @@ export class TaskGraph {
         console.error(`ツール読み込みエラー: ${file}`, error);
       }
     }
+    console.log('tools', this.tools.length);
   }
 
   private baseMessagesToLog(messages: BaseMessage[], memoryZone: MemoryZone) {
@@ -221,9 +222,14 @@ export class TaskGraph {
       subTasks: z
         .array(
           z.object({
-            status: z.enum(['pending', 'in_progress', 'completed', 'error']),
-            goal: z.string(),
-            strategy: z.string(),
+            subTaskStatus: z.enum([
+              'pending',
+              'in_progress',
+              'completed',
+              'error',
+            ]),
+            subTaskGoal: z.string(),
+            subTaskStrategy: z.string(),
           })
         )
         .nullable(),

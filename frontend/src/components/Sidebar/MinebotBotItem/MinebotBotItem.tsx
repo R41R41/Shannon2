@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ServiceStatus } from '@common/types';
+import { ServiceStatus } from '@common/types/common';
 import styles from './MinebotBotItem.module.scss';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
