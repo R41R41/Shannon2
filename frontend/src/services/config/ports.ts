@@ -50,6 +50,9 @@ export const URLS = {
     SKILL: isTest
       ? `${wsProtocol}//${hostname}:16016/ws/skill`
       : `${wsProtocol}//${host}/ws/skill`,
+    AUTH: isTest
+      ? `${wsProtocol}//${hostname}:16017/ws/auth`
+      : `${wsProtocol}//${host}/ws/auth`,
   },
 } as const;
 

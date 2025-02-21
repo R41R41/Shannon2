@@ -65,6 +65,20 @@
   }
 }
 
+.userInfo {
+  position: absolute;
+  right: 60px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.userName {
+  font-size: 0.8rem;
+  color: color(text, primary);
+}
+
 .dentSection {
   .triangle {
     position: absolute;

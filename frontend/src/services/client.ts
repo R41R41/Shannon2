@@ -5,6 +5,7 @@ import { StatusAgent } from "./agents/statusAgent";
 import { PlanningAgent } from "./agents/planningAgent";
 import { EmotionAgent } from "./agents/emotionAgent";
 import { SkillAgent } from "./agents/skillAgent";
+import { AuthAgent } from "./agents/authAgent";
 export class WebClient {
   public openaiService: OpenAIAgent;
   public monitoringService: MonitoringAgent;
@@ -13,6 +14,7 @@ export class WebClient {
   public planningService: PlanningAgent;
   public emotionService: EmotionAgent;
   public skillService: SkillAgent;
+  public authService: AuthAgent;
   constructor() {
     this.openaiService = OpenAIAgent.getInstance();
     this.monitoringService = MonitoringAgent.getInstance();
@@ -21,6 +23,7 @@ export class WebClient {
     this.planningService = PlanningAgent.getInstance();
     this.emotionService = EmotionAgent.getInstance();
     this.skillService = SkillAgent.getInstance();
+    this.authService = AuthAgent.getInstance();
   }
 
   public start() {
@@ -31,5 +34,6 @@ export class WebClient {
     this.planningService.connect();
     this.emotionService.connect();
     this.skillService.connect();
+    this.authService.connect();
   }
 }

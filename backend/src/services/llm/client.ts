@@ -220,7 +220,7 @@ export class LLMService {
         if (message as OpenAITextInput) {
           await this.processMessage(
             'web',
-            'null',
+            message.senderName,
             message.text,
             'This message is from ShannonUI',
             message.recentChatLog

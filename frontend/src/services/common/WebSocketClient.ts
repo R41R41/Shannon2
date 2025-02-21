@@ -1,7 +1,7 @@
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
 export abstract class WebSocketClientBase {
-  private ws: WebSocket | null = null;
+  protected ws: WebSocket | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 60; // 5分 = 60回 (5秒間隔)
   private reconnectDelay = 5000; // 5秒
@@ -126,6 +126,12 @@ export abstract class WebSocketClientBase {
         clearTimeout(this.pingTimeoutId);
         this.pingTimeoutId = null;
       }
+    }
+  }
+
+  public disconnect() {
+    if (this.ws) {
+      this.ws.close();
     }
   }
 }

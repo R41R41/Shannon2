@@ -11,6 +11,7 @@ import { BaseMessage } from "@langchain/core/messages";
 export interface OpenAITextInput {
   type: ConversationType | "ping";
   text: string;
+  senderName: string;
   recentChatLog: BaseMessage[] | null;
 }
 
@@ -42,6 +43,7 @@ export interface OpenAIMessageOutput {
   realtime_text?: string | null;
   realtime_audio?: string | null;
   command?: RealTimeAPIEndpoint | null;
+  senderName?: string | null;
 }
 
 export type WebScheduleInputType = "get_schedule" | "call_schedule";
@@ -105,3 +107,9 @@ export type WebEventType =
   | "web:emotion"
   | "web:status"
   | "web:skill";
+
+export interface UserInfo {
+  name: string;
+  email: string;
+  isAdmin: boolean;
+}

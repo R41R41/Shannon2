@@ -57,11 +57,17 @@ export class OpenAIClientService extends WebSocketServiceBase {
               memoryZone: 'web',
               data: message,
             });
-          } else if (data.type === 'text' && data.text && data.recentChatLog) {
+          } else if (
+            data.type === 'text' &&
+            data.text &&
+            data.recentChatLog &&
+            data.senderName
+          ) {
             this.eventBus.log('web', 'white', data.text, true);
             const message: OpenAITextInput = {
               type: 'text',
               text: data.text,
+              senderName: data.senderName,
               recentChatLog: data.recentChatLog,
             };
             this.eventBus.publish({

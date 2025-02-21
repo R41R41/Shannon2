@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
-import styles from './Header.module.scss';
-import SettingsModal from '@components/Modal/SettingsModal';
-import logo from '@/assets/logo.png';
-import SettingsIcon from '@mui/icons-material/Settings';
+import React, { useState } from "react";
+import styles from "./Header.module.scss";
+import SettingsModal from "@components/Modal/SettingsModal";
+import logo from "@/assets/logo.png";
+import SettingsIcon from "@mui/icons-material/Settings";
 
-const Header: React.FC = () => {
+interface UserInfo {
+  name: string;
+  email: string;
+}
+
+interface HeaderProps {
+  userInfo?: UserInfo | null;
+}
+
+const Header: React.FC<HeaderProps> = ({ userInfo }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
@@ -27,6 +36,9 @@ const Header: React.FC = () => {
           <div className={`${styles.triangle} ${styles.leftTriangle}`}></div>
           <div className={styles.rectangle}></div>
           <div className={`${styles.triangle} ${styles.rightTriangle}`}></div>
+        </div>
+        <div className={styles.userInfo}>
+          <div className={styles.userName}>{userInfo?.name}</div>
         </div>
       </header>
 
