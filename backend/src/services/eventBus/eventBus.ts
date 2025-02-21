@@ -9,11 +9,25 @@ export class EventBus {
    * @param eventType イベントタイプ
    * @param callback コールバック関数
    */
-  subscribe(eventType: EventType, callback: (event: Event) => void) {
+  subscribe(
+    eventType: EventType,
+    callback: (event: Event) => void
+  ): () => void {
     if (!this.listeners.has(eventType)) {
       this.listeners.set(eventType, []);
     }
     this.listeners.get(eventType)?.push(callback);
+
+    // unsubscribe関数を返す
+    return () => {
+      const callbacks = this.listeners.get(eventType);
+      if (callbacks) {
+        this.listeners.set(
+          eventType,
+          callbacks.filter((cb) => cb !== callback)
+        );
+      }
+    };
   }
 
   /**

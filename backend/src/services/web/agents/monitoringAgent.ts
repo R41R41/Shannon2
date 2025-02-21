@@ -4,6 +4,9 @@ import {
   WebSocketServiceBase,
   WebSocketServiceConfig,
 } from '../../common/WebSocketService.js';
+import { EventBus } from '../../eventBus/eventBus.js';
+import { getEventBus } from '../../eventBus/index.js';
+
 interface SearchQuery {
   startDate?: string;
   endDate?: string;
@@ -13,8 +16,19 @@ interface SearchQuery {
 
 export class MonitoringAgent extends WebSocketServiceBase {
   private static instance: MonitoringAgent;
+  private eventBus: EventBus;
+  private messageSubscription: (() => void) | null = null;
+
   private constructor(config: WebSocketServiceConfig) {
     super(config);
+    this.eventBus = getEventBus();
+
+    this.messageSubscription = this.eventBus.subscribe('web:log', (event) => {
+      this.broadcast({
+        type: 'web:log',
+        data: event.data as ILog,
+      } as WebMonitoringOutput);
+    });
   }
 
   public static getInstance(config: WebSocketServiceConfig): MonitoringAgent {
@@ -25,14 +39,10 @@ export class MonitoringAgent extends WebSocketServiceBase {
   }
 
   protected override initialize() {
-    if (this.wss) {
-      this.wss.clients.forEach((client) => {
-        client.close();
-      });
-    }
-
     this.wss.on('connection', async (ws) => {
       console.log('\x1b[34mMonitoring client connected\x1b[0m');
+
+      this.handleNewConnection(ws);
 
       ws.on('close', () => {
         console.log('\x1b[31mMonitoring client disconnected\x1b[0m');
@@ -80,13 +90,6 @@ export class MonitoringAgent extends WebSocketServiceBase {
         console.error('WebSocket error:', error);
       });
     });
-
-    this.eventBus.subscribe('web:log', (event) => {
-      this.broadcast({
-        type: 'web:log',
-        data: event.data as ILog,
-      } as WebMonitoringOutput);
-    });
   }
 
   private async searchLogs(query: SearchQuery) {
@@ -112,5 +115,12 @@ export class MonitoringAgent extends WebSocketServiceBase {
 
   public start() {
     super.start();
+  }
+
+  public disconnect() {
+    if (this.messageSubscription) {
+      this.messageSubscription();
+      this.messageSubscription = null;
+    }
   }
 }

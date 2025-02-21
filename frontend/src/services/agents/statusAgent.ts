@@ -7,18 +7,39 @@ type StatusCallback = (status: ServiceStatus) => void;
 
 export class StatusAgent extends WebSocketClientBase {
   private static instance: StatusAgent;
+  private static isConnecting: boolean = false;
   private serviceStatusListeners: Map<string, Set<StatusCallback>> = new Map();
 
   public static getInstance() {
     if (!StatusAgent.instance) {
       StatusAgent.instance = new StatusAgent(URLS.WEBSOCKET.STATUS);
-      console.log("StatusAgent instance created ", URLS.WEBSOCKET.STATUS);
     }
     return StatusAgent.instance;
   }
 
-  private constructor(url: string) {
-    super(url);
+  public connect() {
+    if (StatusAgent.isConnecting) return;
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
+    StatusAgent.isConnecting = true;
+    super.connect();
+  }
+
+  protected onOpen() {
+    super.onOpen();
+    StatusAgent.isConnecting = false;
+  }
+
+  protected onClose() {
+    super.onClose();
+    StatusAgent.isConnecting = false;
+  }
+
+  public disconnect() {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    StatusAgent.isConnecting = false;
   }
 
   protected handleMessage(message: string) {

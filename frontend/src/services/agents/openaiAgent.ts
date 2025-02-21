@@ -2,8 +2,10 @@ import { OpenAIMessageOutput } from "@common/types/web";
 import { WebSocketClientBase } from "../common/WebSocketClient";
 import { URLS } from "../config/ports";
 import { BaseMessage } from "@langchain/core/messages";
+
 export class OpenAIAgent extends WebSocketClientBase {
   private static instance: OpenAIAgent;
+  private static isConnecting: boolean = false;
 
   public static getInstance() {
     if (!OpenAIAgent.instance) {
@@ -13,6 +15,7 @@ export class OpenAIAgent extends WebSocketClientBase {
     }
     return OpenAIAgent.instance;
   }
+
   public textCallback: ((text: string) => void) | null = null;
   public textDoneCallback: (() => void) | null = null;
   public audioCallback: ((data: string) => void) | null = null;
@@ -21,6 +24,37 @@ export class OpenAIAgent extends WebSocketClientBase {
 
   private constructor(url: string) {
     super(url);
+  }
+
+  public connect() {
+    if (OpenAIAgent.isConnecting) {
+      console.log("OpenAIAgent connection already in progress");
+      return;
+    }
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) {
+      console.log("OpenAIAgent already connected");
+      return;
+    }
+    OpenAIAgent.isConnecting = true;
+    super.connect();
+  }
+
+  protected onOpen() {
+    super.onOpen();
+    OpenAIAgent.isConnecting = false;
+  }
+
+  protected onClose() {
+    super.onClose();
+    OpenAIAgent.isConnecting = false;
+  }
+
+  public disconnect() {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    OpenAIAgent.isConnecting = false;
   }
 
   protected handleMessage(message: string) {

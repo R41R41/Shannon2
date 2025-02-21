@@ -9,12 +9,29 @@ import {
   WebSocketServiceBase,
   WebSocketServiceConfig,
 } from '../../common/WebSocketService.js';
+import { EventBus } from '../../eventBus/eventBus.js';
+import { getEventBus } from '../../eventBus/index.js';
 
 export class OpenAIClientService extends WebSocketServiceBase {
   private static instance: OpenAIClientService | null = null;
+  private eventBus: EventBus;
+  private messageSubscription: (() => void) | null = null;
 
   private constructor(config: WebSocketServiceConfig) {
     super(config);
+    this.eventBus = getEventBus();
+
+    // グローバルなsubscribeを設定
+    this.messageSubscription = this.eventBus.subscribe(
+      'web:post_message',
+      (event) => {
+        const data = event.data as OpenAITextInput;
+        this.eventBus.log('web', 'white', data.text, true);
+        if (event.memoryZone === 'web') {
+          this.broadcast(event.data);
+        }
+      }
+    );
   }
 
   public static getInstance(
@@ -27,15 +44,11 @@ export class OpenAIClientService extends WebSocketServiceBase {
   }
 
   protected initialize() {
-    // 既存の接続をクリーンアップ
-    if (this.wss) {
-      this.wss.clients.forEach((client) => {
-        client.close();
-      });
-    }
-
     this.wss.on('connection', (ws) => {
       console.log('\x1b[34mNew OpenAI client connected\x1b[0m');
+
+      // 新しい接続の管理
+      this.handleNewConnection(ws);
 
       ws.on('close', () => {
         console.log('\x1b[31mOpenAI client disconnected\x1b[0m');
@@ -44,6 +57,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
       ws.on('message', (message) => {
         try {
           const data = JSON.parse(message.toString());
+          console.log('hello');
 
           if (data.type === 'ping') {
             this.broadcast({ type: 'pong' } as OpenAIMessageOutput);
@@ -166,18 +180,17 @@ export class OpenAIClientService extends WebSocketServiceBase {
           console.error('Error processing message:', error);
         }
       });
-
-      this.eventBus.subscribe('web:post_message', (event) => {
-        const data = event.data as OpenAITextInput;
-        this.eventBus.log('web', 'white', data.text, true);
-        if (event.memoryZone === 'web') {
-          ws.send(JSON.stringify(event.data));
-        }
-      });
     });
   }
 
   public start() {
     this.initialize();
+  }
+
+  public disconnect() {
+    if (this.messageSubscription) {
+      this.messageSubscription();
+      this.messageSubscription = null;
+    }
   }
 }

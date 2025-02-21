@@ -1,26 +1,27 @@
-import React, { useState } from 'react';
-import styles from './Sidebar.module.scss';
-import classNames from 'classnames';
-import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
-import HandymanOutlinedIcon from '@mui/icons-material/HandymanOutlined';
-import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
-import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
-import SearchTab from './SearchTab/SearchTab';
-import { ILog } from '@common/types/common';
-import { MonitoringAgent } from '@/services/agents/monitoringAgent';
-import { SchedulerAgent } from '@/services/agents/schedulerAgent';
-import ScheduleTab from './ScheduleTab/ScheduleTab';
-import { StatusAgent } from '@/services/agents/statusAgent';
-import StatusTab from './StatusTab/StatusTab';
-import MonitorHeartOutlinedIcon from '@mui/icons-material/MonitorHeartOutlined';
-import { SkillAgent } from '@/services/agents/skillAgent';
-import SkillsTab from './SkillsTab/SkillsTab';
+import React, { useState } from "react";
+import styles from "./Sidebar.module.scss";
+import classNames from "classnames";
+import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
+import HandymanOutlinedIcon from "@mui/icons-material/HandymanOutlined";
+import ScheduleOutlinedIcon from "@mui/icons-material/ScheduleOutlined";
+import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
+import SearchTab from "./SearchTab/SearchTab";
+import { ILog } from "@common/types/common";
+import { MonitoringAgent } from "@/services/agents/monitoringAgent";
+import { SchedulerAgent } from "@/services/agents/schedulerAgent";
+import ScheduleTab from "./ScheduleTab/ScheduleTab";
+import { StatusAgent } from "@/services/agents/statusAgent";
+import StatusTab from "./StatusTab/StatusTab";
+import MonitorHeartOutlinedIcon from "@mui/icons-material/MonitorHeartOutlined";
+import { SkillAgent } from "@/services/agents/skillAgent";
+import SkillsTab from "./SkillsTab/SkillsTab";
 
 interface SidebarProps {
   monitoring: MonitoringAgent | null;
   scheduler: SchedulerAgent | null;
   status: StatusAgent | null;
   skill: SkillAgent | null;
+  isMobile?: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -28,73 +29,84 @@ const Sidebar: React.FC<SidebarProps> = ({
   scheduler,
   status,
   skill,
+  isMobile = false,
 }) => {
-  const [activeTab, setActiveTab] = useState('search');
+  const [activeTab, setActiveTab] = useState("search");
   const [searchResults, setSearchResults] = useState<ILog[]>([]);
 
   return (
-    <div className={styles.sidebarContainer}>
-      <div className={styles.tabContainer}>
+    <div
+      className={classNames(styles.sidebarContainer, {
+        [styles.mobile]: isMobile,
+      })}
+    >
+      <div
+        className={classNames(styles.tabContainer, {
+          [styles.mobileTabContainer]: isMobile,
+        })}
+      >
         <div
           className={classNames(styles.tab, {
-            [styles.active]: activeTab === 'search',
+            [styles.active]: activeTab === "search",
           })}
-          onClick={() => setActiveTab('search')}
+          onClick={() => setActiveTab("search")}
           title="検索"
         >
           <SearchOutlinedIcon />
         </div>
         <div
           className={classNames(styles.tab, {
-            [styles.active]: activeTab === 'skills',
+            [styles.active]: activeTab === "skills",
           })}
-          onClick={() => setActiveTab('skills')}
+          onClick={() => setActiveTab("skills")}
           title="スキル"
         >
           <HandymanOutlinedIcon />
         </div>
         <div
           className={classNames(styles.tab, {
-            [styles.active]: activeTab === 'tasks',
+            [styles.active]: activeTab === "tasks",
           })}
-          onClick={() => setActiveTab('tasks')}
+          onClick={() => setActiveTab("tasks")}
           title="タスク"
         >
           <TaskAltOutlinedIcon />
         </div>
         <div
           className={classNames(styles.tab, {
-            [styles.active]: activeTab === 'schedule',
+            [styles.active]: activeTab === "schedule",
           })}
-          onClick={() => setActiveTab('schedule')}
+          onClick={() => setActiveTab("schedule")}
           title="スケジュール"
         >
           <ScheduleOutlinedIcon />
         </div>
         <div
           className={classNames(styles.tab, {
-            [styles.active]: activeTab === 'status',
+            [styles.active]: activeTab === "status",
           })}
-          onClick={() => setActiveTab('status')}
+          onClick={() => setActiveTab("status")}
           title="ステータス"
         >
           <MonitorHeartOutlinedIcon />
         </div>
       </div>
-      <div className={styles.tabContent}>
-        {activeTab === 'search' && (
-          <SearchTab
-            monitoring={monitoring}
-            searchResults={searchResults}
-            setSearchResults={setSearchResults}
-          />
-        )}
-        {activeTab === 'skills' && <div></div>}
-        {activeTab === 'tasks' && <div></div>}
-        {activeTab === 'schedule' && <ScheduleTab scheduler={scheduler} />}
-        {activeTab === 'status' && <StatusTab status={status} />}
-        {activeTab === 'skills' && <SkillsTab skill={skill} />}
-      </div>
+      {!isMobile && (
+        <div className={styles.tabContent}>
+          {activeTab === "search" && (
+            <SearchTab
+              monitoring={monitoring}
+              searchResults={searchResults}
+              setSearchResults={setSearchResults}
+            />
+          )}
+          {activeTab === "skills" && <div></div>}
+          {activeTab === "tasks" && <div></div>}
+          {activeTab === "schedule" && <ScheduleTab scheduler={scheduler} />}
+          {activeTab === "status" && <StatusTab status={status} />}
+          {activeTab === "skills" && <SkillsTab skill={skill} />}
+        </div>
+      )}
     </div>
   );
 };

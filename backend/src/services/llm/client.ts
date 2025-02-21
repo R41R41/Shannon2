@@ -31,6 +31,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export class LLMService {
+  private static instance: LLMService;
   private eventBus: EventBus;
   private realtimeApi: RealtimeAPIService;
   private taskGraph: TaskGraph;
@@ -43,10 +44,17 @@ export class LLMService {
 
   constructor() {
     this.eventBus = getEventBus();
-    this.realtimeApi = new RealtimeAPIService();
-    this.taskGraph = new TaskGraph();
+    this.realtimeApi = RealtimeAPIService.getInstance();
+    this.taskGraph = TaskGraph.getInstance();
     this.setupEventBus();
     this.setupRealtimeAPICallback();
+  }
+
+  public static getInstance(): LLMService {
+    if (!LLMService.instance) {
+      LLMService.instance = new LLMService();
+    }
+    return LLMService.instance;
   }
 
   public async initialize() {

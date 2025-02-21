@@ -7,6 +7,11 @@
   gap: 0.1rem;
   padding: 0.5rem;
   height: 100%;
+
+  &.mobile {
+    padding: 0;
+    gap: 0;
+  }
 }
 
 .status {
@@ -55,9 +60,17 @@
 }
 
 .planningAndEmotion {
+  margin-top: 10px;
   display: flex;
   flex-direction: row;
   width: 100%;
   gap: 0.5rem;
   height: 100%;
+
+  &.mobilePlanningAndEmotion {
+    margin-top: 0;
+    gap: 0;
+    flex-direction: column;
+    gap: 1rem;
+  }
 }

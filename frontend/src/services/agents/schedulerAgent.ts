@@ -9,13 +9,38 @@ type SearchCallback = (results: Schedule[]) => void;
 
 export class SchedulerAgent extends WebSocketClientBase {
   private static instance: SchedulerAgent;
+  private static isConnecting: boolean = false;
 
   public static getInstance() {
     if (!SchedulerAgent.instance) {
       SchedulerAgent.instance = new SchedulerAgent(URLS.WEBSOCKET.SCHEDULER);
-      console.log("SchedulerAgent instance created ", URLS.WEBSOCKET.SCHEDULER);
     }
     return SchedulerAgent.instance;
+  }
+
+  public connect() {
+    if (SchedulerAgent.isConnecting) return;
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
+    SchedulerAgent.isConnecting = true;
+    super.connect();
+  }
+
+  protected onOpen() {
+    super.onOpen();
+    SchedulerAgent.isConnecting = false;
+  }
+
+  protected onClose() {
+    super.onClose();
+    SchedulerAgent.isConnecting = false;
+  }
+
+  public disconnect() {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    SchedulerAgent.isConnecting = false;
   }
 
   private searchListeners: Set<SearchCallback> = new Set();

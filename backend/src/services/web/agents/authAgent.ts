@@ -19,14 +19,10 @@ export class AuthAgent extends WebSocketServiceBase {
   }
 
   protected override initialize() {
-    if (this.wss) {
-      this.wss.clients.forEach((client) => {
-        client.close();
-      });
-    }
-
     this.wss.on('connection', async (ws) => {
       console.log('\x1b[34mAuth client connected\x1b[0m');
+
+      this.handleNewConnection(ws);
 
       ws.on('close', () => {
         console.log('\x1b[31mAuth client disconnected\x1b[0m');

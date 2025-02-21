@@ -5,9 +5,10 @@ import { PlanningAgent } from "@/services/agents/planningAgent";
 
 interface TaskTreeProps {
   planning: PlanningAgent | null;
+  isMobile?: boolean;
 }
 
-const TaskTree: React.FC<TaskTreeProps> = ({ planning }) => {
+const TaskTree: React.FC<TaskTreeProps> = ({ planning, isMobile }) => {
   const [taskTree, setTaskTree] = useState<TaskTreeState | null>(null);
 
   useEffect(() => {
@@ -19,7 +20,7 @@ const TaskTree: React.FC<TaskTreeProps> = ({ planning }) => {
   }, [planning]);
 
   return (
-    <div className={styles.taskTree}>
+    <div className={`${styles.taskTree} ${isMobile ? styles.mobile : ""}`}>
       <div className={styles.plan}>
         <div className={styles.taskTitle}>
           <div
@@ -63,32 +64,34 @@ const TaskTree: React.FC<TaskTreeProps> = ({ planning }) => {
           </div>
         )}
       </div>
-      <div className={styles.legend}>
-        <div className={styles.legendItem}>
-          <div
-            className={`${styles.status} ${styles.pending} ${styles.stop}`}
-          ></div>
-          <div className={styles.legendItemText}>Pending</div>
+      {!isMobile && (
+        <div className={styles.legend}>
+          <div className={styles.legendItem}>
+            <div
+              className={`${styles.status} ${styles.pending} ${styles.stop}`}
+            ></div>
+            <div className={styles.legendItemText}>Pending</div>
+          </div>
+          <div className={styles.legendItem}>
+            <div
+              className={`${styles.status} ${styles.in_progress} ${styles.stop}`}
+            ></div>
+            <div className={styles.legendItemText}>In Progress</div>
+          </div>
+          <div className={styles.legendItem}>
+            <div
+              className={`${styles.status} ${styles.completed} ${styles.stop}`}
+            ></div>
+            <div className={styles.legendItemText}>Completed</div>
+          </div>
+          <div className={styles.legendItem}>
+            <div
+              className={`${styles.status} ${styles.error} ${styles.stop}`}
+            ></div>
+            <div className={styles.legendItemText}>Error</div>
+          </div>
         </div>
-        <div className={styles.legendItem}>
-          <div
-            className={`${styles.status} ${styles.in_progress} ${styles.stop}`}
-          ></div>
-          <div className={styles.legendItemText}>In Progress</div>
-        </div>
-        <div className={styles.legendItem}>
-          <div
-            className={`${styles.status} ${styles.completed} ${styles.stop}`}
-          ></div>
-          <div className={styles.legendItemText}>Completed</div>
-        </div>
-        <div className={styles.legendItem}>
-          <div
-            className={`${styles.status} ${styles.error} ${styles.stop}`}
-          ></div>
-          <div className={styles.legendItemText}>Error</div>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

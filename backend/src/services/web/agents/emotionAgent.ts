@@ -3,11 +3,28 @@ import {
   WebSocketServiceBase,
   WebSocketServiceConfig,
 } from '../../common/WebSocketService.js';
+import { EventBus } from '../../eventBus/eventBus.js';
+import { getEventBus } from '../../eventBus/index.js';
 
 export class EmotionAgent extends WebSocketServiceBase {
   private static instance: EmotionAgent;
+  private eventBus: EventBus;
+  private messageSubscription: (() => void) | null = null;
+
   private constructor(config: WebSocketServiceConfig) {
     super(config);
+    this.eventBus = getEventBus();
+
+    this.messageSubscription = this.eventBus.subscribe(
+      'web:emotion',
+      (event) => {
+        const data = event.data as EmotionType;
+        this.broadcast({
+          type: 'web:emotion',
+          data: data,
+        });
+      }
+    );
   }
 
   public static getInstance(config: WebSocketServiceConfig): EmotionAgent {
@@ -16,15 +33,12 @@ export class EmotionAgent extends WebSocketServiceBase {
     }
     return EmotionAgent.instance;
   }
-  protected override initialize() {
-    if (this.wss) {
-      this.wss.clients.forEach((client) => {
-        client.close();
-      });
-    }
 
+  protected override initialize() {
     this.wss.on('connection', async (ws) => {
       console.log('\x1b[34mEmotion client connected\x1b[0m');
+
+      this.handleNewConnection(ws);
 
       ws.on('close', () => {
         console.log('\x1b[31mEmotion client disconnected\x1b[0m');
@@ -49,17 +63,16 @@ export class EmotionAgent extends WebSocketServiceBase {
     });
 
     console.log('\x1b[31mEmotionAgent subscribe\x1b[0m');
-
-    this.eventBus.subscribe('web:emotion', (event) => {
-      const data = event.data as EmotionType;
-      this.broadcast({
-        type: 'web:emotion',
-        data: data,
-      });
-    });
   }
 
   public start() {
     super.start();
+  }
+
+  public disconnect() {
+    if (this.messageSubscription) {
+      this.messageSubscription();
+      this.messageSubscription = null;
+    }
   }
 }

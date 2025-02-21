@@ -1,10 +1,13 @@
 @use "@styles/variables.scss" as *;
 
 .taskTree {
-  margin-top: 1rem;
   color: color(text, primary);
   width: 50%;
   height: 100%;
+
+  &.mobile {
+    width: 100%;
+  }
 
   .plan {
     background-color: color(background, primary);
