@@ -5,22 +5,30 @@ import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import HandymanOutlinedIcon from '@mui/icons-material/HandymanOutlined';
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
-import SearchTab from './SearchTab';
-import { ILog } from '@common/types';
+import SearchTab from './SearchTab/SearchTab';
+import { ILog } from '@common/types/common';
 import { MonitoringAgent } from '@/services/agents/monitoringAgent';
 import { SchedulerAgent } from '@/services/agents/schedulerAgent';
-import ScheduleTab from './ScheduleTab';
+import ScheduleTab from './ScheduleTab/ScheduleTab';
 import { StatusAgent } from '@/services/agents/statusAgent';
 import StatusTab from './StatusTab/StatusTab';
 import MonitorHeartOutlinedIcon from '@mui/icons-material/MonitorHeartOutlined';
+import { SkillAgent } from '@/services/agents/skillAgent';
+import SkillsTab from './SkillsTab/SkillsTab';
 
 interface SidebarProps {
   monitoring: MonitoringAgent | null;
   scheduler: SchedulerAgent | null;
   status: StatusAgent | null;
+  skill: SkillAgent | null;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ monitoring, scheduler, status }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+  monitoring,
+  scheduler,
+  status,
+  skill,
+}) => {
   const [activeTab, setActiveTab] = useState('search');
   const [searchResults, setSearchResults] = useState<ILog[]>([]);
 
@@ -85,6 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({ monitoring, scheduler, status }) => {
         {activeTab === 'tasks' && <div></div>}
         {activeTab === 'schedule' && <ScheduleTab scheduler={scheduler} />}
         {activeTab === 'status' && <StatusTab status={status} />}
+        {activeTab === 'skills' && <SkillsTab skill={skill} />}
       </div>
     </div>
   );

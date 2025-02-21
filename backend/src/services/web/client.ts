@@ -6,7 +6,7 @@ import { StatusAgent } from './agents/statusAgent.js';
 import { getEventBus } from '../eventBus/index.js';
 import { PlanningAgent } from './agents/planningAgent.js';
 import { EmotionAgent } from './agents/emotionAgent.js';
-
+import { SkillAgent } from './agents/skillAgent.js';
 export class WebClient {
   private openaiService: OpenAIClientService;
   private monitoringService: MonitoringAgent;
@@ -14,6 +14,7 @@ export class WebClient {
   private statusService: StatusAgent;
   private planningService: PlanningAgent;
   private emotionService: EmotionAgent;
+  private skillService: SkillAgent;
   constructor(isTest: boolean) {
     const eventBus = getEventBus();
     this.openaiService = OpenAIClientService.getInstance({
@@ -63,6 +64,14 @@ export class WebClient {
       eventBus: eventBus,
       serviceName: 'emotion',
     });
+
+    this.skillService = SkillAgent.getInstance({
+      port: isTest
+        ? Number(PORTS.WEBSOCKET.SKILL) + 10000
+        : Number(PORTS.WEBSOCKET.SKILL),
+      eventBus: eventBus,
+      serviceName: 'skill',
+    });
   }
 
   public start() {
@@ -72,5 +81,6 @@ export class WebClient {
     this.scheduleService.start();
     this.planningService.start();
     this.emotionService.start();
+    this.skillService.start();
   }
 }

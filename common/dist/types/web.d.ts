@@ -61,4 +61,8 @@ export interface WebMonitoringOutput {
     type: WebMonitoringOutputType | "pong";
     data?: ILog | ILog[];
 }
-export type WebEventType = "web:post_message" | "web:post_schedule" | "web:log" | "web:planning" | "web:emotion" | "web:status";
+export type WebSkillInputType = "get_skills" | "ping";
+export interface WebSkillInput {
+    type: WebSkillInputType;
+}
+export type WebEventType = "web:post_message" | "web:post_schedule" | "web:log" | "web:planning" | "web:emotion" | "web:status" | "web:skill";

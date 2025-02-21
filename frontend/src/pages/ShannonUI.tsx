@@ -12,6 +12,7 @@ import { SchedulerAgent } from '@/services/agents/schedulerAgent';
 import { StatusAgent } from '@/services/agents/statusAgent';
 import { PlanningAgent } from '@/services/agents/planningAgent';
 import { EmotionAgent } from '@/services/agents/emotionAgent';
+import { SkillAgent } from '@/services/agents/skillAgent';
 const ResizeHandle = ({ className = '' }) => (
   <PanelResizeHandle className={`${styles.resizeHandle} ${className}`} />
 );
@@ -23,6 +24,7 @@ const ShannonUI: React.FC = () => {
   const [status, setStatus] = useState<StatusAgent | null>(null);
   const [planning, setPlanning] = useState<PlanningAgent | null>(null);
   const [emotion, setEmotion] = useState<EmotionAgent | null>(null);
+  const [skill, setSkill] = useState<SkillAgent | null>(null);
   useEffect(() => {
     const webClient = new WebClient();
     webClient.start();
@@ -32,6 +34,7 @@ const ShannonUI: React.FC = () => {
     setStatus(webClient.statusService);
     setPlanning(webClient.planningService);
     setEmotion(webClient.emotionService);
+    setSkill(webClient.skillService);
   }, []);
   return (
     <div className={styles.container}>
@@ -43,7 +46,8 @@ const ShannonUI: React.FC = () => {
               monitoring={monitoring}
               scheduler={scheduler}
               status={status}
-              />
+              skill={skill}
+            />
           </Panel>
 
           <ResizeHandle />

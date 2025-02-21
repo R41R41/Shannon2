@@ -47,6 +47,9 @@ export const URLS = {
     EMOTION: isTest
       ? `${wsProtocol}//${hostname}:16015/ws/emotion`
       : `${wsProtocol}//${host}/ws/emotion`,
+    SKILL: isTest
+      ? `${wsProtocol}//${hostname}:16016/ws/skill`
+      : `${wsProtocol}//${host}/ws/skill`,
   },
 } as const;
 

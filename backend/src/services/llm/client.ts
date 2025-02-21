@@ -12,6 +12,7 @@ import {
   TwitterClientOutput,
   YoutubeClientInput,
   YoutubeClientOutput,
+  SkillInfo,
 } from '@shannon/common';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus/eventBus.js';
@@ -23,6 +24,11 @@ import { ReplyTwitterCommentAgent } from './agents/replyTwitterComment.js';
 import { ReplyYoutubeCommentAgent } from './agents/replyYoutubeComment.js';
 import { TaskGraph } from './graph/taskGraph.js';
 import { getEventBus } from '../eventBus/index.js';
+import { readdirSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export class LLMService {
   private eventBus: EventBus;
@@ -33,6 +39,7 @@ export class LLMService {
   private fortuneAgent!: PostFortuneAgent;
   private replyTwitterCommentAgent!: ReplyTwitterCommentAgent;
   private replyYoutubeCommentAgent!: ReplyYoutubeCommentAgent;
+  private tools: any[] = [];
 
   constructor() {
     this.eventBus = getEventBus();
@@ -70,6 +77,61 @@ export class LLMService {
 
     this.eventBus.subscribe('llm:reply_youtube_comment', (event) => {
       this.processYoutubeReply(event.data as YoutubeClientOutput);
+    });
+
+    this.eventBus.subscribe('llm:get_skills', (event) => {
+      this.processGetSkills();
+    });
+  }
+
+  private async getTools() {
+    const toolsDir = join(__dirname, './tools');
+    const toolFiles = readdirSync(toolsDir).filter(
+      (file) => file.endsWith('.js') && !file.includes('.js.map')
+    );
+
+    this.tools = [];
+
+    for (const file of toolFiles) {
+      if (file === 'index.ts' || file === 'index.js') continue;
+      try {
+        const toolPath = join(toolsDir, file);
+        const toolModule = await import(toolPath);
+        const ToolClass = toolModule.default;
+        // ツールが既に読み込まれているかチェック
+        if (this.tools.find((tool) => tool.name === ToolClass.name)) continue;
+        if (ToolClass?.prototype?.constructor) {
+          this.tools.push(new ToolClass());
+        }
+      } catch (error) {
+        console.error(`ツール読み込みエラー: ${file}`, error);
+      }
+    }
+  }
+
+  private async processGetSkills() {
+    if (this.tools.length === 0) {
+      await this.getTools();
+    }
+
+    const skills = this.tools.map((tool) => {
+      return {
+        name: tool.name.toString(),
+        description: tool.description.toString(),
+        parameters: Object.entries(tool.schema.shape).map(([name, value]) => ({
+          name,
+          description: (value as any)._def.description,
+        })),
+      };
+    });
+    const uniqueSkills = skills.filter(
+      (skill, index, self) =>
+        index === self.findIndex((t) => t.name === skill.name)
+    );
+    this.eventBus.publish({
+      type: 'web:skill',
+      memoryZone: 'web',
+      data: uniqueSkills as SkillInfo[],
     });
   }
 

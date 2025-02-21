@@ -1,5 +1,5 @@
 import React from 'react';
-import { ServiceStatus } from '@common/types';
+import { ServiceStatus } from '@common/types/common';
 import { StatusAgent } from '@/services/agents/statusAgent';
 import styles from './ServiceItem.module.scss';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';

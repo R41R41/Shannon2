@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './SearchTab.module.scss';
-import { ILog } from '@common/types';
-import { MemoryZone } from '@common/types';
+import { ILog } from '@common/types/common';
+import { MemoryZone } from '@common/types/common';
 import { MonitoringAgent } from '@/services/agents/monitoringAgent';
 
 interface SearchTabProps {
