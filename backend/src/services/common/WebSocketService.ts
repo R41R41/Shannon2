@@ -1,19 +1,17 @@
 import http from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
-import { EventBus } from '../eventBus/eventBus.js';
 
 export interface WebSocketServiceConfig {
   port?: number;
   server?: http.Server;
-  eventBus: EventBus;
   serviceName: string;
 }
 
 export abstract class WebSocketServiceBase {
   protected wss: WebSocketServer;
-  protected eventBus: EventBus;
   protected serviceName: string;
   private isInitialized = false;
+  protected activeConnections = new Set<WebSocket>();
 
   constructor(config: WebSocketServiceConfig) {
     if (config.server) {
@@ -26,7 +24,6 @@ export abstract class WebSocketServiceBase {
     console.log(
       `WebSocketServer created on port ${config.port} for service ${config.serviceName}`
     );
-    this.eventBus = config.eventBus;
     this.serviceName = config.serviceName;
   }
 
@@ -37,8 +34,27 @@ export abstract class WebSocketServiceBase {
     }
   }
 
+  protected handleNewConnection(ws: WebSocket) {
+    // 既存の接続を切断
+    this.activeConnections.forEach((connection) => {
+      try {
+        connection.close();
+      } catch (error) {
+        console.error(`Error closing connection: ${error}`);
+      }
+    });
+    this.activeConnections.clear();
+
+    // 新しい接続を追加
+    this.activeConnections.add(ws);
+
+    ws.on('close', () => {
+      this.activeConnections.delete(ws);
+    });
+  }
+
   public broadcast(data: unknown) {
-    this.wss.clients.forEach((client) => {
+    this.activeConnections.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(JSON.stringify(data));
       }

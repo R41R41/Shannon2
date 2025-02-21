@@ -18,6 +18,7 @@ export default class ChatOnWebTool extends StructuredTool {
 
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
     try {
+      console.log('chat-on-web', data);
       this.eventBus.publish({
         type: 'web:post_message',
         memoryZone: 'web',

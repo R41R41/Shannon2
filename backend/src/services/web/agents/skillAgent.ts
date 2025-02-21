@@ -3,11 +3,32 @@ import {
   WebSocketServiceConfig,
 } from '../../common/WebSocketService.js';
 import { SkillInfo } from '@shannon/common';
+import { EventBus } from '../../eventBus/eventBus.js';
+import { getEventBus } from '../../eventBus/index.js';
 
 export class SkillAgent extends WebSocketServiceBase {
   private static instance: SkillAgent;
+  private eventBus: EventBus;
+  private messageSubscription: (() => void) | null = null;
+
   private constructor(config: WebSocketServiceConfig) {
     super(config);
+    this.eventBus = getEventBus();
+
+    this.messageSubscription = this.eventBus.subscribe('web:skill', (event) => {
+      const data = event.data as SkillInfo[];
+      this.broadcast({
+        type: 'web:skill',
+        data: data,
+      });
+    });
+  }
+
+  public disconnect() {
+    if (this.messageSubscription) {
+      this.messageSubscription();
+      this.messageSubscription = null;
+    }
   }
 
   public static getInstance(config: WebSocketServiceConfig): SkillAgent {
@@ -17,14 +38,10 @@ export class SkillAgent extends WebSocketServiceBase {
     return SkillAgent.instance;
   }
   protected override initialize() {
-    if (this.wss) {
-      this.wss.clients.forEach((client) => {
-        client.close();
-      });
-    }
-
     this.wss.on('connection', async (ws) => {
       console.log('\x1b[34mSkill client connected\x1b[0m');
+
+      this.handleNewConnection(ws);
 
       ws.on('close', () => {
         console.log('\x1b[31mSkill client disconnected\x1b[0m');
@@ -57,14 +74,6 @@ export class SkillAgent extends WebSocketServiceBase {
     });
 
     console.log('\x1b[31mSkillAgent subscribe\x1b[0m');
-
-    this.eventBus.subscribe('web:skill', (event) => {
-      const data = event.data as SkillInfo[];
-      this.broadcast({
-        type: 'web:skill',
-        data: data,
-      });
-    });
   }
 
   public start() {

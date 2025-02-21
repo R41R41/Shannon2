@@ -9,6 +9,7 @@ import { EmotionAgent } from './agents/emotionAgent.js';
 import { SkillAgent } from './agents/skillAgent.js';
 import { AuthAgent } from './agents/authAgent.js';
 export class WebClient {
+  private static instance: WebClient;
   private openaiService: OpenAIClientService;
   private monitoringService: MonitoringAgent;
   private scheduleService: ScheduleAgent;
@@ -17,13 +18,12 @@ export class WebClient {
   private emotionService: EmotionAgent;
   private skillService: SkillAgent;
   private authService: AuthAgent;
+
   constructor(isTest: boolean) {
-    const eventBus = getEventBus();
     this.openaiService = OpenAIClientService.getInstance({
       port: isTest
         ? Number(PORTS.WEBSOCKET.OPENAI) + 10000
         : Number(PORTS.WEBSOCKET.OPENAI),
-      eventBus: eventBus,
       serviceName: 'openai',
     });
 
@@ -31,7 +31,6 @@ export class WebClient {
       port: isTest
         ? Number(PORTS.WEBSOCKET.MONITORING) + 10000
         : Number(PORTS.WEBSOCKET.MONITORING),
-      eventBus: eventBus,
       serviceName: 'monitoring',
     });
 
@@ -39,7 +38,6 @@ export class WebClient {
       port: isTest
         ? Number(PORTS.WEBSOCKET.STATUS) + 10000
         : Number(PORTS.WEBSOCKET.STATUS),
-      eventBus: eventBus,
       serviceName: 'status',
     });
 
@@ -47,7 +45,6 @@ export class WebClient {
       port: isTest
         ? Number(PORTS.WEBSOCKET.SCHEDULE) + 10000
         : Number(PORTS.WEBSOCKET.SCHEDULE),
-      eventBus: eventBus,
       serviceName: 'schedule',
     });
 
@@ -55,7 +52,6 @@ export class WebClient {
       port: isTest
         ? Number(PORTS.WEBSOCKET.PLANNING) + 10000
         : Number(PORTS.WEBSOCKET.PLANNING),
-      eventBus: eventBus,
       serviceName: 'planning',
     });
 
@@ -63,7 +59,6 @@ export class WebClient {
       port: isTest
         ? Number(PORTS.WEBSOCKET.EMOTION) + 10000
         : Number(PORTS.WEBSOCKET.EMOTION),
-      eventBus: eventBus,
       serviceName: 'emotion',
     });
 
@@ -71,7 +66,6 @@ export class WebClient {
       port: isTest
         ? Number(PORTS.WEBSOCKET.SKILL) + 10000
         : Number(PORTS.WEBSOCKET.SKILL),
-      eventBus: eventBus,
       serviceName: 'skill',
     });
 
@@ -79,9 +73,15 @@ export class WebClient {
       port: isTest
         ? Number(PORTS.WEBSOCKET.AUTH) + 10000
         : Number(PORTS.WEBSOCKET.AUTH),
-      eventBus: eventBus,
       serviceName: 'auth',
     });
+  }
+
+  public static getInstance(isTest: boolean): WebClient {
+    if (!WebClient.instance) {
+      WebClient.instance = new WebClient(isTest);
+    }
+    return WebClient.instance;
   }
 
   public start() {

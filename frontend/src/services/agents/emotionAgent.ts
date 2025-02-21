@@ -6,11 +6,11 @@ type UpdateEmotionCallback = (emotion: EmotionType) => void;
 
 export class EmotionAgent extends WebSocketClientBase {
   private static instance: EmotionAgent;
+  private static isConnecting: boolean = false;
 
   public static getInstance() {
     if (!EmotionAgent.instance) {
       EmotionAgent.instance = new EmotionAgent(URLS.WEBSOCKET.EMOTION);
-      console.log("EmotionAgent instance created ", URLS.WEBSOCKET.EMOTION);
     }
     return EmotionAgent.instance;
   }
@@ -20,6 +20,31 @@ export class EmotionAgent extends WebSocketClientBase {
   private constructor(url: string) {
     super(url);
     this.updateEmotionCallback = () => {};
+  }
+
+  public connect() {
+    if (EmotionAgent.isConnecting) return;
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
+    EmotionAgent.isConnecting = true;
+    super.connect();
+  }
+
+  protected onOpen() {
+    super.onOpen();
+    EmotionAgent.isConnecting = false;
+  }
+
+  protected onClose() {
+    super.onClose();
+    EmotionAgent.isConnecting = false;
+  }
+
+  public disconnect() {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    EmotionAgent.isConnecting = false;
   }
 
   protected handleMessage(message: string) {

@@ -6,6 +6,7 @@ type AuthCallback = (success: boolean, userData?: UserInfo) => void;
 
 export class AuthAgent extends WebSocketClientBase {
   private static instance: AuthAgent;
+  private static isConnecting: boolean = false;
   private authCallback: AuthCallback = () => {};
 
   public static getInstance() {
@@ -17,6 +18,23 @@ export class AuthAgent extends WebSocketClientBase {
 
   private constructor(url: string) {
     super(url);
+  }
+
+  public connect() {
+    if (AuthAgent.isConnecting) return;
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
+    AuthAgent.isConnecting = true;
+    super.connect();
+  }
+
+  protected onOpen() {
+    super.onOpen();
+    AuthAgent.isConnecting = false;
+  }
+
+  protected onClose() {
+    super.onClose();
+    AuthAgent.isConnecting = false;
   }
 
   protected handleMessage(message: string) {
@@ -42,6 +60,8 @@ export class AuthAgent extends WebSocketClientBase {
   public disconnect() {
     if (this.ws) {
       this.ws.close();
+      this.ws = null;
     }
+    AuthAgent.isConnecting = false;
   }
 }

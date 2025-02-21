@@ -25,9 +25,10 @@ ChartJS.register(
 
 interface EmotionProps {
   emotion: EmotionAgent | null;
+  isMobile?: boolean;
 }
 
-const Emotion: React.FC<EmotionProps> = ({ emotion }) => {
+const Emotion: React.FC<EmotionProps> = ({ emotion, isMobile }) => {
   const [emotionState, setEmotionState] = useState<EmotionType | null>(null);
   const animationRef = useRef<number>();
   const [animatedValues, setAnimatedValues] = useState<number[]>(
@@ -193,7 +194,7 @@ const Emotion: React.FC<EmotionProps> = ({ emotion }) => {
   };
 
   return (
-    <div className={styles.emotion}>
+    <div className={`${styles.emotion} ${isMobile ? styles.mobile : ""}`}>
       <div className={styles.emotionName}>
         <span>感情: </span>
         <span>{emotionState?.emotion ?? "-"}</span>

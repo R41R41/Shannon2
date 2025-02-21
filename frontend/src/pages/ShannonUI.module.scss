@@ -13,6 +13,47 @@
   overflow: hidden;
 }
 
+.mobileLayout {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mobileContent {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 60px; // ナビゲーションバーの高さ分
+}
+
+.mobileMainContent {
+  height: 50vh; // 画面の半分の高さ
+  min-height: 300px; // 最小高さを設定
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.mobileChatView {
+  height: 50vh; // 画面の半分の高さ
+  min-height: 300px; // 最小高さを設定
+  overflow-y: auto;
+  padding: 1rem;
+  border-top: 1px solid color(surface, primary); // 区切り線
+}
+
+.mobileNavbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background-color: color(background, primary);
+  border-top: 1px solid color(surface, primary);
+  z-index: 1000; // 他の要素の上に表示
+}
+
 .resizeHandle {
   width: 1px;
   background-color: color(surface, primary);
@@ -20,5 +61,17 @@
 
   &:hover {
     background-color: color(primary);
+  }
+}
+
+// メディアクエリ
+@media (max-width: 768px) {
+  .container {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .mainSection {
+    overflow: visible;
   }
 }

@@ -28,6 +28,7 @@ const ShannonUI: React.FC = () => {
   const [planning, setPlanning] = useState<PlanningAgent | null>(null);
   const [emotion, setEmotion] = useState<EmotionAgent | null>(null);
   const [skill, setSkill] = useState<SkillAgent | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     // ローカルストレージからユーザー情報を取得
@@ -36,8 +37,10 @@ const ShannonUI: React.FC = () => {
       setUserInfo(JSON.parse(storedUserInfo));
     }
 
-    const webClient = new WebClient();
-    webClient.start();
+    // シングルトンインスタンスを取得
+    const webClient = WebClient.getInstance();
+
+    // 各サービスのインスタンスを設定
     setMonitoring(webClient.monitoringService);
     setOpenai(webClient.openaiService);
     setScheduler(webClient.schedulerService);
@@ -45,40 +48,84 @@ const ShannonUI: React.FC = () => {
     setPlanning(webClient.planningService);
     setEmotion(webClient.emotionService);
     setSkill(webClient.skillService);
+
+    // 初回のみ接続を開始
+    if (!webClient.isConnected()) {
+      webClient.start();
+    }
+
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      // コンポーネントのアンマウント時には接続を切断しない
+    };
   }, []);
 
   return (
     <div className={styles.container}>
       <Header userInfo={userInfo} />
       <div className={styles.mainSection}>
-        <PanelGroup direction="horizontal">
-          <Panel defaultSize={20} minSize={15}>
-            <Sidebar
-              monitoring={monitoring}
-              scheduler={scheduler}
-              status={status}
-              skill={skill}
-            />
-          </Panel>
-
-          <ResizeHandle />
-
-          <Panel defaultSize={60} minSize={30}>
-            <MainContent
-              monitoring={monitoring}
-              openai={openai}
-              status={status}
-              planning={planning}
-              emotion={emotion}
-            />
-          </Panel>
-
-          <ResizeHandle />
-
-          <Panel defaultSize={20} minSize={15}>
-            <ChatView openai={openai} userInfo={userInfo} />
-          </Panel>
-        </PanelGroup>
+        {isMobile ? (
+          // モバイルレイアウト
+          <div className={styles.mobileLayout}>
+            <div className={styles.mobileContent}>
+              <div className={styles.mobileMainContent}>
+                <MainContent
+                  monitoring={monitoring}
+                  openai={openai}
+                  status={status}
+                  planning={planning}
+                  emotion={emotion}
+                  isMobile={true}
+                />
+              </div>
+              <div className={styles.mobileChatView}>
+                <ChatView openai={openai} userInfo={userInfo} />
+              </div>
+            </div>
+            <div className={styles.mobileNavbar}>
+              <Sidebar
+                monitoring={monitoring}
+                scheduler={scheduler}
+                status={status}
+                skill={skill}
+                isMobile={true}
+              />
+            </div>
+          </div>
+        ) : (
+          // デスクトップレイアウト
+          <PanelGroup direction="horizontal">
+            <Panel defaultSize={20} minSize={15}>
+              <Sidebar
+                monitoring={monitoring}
+                scheduler={scheduler}
+                status={status}
+                skill={skill}
+              />
+            </Panel>
+            <ResizeHandle />
+            <Panel defaultSize={60} minSize={30}>
+              <MainContent
+                monitoring={monitoring}
+                openai={openai}
+                status={status}
+                planning={planning}
+                emotion={emotion}
+                isMobile={isMobile}
+              />
+            </Panel>
+            <ResizeHandle />
+            <Panel defaultSize={20} minSize={15}>
+              <ChatView openai={openai} userInfo={userInfo} />
+            </Panel>
+          </PanelGroup>
+        )}
       </div>
     </div>
   );

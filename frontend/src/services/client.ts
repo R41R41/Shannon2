@@ -6,7 +6,10 @@ import { PlanningAgent } from "./agents/planningAgent";
 import { EmotionAgent } from "./agents/emotionAgent";
 import { SkillAgent } from "./agents/skillAgent";
 import { AuthAgent } from "./agents/authAgent";
+
 export class WebClient {
+  private static instance: WebClient;
+  private connected: boolean = false;
   public openaiService: OpenAIAgent;
   public monitoringService: MonitoringAgent;
   public schedulerService: SchedulerAgent;
@@ -15,7 +18,15 @@ export class WebClient {
   public emotionService: EmotionAgent;
   public skillService: SkillAgent;
   public authService: AuthAgent;
-  constructor() {
+
+  public static getInstance() {
+    if (!WebClient.instance) {
+      WebClient.instance = new WebClient();
+    }
+    return WebClient.instance;
+  }
+
+  private constructor() {
     this.openaiService = OpenAIAgent.getInstance();
     this.monitoringService = MonitoringAgent.getInstance();
     this.schedulerService = SchedulerAgent.getInstance();
@@ -26,7 +37,15 @@ export class WebClient {
     this.authService = AuthAgent.getInstance();
   }
 
+  public isConnected(): boolean {
+    return this.connected;
+  }
+
   public start() {
+    if (this.connected) return;
+
+    this.disconnect();
+
     this.openaiService.connect();
     this.monitoringService.connect();
     this.schedulerService.connect();
@@ -35,5 +54,22 @@ export class WebClient {
     this.emotionService.connect();
     this.skillService.connect();
     this.authService.connect();
+
+    this.connected = true;
+  }
+
+  public disconnect() {
+    if (!this.connected) return;
+
+    this.openaiService.disconnect();
+    this.monitoringService.disconnect();
+    this.schedulerService.disconnect();
+    this.statusService.disconnect();
+    this.planningService.disconnect();
+    this.emotionService.disconnect();
+    this.skillService.disconnect();
+    this.authService.disconnect();
+
+    this.connected = false;
   }
 }

@@ -3,6 +3,7 @@ import { getEventBus } from '../../eventBus/index.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 
 export class RealtimeAPIService {
+  private static instance: RealtimeAPIService;
   private ws: WebSocket | null = null;
   private eventBus: EventBus;
   private initialized: boolean = false;
@@ -69,6 +70,13 @@ export class RealtimeAPIService {
         tools: [],
       },
     };
+  }
+
+  public static getInstance(): RealtimeAPIService {
+    if (!RealtimeAPIService.instance) {
+      RealtimeAPIService.instance = new RealtimeAPIService();
+    }
+    return RealtimeAPIService.instance;
   }
 
   setTextCallback(callback: (text: string) => void) {

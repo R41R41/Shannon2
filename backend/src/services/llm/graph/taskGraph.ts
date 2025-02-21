@@ -30,6 +30,7 @@ const __dirname = dirname(__filename);
 dotenv.config();
 
 export class TaskGraph {
+  private static instance: TaskGraph;
   private largeModel: ChatOpenAI | null = null;
   private mediumModel: ChatOpenAI | null = null;
   private smallModel: ChatOpenAI | null = null;
@@ -50,6 +51,12 @@ export class TaskGraph {
     this.prompt = new Prompt(this.tools);
   }
 
+  public static getInstance(): TaskGraph {
+    if (!TaskGraph.instance) {
+      TaskGraph.instance = new TaskGraph();
+    }
+    return TaskGraph.instance;
+  }
   private async initializeEventBus() {
     this.eventBus.subscribe('task:stop', (event) => {
       console.log(`タスクを停止します`);

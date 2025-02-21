@@ -6,13 +6,38 @@ type UpdateSkillsCallback = (skills: SkillInfo[]) => void;
 
 export class SkillAgent extends WebSocketClientBase {
   private static instance: SkillAgent;
+  private static isConnecting: boolean = false;
 
   public static getInstance() {
     if (!SkillAgent.instance) {
       SkillAgent.instance = new SkillAgent(URLS.WEBSOCKET.SKILL);
-      console.log("SkillAgent instance created ", URLS.WEBSOCKET.SKILL);
     }
     return SkillAgent.instance;
+  }
+
+  public connect() {
+    if (SkillAgent.isConnecting) return;
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
+    SkillAgent.isConnecting = true;
+    super.connect();
+  }
+
+  protected onOpen() {
+    super.onOpen();
+    SkillAgent.isConnecting = false;
+  }
+
+  protected onClose() {
+    super.onClose();
+    SkillAgent.isConnecting = false;
+  }
+
+  public disconnect() {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    SkillAgent.isConnecting = false;
   }
 
   public updateSkillsCallback: UpdateSkillsCallback;

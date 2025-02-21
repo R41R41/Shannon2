@@ -134,4 +134,16 @@ export abstract class WebSocketClientBase {
       this.ws.close();
     }
   }
+
+  protected onOpen(): void {
+    console.log("WebSocket Connected");
+  }
+
+  protected onClose(): void {
+    console.log("WebSocket Disconnected");
+  }
+
+  protected onError(error: Event): void {
+    console.error("WebSocket Error:", error);
+  }
 }
