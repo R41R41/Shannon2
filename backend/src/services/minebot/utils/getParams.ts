@@ -4,57 +4,31 @@ import { getChatResponse } from './getChatResponse.js';
 
 export async function getParams(
   bot: CustomBot,
-  data: Record<string, any>,
-  params: Param[],
-  args: string[]
-) {
+  params: Param[]
+): Promise<{ success: boolean; result: Record<string, any> | string }> {
   const result: Record<string, any> = {};
-  if (data == null) {
-    for (const param of params) {
-      let response: string;
-      if (args.length > 0) {
-        response = args[0];
-        args.shift();
-      } else {
-        response = await getChatResponse(
-          bot,
-          `${param.name}: ${param.type}の値を教えてください`
-        );
-      }
-      if (response == '.') {
-        bot.chat('キャンセルしました');
-        return { success: false, result: 'キャンセル' };
-      }
-      if (response == 'default') {
-        result[param.name] = param.default;
-      } else {
-        const parsedValue = convertType(response, param.type);
-        console.log('parsedValue:', parsedValue);
-        if (parsedValue !== null && parsedValue.error) {
-          bot.chat('here:' + parsedValue.result);
-          return { success: false, result: parsedValue.result };
-        }
-        result[param.name] = parsedValue;
-      }
-    }
-    return result;
-  }
-  if (data.length == 0) {
-    return { error: true, result: 'data is empty' };
-  }
   for (const param of params) {
-    if (data[param.name]) {
-      const parsedValue = convertType(data[param.name], param.type);
-      if (parsedValue !== null && parsedValue.error) {
-        bot.chat(parsedValue.result?.toString() ?? 'null');
-        return { error: true, result: parsedValue.result };
-      }
-      result[param.name] = parsedValue;
-    } else {
+    let response: string;
+    response = await getChatResponse(
+      bot,
+      `${param.name}: ${param.type}の値を教えてください`
+    );
+    if (response == '.') {
+      bot.chat('キャンセルしました');
+      return { success: false, result: 'キャンセル' };
+    }
+    if (response == 'default') {
       result[param.name] = param.default;
+    } else {
+      const parsedValue = convertType(response, param.type);
+      if (parsedValue !== null && parsedValue.error) {
+        bot.chat('here:' + parsedValue.result);
+        return { success: false, result: 'エラーが発生しました' };
+      }
+      result[param.name] = parsedValue.result;
     }
   }
-  return result;
+  return { success: true, result };
 }
 
 /**

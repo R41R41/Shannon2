@@ -1,6 +1,6 @@
 import { CustomBot } from '../types.js';
 import { ConstantSkill } from '../types.js';
-import FollowEntity from '../instantSkills/followEntity.js';
+import { FollowEntity } from '../instantSkills/followEntity.js';
 
 class AutoSwim extends ConstantSkill {
   private followEntity: FollowEntity;
