@@ -8,49 +8,29 @@ import { getEventBus } from '../eventBus/index.js';
 dotenv.config();
 
 export class YoutubeClient extends BaseClient {
-  private client: youtube_v3.Youtube;
-  private oauth2Client: OAuth2Client;
+  private static instance: YoutubeClient;
+  private client: youtube_v3.Youtube | null = null;
+  private oauth2Client: OAuth2Client | null = null;
   private channelId: string | null = null;
   public isTest: boolean = false;
-  private static instance: YoutubeClient;
+  private authCode: string | null = null;
+  private refreshToken: string | null = null;
+
+  private constructor(serviceName: 'youtube', isTest: boolean) {
+    const eventBus = getEventBus();
+    super(serviceName, eventBus);
+    this.client = null;
+    this.oauth2Client = null;
+    this.channelId = process.env.YOUTUBE_CHANNEL_ID || null;
+    this.authCode = process.env.YOUTUBE_AUTH_CODE || null;
+  }
 
   public static getInstance(isTest: boolean = false) {
-    const eventBus = getEventBus();
     if (!YoutubeClient.instance) {
       YoutubeClient.instance = new YoutubeClient('youtube', isTest);
     }
     YoutubeClient.instance.isTest = isTest;
     return YoutubeClient.instance;
-  }
-
-  private constructor(serviceName: 'youtube', isTest: boolean) {
-    const eventBus = getEventBus();
-    super(serviceName, eventBus);
-
-    const clientId = process.env.YOUTUBE_CLIENT_ID;
-    const clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
-    const refreshToken = process.env.YOUTUBE_REFRESH_TOKEN;
-
-    if (!clientId || !clientSecret || !refreshToken) {
-      throw new Error('YouTube OAuth2認証情報が設定されていません');
-    }
-
-    this.oauth2Client = new google.auth.OAuth2(
-      clientId,
-      clientSecret,
-      'http://localhost' // リダイレクトURIは実際の設定に合わせてください
-    );
-
-    this.oauth2Client.setCredentials({
-      refresh_token: refreshToken,
-    });
-
-    this.client = google.youtube({
-      version: 'v3',
-      auth: this.oauth2Client,
-    });
-
-    this.channelId = process.env.YOUTUBE_CHANNEL_ID || null;
   }
 
   private setupEventHandlers() {
@@ -103,27 +83,42 @@ export class YoutubeClient extends BaseClient {
     });
   }
 
-  public async getRefreshToken() {
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.YOUTUBE_CLIENT_ID,
-      process.env.YOUTUBE_CLIENT_SECRET,
-      'http://localhost'
-    );
+  private async getAuthUrl(oauth2Client: OAuth2Client) {
+    try {
+      const authUrl = oauth2Client.generateAuthUrl({
+        access_type: 'offline',
+        scope: ['https://www.googleapis.com/auth/youtube.force-ssl'],
+      });
 
-    const authUrl = oauth2Client.generateAuthUrl({
-      access_type: 'offline',
-      scope: ['https://www.googleapis.com/auth/youtube.force-ssl'],
-    });
+      console.log('以下のURLにアクセスして認証してください:');
+      console.log(authUrl);
+    } catch (error) {
+      console.error(`\x1b[31mYouTube getClient error: ${error}\x1b[0m`);
+      throw error;
+    }
+  }
 
-    console.log('以下のURLにアクセスして認証してください:');
-    console.log(authUrl);
+  private async getRefreshToken() {
+    try {
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.YOUTUBE_CLIENT_ID,
+        process.env.YOUTUBE_CLIENT_SECRET,
+        'http://localhost'
+      );
+      // await this.getAuthUrl(oauth2Client);
 
-    // 認証コードを入力（実際の実装ではプロンプトなどを使用）
-    const code =
-      'ここに表示されたURLにアクセスして認証後に取得したコードを貼り付け';
+      if (!this.authCode) {
+        throw new Error('認証コードが設定されていません');
+      }
+      console.log('authCode:', this.authCode);
 
-    const { tokens } = await oauth2Client.getToken(code);
-    console.log('Refresh token:', tokens.refresh_token);
+      const { tokens } = await oauth2Client.getToken(this.authCode);
+      this.refreshToken = tokens.refresh_token || null;
+      console.log('Refresh token:', tokens.refresh_token);
+    } catch (error) {
+      console.error(`\x1b[31mYouTube getRefreshToken error: ${error}\x1b[0m`);
+      throw error;
+    }
   }
 
   /**
@@ -134,6 +129,9 @@ export class YoutubeClient extends BaseClient {
 
     try {
       // 自分の最新動画を取得（例：最新3件）
+      if (!this.client) {
+        throw new Error('YouTube client is not initialized');
+      }
       const videos = await this.client.search.list({
         part: ['id', 'snippet'],
         channelId: this.channelId,
@@ -196,6 +194,9 @@ export class YoutubeClient extends BaseClient {
    */
   public async replyComment(videoId: string, commentId: string, reply: string) {
     if (this.status !== 'running') return;
+    if (!this.client) {
+      throw new Error('YouTube client is not initialized');
+    }
     try {
       await this.client.comments.insert({
         part: ['snippet'],
@@ -219,9 +220,41 @@ export class YoutubeClient extends BaseClient {
   public async initialize() {
     try {
       // await this.getRefreshToken();
+      await this.setUpConnection();
       this.setupEventHandlers();
     } catch (error) {
       console.error(`\x1b[31mYouTube initialization error: ${error}\x1b[0m`);
+      throw error;
+    }
+  }
+
+  private async setUpConnection() {
+    try {
+      const clientId = process.env.YOUTUBE_CLIENT_ID;
+      const clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
+      this.refreshToken = process.env.YOUTUBE_REFRESH_TOKEN || null;
+      console.log(clientId, clientSecret, this.refreshToken);
+
+      if (!clientId || !clientSecret || !this.refreshToken) {
+        throw new Error('YouTube OAuth2認証情報が設定されていません');
+      }
+
+      this.oauth2Client = new google.auth.OAuth2(
+        clientId,
+        clientSecret,
+        'http://localhost' // リダイレクトURIは実際の設定に合わせてください
+      );
+
+      this.oauth2Client.setCredentials({
+        refresh_token: this.refreshToken,
+      });
+
+      this.client = google.youtube({
+        version: 'v3',
+        auth: this.oauth2Client,
+      });
+    } catch (error) {
+      console.error(`\x1b[31mYouTube setUpConnection error: ${error}\x1b[0m`);
       throw error;
     }
   }
