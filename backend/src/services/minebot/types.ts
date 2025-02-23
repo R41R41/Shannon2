@@ -118,33 +118,33 @@ export abstract class InstantSkill extends Skill {
 }
 
 export class InstantSkills {
-  skills: { [key: string]: InstantSkill };
+  skills: InstantSkill[];
   constructor() {
-    this.skills = {};
+    this.skills = [];
   }
   addSkill(skill: InstantSkill) {
-    this.skills[skill.skillName] = skill;
+    this.skills.push(skill);
   }
-  getSkill(name: string): InstantSkill {
-    return this.skills[name];
+  getSkill(name: string): InstantSkill | undefined {
+    return this.skills.find((skill) => skill.skillName === name);
   }
-  getSkills(): { [key: string]: InstantSkill } {
+  getSkills(): InstantSkill[] {
     return this.skills;
   }
 }
 
 export class ConstantSkills {
-  skills: { [key: string]: ConstantSkill };
+  skills: ConstantSkill[];
   constructor() {
-    this.skills = {};
+    this.skills = [];
   }
   addSkill(skill: ConstantSkill) {
-    this.skills[skill.skillName] = skill;
+    this.skills.push(skill);
   }
-  getSkill(name: string): ConstantSkill {
-    return this.skills[name];
+  getSkill(name: string): ConstantSkill | undefined {
+    return this.skills.find((skill) => skill.skillName === name);
   }
-  getSkills(): { [key: string]: ConstantSkill } {
+  getSkills(): ConstantSkill[] {
     return this.skills;
   }
 }

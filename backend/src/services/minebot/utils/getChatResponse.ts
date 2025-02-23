@@ -5,7 +5,6 @@ export async function getChatResponse(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     try {
-      console.log(`getChatResponse: ${question}`);
       bot.chat(question);
       bot.chatMode = false;
 

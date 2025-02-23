@@ -41,8 +41,9 @@ export class LLMService {
   private replyTwitterCommentAgent!: ReplyTwitterCommentAgent;
   private replyYoutubeCommentAgent!: ReplyYoutubeCommentAgent;
   private tools: any[] = [];
-
-  constructor() {
+  private isTestMode: boolean;
+  constructor(isTestMode: boolean) {
+    this.isTestMode = isTestMode;
     this.eventBus = getEventBus();
     this.realtimeApi = RealtimeAPIService.getInstance();
     this.taskGraph = TaskGraph.getInstance();
@@ -50,9 +51,9 @@ export class LLMService {
     this.setupRealtimeAPICallback();
   }
 
-  public static getInstance(): LLMService {
+  public static getInstance(isTestMode: boolean): LLMService {
     if (!LLMService.instance) {
-      LLMService.instance = new LLMService();
+      LLMService.instance = new LLMService(isTestMode);
     }
     return LLMService.instance;
   }
@@ -76,14 +77,17 @@ export class LLMService {
     });
 
     this.eventBus.subscribe('llm:post_scheduled_message', (event) => {
+      if (this.isTestMode) return;
       this.processCreateScheduledPost(event.data as TwitterClientInput);
     });
 
     this.eventBus.subscribe('llm:post_twitter_reply', (event) => {
+      if (this.isTestMode) return;
       this.processTwitterReply(event.data as TwitterClientOutput);
     });
 
     this.eventBus.subscribe('llm:reply_youtube_comment', (event) => {
+      if (this.isTestMode) return;
       this.processYoutubeReply(event.data as YoutubeClientOutput);
     });
 

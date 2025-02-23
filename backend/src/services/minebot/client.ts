@@ -29,6 +29,12 @@ if (
   );
 }
 
+const ports = {
+  '1.19.0-test': 25566,
+  '1.19.0-youtube': 25564,
+  '1.19.0-play': 25567,
+};
+
 export class MinebotClient extends BaseClient {
   private bot: CustomBot | null = null;
   public isTest: boolean = false;
@@ -57,8 +63,7 @@ export class MinebotClient extends BaseClient {
       throw new Error('必要な環境変数が設定されていません');
     }
     const { serverName } = data as MinebotStartOrStopInput;
-    console.log('serverName', serverName);
-    const port = serverName === '1.19.0-test' ? 25566 : 25565;
+    const port = ports[serverName as keyof typeof ports];
 
     this.bot = mineflayer.createBot({
       host: '127.0.0.1',
@@ -154,7 +159,6 @@ export class MinebotClient extends BaseClient {
   private async setupEventBus() {
     this.eventBus.subscribe('minebot:status', async (event) => {
       const { serviceCommand } = event.data as ServiceInput;
-      console.log(`\x1b[32mminebot:status\x1b[0m`, serviceCommand);
       if (serviceCommand === 'start') {
         await this.start();
       } else if (serviceCommand === 'stop') {

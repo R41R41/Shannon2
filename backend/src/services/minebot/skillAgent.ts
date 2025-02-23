@@ -87,54 +87,46 @@ export class SkillAgent {
 
   async registerRoutes() {
     this.eventBus.log('minecraft', 'blue', 'registerRoutes');
-    Object.keys(this.bot.instantSkills.skills).forEach((skillName) => {
-      this.eventBus.log('minecraft', 'green', `✓ ${skillName}`);
-      this.eventBus.subscribe(`minebot:${skillName}`, async (event) => {
+    this.bot.instantSkills.getSkills().forEach((skill) => {
+      this.eventBus.log('minecraft', 'green', `✓ ${skill.skillName}`);
+      this.eventBus.subscribe(`minebot:${skill.skillName}`, async (event) => {
         try {
-          const data = event.data;
-          const InstantSkill = this.bot.instantSkills.getSkill(skillName);
-          if (InstantSkill.status) {
+          const data = event.data as any;
+          if (skill.status) {
             this.eventBus.publish({
               type: `minebot:skillResult`,
               memoryZone: 'minecraft',
               data: {
-                skillName: skillName,
+                skillName: skill.skillName,
                 success: false,
                 result: `already active`,
               },
             });
             return;
           }
-          const params = await this.bot.utils.getParams(
-            this.bot,
-            data,
-            InstantSkill.params,
-            []
-          );
-          this.eventBus.log(
-            'minecraft',
-            'white',
-            `params: ${JSON.stringify(params)}`
-          );
-          InstantSkill.status = true;
-          const response = await InstantSkill.run(...Object.values(params));
-          InstantSkill.status = false;
+          skill.status = true;
+          const response = await skill.run(...data);
+          skill.status = false;
           this.eventBus.publish({
             type: `minebot:skillResult`,
             memoryZone: 'minecraft',
             data: {
-              skillName: skillName,
+              skillName: skill.skillName,
               success: response.success,
               result: response.result,
             },
           });
         } catch (error) {
-          this.eventBus.log('minecraft', 'red', `${skillName} error: ${error}`);
+          this.eventBus.log(
+            'minecraft',
+            'red',
+            `${skill.skillName} error: ${error}`
+          );
           this.eventBus.publish({
             type: `minebot:skillResult`,
             memoryZone: 'minecraft',
             data: {
-              skillName: skillName,
+              skillName: skill.skillName,
               success: false,
               result: `error: ${error}`,
             },
@@ -146,25 +138,22 @@ export class SkillAgent {
 
   async registerConstantSkills() {
     this.eventBus.log('minecraft', 'blue', 'registerConstantSkills');
-    Object.keys(this.bot.constantSkills.skills).forEach((skillName) => {
-      const skillInstance = this.bot.constantSkills.getSkill(
-        skillName
-      ) as ConstantSkill;
-      if (skillInstance.interval && skillInstance.interval > 0) {
+    this.bot.constantSkills.getSkills().forEach((skill) => {
+      if (skill.interval && skill.interval > 0) {
         this.eventBus.log(
           'minecraft',
           'green',
-          `✓ ${skillName} ${skillInstance.interval}ms`
+          `✓ ${skill.skillName} ${skill.interval}ms`
         );
-        this.bot.on(`taskPer${skillInstance.interval}ms`, async () => {
-          if (skillInstance.status && !skillInstance.isLocked) {
+        this.bot.on(`taskPer${skill.interval}ms`, async () => {
+          if (skill.status && !skill.isLocked) {
             try {
-              await skillInstance.run();
+              await skill.run();
             } catch (error) {
               this.eventBus.log(
                 'minecraft',
                 'red',
-                `${skillName} error: ${error}`
+                `${skill.skillName} error: ${error}`
               );
             }
           }
@@ -194,7 +183,12 @@ export class SkillAgent {
         if (!skillName) {
           return;
         }
-        this.bot.instantSkills.getSkill(skillName).status = false;
+        const InstantSkill = this.bot.instantSkills.getSkill(skillName);
+        if (!InstantSkill) {
+          this.bot.chat(`${skillName}は存在しません`);
+          return;
+        }
+        InstantSkill.status = false;
         this.eventBus.publish({
           type: `minebot:skillResult`,
           memoryZone: 'minecraft',
@@ -220,11 +214,11 @@ export class SkillAgent {
 
     this.eventBus.subscribe('minebot:getInstantSkills', async (event) => {
       try {
-        const formattedResponse = Object.keys(this.bot.instantSkills)
-          .map((skillName) => {
-            const description =
-              this.bot.instantSkills.getSkill(skillName).description;
-            return `skillName: ${skillName}, description: ${description}`;
+        const formattedResponse = this.bot.instantSkills
+          .getSkills()
+          .map((skill) => {
+            const description = skill.description;
+            return `skillName: ${skill.skillName}, description: ${description}`;
           })
           .join('\n');
         this.eventBus.publish({
@@ -312,62 +306,73 @@ export class SkillAgent {
         return;
       }
       if (message === '..') {
-        try {
-          await this.bot.instantSkills.skills.displayInstantSkillList.run();
-        } catch (error) {
-          console.log(`display-instant-skill-list error: ${error}`);
-          this.bot.chat(`display-instant-skill-list error: ${error}`);
+        const displayInstantSkillList = this.bot.instantSkills.getSkill(
+          'display-instant-skill-list'
+        );
+        if (!displayInstantSkillList) {
+          this.bot.chat('display-instant-skill-listは存在しません');
+          return;
+        }
+        const response = await displayInstantSkillList.run();
+        if (!response.success) {
+          this.bot.chat(`display-instant-skill-list error: ${response.result}`);
         }
         return;
       }
       if (message === '...') {
-        try {
-          await this.bot.constantSkills.skills.displayConstantSkillList.run();
-        } catch (error) {
-          console.log(`display-constant-skill-list error: ${error}`);
-          this.bot.chat(`display-constant-skill-list error: ${error}`);
+        const displayConstantSkillList = this.bot.instantSkills.getSkill(
+          'display-constant-skill-list'
+        );
+        if (!displayConstantSkillList) {
+          this.bot.chat('display-constant-skill-listは存在しません');
+          return;
+        }
+        const response = await displayConstantSkillList.run();
+        if (!response.success) {
+          this.bot.chat(
+            `display-constant-skill-list error: ${response.result}`
+          );
         }
         return;
       }
       if (message === '.../') {
-        try {
-          await this.bot.instantSkills.skills.displayInventory.run();
-        } catch (error) {
-          console.log(`display-inventory error: ${error}`);
-          this.bot.chat(`display-inventory error: ${error}`);
+        const displayInventory =
+          this.bot.instantSkills.getSkill('display-inventory');
+        if (!displayInventory) {
+          this.bot.chat('display-inventoryは存在しません');
+          return;
+        }
+        const response = await displayInventory.run();
+        if (!response.success) {
+          this.bot.chat(`display-inventory error: ${response.result}`);
         }
         return;
       }
       if (message.startsWith('./')) {
         const [skillName, ...args] = message.slice(2).split(' ');
-        if (!this.bot.instantSkills.skills[skillName]) {
-          this.bot.chat(`${skillName}は存在しません`);
-          return;
-        }
         try {
-          const InstantSkill = this.bot.instantSkills.skills[skillName];
+          const InstantSkill = this.bot.instantSkills.getSkill(skillName);
+          if (!InstantSkill) {
+            this.bot.chat(`${skillName}は存在しません`);
+            return;
+          }
           if (InstantSkill.status) {
             this.bot.chat(`${skillName}を停止します`);
             InstantSkill.status = false;
             return;
           }
-          console.log(`${skillName} ${args}`);
-          const params = await this.bot.utils.getParams(
+          const paramsResponse = await this.bot.utils.getParams(
             this.bot,
-            {
-              skillName: skillName,
-              args: args,
-            },
-            InstantSkill.params,
-            []
+            InstantSkill.params
           );
-          console.log(`params: ${JSON.stringify(params)}`);
-          if (params.error) {
-            this.bot.chat(`${skillName} error: ${params.result}`);
+          if (!paramsResponse.success) {
+            this.bot.chat(`${skillName} error: ${paramsResponse.result}`);
             return;
           }
           InstantSkill.status = true;
-          const response = await InstantSkill.run(...Object.values(params));
+          const response = await InstantSkill.run(
+            ...Object.values(paramsResponse.result)
+          );
           InstantSkill.status = false;
           console.log(`${skillName} ${response.result}`);
           if (response.success) {
@@ -383,15 +388,19 @@ export class SkillAgent {
       }
       if (message.startsWith('../')) {
         const skillName = message.slice(3);
-        if (!this.bot.constantSkills.skills[skillName]) {
+        if (!this.bot.constantSkills.getSkill(skillName)) {
           this.bot.chat(`${skillName}は存在しません`);
           return;
         }
-        this.bot.constantSkills.skills[skillName].status =
-          !this.bot.constantSkills.skills[skillName].status;
+        const ConstantSkill = this.bot.constantSkills.getSkill(skillName);
+        if (!ConstantSkill) {
+          this.bot.chat(`${skillName}は存在しません`);
+          return;
+        }
+        ConstantSkill.status = !ConstantSkill.status;
         this.bot.chat(
           `常時スキル${skillName}のステータスを${
-            this.bot.constantSkills.skills[skillName].status ? 'オン' : 'オフ'
+            ConstantSkill.status ? 'オン' : 'オフ'
           }にしました`
         );
         return;
@@ -436,10 +445,15 @@ export class SkillAgent {
   async health() {
     console.log(`\x1b[32m✓ health\x1b[0m`);
     this.bot.on('health', async () => {
-      if (!this.bot.constantSkills.skills.autoEat.status) return;
-      if (this.bot.constantSkills.skills.autoEat.isLocked) return;
+      const autoEat = this.bot.constantSkills.getSkill('auto-eat');
+      if (!autoEat) {
+        this.bot.chat('auto-eatは存在しません');
+        return;
+      }
+      if (!autoEat.status) return;
+      if (autoEat.isLocked) return;
       try {
-        await this.bot.constantSkills.skills.autoEat.run();
+        await autoEat.run();
       } catch (error) {
         console.error('エラーが発生しました:', error);
       }
@@ -450,10 +464,16 @@ export class SkillAgent {
     console.log(`\x1b[32m✓ entityMoved\x1b[0m`);
     this.bot.on('entityMoved', async (entity) => {
       if (entity.type !== 'projectile') return;
-      if (!this.bot.constantSkills.skills.autoAvoidProjectile.status) return;
-      if (this.bot.constantSkills.skills.autoAvoidProjectile.isLocked) return;
+      const autoAvoidProjectile = this.bot.constantSkills.getSkill(
+        'auto-avoid-projectile'
+      );
+      if (!autoAvoidProjectile) {
+        this.bot.chat('auto-avoid-projectileは存在しません');
+        return;
+      }
+      if (autoAvoidProjectile.isLocked) return;
       try {
-        await this.bot.constantSkills.skills.autoAvoidProjectile.run(entity);
+        await autoAvoidProjectile.run(entity);
       } catch (error) {
         console.error('エラーが発生しました:', error);
       }

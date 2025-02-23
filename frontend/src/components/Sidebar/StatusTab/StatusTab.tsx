@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { ServiceStatus } from '@common/types';
-import { StatusAgent } from '@/services/agents/statusAgent';
-import { ServiceItem } from '../ServiceItem/ServiceItem';
-import { MinebotBotItem } from '../MinebotBotItem/MinebotBotItem';
-import styles from './StatusTab.module.scss';
+import React, { useState, useEffect } from "react";
+import { ServiceStatus } from "@common/types/common";
+import { StatusAgent } from "@/services/agents/statusAgent";
+import { ServiceItem } from "../ServiceItem/ServiceItem";
+import { MinebotBotItem } from "../MinebotBotItem/MinebotBotItem";
+import styles from "./StatusTab.module.scss";
 
 interface StatusTabProps {
   status: StatusAgent | null;
@@ -14,52 +14,44 @@ interface ServiceStatuses {
 }
 
 const SERVICES = [
-  'twitter',
-  'discord',
-  'youtube',
-  'minecraft',
-  'minecraft:1.19.0-youtube',
-  'minecraft:1.19.0-test',
-  'minecraft:1.19.0-play',
-  'minebot',
-  'minebot:bot'
+  "twitter",
+  "discord",
+  "youtube",
+  "minecraft",
+  "minecraft:1.19.0-youtube",
+  "minecraft:1.19.0-test",
+  "minecraft:1.19.0-play",
+  "minebot",
+  "minebot:bot",
 ] as const;
 
 export const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
   const [serviceStatuses, setServiceStatuses] = useState<ServiceStatuses>({
-    twitter: 'stopped',
-    discord: 'stopped',
-    youtube: 'stopped',
-    minecraft: 'stopped',
-    'minecraft:1.19.0-youtube': 'stopped',
-    'minecraft:1.19.0-test': 'stopped',
-    'minecraft:1.19.0-play': 'stopped',
-    minebot: 'stopped',
-    'minebot:bot': 'stopped'
+    twitter: "stopped",
+    discord: "stopped",
+    youtube: "stopped",
+    minecraft: "stopped",
+    "minecraft:1.19.0-youtube": "stopped",
+    "minecraft:1.19.0-test": "stopped",
+    "minecraft:1.19.0-play": "stopped",
+    minebot: "stopped",
+    "minebot:bot": "stopped",
   });
 
   useEffect(() => {
-    console.log('StatusTab: Status agent state:', status?.status);
-
-    if (status?.status === 'connected') {
-      console.log('StatusTab: Setting up service status listeners');
-
-      SERVICES.forEach(service => {
-        console.log('StatusTab: Requesting initial status for:', service);
+    if (status?.status === "connected") {
+      SERVICES.forEach((service) => {
         status.getStatusService(service);
       });
 
-      const cleanupFunctions = SERVICES.map(service => {
-        console.log('StatusTab: Setting up listener for:', service);
+      const cleanupFunctions = SERVICES.map((service) => {
         return status.onServiceStatus(service, (newStatus) => {
-          console.log(`StatusTab: Status update received for ${service}:`, newStatus);
-          setServiceStatuses(prev => ({ ...prev, [service]: newStatus }));
+          setServiceStatuses((prev) => ({ ...prev, [service]: newStatus }));
         });
       });
 
       return () => {
-        console.log('StatusTab: Cleaning up listeners');
-        cleanupFunctions.forEach(cleanup => cleanup());
+        cleanupFunctions.forEach((cleanup) => cleanup());
       };
     }
   }, [status]);
@@ -68,15 +60,15 @@ export const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
     if (!status) return;
     const serviceStatus = serviceStatuses[service];
 
-    if (serviceStatus === 'running') {
+    if (serviceStatus === "running") {
       await status.stopService(service);
-    } else if (service !== 'minebot:bot') {
+    } else if (service !== "minebot:bot") {
       await status.startService(service);
     }
   };
 
   const handleMinebotBotStart = async (serverName: string) => {
-    await status?.startService('minebot:bot', { serverName });
+    await status?.startService("minebot:bot", { serverName });
   };
 
   return (
@@ -85,62 +77,62 @@ export const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
       <div className={styles.serviceList}>
         <ServiceItem
           name="Twitter Bot"
-          status={serviceStatuses['twitter']}
+          status={serviceStatuses["twitter"]}
           serviceId="twitter"
           statusAgent={status}
           onToggle={handleToggle}
         />
         <ServiceItem
           name="Discord Bot"
-          status={serviceStatuses['discord']}
+          status={serviceStatuses["discord"]}
           serviceId="discord"
           statusAgent={status}
           onToggle={handleToggle}
         />
         <ServiceItem
           name="YouTube Bot"
-          status={serviceStatuses['youtube']}
+          status={serviceStatuses["youtube"]}
           serviceId="youtube"
           statusAgent={status}
           onToggle={handleToggle}
         />
         <ServiceItem
           name="Minecraft Client"
-          status={serviceStatuses['minecraft']}
+          status={serviceStatuses["minecraft"]}
           serviceId="minecraft"
           statusAgent={status}
           onToggle={handleToggle}
         />
         <ServiceItem
           name="Minecraft 1.19.0-youtube"
-          status={serviceStatuses['minecraft:1.19.0-youtube']}
+          status={serviceStatuses["minecraft:1.19.0-youtube"]}
           serviceId="minecraft:1.19.0-youtube"
           statusAgent={status}
           onToggle={handleToggle}
         />
         <ServiceItem
           name="Minecraft 1.19.0-test"
-          status={serviceStatuses['minecraft:1.19.0-test']}
+          status={serviceStatuses["minecraft:1.19.0-test"]}
           serviceId="minecraft:1.19.0-test"
           statusAgent={status}
           onToggle={handleToggle}
         />
         <ServiceItem
           name="Minecraft 1.19.0-play"
-          status={serviceStatuses['minecraft:1.19.0-play']}
+          status={serviceStatuses["minecraft:1.19.0-play"]}
           serviceId="minecraft:1.19.0-play"
           statusAgent={status}
           onToggle={handleToggle}
         />
         <ServiceItem
           name="Minebot Client"
-          status={serviceStatuses['minebot']}
+          status={serviceStatuses["minebot"]}
           serviceId="minebot"
           statusAgent={status}
           onToggle={handleToggle}
         />
         <MinebotBotItem
-          status={serviceStatuses['minebot:bot']}
+          status={serviceStatuses["minebot:bot"]}
           onToggle={handleToggle}
           onServerSelect={handleMinebotBotStart}
         />
@@ -149,4 +141,4 @@ export const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
   );
 };
 
-export default StatusTab; 
+export default StatusTab;

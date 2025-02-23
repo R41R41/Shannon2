@@ -10,7 +10,7 @@ To answer the user's message, plan what you should do and output it in the follo
 - goal,strategy,status,subTasks: your goal, strategy, status, and subTasks.
 - myEmotion: your emotion
 - availableTools: tools you can use
-- actionLog: the user's and your messages and your actions until now
+- actionLog: the user's and your messages and your actions until now.
 
 # Output Format
 {
