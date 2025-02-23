@@ -21,8 +21,8 @@ class Server {
   private minebotClient: MinebotClient;
 
   constructor() {
-    this.llmService = LLMService.getInstance();
     const isTestMode = process.argv.includes('--test');
+    this.llmService = LLMService.getInstance(isTestMode);
     this.discordBot = DiscordBot.getInstance(isTestMode);
     this.webClient = WebClient.getInstance(isTestMode);
     this.twitterClient = TwitterClient.getInstance(isTestMode);
