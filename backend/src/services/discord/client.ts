@@ -204,6 +204,25 @@ export class DiscordBot extends BaseClient {
       if (this.isTest !== isTestGuild) return;
 
       if (message.author.bot) return;
+      const mentions = message.mentions.users.map((user) => ({
+        nickname: this.getUserNickname(user),
+        id: user.id,
+        isBot: user.bot,
+      }));
+
+      // mentionに自分が含まれているかどうかを確認
+      const isMentioned = mentions.some(
+        (mention) => mention.id === this.client.user?.id
+      );
+      if (mentions.length > 0 && !isMentioned) return;
+
+      const messageContent = message.content.replace(
+        /<@!?(\d+)>/g,
+        (match, id) => {
+          const mentionedUser = mentions.find((user) => user.id === id);
+          return mentionedUser ? `@${mentionedUser.nickname}` : match;
+        }
+      );
       const nickname = this.getUserNickname(message.author);
       const channelName = this.getChannelName(message.channelId);
       const guildName = this.getGuildName(message.channelId);
@@ -221,8 +240,8 @@ export class DiscordBot extends BaseClient {
       // テキストと画像URLを結合
       const contentWithImages =
         imageUrls.length > 0
-          ? `${message.content}\n画像: ${imageUrls.join('\n')}`
-          : message.content;
+          ? `${messageContent}\n画像: ${imageUrls.join('\n')}`
+          : messageContent;
 
       if (
         guildId === this.toyamaGuildId &&
