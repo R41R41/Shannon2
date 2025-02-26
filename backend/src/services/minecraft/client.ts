@@ -20,7 +20,7 @@ export class MinecraftClient extends BaseClient {
   private readonly VALID_SERVERS: MinecraftServerName[] = [
     '1.19.0-test',
     '1.19.0-youtube',
-    '1.19.0-play',
+    '1.21.4-play',
   ];
   private readonly SERVER_BASE_PATH = process.env.SERVER_BASE_PATH;
   public isTest: boolean = false;

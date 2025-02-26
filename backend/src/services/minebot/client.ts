@@ -32,7 +32,7 @@ if (
 const ports = {
   '1.19.0-test': 25566,
   '1.19.0-youtube': 25564,
-  '1.19.0-play': 25567,
+  '1.21.4-play': 25567,
 };
 
 export class MinebotClient extends BaseClient {

@@ -20,7 +20,7 @@ const SERVICES = [
   "minecraft",
   "minecraft:1.19.0-youtube",
   "minecraft:1.19.0-test",
-  "minecraft:1.19.0-play",
+  "minecraft:1.21.4-play",
   "minebot",
   "minebot:bot",
 ] as const;
@@ -33,7 +33,7 @@ export const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
     minecraft: "stopped",
     "minecraft:1.19.0-youtube": "stopped",
     "minecraft:1.19.0-test": "stopped",
-    "minecraft:1.19.0-play": "stopped",
+    "minecraft:1.21.4-play": "stopped",
     minebot: "stopped",
     "minebot:bot": "stopped",
   });
@@ -118,9 +118,9 @@ export const StatusTab: React.FC<StatusTabProps> = ({ status }) => {
           onToggle={handleToggle}
         />
         <ServiceItem
-          name="Minecraft 1.19.0-play"
-          status={serviceStatuses["minecraft:1.19.0-play"]}
-          serviceId="minecraft:1.19.0-play"
+          name="Minecraft 1.21.4-play"
+          status={serviceStatuses["minecraft:1.21.4-play"]}
+          serviceId="minecraft:1.21.4-play"
           statusAgent={status}
           onToggle={handleToggle}
         />
