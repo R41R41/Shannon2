@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { ServiceStatus } from '@common/types/common';
-import styles from './MinebotBotItem.module.scss';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import StopIcon from '@mui/icons-material/Stop';
+import React, { useState, useEffect } from "react";
+import { ServiceStatus } from "@common/types/common";
+import styles from "./MinebotBotItem.module.scss";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import StopIcon from "@mui/icons-material/Stop";
 
 interface MinebotBotItemProps {
   status: ServiceStatus;
@@ -20,18 +20,20 @@ export const MinebotBotItem: React.FC<MinebotBotItemProps> = ({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      if (!target.closest(`.${styles.serverList}`) && 
-          !target.closest(`.${styles.toggleButton}`)) {
+      if (
+        !target.closest(`.${styles.serverList}`) &&
+        !target.closest(`.${styles.toggleButton}`)
+      ) {
         setShowServerList(false);
       }
     };
 
     if (showServerList) {
-      document.addEventListener('click', handleClickOutside);
+      document.addEventListener("click", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener("click", handleClickOutside);
     };
   }, [showServerList]);
 
@@ -44,16 +46,14 @@ export const MinebotBotItem: React.FC<MinebotBotItemProps> = ({
     <div className={styles.serviceItem}>
       <div className={styles.info}>
         <span className={styles.name}>Minebot Bot</span>
-        <span className={`${styles.status} ${styles[status]}`}>
-          {status}
-        </span>
+        <span className={`${styles.status} ${styles[status]}`}>{status}</span>
       </div>
       <div className={styles.controlContainer}>
-        {status === 'running' ? (
+        {status === "running" ? (
           <button
             className={`${styles.toggleButton} ${styles.stop}`}
-            onClick={() => onToggle('minebot:bot')}
-            disabled={status !== 'running'}
+            onClick={() => onToggle("minebot:bot")}
+            disabled={status !== "running"}
           >
             <StopIcon />
           </button>
@@ -62,7 +62,7 @@ export const MinebotBotItem: React.FC<MinebotBotItemProps> = ({
             <button
               className={`${styles.toggleButton} ${styles.start}`}
               onClick={() => setShowServerList(!showServerList)}
-              disabled={status !== 'stopped'}
+              disabled={status !== "stopped"}
             >
               <PlayArrowIcon />
             </button>
@@ -70,21 +70,21 @@ export const MinebotBotItem: React.FC<MinebotBotItemProps> = ({
               <div className={styles.serverList}>
                 <button
                   className={styles.serverButton}
-                  onClick={() => handleServerSelect('1.19.0-test')}
+                  onClick={() => handleServerSelect("1.19.0-test")}
                 >
                   1.19.0-test
                 </button>
                 <button
                   className={styles.serverButton}
-                  onClick={() => handleServerSelect('1.19.0-youtube')}
+                  onClick={() => handleServerSelect("1.19.0-youtube")}
                 >
                   1.19.0-youtube
                 </button>
                 <button
                   className={styles.serverButton}
-                  onClick={() => handleServerSelect('1.19.0-play')}
+                  onClick={() => handleServerSelect("1.21.4-play")}
                 >
-                  1.19.0-play
+                  1.21.4-play
                 </button>
               </div>
             )}
@@ -93,4 +93,4 @@ export const MinebotBotItem: React.FC<MinebotBotItemProps> = ({
       </div>
     </div>
   );
-}; 
+};
