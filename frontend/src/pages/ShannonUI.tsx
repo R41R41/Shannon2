@@ -95,6 +95,7 @@ const ShannonUI: React.FC = () => {
                 status={status}
                 skill={skill}
                 isMobile={true}
+                userInfo={userInfo}
               />
             </div>
           </div>
