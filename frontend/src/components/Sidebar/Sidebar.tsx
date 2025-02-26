@@ -15,6 +15,7 @@ import StatusTab from "./StatusTab/StatusTab";
 import MonitorHeartOutlinedIcon from "@mui/icons-material/MonitorHeartOutlined";
 import { SkillAgent } from "@/services/agents/skillAgent";
 import SkillsTab from "./SkillsTab/SkillsTab";
+import { UserInfo } from "@common/types/web";
 
 interface SidebarProps {
   monitoring: MonitoringAgent | null;
@@ -22,6 +23,7 @@ interface SidebarProps {
   status: StatusAgent | null;
   skill: SkillAgent | null;
   isMobile?: boolean;
+  userInfo?: UserInfo | null;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -30,6 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   status,
   skill,
   isMobile = false,
+  userInfo,
 }) => {
   const [activeTab, setActiveTab] = useState("search");
   const [searchResults, setSearchResults] = useState<ILog[]>([]);
@@ -72,15 +75,17 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           <TaskAltOutlinedIcon />
         </div>
-        <div
-          className={classNames(styles.tab, {
-            [styles.active]: activeTab === "schedule",
-          })}
-          onClick={() => setActiveTab("schedule")}
-          title="スケジュール"
-        >
-          <ScheduleOutlinedIcon />
-        </div>
+        {userInfo?.isAdmin && (
+          <div
+            className={classNames(styles.tab, {
+              [styles.active]: activeTab === "schedule",
+            })}
+            onClick={() => setActiveTab("schedule")}
+            title="スケジュール"
+          >
+            <ScheduleOutlinedIcon />
+          </div>
+        )}
         <div
           className={classNames(styles.tab, {
             [styles.active]: activeTab === "status",
@@ -103,7 +108,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           {activeTab === "skills" && <div></div>}
           {activeTab === "tasks" && <div></div>}
           {activeTab === "schedule" && <ScheduleTab scheduler={scheduler} />}
-          {activeTab === "status" && <StatusTab status={status} />}
+          {activeTab === "status" && (
+            <StatusTab status={status} userInfo={userInfo} />
+          )}
           {activeTab === "skills" && <SkillsTab skill={skill} />}
         </div>
       )}
