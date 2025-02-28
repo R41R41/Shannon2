@@ -14,9 +14,11 @@
     "dev-frontend": "npm run dev -w frontend"
   },
   "dependencies": {
-    "@shannon/common": "*"
+    "@shannon/common": "*",
+    "cron": "^4.1.0"
   },
   "devDependencies": {
+    "@types/cron": "^2.4.3",
     "concurrently": "^8.2.2",
     "ts-node": "^10.9.2",
     "tsc-watch": "^6.2.1",
