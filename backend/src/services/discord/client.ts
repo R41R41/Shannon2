@@ -349,22 +349,26 @@ export class DiscordBot extends BaseClient {
             channel.send(text ?? '');
           }
         } else {
-          const xChannelId = this.aiminelabXChannelId ?? '';
-          const channel = this.client.channels.cache.get(xChannelId);
-          if (channel?.isTextBased() && 'send' in channel) {
-            channel.send(text ?? '');
-          }
-          const toyamaChannel = this.client.channels.cache.get(
-            this.toyamaChannelId ?? ''
-          );
-          if (toyamaChannel?.isTextBased() && 'send' in toyamaChannel) {
-            toyamaChannel.send(text ?? '');
-          }
-          const doukiChannel = this.client.channels.cache.get(
-            this.doukiChannelId ?? ''
-          );
-          if (doukiChannel?.isTextBased() && 'send' in doukiChannel) {
-            doukiChannel.send(text ?? '');
+          if (event.memoryZone === 'discord:douki_server') {
+            const doukiChannel = this.client.channels.cache.get(
+              this.doukiChannelId ?? ''
+            );
+            if (doukiChannel?.isTextBased() && 'send' in doukiChannel) {
+              doukiChannel.send(text ?? '');
+            }
+          } else if (event.memoryZone === 'discord:toyama_server') {
+            const toyamaChannel = this.client.channels.cache.get(
+              this.toyamaChannelId ?? ''
+            );
+            if (toyamaChannel?.isTextBased() && 'send' in toyamaChannel) {
+              toyamaChannel.send(text ?? '');
+            }
+          } else {
+            const xChannelId = this.aiminelabXChannelId ?? '';
+            const channel = this.client.channels.cache.get(xChannelId);
+            if (channel?.isTextBased() && 'send' in channel) {
+              channel.send(text ?? '');
+            }
           }
         }
         return;
