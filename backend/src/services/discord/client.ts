@@ -161,10 +161,24 @@ export class DiscordBot extends BaseClient {
     }
   }
 
-  private getUserNickname(user: User) {
+  private getUserNickname(user: User, guildId?: string) {
+    // ギルドIDが指定されていて、そのギルドのメンバーが取得できる場合
+    if (guildId) {
+      const guild = this.client.guilds.cache.get(guildId);
+      if (guild) {
+        const member = guild.members.cache.get(user.id);
+        if (member && member.nickname) {
+          return member.nickname;
+        }
+      }
+    }
+
+    // ギルドのニックネームがない場合はグローバル表示名を使用
     if (user.displayName) {
       return user.displayName;
     }
+
+    // どちらもない場合はユーザー名を使用
     return user.username;
   }
 
@@ -210,7 +224,7 @@ export class DiscordBot extends BaseClient {
 
       if (message.author.bot) return;
       const mentions = message.mentions.users.map((user) => ({
-        nickname: this.getUserNickname(user),
+        nickname: this.getUserNickname(user, message.guildId ?? ''),
         id: user.id,
         isBot: user.bot,
       }));
@@ -228,7 +242,10 @@ export class DiscordBot extends BaseClient {
           return mentionedUser ? `@${mentionedUser.nickname}` : match;
         }
       );
-      const nickname = this.getUserNickname(message.author);
+      const nickname = this.getUserNickname(
+        message.author,
+        message.guildId ?? ''
+      );
       const channelName = this.getChannelName(message.channelId);
       const guildName = this.getGuildName(message.channelId);
       const memoryZone = await getDiscordMemoryZone(message.guildId ?? '');
@@ -294,7 +311,7 @@ export class DiscordBot extends BaseClient {
 
       const memoryZone = await getDiscordMemoryZone(channel.guildId);
 
-      const nickname = this.getUserNickname(speech.user);
+      const nickname = this.getUserNickname(speech.user, channel.guildId);
       this.eventBus.publish({
         type: 'llm:get_discord_message',
         memoryZone: memoryZone,
@@ -449,7 +466,7 @@ export class DiscordBot extends BaseClient {
       const conversationLog = messages
         .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
         .map((msg) => {
-          const nickname = this.getUserNickname(msg.author);
+          const nickname = this.getUserNickname(msg.author, msg.guildId ?? '');
           const timestamp = new Date(msg.createdTimestamp).toLocaleString(
             'ja-JP',
             { timeZone: 'Asia/Tokyo' }
