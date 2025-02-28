@@ -305,6 +305,14 @@ export class LLMService {
         text: postForToyama,
       } as DiscordScheduledPostInput,
     });
+    this.eventBus.publish({
+      type: 'discord:scheduled_post',
+      memoryZone: 'discord:douki_server',
+      data: {
+        command: message.command,
+        text: post,
+      } as DiscordScheduledPostInput,
+    });
   }
 
   private async processMessage(

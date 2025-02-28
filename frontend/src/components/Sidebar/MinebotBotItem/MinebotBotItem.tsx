@@ -70,9 +70,9 @@ export const MinebotBotItem: React.FC<MinebotBotItemProps> = ({
               <div className={styles.serverList}>
                 <button
                   className={styles.serverButton}
-                  onClick={() => handleServerSelect("1.19.0-test")}
+                  onClick={() => handleServerSelect("1.21.4-test")}
                 >
-                  1.19.0-test
+                  1.21.4-test
                 </button>
                 <button
                   className={styles.serverButton}

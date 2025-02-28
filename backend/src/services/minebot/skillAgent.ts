@@ -313,6 +313,7 @@ export class SkillAgent {
           this.bot.chat('display-instant-skill-listは存在しません');
           return;
         }
+        console.log('here');
         const response = await displayInstantSkillList.run();
         if (!response.success) {
           this.bot.chat(`display-instant-skill-list error: ${response.result}`);

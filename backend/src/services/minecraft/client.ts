@@ -18,7 +18,7 @@ export class MinecraftClient extends BaseClient {
   private minecraftClients: MinecraftClient[];
   private serverStatuses: Map<string, boolean> = new Map();
   private readonly VALID_SERVERS: MinecraftServerName[] = [
-    '1.19.0-test',
+    '1.21.4-test',
     '1.19.0-youtube',
     '1.21.4-play',
   ];

@@ -12,11 +12,12 @@ import { plugin as collectBlock } from 'mineflayer-collectblock';
 import { plugin as projectile } from 'mineflayer-projectile';
 import { plugin as pvp } from 'mineflayer-pvp';
 import { plugin as toolPlugin } from 'mineflayer-tool';
+import { plugin as cmd } from 'mineflayer-cmd';
+import minecraftHawkEye from 'minecrafthawkeye';
 import { SkillAgent } from './skillAgent.js';
 import { ConstantSkills, CustomBot, InstantSkills } from './types.js';
 import { Utils } from './utils/index.js';
 import { BaseClient } from '../common/BaseClient.js';
-import minecraftHawkEye from 'minecrafthawkeye';
 import { getEventBus } from '../eventBus/index.js';
 dotenv.config();
 
@@ -30,7 +31,7 @@ if (
 }
 
 const ports = {
-  '1.19.0-test': 25566,
+  '1.21.4-test': 25566,
   '1.19.0-youtube': 25564,
   '1.21.4-play': 25567,
 };
@@ -64,13 +65,14 @@ export class MinebotClient extends BaseClient {
     }
     const { serverName } = data as MinebotStartOrStopInput;
     const port = ports[serverName as keyof typeof ports];
+    const version = serverName?.split('-')[0];
 
     this.bot = mineflayer.createBot({
       host: '127.0.0.1',
       port,
       username,
       auth: 'microsoft',
-      version: '1.19',
+      version,
       checkTimeoutInterval: 60 * 60 * 1000,
       skipValidation: true,
     }) as CustomBot;
@@ -80,7 +82,8 @@ export class MinebotClient extends BaseClient {
     this.bot.loadPlugin(projectile);
     this.bot.loadPlugin(pvp);
     this.bot.loadPlugin(toolPlugin);
-
+    cmd.allowConsoleInput = true;
+    this.bot.loadPlugin(cmd);
     try {
       this.bot.loadPlugin(minecraftHawkEye);
     } catch (error) {

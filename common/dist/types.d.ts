@@ -50,7 +50,8 @@ export type MinecraftServerEndpoint = "status" | "start" | "stop";
 export type DiscordGuild =
   | "discord:toyama_server"
   | "discord:aiminelab_server"
-  | "discord:test_server";
+  | "discord:test_server"
+  | "discord:douki_server";
 export type MemoryZone =
   | "web"
   | DiscordGuild
@@ -272,7 +273,7 @@ export type MinebotSkillInput = {
 export type MinebotInput = MinebotStartOrStopInput | MinebotSkillInput;
 export type MinecraftServerName =
   | "1.19.0-youtube"
-  | "1.19.0-test"
+  | "1.21.4-test"
   | "1.21.4-play";
 export interface MinecraftInput {
   serverName?: MinecraftServerName | null;

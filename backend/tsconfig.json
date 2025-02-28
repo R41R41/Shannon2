@@ -26,7 +26,8 @@
     "paths": {
       "@/*": ["./*"],
       "@shannon/common/*": ["../../common/src/*"]
-    }
+    },
+    "typeRoots": ["./node_modules/@types", "./src/types"]
   },
   "references": [{ "path": "../common" }],
   "include": ["src/**/*"],

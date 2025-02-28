@@ -31,6 +31,8 @@ export class DiscordBot extends BaseClient {
   private aiminelabXChannelId: string | null = null;
   private testGuildId: string | null = null;
   private testXChannelId: string | null = null;
+  private doukiGuildId: string | null = null;
+  private doukiChannelId: string | null = null;
   private static instance: DiscordBot;
   public isTest: boolean = false;
   public static getInstance(isTest: boolean = false) {
@@ -67,7 +69,9 @@ export class DiscordBot extends BaseClient {
 
   private setUpChannels() {
     this.toyamaGuildId = process.env.TOYAMA_GUILD_ID ?? '';
+    this.doukiGuildId = process.env.DOUKI_GUILD_ID ?? '';
     this.toyamaChannelId = process.env.TOYAMA_CHANNEL_ID ?? '';
+    this.doukiChannelId = process.env.DOUKI_CHANNEL_ID ?? '';
     this.aiminelabGuildId = process.env.AIMINE_GUILD_ID ?? '';
     this.aiminelabXChannelId = process.env.AIMINE_X_CHANNEL_ID ?? '';
     this.testGuildId = process.env.TEST_GUILD_ID ?? '';
@@ -202,6 +206,7 @@ export class DiscordBot extends BaseClient {
       if (this.status !== 'running') return;
       const isTestGuild = message.guildId === process.env.TEST_GUILD_ID;
       if (this.isTest !== isTestGuild) return;
+      console.log(message.content);
 
       if (message.author.bot) return;
       const mentions = message.mentions.users.map((user) => ({
@@ -246,6 +251,11 @@ export class DiscordBot extends BaseClient {
       if (
         guildId === this.toyamaGuildId &&
         message.channelId !== this.toyamaChannelId
+      )
+        return;
+      if (
+        guildId === this.doukiGuildId &&
+        message.channelId !== this.doukiChannelId
       )
         return;
       this.eventBus.log(
@@ -349,6 +359,12 @@ export class DiscordBot extends BaseClient {
           );
           if (toyamaChannel?.isTextBased() && 'send' in toyamaChannel) {
             toyamaChannel.send(text ?? '');
+          }
+          const doukiChannel = this.client.channels.cache.get(
+            this.doukiChannelId ?? ''
+          );
+          if (doukiChannel?.isTextBased() && 'send' in doukiChannel) {
+            doukiChannel.send(text ?? '');
           }
         }
         return;
