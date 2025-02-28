@@ -431,6 +431,27 @@ export class TaskGraph {
       emotion: partialState.emotion ?? null,
       taskTree: null,
     };
-    return await this.graph.invoke(state, { recursionLimit: 32 });
+
+    try {
+      // 再帰制限を大幅に増やす
+      return await this.graph.invoke(state, { recursionLimit: 32 });
+    } catch (error) {
+      // 再帰制限エラーの場合
+      if (error instanceof Error && 'lc_error_code' in error) {
+        if (error.lc_error_code === 'GRAPH_RECURSION_LIMIT') {
+          console.warn('再帰制限に達しました。タスクを強制終了します。');
+          return {
+            ...state,
+            taskTree: {
+              status: 'error',
+              goal: '再帰制限エラーにより強制終了',
+              strategy: '',
+              subTasks: null,
+            },
+          };
+        }
+      }
+      throw error;
+    }
   }
 }
