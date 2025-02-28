@@ -3,11 +3,7 @@ import styles from "./Header.module.scss";
 import SettingsModal from "@components/Modal/SettingsModal";
 import logo from "@/assets/logo.png";
 import SettingsIcon from "@mui/icons-material/Settings";
-
-interface UserInfo {
-  name: string;
-  email: string;
-}
+import { UserInfo } from "@common/types/web";
 
 interface HeaderProps {
   userInfo?: UserInfo | null;

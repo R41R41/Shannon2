@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import styles from './SearchTab.module.scss';
-import { ILog } from '@common/types/common';
-import { MemoryZone } from '@common/types/common';
-import { MonitoringAgent } from '@/services/agents/monitoringAgent';
+import React, { useState, useEffect } from "react";
+import styles from "./SearchTab.module.scss";
+import { ILog } from "@common/types/common";
+import { MemoryZone } from "@common/types/common";
+import { MonitoringAgent } from "@/services/agents/monitoringAgent";
 
 interface SearchTabProps {
   monitoring: MonitoringAgent | null;
@@ -15,10 +15,10 @@ const SearchTab: React.FC<SearchTabProps> = ({
   searchResults,
   setSearchResults,
 }) => {
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [memoryZone, setMemoryZone] = useState<MemoryZone | ''>('');
-  const [content, setContent] = useState('');
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [memoryZone, setMemoryZone] = useState<MemoryZone | "">("");
+  const [content, setContent] = useState("");
 
   useEffect(() => {
     const unsubscribe = monitoring?.onSearchResults((results) => {
@@ -41,26 +41,26 @@ const SearchTab: React.FC<SearchTabProps> = ({
   }, [startDate, endDate, memoryZone, content, monitoring]);
 
   const formatContent = (content: string) => {
-    return content.split('\n').map((line, i) => (
+    return content.split("\n").map((line, i) => (
       <React.Fragment key={i}>
         {line}
-        {i < content.split('\n').length - 1 && <br />}
+        {i < content.split("\n").length - 1 && <br />}
       </React.Fragment>
     ));
   };
 
   const formatTimestamp = (timestamp: Date) => {
-    return new Intl.DateTimeFormat('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
+    return new Intl.DateTimeFormat("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
       hour12: false,
     })
       .format(new Date(timestamp))
-      .replace(/\//g, '-');
+      .replace(/\//g, "-");
   };
 
   return (
@@ -69,9 +69,9 @@ const SearchTab: React.FC<SearchTabProps> = ({
       <div className={styles.searchForm}>
         <input
           type="text"
-          onFocus={(e) => (e.target.type = 'datetime-local')}
+          onFocus={(e) => (e.target.type = "datetime-local")}
           onBlur={(e) => {
-            if (!e.target.value) e.target.type = 'text';
+            if (!e.target.value) e.target.type = "text";
           }}
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
@@ -80,9 +80,9 @@ const SearchTab: React.FC<SearchTabProps> = ({
         />
         <input
           type="text"
-          onFocus={(e) => (e.target.type = 'datetime-local')}
+          onFocus={(e) => (e.target.type = "datetime-local")}
           onBlur={(e) => {
-            if (!e.target.value) e.target.type = 'text';
+            if (!e.target.value) e.target.type = "text";
           }}
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
@@ -103,6 +103,7 @@ const SearchTab: React.FC<SearchTabProps> = ({
           <option value="discord:test_server">
             discord:シャノンテスト用サーバー
           </option>
+          <option value="discord:douki_server">discord:どうきさば</option>
           <option value="minecraft">minecraft</option>
           <option value="twitter:schedule_post">
             twitter:スケジュール投稿

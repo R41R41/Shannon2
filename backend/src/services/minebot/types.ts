@@ -2,6 +2,7 @@ import { Bot, BotEvents } from 'mineflayer';
 import { goals } from 'mineflayer-pathfinder';
 import { Entity } from 'prismarine-entity';
 import { Utils } from './utils/index.js';
+import { CommandManager } from 'mineflayer-cmd';
 
 export type Goal = goals.Goal;
 
@@ -63,6 +64,7 @@ export interface CustomBot extends Omit<Bot, 'on' | 'once' | 'emit'> {
   constantSkills: ConstantSkills;
   utils: Utils;
   isInWater: boolean;
+  cmd: CommandManager;
 }
 
 export abstract class Skill {

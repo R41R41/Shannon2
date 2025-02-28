@@ -108,6 +108,7 @@ const ShannonUI: React.FC = () => {
                 scheduler={scheduler}
                 status={status}
                 skill={skill}
+                userInfo={userInfo}
               />
             </Panel>
             <ResizeHandle />

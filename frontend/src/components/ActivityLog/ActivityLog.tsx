@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
-import styles from './ActivityLog.module.scss';
-import { ILog, MemoryZone } from '@common/types/common';
-import { MonitoringAgent } from '@/services/agents/monitoringAgent';
+import React, { useEffect, useState, useRef } from "react";
+import styles from "./ActivityLog.module.scss";
+import { ILog, MemoryZone } from "@common/types/common";
+import { MonitoringAgent } from "@/services/agents/monitoringAgent";
 
 interface ActivityLogProps {
   monitoring: MonitoringAgent | null;
@@ -9,8 +9,8 @@ interface ActivityLogProps {
 
 const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
   const [logs, setLogs] = useState<ILog[]>([]);
-  const [selectedMemoryZone, setSelectedMemoryZone] = useState<MemoryZone | ''>(
-    ''
+  const [selectedMemoryZone, setSelectedMemoryZone] = useState<MemoryZone | "">(
+    ""
   );
   const logListRef = useRef<HTMLDivElement>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
@@ -25,7 +25,7 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
           setTimeout(() => {
             logListRef.current?.scrollTo({
               top: logListRef.current.scrollHeight,
-              behavior: 'smooth',
+              behavior: "smooth",
             });
           }, 0);
         }
@@ -35,7 +35,7 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
   }, [monitoring, shouldAutoScroll]);
 
   useEffect(() => {
-    if (monitoring?.status === 'connected') {
+    if (monitoring?.status === "connected") {
       const fetchAllMemoryZoneLogs = async () => {
         try {
           const allMemoryZoneLogs = await monitoring?.getAllMemoryZoneLogs();
@@ -43,7 +43,7 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
             setLogs([...allMemoryZoneLogs].reverse());
           }
         } catch (error) {
-          console.error('Failed to fetch all memory zone logs:', error);
+          console.error("Failed to fetch all memory zone logs:", error);
         }
       };
 
@@ -61,30 +61,30 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
   };
 
   const formatContent = (content: string) => {
-    return content.split('\n').map((line, i) => (
+    return content.split("\n").map((line, i) => (
       <React.Fragment key={i}>
         {line}
-        {i < content.split('\n').length - 1 && <br />}
+        {i < content.split("\n").length - 1 && <br />}
       </React.Fragment>
     ));
   };
 
   const formatTimestamp = (timestamp: Date) => {
-    return new Intl.DateTimeFormat('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
+    return new Intl.DateTimeFormat("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
       hour12: false,
     })
       .format(new Date(timestamp))
-      .replace(/\//g, '-');
+      .replace(/\//g, "-");
   };
 
   const filteredLogs: ILog[] = logs.filter((log) => {
-    return selectedMemoryZone === ''
+    return selectedMemoryZone === ""
       ? true
       : log.memoryZone.includes(selectedMemoryZone);
   });
@@ -94,89 +94,101 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
       <div className={styles.tabs}>
         <button
           className={`${styles.tab} ${
-            selectedMemoryZone === '' ? styles.active : ''
+            selectedMemoryZone === "" ? styles.active : ""
           }`}
-          onClick={() => setSelectedMemoryZone('')}
+          onClick={() => setSelectedMemoryZone("")}
         >
           All
         </button>
         <button
           className={`${styles.tab} ${
-            selectedMemoryZone === 'web' ? styles.active : ''
+            selectedMemoryZone === "web" ? styles.active : ""
           }`}
-          onClick={() => setSelectedMemoryZone('web')}
+          onClick={() => setSelectedMemoryZone("web")}
         >
           ShannonUI
         </button>
         <div className={styles.dropdownTab}>
           <button
             className={`${styles.tab} ${
-              selectedMemoryZone.startsWith('discord') ? styles.active : ''
+              selectedMemoryZone.startsWith("discord") ? styles.active : ""
             }`}
           >
-            Discord:{' '}
-            {selectedMemoryZone.split(':')[1] === 'toyama_server'
-              ? 'とやまさば'
-              : selectedMemoryZone.split(':')[1] === 'aiminelab_server'
-              ? 'アイマイラボ！'
-              : selectedMemoryZone.split(':')[1] === 'test_server'
-              ? 'シャノンテスト用サーバー'
-              : '全てのサーバー'}
+            Discord:{" "}
+            {selectedMemoryZone.split(":")[1] === "toyama_server"
+              ? "とやまさば"
+              : selectedMemoryZone.split(":")[1] === "aiminelab_server"
+              ? "アイマイラボ！"
+              : selectedMemoryZone.split(":")[1] === "test_server"
+              ? "シャノンテスト用サーバー"
+              : selectedMemoryZone.split(":")[1] === "douki_server"
+              ? "どうきさば"
+              : "全てのサーバー"}
           </button>
           <div className={styles.dropdownContent}>
             <button
               className={`${styles.dropdownItem} ${
-                selectedMemoryZone === 'discord:toyama_server'
+                selectedMemoryZone === "discord:toyama_server"
                   ? styles.active
-                  : ''
+                  : ""
               }`}
-              onClick={() => setSelectedMemoryZone('discord:toyama_server')}
+              onClick={() => setSelectedMemoryZone("discord:toyama_server")}
             >
               discord:とやまさば
             </button>
             <button
               className={`${styles.dropdownItem} ${
-                selectedMemoryZone === 'discord:aiminelab_server'
+                selectedMemoryZone === "discord:aiminelab_server"
                   ? styles.active
-                  : ''
+                  : ""
               }`}
-              onClick={() => setSelectedMemoryZone('discord:aiminelab_server')}
+              onClick={() => setSelectedMemoryZone("discord:aiminelab_server")}
             >
               discord:アイマイラボ！
             </button>
             <button
               className={`${styles.dropdownItem} ${
-                selectedMemoryZone === 'discord:test_server'
+                selectedMemoryZone === "discord:test_server"
                   ? styles.active
-                  : ''
+                  : ""
               }`}
-              onClick={() => setSelectedMemoryZone('discord:test_server')}
+              onClick={() => setSelectedMemoryZone("discord:test_server")}
             >
               discord:シャノンテスト用サーバー
+            </button>
+            <button
+              className={`${styles.dropdownItem} ${
+                selectedMemoryZone === "discord:douki_server"
+                  ? styles.active
+                  : ""
+              }`}
+              onClick={() => setSelectedMemoryZone("discord:douki_server")}
+            >
+              discord:どうきさば
             </button>
           </div>
         </div>
         <button
           className={`${styles.tab} ${
-            selectedMemoryZone === 'minecraft' ? styles.active : ''
+            selectedMemoryZone === "minecraft" ? styles.active : ""
           }`}
-          onClick={() => setSelectedMemoryZone('minecraft')}
+          onClick={() => setSelectedMemoryZone("minecraft")}
         >
           Minecraft
         </button>
         <button
           className={`${styles.tab} ${
-            selectedMemoryZone === 'twitter:schedule_post' ? styles.active : ''
+            selectedMemoryZone === "twitter:schedule_post" ? styles.active : ""
           }`}
-          onClick={() => setSelectedMemoryZone('twitter:schedule_post')}
+          onClick={() => setSelectedMemoryZone("twitter:schedule_post")}
         >
           twitter
         </button>
         <button
           className={`${styles.tab} ${
-            selectedMemoryZone === 'youtube' ? styles.active : ''
+            selectedMemoryZone === "youtube" ? styles.active : ""
           }`}
-          onClick={() => setSelectedMemoryZone('youtube')}
+          onClick={() => setSelectedMemoryZone("youtube")}
         >
           YouTube
         </button>
@@ -187,7 +199,7 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
             <span className={styles.timestamp}>
               {formatTimestamp(log.timestamp)}
             </span>
-            {selectedMemoryZone === '' && (
+            {selectedMemoryZone === "" && (
               <span className={styles.memoryZone}>{log.memoryZone}</span>
             )}
             <span className={`${styles.content} ${styles[log.color]}`}>

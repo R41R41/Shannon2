@@ -14,6 +14,7 @@ class DisplayInstantSkillList extends InstantSkill {
     result: string;
   }> {
     try {
+      console.log('here2');
       if (this.bot.instantSkills === null) {
         return { success: false, result: 'スキルリストが指定されていません' };
       }
@@ -31,6 +32,7 @@ class DisplayInstantSkillList extends InstantSkill {
             value: `./${skill.skillName}`,
           },
         });
+        console.log('here3');
         await this.bot.chat(`/tellraw @a ${message}`);
         await new Promise((resolve) => setTimeout(resolve, 100));
       });
