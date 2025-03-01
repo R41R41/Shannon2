@@ -197,7 +197,7 @@ export class TaskGraph {
 
   private toolAgentNode = async (state: typeof this.TaskState.State) => {
     console.log('toolAgentNode');
-    const messages = this.prompt.getMessages(state, 'use_tool', true);
+    const messages = this.prompt.getMessages(state, 'use_tool', true, false);
     if (!this.largeModel) {
       throw new Error('Large model not initialized');
     }
@@ -257,6 +257,17 @@ export class TaskGraph {
           data: response,
           targetMemoryZones: ['web'],
         });
+        if (state.channelId) {
+          this.eventBus.publish({
+            type: 'discord:planning',
+            memoryZone: state.memoryZone,
+            data: {
+              planning: response,
+              channelId: state.channelId,
+              taskId: state.taskId,
+            },
+          });
+        }
       }
       return {
         taskTree: {
@@ -318,9 +329,17 @@ export class TaskGraph {
   };
 
   private TaskState = Annotation.Root({
+    taskId: Annotation<string>({
+      reducer: (_, next) => next,
+      default: () => '',
+    }),
     memoryZone: Annotation<MemoryZone>({
       reducer: (_, next) => next,
       default: () => 'web',
+    }),
+    channelId: Annotation<string | null>({
+      reducer: (_, next) => next,
+      default: () => null,
     }),
     environmentState: Annotation<string | null>({
       reducer: (_, next) => next,
@@ -421,7 +440,9 @@ export class TaskGraph {
 
   public async invoke(partialState: TaskStateInput) {
     let state: typeof this.TaskState.State = {
+      taskId: crypto.randomUUID(),
       memoryZone: partialState.memoryZone ?? 'web',
+      channelId: partialState.channelId ?? null,
       environmentState: partialState.environmentState ?? null,
       selfState: partialState.selfState ?? null,
       humanFeedback: null,

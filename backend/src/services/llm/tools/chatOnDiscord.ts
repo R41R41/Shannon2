@@ -12,6 +12,12 @@ export default class ChatOnDiscordTool extends StructuredTool {
     channelId: z.string().describe('The channel ID you want to send to.'),
     guildId: z.string().describe('The server ID you want to send to.'),
     memoryZone: z.string().describe('The value of MemoryZone.'),
+    imageUrl: z
+      .string()
+      .optional()
+      .describe(
+        'The image URL you want to send. If you want to send an image, please set this value.'
+      ),
   });
   private eventBus: EventBus;
 
@@ -31,6 +37,7 @@ export default class ChatOnDiscordTool extends StructuredTool {
           channelId: data.channelId,
           guildId: data.guildId,
           text: data.message,
+          imageUrl: data.imageUrl,
         } as DiscordClientInput,
       });
       const currentTime = new Date().toLocaleString('ja-JP', {

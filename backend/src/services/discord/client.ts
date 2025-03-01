@@ -8,6 +8,8 @@ import {
   DiscordGetServerEmojiOutput,
   DiscordSendServerEmojiInput,
   DiscordSendServerEmojiOutput,
+  DiscordSendTextMessageOutput,
+  DiscordPlanningInput,
 } from '@shannon/common';
 import {
   Client,
@@ -297,7 +299,7 @@ export class DiscordBot extends BaseClient {
           messageId: messageId,
           userId: userId,
           recentMessages: recentMessages,
-        } as DiscordSendTextMessageInput,
+        } as DiscordSendTextMessageOutput,
       });
     });
     this.client.on('speech', async (speech) => {
@@ -332,7 +334,7 @@ export class DiscordBot extends BaseClient {
     // LLMからの応答を処理
     this.eventBus.subscribe('discord:post_message', async (event) => {
       if (this.status !== 'running') return;
-      let { text, channelId, guildId } =
+      let { text, channelId, guildId, imageUrl } =
         event.data as DiscordSendTextMessageInput;
       const channel = this.client.channels.cache.get(channelId);
       const channelName = this.getChannelName(channelId);
@@ -348,7 +350,16 @@ export class DiscordBot extends BaseClient {
         );
         console.log('\x1b[34m' + guildName + ' ' + channelName + '\x1b[0m');
         console.log('\x1b[34m' + 'shannon: ' + text + '\x1b[0m');
-        channel.send(text ?? '');
+        if (imageUrl) {
+          const embed = {
+            image: {
+              url: imageUrl,
+            },
+          };
+          channel.send({ content: text ?? '', embeds: [embed] });
+        } else {
+          channel.send(text ?? '');
+        }
       }
     });
     this.eventBus.subscribe('discord:scheduled_post', async (event) => {
@@ -442,6 +453,73 @@ export class DiscordBot extends BaseClient {
               error instanceof Error ? error.message : 'Unknown error',
           } as DiscordSendServerEmojiOutput,
         });
+      }
+    });
+    this.eventBus.subscribe('discord:planning', async (event) => {
+      if (this.status !== 'running') return;
+      let { planning, channelId, taskId } = event.data as DiscordPlanningInput;
+      const channel = this.client.channels.cache.get(channelId);
+      console.log('discord:planning', taskId);
+
+      if (channel?.isTextBased() && 'send' in channel) {
+        const messages = await channel.messages.fetch({ limit: 10 });
+        const existingMessage = messages.find(
+          (msg) =>
+            msg.author.id === this.client.user?.id &&
+            msg.content.includes(`TaskID: ${taskId}`)
+        );
+
+        // ステータスに応じた絵文字を選択
+        const getStatusEmoji = (status: string) => {
+          switch (status) {
+            case 'completed':
+              return '🟢'; // 完了：緑
+            case 'in_progress':
+              return '🔵'; // 進行中：青
+            case 'pending':
+              return '🟡'; // 保留：黄色
+            case 'error':
+              return '🔴'; // エラー：赤
+            default:
+              return '⚪'; // その他：白
+          }
+        };
+
+        const legend = `🟢:完了, 🔵:進行中, 🟡:保留, 🔴:エラー, ⚪:その他`;
+
+        // タスク状態をMarkdown形式に整形
+        let formattedContent = '';
+
+        if (planning.status === 'completed') {
+          if (existingMessage) {
+            await existingMessage.delete();
+          }
+        } else {
+          formattedContent = `TaskID: ${taskId}\n\n${getStatusEmoji(
+            planning.status
+          )} ${planning.goal}\n${planning.strategy}\n`;
+
+          // サブタスクがある場合は追加
+          if (planning.subTasks && planning.subTasks.length > 0) {
+            planning.subTasks.forEach((subTask) => {
+              formattedContent += `  ${getStatusEmoji(subTask.subTaskStatus)} ${
+                subTask.subTaskGoal
+              }\n`;
+              formattedContent += `  ${subTask.subTaskStrategy}\n`;
+            });
+          }
+
+          // 既存メッセージがあれば更新、なければ新規送信
+          if (existingMessage) {
+            await existingMessage.edit(
+              `\`\`\`\n${formattedContent}\n\n${legend}\n\`\`\``
+            );
+          } else {
+            await channel.send(
+              `\`\`\`\n${formattedContent}\n\n${legend}\n\`\`\``
+            );
+          }
+        }
       }
     });
   }

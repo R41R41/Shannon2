@@ -2,6 +2,7 @@ import { MemoryZone, EmotionType, TaskTreeState } from '@shannon/common';
 import { BaseMessage } from '@langchain/core/messages';
 
 export interface TaskStateInput {
+  taskId?: string | null;
   emotion?: EmotionType | null;
   memoryZone?: MemoryZone;
   systemPrompt?: string;
@@ -13,4 +14,5 @@ export interface TaskStateInput {
   messages?: BaseMessage[];
   responseMessage?: string | null;
   userMessage?: string | null;
+  channelId?: string | null;
 }

@@ -68,7 +68,6 @@ export class Prompt {
     const toolInfoMessage = isToolInfo
       ? `Available Tools:\n${this.getToolsInfo()}`
       : '';
-
     const messages = [
       new SystemMessage(prompt),
       state.userMessage

@@ -1,6 +1,7 @@
 import { ServiceInput, ServiceOutput } from "./common";
 import { TwitterSchedulePostEndpoint } from "./twitter";
 import { BaseMessage } from "@langchain/core/messages";
+import { TaskTreeState } from "./taskGraph";
 export type DiscordGuild =
   | "discord:toyama_server"
   | "discord:douki_server"
@@ -22,6 +23,7 @@ export interface DiscordSendTextMessageInput extends ServiceInput {
   channelId: string;
   guildId: string;
   text: string;
+  imageUrl: string;
 }
 
 export interface DiscordScheduledPostInput extends ServiceInput {
@@ -29,11 +31,18 @@ export interface DiscordScheduledPostInput extends ServiceInput {
   text: string;
 }
 
+export interface DiscordPlanningInput extends ServiceInput {
+  planning: TaskTreeState;
+  channelId: string;
+  taskId: string;
+}
+
 export type DiscordClientInput =
   | DiscordGetServerEmojiInput
   | DiscordSendServerEmojiInput
   | DiscordSendTextMessageInput
-  | DiscordScheduledPostInput;
+  | DiscordScheduledPostInput
+  | DiscordPlanningInput;
 
 export interface DiscordGetServerEmojiOutput extends ServiceOutput {
   emojis: string[];
@@ -69,4 +78,5 @@ export type DiscordEventType =
   | "discord:post_message"
   | "discord:scheduled_post"
   | "discord:get_server_emoji"
-  | "discord:send_server_emoji";
+  | "discord:send_server_emoji"
+  | "discord:planning";
