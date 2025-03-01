@@ -197,13 +197,7 @@ export class TaskGraph {
 
   private toolAgentNode = async (state: typeof this.TaskState.State) => {
     console.log('toolAgentNode');
-    const messages = this.prompt.getMessages(
-      state,
-      'use_tool',
-      true,
-      false,
-      true
-    );
+    const messages = this.prompt.getMessages(state, 'use_tool', true, false);
     if (!this.largeModel) {
       throw new Error('Large model not initialized');
     }

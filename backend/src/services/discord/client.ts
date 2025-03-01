@@ -334,7 +334,7 @@ export class DiscordBot extends BaseClient {
     // LLMからの応答を処理
     this.eventBus.subscribe('discord:post_message', async (event) => {
       if (this.status !== 'running') return;
-      let { text, channelId, guildId, taskId } =
+      let { text, channelId, guildId, imageUrl } =
         event.data as DiscordSendTextMessageInput;
       const channel = this.client.channels.cache.get(channelId);
       const channelName = this.getChannelName(channelId);
@@ -350,7 +350,16 @@ export class DiscordBot extends BaseClient {
         );
         console.log('\x1b[34m' + guildName + ' ' + channelName + '\x1b[0m');
         console.log('\x1b[34m' + 'shannon: ' + text + '\x1b[0m');
-        channel.send(text ?? '');
+        if (imageUrl) {
+          const embed = {
+            image: {
+              url: imageUrl,
+            },
+          };
+          channel.send({ content: text ?? '', embeds: [embed] });
+        } else {
+          channel.send(text ?? '');
+        }
       }
     });
     this.eventBus.subscribe('discord:scheduled_post', async (event) => {

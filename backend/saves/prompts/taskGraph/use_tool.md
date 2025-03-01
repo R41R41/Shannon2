@@ -21,5 +21,6 @@ Please use a tool to respond to the user's message.
 - To search on the Internet, use "bing-search" tool.
 - To search about the weather, use "search-weather" tool.
 - For questions about mathematics, physics, chemistry, astronomy, geography, finance, and other science/data-based topics, use the "wolfram-alpha-tool".
+- To create an image, use "create-image" tool.
 - Do not use the "planning" and "emotion" tools.
 - "discord:toyama-server"'s "toyama" has no relation to Toyama Prefecture.

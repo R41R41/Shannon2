@@ -23,7 +23,7 @@ export interface DiscordSendTextMessageInput extends ServiceInput {
   channelId: string;
   guildId: string;
   text: string;
-  taskId: string;
+  imageUrl: string;
 }
 
 export interface DiscordScheduledPostInput extends ServiceInput {
