@@ -263,7 +263,8 @@ export class LLMService {
           message.userName,
           message.text,
           infoMessage,
-          message.recentMessages
+          message.recentMessages,
+          message.channelId
         );
         return;
       }
@@ -320,7 +321,8 @@ export class LLMService {
     userName?: string | null,
     message?: string | null,
     infoMessage?: string | null,
-    recentMessages?: BaseMessage[] | null
+    recentMessages?: BaseMessage[] | null,
+    channelId?: string | null
   ) {
     try {
       const currentTime = new Date().toLocaleString('ja-JP', {
@@ -328,6 +330,7 @@ export class LLMService {
       });
       const newMessage = `${currentTime} ${userName}: ${message}`;
       await this.taskGraph.invoke({
+        channelId: channelId,
         memoryZone: inputMemoryZone,
         environmentState: infoMessage || null,
         messages: recentMessages?.concat([new HumanMessage(newMessage)]) || [],

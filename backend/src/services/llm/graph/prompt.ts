@@ -49,7 +49,8 @@ export class Prompt {
     state: TaskStateInput,
     promptName: PromptType,
     isMemoryZone: boolean = false,
-    isToolInfo: boolean = false
+    isToolInfo: boolean = false,
+    isTaskId: boolean = false
   ): BaseMessage[] => {
     const prompt = this.getPrompt(promptName);
     const currentTime = new Date().toLocaleString('ja-JP', {
@@ -68,8 +69,8 @@ export class Prompt {
     const toolInfoMessage = isToolInfo
       ? `Available Tools:\n${this.getToolsInfo()}`
       : '';
-
     const messages = [
+      isTaskId ? new SystemMessage(`taskId: ${state.taskId}`) : null,
       new SystemMessage(prompt),
       state.userMessage
         ? new SystemMessage(`userMessage: ${state.userMessage}`)
