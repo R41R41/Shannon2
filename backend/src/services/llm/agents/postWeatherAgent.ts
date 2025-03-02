@@ -11,6 +11,7 @@ import { pull } from 'langchain/hub';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import BingSearchTool from '../tools/bingSearch.js';
 import { createOpenAIToolsAgent } from 'langchain/agents';
+import WolframAlphaTool from '../tools/wolframAlpha.js';
 
 dotenv.config();
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -131,8 +132,9 @@ export class PostWeatherAgent {
   }
 
   private setTools() {
-    const bingSearchTool = new BingSearchTool();
-    this.tools = [bingSearchTool];
+    // const bingSearchTool = new BingSearchTool();
+    const wolframAlphaTool = new WolframAlphaTool();
+    this.tools = [wolframAlphaTool];
   }
 
   private async initializeAgent() {
@@ -261,7 +263,7 @@ export class PostWeatherAgent {
     const tomorrow = addDays(now, 1);
     const date = format(tomorrow, 'yyyy年MM月dd日');
     const weekdayInt = tomorrow.getDay();
-    const weekdayStr = ['月', '火', '水', '木', '金', '土', '日'];
+    const weekdayStr = ['日', '月', '火', '水', '木', '金', '土'];
     return `${date}(${weekdayStr[weekdayInt]})`;
   }
 

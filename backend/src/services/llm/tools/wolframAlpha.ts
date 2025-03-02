@@ -33,6 +33,9 @@ export default class WolframAlphaTool extends StructuredTool {
         input: data.query,
         format: 'plaintext',
       });
+      if (typeof result === 'object') {
+        return JSON.stringify(result);
+      }
       return result || 'No answer found.';
     } catch (error) {
       console.error('Wolfram Alpha error:', error);
