@@ -26,8 +26,6 @@ LLM:
   ☐ 終了する
   ☐ フィードバック入力
   ☐ centralAgentの作成
-  ☐ 天気予報の曜日間違える問題の解消 @high
-  ☐ 上海の天気取得できない問題の解消 @high
   
 Youtube:
   ☐ 登録者数をdiscordに表示 @high @today
@@ -139,6 +137,8 @@ wsを追加したときにやること:
   - ログの確認 sudo tail -f /var/log/nginx/error.log
 
 Archive:
+  ✔ 上海の天気取得できない問題の解消 @high @done(25-03-02 21:03) @project(LLM)
+  ✔ 天気予報の曜日間違える問題の解消 @high @done(25-03-02 20:48) @project(LLM)
   ✔ 自動チャットで末尾にby Shannonを追加 @high @today @done(25-02-23 19:03) @project(Youtube)
   ✔ testの時は定時ツイートは送らない @high @today @done(25-02-23 18:13) @project(Twitter)
   ✔ "アットマーク"を読めるようにして誰宛かを判断する @high @today @done(25-02-23 18:10) @project(discord)
