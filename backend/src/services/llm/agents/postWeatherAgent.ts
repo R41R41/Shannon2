@@ -261,7 +261,7 @@ export class PostWeatherAgent {
     const tomorrow = addDays(now, 1);
     const date = format(tomorrow, 'yyyy年MM月dd日');
     const weekdayInt = tomorrow.getDay();
-    const weekdayStr = ['月', '火', '水', '木', '金', '土', '日'];
+    const weekdayStr = ['日', '月', '火', '水', '木', '金', '土'];
     return `${date}(${weekdayStr[weekdayInt]})`;
   }
 
