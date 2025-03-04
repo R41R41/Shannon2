@@ -92,6 +92,14 @@ export class Scheduler extends BaseClient {
             command: name,
           } as YoutubeClientInput,
         });
+      } else if (platform === 'youtube' && name === 'check_subscribers') {
+        this.eventBus.publish({
+          type: `youtube:check_subscribers`,
+          memoryZone: `youtube`,
+          data: {
+            command: name,
+          } as YoutubeClientInput,
+        });
       }
     }
   }

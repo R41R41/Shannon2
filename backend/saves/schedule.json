@@ -56,5 +56,16 @@
         "platform": "youtube"
       }
     }
+  },
+  {
+    "time": "0 */1 * * *",
+    "name": "youtube:check_subscribers",
+    "data": {
+      "type": "youtube:check_subscribers",
+      "memoryZone": "youtube",
+      "data": {
+        "platform": "youtube"
+      }
+    }
   }
 ]

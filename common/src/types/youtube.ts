@@ -29,6 +29,7 @@ export type YoutubeEventType =
   | "youtube:get_message"
   | "youtube:post_message"
   | "youtube:check_comments"
+  | "youtube:check_subscribers"
   | "youtube:reply_comment"
   | "youtube:status"
   | "youtube:subscriber_update";
