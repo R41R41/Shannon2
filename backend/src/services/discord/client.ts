@@ -10,6 +10,7 @@ import {
   DiscordSendServerEmojiOutput,
   DiscordSendTextMessageOutput,
   DiscordPlanningInput,
+  YoutubeSubscriberUpdateOutput,
 } from '@shannon/common';
 import {
   Client,
@@ -31,6 +32,7 @@ export class DiscordBot extends BaseClient {
   private toyamaChannelId: string | null = null;
   private aiminelabGuildId: string | null = null;
   private aiminelabXChannelId: string | null = null;
+  private aiminelabAnnounceChannelId: string | null = null;
   private testGuildId: string | null = null;
   private testXChannelId: string | null = null;
   private doukiGuildId: string | null = null;
@@ -76,6 +78,8 @@ export class DiscordBot extends BaseClient {
     this.doukiChannelId = process.env.DOUKI_CHANNEL_ID ?? '';
     this.aiminelabGuildId = process.env.AIMINE_GUILD_ID ?? '';
     this.aiminelabXChannelId = process.env.AIMINE_X_CHANNEL_ID ?? '';
+    this.aiminelabAnnounceChannelId =
+      process.env.AIMINE_ANNOUNCE_CHANNEL_ID ?? '';
     this.testGuildId = process.env.TEST_GUILD_ID ?? '';
     this.testXChannelId = process.env.TEST_X_CHANNEL_ID ?? '';
   }
@@ -519,6 +523,21 @@ export class DiscordBot extends BaseClient {
               `\`\`\`\n${formattedContent}\n\n${legend}\n\`\`\``
             );
           }
+        }
+      }
+    });
+    this.eventBus.subscribe('youtube:subscriber_update', async (event) => {
+      if (this.status !== 'running') return;
+      const data = event.data as YoutubeSubscriberUpdateOutput;
+      const { subscriberCount } = data;
+      const guildId = process.env.aiminelabGuildId ?? '';
+      const guild = this.client.guilds.cache.get(guildId);
+      if (guild) {
+        const channel = guild.channels.cache.get(
+          this.aiminelabAnnounceChannelId ?? ''
+        );
+        if (channel?.isTextBased() && 'send' in channel) {
+          channel.send(`YouTubeの登録者数が${subscriberCount}になりました。`);
         }
       }
     });

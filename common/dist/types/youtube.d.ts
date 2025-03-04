@@ -17,4 +17,4 @@ export interface YoutubeCommentOutput extends ServiceInput {
 export interface YoutubeSubscriberUpdateOutput extends ServiceInput {
     subscriberCount: number;
 }
-export type YoutubeEventType = "youtube:get_stats" | "youtube:get_message" | "youtube:post_message" | "youtube:check_comments" | "youtube:reply_comment" | "youtube:status" | "youtube:subscriber_update";
+export type YoutubeEventType = "youtube:get_stats" | "youtube:get_message" | "youtube:post_message" | "youtube:check_comments" | "youtube:check_subscribers" | "youtube:reply_comment" | "youtube:status" | "youtube:subscriber_update";
