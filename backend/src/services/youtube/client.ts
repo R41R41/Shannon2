@@ -1,10 +1,16 @@
-import { YoutubeClientInput, YoutubeClientOutput } from '@shannon/common';
+import {
+  YoutubeClientInput,
+  YoutubeClientOutput,
+  YoutubeCommentOutput,
+  YoutubeSubscriberUpdateOutput,
+} from '@shannon/common';
 import dotenv from 'dotenv';
 import { OAuth2Client } from 'google-auth-library';
 import { google, youtube_v3 } from 'googleapis';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
-
+import express from 'express';
+import axios from 'axios';
 dotenv.config();
 
 export class YoutubeClient extends BaseClient {
@@ -217,11 +223,152 @@ export class YoutubeClient extends BaseClient {
     }
   }
 
+  private async setupPubSubNotifications() {
+    try {
+      if (!this.client || !this.channelId) return;
+      const app = express();
+      const PORT = process.env.YOUTUBE_WEBHOOK_PORT || 5018;
+
+      app.use(express.json());
+
+      // Webhookエンドポイント
+      app.post('/youtube/webhook/comments', (req: any, res: any) => {
+        const notification = req.body;
+        console.log('YouTube コメント通知を受信:', notification);
+
+        // 新しいコメントの処理
+        if (notification.feed && notification.feed.entry) {
+          const entry = notification.feed.entry;
+          console.log('entry:', entry);
+          // コメント情報を抽出
+          const comment = {
+            videoId: this.extractVideoId(entry.link),
+            commentId: entry.id,
+            text: entry.content,
+            authorName: entry.author.name,
+            publishedAt: entry.published,
+            videoTitle: entry.title,
+            videoDescription: entry.summary,
+          };
+
+          // イベントバスに通知
+          this.eventBus.publish({
+            type: 'llm:reply_youtube_comment',
+            memoryZone: 'youtube',
+            data: comment as YoutubeCommentOutput,
+          });
+        }
+
+        res.status(200).send('OK');
+      });
+
+      // チャンネル登録者数通知用Webhookエンドポイント
+      app.post('/youtube/webhook/subscribers', (req: any, res: any) => {
+        const notification = req.body;
+        console.log('YouTube 登録者数通知を受信:', notification);
+
+        // チャンネル情報の処理
+        if (notification.feed && notification.feed.entry) {
+          const entry = notification.feed.entry;
+          // 登録者数情報を抽出
+          const subscriberCount = entry['yt:statistics']
+            ? entry['yt:statistics'].subscriberCount
+            : null;
+
+          if (subscriberCount) {
+            // イベントバスに通知
+            this.eventBus.publish({
+              type: 'youtube:subscriber_update',
+              memoryZone: 'youtube',
+              data: {
+                subscriberCount: subscriberCount,
+              } as YoutubeSubscriberUpdateOutput,
+            });
+          }
+        }
+
+        res.status(200).send('OK');
+      });
+
+      // 検証リクエスト用エンドポイント
+      app.get('/youtube/webhook/comments', (req, res) => {
+        const hubChallenge = req.query['hub.challenge'];
+        console.log('YouTube検証リクエスト受信:', req.query);
+
+        if (hubChallenge) {
+          // 検証に成功するには同じチャレンジ値を返す
+          res.status(200).send(hubChallenge);
+          console.log('YouTube検証成功');
+        } else {
+          res.status(400).send('Bad Request');
+        }
+      });
+
+      app.get('/youtube/webhook/subscribers', (req, res) => {
+        const hubChallenge = req.query['hub.challenge'];
+        console.log('YouTube登録者検証リクエスト受信:', req.query);
+
+        if (hubChallenge) {
+          res.status(200).send(hubChallenge);
+          console.log('YouTube登録者検証成功');
+        } else {
+          res.status(400).send('Bad Request');
+        }
+      });
+
+      // サーバー起動
+      app.listen(PORT, () => {
+        console.log(`YouTube Webhook server running on port ${PORT}`);
+      });
+
+      // PubSubHubBubへの登録を修正
+      const callbackUrl = `http://sh4nnon.com:5018/youtube/webhook/comments`;
+      const topicUrl = `https://www.youtube.com/xml/feeds/comments/videos?channel_id=${this.channelId}`;
+
+      const params = new URLSearchParams();
+      params.append('hub.callback', callbackUrl);
+      params.append('hub.topic', topicUrl);
+      params.append('hub.verify', 'sync'); // asyncではなくsyncを試す
+      params.append('hub.mode', 'subscribe');
+      params.append('hub.lease_seconds', '86400');
+
+      // PubSubHubBubへの登録リクエスト
+      console.log('PubSubHubBubへリクエスト送信:', params.toString());
+      const response = await axios.post(
+        'https://pubsubhubbub.appspot.com/subscribe',
+        params,
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
+
+      console.log(
+        'YouTube PubSubHubBub登録レスポンス:',
+        response.status,
+        response.data
+      );
+    } catch (error: any) {
+      console.error(`\x1b[31mYouTube PubSub setup error: ${error}\x1b[0m`);
+      // エラーの詳細を表示
+      if (error.response) {
+        console.error(
+          'エラーレスポンス:',
+          error.response.status,
+          error.response.data
+        );
+      }
+    }
+  }
+
   public async initialize() {
     try {
       // await this.getRefreshToken();
       await this.setUpConnection();
       this.setupEventHandlers();
+      // PubSubの設定を追加
+      await this.setupPubSubNotifications();
     } catch (error) {
       console.error(`\x1b[31mYouTube initialization error: ${error}\x1b[0m`);
       throw error;
@@ -257,5 +404,11 @@ export class YoutubeClient extends BaseClient {
       console.error(`\x1b[31mYouTube setUpConnection error: ${error}\x1b[0m`);
       throw error;
     }
+  }
+
+  // ヘルパーメソッド
+  private extractVideoId(link: string): string {
+    const match = link.match(/videos\/([^\/\?]+)/);
+    return match ? match[1] : '';
   }
 }

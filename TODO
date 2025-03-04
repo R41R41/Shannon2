@@ -1,4 +1,3 @@
-
 Web:
   ☐ 音声会話ができる
   ☐ 管理者モード
@@ -29,6 +28,7 @@ LLM:
   
 Youtube:
   ☐ 登録者数をdiscordに表示 @high @today
+  ☐ webhookでコメントを取得 @high @today
 
 Minebot:
   ☐ Minecraft bot の統合 @high
