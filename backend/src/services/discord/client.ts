@@ -537,7 +537,7 @@ export class DiscordBot extends BaseClient {
           this.aiminelabAnnounceChannelId ?? ''
         );
         if (channel?.isTextBased() && 'send' in channel) {
-          channel.send(`YouTubeの登録者数が${subscriberCount}になりました。`);
+          channel.send(`現在のチャンネル登録者数は${subscriberCount}人です。`);
         }
       }
     });
