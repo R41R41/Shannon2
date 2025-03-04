@@ -12,6 +12,7 @@ import {
   TwitterClientOutput,
   YoutubeClientInput,
   YoutubeClientOutput,
+  YoutubeCommentOutput,
   SkillInfo,
 } from '@shannon/common';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
@@ -88,7 +89,7 @@ export class LLMService {
 
     this.eventBus.subscribe('llm:reply_youtube_comment', (event) => {
       if (this.isTestMode) return;
-      this.processYoutubeReply(event.data as YoutubeClientOutput);
+      this.processYoutubeReply(event.data as YoutubeCommentOutput);
     });
 
     this.eventBus.subscribe('llm:get_skills', (event) => {
@@ -147,7 +148,7 @@ export class LLMService {
     });
   }
 
-  private async processYoutubeReply(data: YoutubeClientOutput) {
+  private async processYoutubeReply(data: YoutubeCommentOutput) {
     const comment = data.text;
     const videoTitle = data.videoTitle;
     const videoDescription = data.videoDescription;
