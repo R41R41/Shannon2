@@ -78,7 +78,7 @@ export class LLMService {
     });
 
     this.eventBus.subscribe('llm:post_scheduled_message', (event) => {
-      // if (this.isTestMode) return;
+      if (this.isTestMode) return;
       this.processCreateScheduledPost(event.data as TwitterClientInput);
     });
 
@@ -288,49 +288,49 @@ export class LLMService {
       post = await this.aboutTodayAgent.createPost();
       postForToyama = post;
     }
-    // this.eventBus.log('twitter:schedule_post', 'green', post, true);
-    // this.eventBus.log('discord:toyama_server', 'green', postForToyama, true);
-    // this.eventBus.publish({
-    //   type: 'twitter:post_scheduled_message',
-    //   memoryZone: 'twitter:schedule_post',
-    //   data: {
-    //     command: message.command,
-    //     text: post,
-    //   } as TwitterClientInput,
-    //   targetMemoryZones: ['twitter:schedule_post'],
-    // });
-    // this.eventBus.publish({
-    //   type: 'discord:scheduled_post',
-    //   memoryZone: 'discord:toyama_server',
-    //   data: {
-    //     command: message.command,
-    //     text: postForToyama,
-    //   } as DiscordScheduledPostInput,
-    // });
-    // this.eventBus.publish({
-    //   type: 'discord:scheduled_post',
-    //   memoryZone: 'discord:douki_server',
-    //   data: {
-    //     command: message.command,
-    //     text: post,
-    //   } as DiscordScheduledPostInput,
-    // });
+    this.eventBus.log('twitter:schedule_post', 'green', post, true);
+    this.eventBus.log('discord:toyama_server', 'green', postForToyama, true);
     this.eventBus.publish({
-      type: 'discord:scheduled_post',
-      memoryZone: 'discord:test_server',
+      type: 'twitter:post_scheduled_message',
+      memoryZone: 'twitter:schedule_post',
       data: {
         command: message.command,
         text: post,
-      } as DiscordScheduledPostInput,
+      } as TwitterClientInput,
+      targetMemoryZones: ['twitter:schedule_post'],
     });
     this.eventBus.publish({
       type: 'discord:scheduled_post',
-      memoryZone: 'discord:test_server',
+      memoryZone: 'discord:toyama_server',
       data: {
         command: message.command,
         text: postForToyama,
       } as DiscordScheduledPostInput,
     });
+    this.eventBus.publish({
+      type: 'discord:scheduled_post',
+      memoryZone: 'discord:douki_server',
+      data: {
+        command: message.command,
+        text: post,
+      } as DiscordScheduledPostInput,
+    });
+    // this.eventBus.publish({
+    //   type: 'discord:scheduled_post',
+    //   memoryZone: 'discord:test_server',
+    //   data: {
+    //     command: message.command,
+    //     text: post,
+    //   } as DiscordScheduledPostInput,
+    // });
+    // this.eventBus.publish({
+    //   type: 'discord:scheduled_post',
+    //   memoryZone: 'discord:test_server',
+    //   data: {
+    //     command: message.command,
+    //     text: postForToyama,
+    //   } as DiscordScheduledPostInput,
+    // });
   }
 
   private async processMessage(
