@@ -395,6 +395,12 @@ export class DiscordBot extends BaseClient {
             if (toyamaChannel?.isTextBased() && 'send' in toyamaChannel) {
               toyamaChannel.send(text ?? '');
             }
+          } else if (event.memoryZone === 'discord:test_server') {
+            const testChannelId = this.testXChannelId ?? '';
+            const channel = this.client.channels.cache.get(testChannelId);
+            if (channel?.isTextBased() && 'send' in channel) {
+              channel.send(text ?? '');
+            }
           } else {
             const xChannelId = this.aiminelabXChannelId ?? '';
             const channel = this.client.channels.cache.get(xChannelId);
@@ -506,9 +512,8 @@ export class DiscordBot extends BaseClient {
           // サブタスクがある場合は追加
           if (planning.subTasks && planning.subTasks.length > 0) {
             planning.subTasks.forEach((subTask) => {
-              formattedContent += `  ${getStatusEmoji(subTask.subTaskStatus)} ${
-                subTask.subTaskGoal
-              }\n`;
+              formattedContent += `  ${getStatusEmoji(subTask.subTaskStatus)} ${subTask.subTaskGoal
+                }\n`;
               formattedContent += `  ${subTask.subTaskStrategy}\n`;
             });
           }

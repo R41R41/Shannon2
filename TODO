@@ -1,3 +1,8 @@
+バグ:
+  ☐ 登録者数表示の修正 @high
+  ☐ 天気予報のバグ修正 @high
+  ☐ 「今日は何の日？」の答え表示 @high
+
 Web:
   ☐ 音声会話ができる
   ☐ 管理者モード
@@ -26,12 +31,9 @@ LLM:
   ☐ フィードバック入力
   ☐ centralAgentの作成
   
-Youtube:
-  ☐ 登録者数をdiscordに表示 @high @today
-  ☐ webhookでコメントを取得 @high @today
-
 Minebot:
   ☐ Minecraft bot の統合 @high
+  ☐ ささやく
   ☐ chat
   ☐ attack
   ☐ auto_attack
@@ -137,6 +139,8 @@ wsを追加したときにやること:
   - ログの確認 sudo tail -f /var/log/nginx/error.log
 
 Archive:
+  ✔ 12星座占いのバグ修正 @high @done(25-03-11 13:54) @project(バグ)
+  ✔ 登録者数をdiscordに表示 @high @today @done(25-03-11 13:48) @project(Youtube)
   ✔ 上海の天気取得できない問題の解消 @high @done(25-03-02 21:03) @project(LLM)
   ✔ 天気予報の曜日間違える問題の解消 @high @done(25-03-02 20:48) @project(LLM)
   ✔ 自動チャットで末尾にby Shannonを追加 @high @today @done(25-02-23 19:03) @project(Youtube)

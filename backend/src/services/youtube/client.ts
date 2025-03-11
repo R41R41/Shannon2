@@ -81,7 +81,7 @@ export class YoutubeClient extends BaseClient {
           this.lastSubscriberCount = subscriberCount;
           this.eventBus.publish({
             type: 'youtube:subscriber_update',
-            memoryZone: 'youtube',
+            memoryZone: 'discord:aiminelab_server',
             data: {
               subscriberCount,
             } as YoutubeSubscriberUpdateOutput,
@@ -220,6 +220,10 @@ export class YoutubeClient extends BaseClient {
         part: ['statistics'],
         id: [this.channelId],
       });
+      console.log(
+        'subscriberCount:',
+        response.data.items?.[0]?.statistics?.subscriberCount
+      );
       return parseInt(
         response.data.items?.[0]?.statistics?.subscriberCount || '0'
       );
