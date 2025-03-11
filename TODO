@@ -1,6 +1,5 @@
 バグ:
-  ☐ 登録者数表示の修正 @high
-  ☐ 「今日は何の日？」の答え表示 @high
+  ☐ 登録者数表示の修正
 
 Web:
   ☐ 音声会話ができる
@@ -32,7 +31,7 @@ LLM:
   
 Minebot:
   ☐ Minecraft bot の統合 @high
-  ☐ ささやく
+  ☐ ささやく @high
   ☐ chat
   ☐ attack
   ☐ auto_attack
@@ -138,6 +137,7 @@ wsを追加したときにやること:
   - ログの確認 sudo tail -f /var/log/nginx/error.log
 
 Archive:
+  ✔ 「今日は何の日？」のバグ修正 @high @done(25-03-11 15:47) @project(バグ)
   ✔ 天気予報のバグ修正 @high @done(25-03-11 15:35) @project(バグ)
   ✔ 12星座占いのバグ修正 @high @done(25-03-11 13:54) @project(バグ)
   ✔ 登録者数をdiscordに表示 @high @today @done(25-03-11 13:48) @project(Youtube)
