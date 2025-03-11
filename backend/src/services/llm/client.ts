@@ -323,6 +323,14 @@ export class LLMService {
         text: post,
       } as DiscordScheduledPostInput,
     });
+    this.eventBus.publish({
+      type: 'discord:scheduled_post',
+      memoryZone: 'discord:test_server',
+      data: {
+        command: message.command,
+        text: postForToyama,
+      } as DiscordScheduledPostInput,
+    });
   }
 
   private async processMessage(

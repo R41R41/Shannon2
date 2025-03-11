@@ -9,9 +9,9 @@ import { loadPrompt } from '../config/prompts.js';
 import { AgentExecutor } from 'langchain/agents';
 import { pull } from 'langchain/hub';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import BingSearchTool from '../tools/bingSearch.js';
 import { createOpenAIToolsAgent } from 'langchain/agents';
 import WolframAlphaTool from '../tools/wolframAlpha.js';
+import { z } from 'zod';
 
 dotenv.config();
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -20,9 +20,54 @@ if (!OPENAI_API_KEY) {
 }
 const jst = 'Asia/Tokyo';
 
+// 天気予報のスキーマ定義
+const WeatherSchema = z.object({
+  date: z.string(),
+  overview: z.string(),
+  regions: z.array(
+    z.object({
+      region: z.string(),
+      weather: z.string(),
+      temperature: z.string().optional(),
+      chanceOfRain: z.string().optional(),
+      hourlyEmojis: z.array(z.string()).optional(), // 6時間ごとの天気絵文字
+    })
+  ),
+  advice: z.string(),
+  closing: z.string(),
+});
+
+// 上海を含む天気予報のスキーマ
+const ToyamaWeatherSchema = z.object({
+  date: z.string(),
+  overview: z.string(),
+  regions: z.array(
+    z.object({
+      region: z.string(),
+      weather: z.string(),
+      temperature: z.string().optional(),
+      chanceOfRain: z.string().optional(),
+      hourlyEmojis: z.array(z.string()).optional(), // 6時間ごとの天気絵文字
+    })
+  ),
+  shanghai: z.object({
+    weather: z.string(),
+    temperature: z.string(),
+    chanceOfRain: z.string(),
+    hourlyEmojis: z.array(z.string()), // 6時間ごとの天気絵文字
+  }),
+  advice: z.string(),
+  closing: z.string(),
+});
+
+// 型定義
+type WeatherResult = z.infer<typeof WeatherSchema>;
+type ToyamaWeatherResult = z.infer<typeof ToyamaWeatherSchema>;
+
 interface Forecast {
   date: string;
   forecasts: string;
+  weatherData?: WeatherResult | ToyamaWeatherResult;
 }
 
 export class PostWeatherAgent {
@@ -197,19 +242,6 @@ export class PostWeatherAgent {
     return forecastData['telop'];
   }
 
-  private async getEmoji(telop: string, chanceOfRain: string): Promise<string> {
-    const systemContent = this.systemPrompts.get('weather_to_emoji');
-    if (!systemContent) {
-      throw new Error('systemPrompt is not set');
-    }
-    const humanContent = `weather:${telop}\nchanceOfRain:${chanceOfRain}`;
-    const result = await this.model.invoke([
-      new SystemMessage(systemContent),
-      new HumanMessage(humanContent),
-    ]);
-    return result.content.toString();
-  }
-
   private getTemperature(forecastData: any): string {
     const temperatureData = forecastData['temperature'];
     const min = temperatureData['min']['celsius'];
@@ -245,12 +277,18 @@ export class PostWeatherAgent {
         const temperature = this.getTemperature(forecastData);
         const chanceOfRain = this.getChanceOfRain(forecastData);
         const weather = this.getWeather(forecastData);
+
+        // 6時間ごとの天気絵文字を生成
+        const weatherEmoji = this.getWeatherEmoji(weather);
+        const hourlyEmojis = [weatherEmoji, weatherEmoji, weatherEmoji, weatherEmoji];
+
         const forecast = {
           city: cityName,
           telop,
           temperature,
           chanceOfRain,
           weather,
+          hourlyEmojis
         };
         forecasts.push(forecast);
       }
@@ -283,88 +321,315 @@ export class PostWeatherAgent {
     return `${maxChanceOfRain}%`;
   }
 
-  private async getData(): Promise<string> {
-    const cityForecasts = this.cityForecasts;
-    if (!cityForecasts) {
-      throw new Error('cityForecasts is not set');
+  private async getComment(): Promise<WeatherResult> {
+    const prompt = this.systemPrompts.get('forecast');
+    if (!prompt) {
+      throw new Error('forecast prompt not found');
     }
-    const date = this.getTomorrowDate();
-    let dataSentence = `【明日${date}の天気】\n`;
-    for (const forecast of cityForecasts) {
-      const city = forecast['city'];
-      if (this.displayCities.includes(city)) {
-        const padding = city.length <= 2 ? '　'.repeat(3 - city.length) : '';
-        const cityName = city + padding;
-        const emoji = await this.getEmoji(
-          forecast['telop'],
-          forecast['chanceOfRain']
-        );
-        const temperature = forecast['temperature'];
-        const chanceOfRain = await this.getMaxChanceOfRain(
-          forecast['chanceOfRain']
-        );
-        const text = `${cityName}：${emoji}, ${temperature}, ${chanceOfRain}\n`;
-        dataSentence += text;
-      }
-    }
-    return dataSentence;
-  }
 
-  private async getComment(): Promise<string> {
-    const cityForecasts = this.cityForecasts;
-    if (!cityForecasts) {
-      throw new Error('cityForecasts is not set');
-    }
-    const date = this.getTomorrowDate();
-    const systemContent = this.systemPrompts.get('forecast');
-    if (!systemContent) {
-      throw new Error('systemPrompt is not set');
-    }
-    const lastForecast = this.forecasts[this.forecasts.length - 1];
-    const humanContent =
-      `tomorrow's date:${date}\n` +
-      cityForecasts
-        .map((forecast: any) => {
-          return this.forecastObservations
-            .map((observation) => {
-              return `${observation}:${forecast[observation]}`;
-            })
-            .join('\n');
-        })
+    const systemContent = prompt;
+    const lastForecast = this.forecasts.length > 0 ? this.forecasts[this.forecasts.length - 1] : null;
+
+    // 天気データを構造化
+    const cityData = this.cityForecasts?.map(forecast => {
+      const city = forecast.city;
+      const temperature = forecast.temperature;
+      const weather = forecast.weather;
+      const chanceOfRain = forecast.chanceOfRain;
+      const hourlyEmojis = forecast.hourlyEmojis;
+
+      return {
+        city,
+        temperature,
+        weather,
+        chanceOfRain,
+        hourlyEmojis
+      };
+    });
+
+    const humanContent = `明日の日付: ${this.getTomorrowDate()}\n` +
+      `各都市の明日の天気:\n` +
+      cityData?.map(data => {
+        return `city: ${data.city}\ntemperature: ${data.temperature}\nweather: ${data.weather}\nchanceOfRain: ${data.chanceOfRain}\nhourlyEmojis: ${JSON.stringify(data.hourlyEmojis)}`;
+      })
         .join('\n') +
       `${lastForecast ? `\nToday's weather:\n${lastForecast.forecasts}` : ''}`;
-    const result = await this.model.invoke([
-      new SystemMessage(systemContent),
-      new HumanMessage(humanContent),
-    ]);
-    return result.content.toString();
+
+    // スキーマ情報を追加したシステムメッセージ - 都市名を使用するように指示
+    const enhancedSystemContent = `${systemContent}`;
+
+    try {
+      // 構造化出力を得るためのモデル設定
+      const structuredLLM = this.model.withStructuredOutput(WeatherSchema);
+
+      // LLMに問い合わせ
+      const result = await structuredLLM.invoke([
+        new SystemMessage(enhancedSystemContent),
+        new HumanMessage(humanContent),
+      ]);
+
+      return result;
+    } catch (error) {
+      console.error('Error getting weather comment:', error);
+
+      // エラーが発生した場合、基本的な天気予報を返す
+      const defaultResult: WeatherResult = {
+        date: this.getTomorrowDate(),
+        overview: "天気情報の取得に失敗しました。",
+        regions: [
+          {
+            region: "仙台",
+            weather: "情報取得エラー",
+            temperature: "不明",
+            chanceOfRain: "不明",
+            hourlyEmojis: ["❓", "❓", "❓", "❓"]
+          },
+          {
+            region: "東京",
+            weather: "情報取得エラー",
+            temperature: "不明",
+            chanceOfRain: "不明",
+            hourlyEmojis: ["❓", "❓", "❓", "❓"]
+          },
+          {
+            region: "名古屋",
+            weather: "情報取得エラー",
+            temperature: "不明",
+            chanceOfRain: "不明",
+            hourlyEmojis: ["❓", "❓", "❓", "❓"]
+          },
+          {
+            region: "大阪",
+            weather: "情報取得エラー",
+            temperature: "不明",
+            chanceOfRain: "不明",
+            hourlyEmojis: ["❓", "❓", "❓", "❓"]
+          },
+          {
+            region: "福岡",
+            weather: "情報取得エラー",
+            temperature: "不明",
+            chanceOfRain: "不明",
+            hourlyEmojis: ["❓", "❓", "❓", "❓"]
+          }
+        ],
+        advice: "最新の天気情報を別の情報源で確認することをお勧めします。",
+        closing: "ご不便をおかけして申し訳ありません。"
+      };
+
+      return defaultResult;
+    }
   }
 
-  private async setForecasts(date: string, forecast: string): Promise<void> {
+  private async setForecasts(date: string, forecast: string, weatherData?: WeatherResult | ToyamaWeatherResult): Promise<void> {
     this.forecasts.push({
       date: date,
       forecasts: forecast,
+      weatherData: weatherData
     });
   }
 
   public async createPost(): Promise<string> {
     await this.setCityForecasts();
-    const dataSentence = await this.getData();
-    const commentSentence = await this.getComment();
+
+    // 構造化された天気予報データを取得
+    const weatherData = await this.getComment();
+
+    // 構造化データから整形された文字列を生成
+    const formattedForecast = this.formatWeatherResult(weatherData);
+
     const date = this.getTomorrowDate();
-    this.setForecasts(date, dataSentence + '\n\n' + commentSentence);
-    return `${dataSentence}\n\n${commentSentence}`;
+    this.setForecasts(date, formattedForecast, weatherData);
+
+    return formattedForecast;
   }
 
   public async createPostForToyama(): Promise<string> {
+    // 最新の天気予報データを取得
+    const lastForecast = this.forecasts[this.forecasts.length - 1];
+    if (!lastForecast || !lastForecast.weatherData) {
+      throw new Error('No weather data available');
+    }
+
     const infoMessage = JSON.stringify({
-      forecast: this.forecasts[this.forecasts.length - 1],
+      forecast: lastForecast.forecasts,
+      weatherData: lastForecast.weatherData
     });
+
     const prompt = this.systemPrompts.get('forecast_for_toyama_server');
     if (!prompt) {
       throw new Error('forecast_for_toyama_server prompt not found');
     }
-    const result = await this.llm(prompt + '\n' + infoMessage);
-    return `${result}`;
+
+    // 構造化出力を得るためのモデル設定
+    const structuredLLM = this.model.withStructuredOutput(ToyamaWeatherSchema);
+
+    try {
+      // LLMに問い合わせ - システムメッセージにスキーマ情報を追加
+      const systemMessage = `${prompt}`;
+
+      const result = await structuredLLM.invoke([
+        new SystemMessage(systemMessage || "天気予報を生成してください"),
+        new HumanMessage(infoMessage),
+      ]);
+
+      // 構造化データから整形された文字列を生成
+      const formattedForecast = this.formatToyamaWeatherResult(result);
+
+      return formattedForecast;
+    } catch (error) {
+      console.error('Error getting weather forecast for Toyama:', error);
+
+      // エラーが発生した場合、基本的な天気予報を返す
+      if (lastForecast && lastForecast.weatherData) {
+        const basicWeatherData = lastForecast.weatherData as WeatherResult;
+        const basicResult: ToyamaWeatherResult = {
+          date: basicWeatherData.date,
+          overview: basicWeatherData.overview + "（上海の天気情報は取得できませんでした）",
+          regions: [
+            {
+              region: "仙台",
+              weather: basicWeatherData.regions.find(r => r.region === "仙台")?.weather || "情報取得エラー",
+              temperature: basicWeatherData.regions.find(r => r.region === "仙台")?.temperature || "不明",
+              chanceOfRain: basicWeatherData.regions.find(r => r.region === "仙台")?.chanceOfRain || "不明",
+              hourlyEmojis: basicWeatherData.regions.find(r => r.region === "仙台")?.hourlyEmojis || ["❓", "❓", "❓", "❓"]
+            },
+            {
+              region: "東京",
+              weather: basicWeatherData.regions.find(r => r.region === "東京")?.weather || "情報取得エラー",
+              temperature: basicWeatherData.regions.find(r => r.region === "東京")?.temperature || "不明",
+              chanceOfRain: basicWeatherData.regions.find(r => r.region === "東京")?.chanceOfRain || "不明",
+              hourlyEmojis: basicWeatherData.regions.find(r => r.region === "東京")?.hourlyEmojis || ["❓", "❓", "❓", "❓"]
+            },
+            {
+              region: "名古屋",
+              weather: basicWeatherData.regions.find(r => r.region === "名古屋")?.weather || "情報取得エラー",
+              temperature: basicWeatherData.regions.find(r => r.region === "名古屋")?.temperature || "不明",
+              chanceOfRain: basicWeatherData.regions.find(r => r.region === "名古屋")?.chanceOfRain || "不明",
+              hourlyEmojis: basicWeatherData.regions.find(r => r.region === "名古屋")?.hourlyEmojis || ["❓", "❓", "❓", "❓"]
+            },
+            {
+              region: "大阪",
+              weather: basicWeatherData.regions.find(r => r.region === "大阪")?.weather || "情報取得エラー",
+              temperature: basicWeatherData.regions.find(r => r.region === "大阪")?.temperature || "不明",
+              chanceOfRain: basicWeatherData.regions.find(r => r.region === "大阪")?.chanceOfRain || "不明",
+              hourlyEmojis: basicWeatherData.regions.find(r => r.region === "大阪")?.hourlyEmojis || ["❓", "❓", "❓", "❓"]
+            },
+            {
+              region: "福岡",
+              weather: basicWeatherData.regions.find(r => r.region === "福岡")?.weather || "情報取得エラー",
+              temperature: basicWeatherData.regions.find(r => r.region === "福岡")?.temperature || "不明",
+              chanceOfRain: basicWeatherData.regions.find(r => r.region === "福岡")?.chanceOfRain || "不明",
+              hourlyEmojis: basicWeatherData.regions.find(r => r.region === "福岡")?.hourlyEmojis || ["❓", "❓", "❓", "❓"]
+            }
+          ],
+          shanghai: {
+            weather: "情報取得エラー",
+            temperature: "不明",
+            chanceOfRain: "不明",
+            hourlyEmojis: ["❓", "❓", "❓", "❓"]
+          },
+          advice: basicWeatherData.advice,
+          closing: basicWeatherData.closing
+        };
+
+        return this.formatToyamaWeatherResult(basicResult);
+      }
+
+      throw error;
+    }
+  }
+
+  // 天気予報の構造化データを整形するメソッド
+  private formatWeatherResult(result: WeatherResult): string {
+    let formattedResult = `【明日${result.date}の天気】\n\n`;
+
+    // 地域ごとの天気
+    result.regions.forEach(region => {
+      // 地域名のパディング（2文字以下の場合は全角スペースを追加）
+      const padding = region.region.length <= 2 ? '　'.repeat(3 - region.region.length) : '';
+      const regionName = region.region + padding;
+
+      // 6時間ごとの天気絵文字を表示（ない場合はデフォルトの絵文字を4つ表示）
+      const hourlyEmojis = region.hourlyEmojis && region.hourlyEmojis.length === 4
+        ? region.hourlyEmojis.join('')
+        : this.getWeatherEmoji(region.weather).repeat(4);
+
+      formattedResult += `${regionName}：${hourlyEmojis}, ${region.temperature || '不明'}, ${region.chanceOfRain || '0%'}\n`;
+    });
+
+    formattedResult += `\n${result.overview}\n\n`;
+    formattedResult += `${result.advice}\n\n`;
+    formattedResult += result.closing;
+
+    return formattedResult;
+  }
+
+  // 上海を含む天気予報の構造化データを整形するメソッド
+  private formatToyamaWeatherResult(result: ToyamaWeatherResult): string {
+    let formattedResult = `【明日${result.date}の天気】\n\n`;
+
+    // 地域ごとの天気
+    result.regions.forEach(region => {
+      // 地域名のパディング（2文字以下の場合は全角スペースを追加）
+      const padding = region.region.length <= 2 ? '　'.repeat(3 - region.region.length) : '';
+      const regionName = region.region + padding;
+
+      // 6時間ごとの天気絵文字を表示（ない場合はデフォルトの絵文字を4つ表示）
+      const hourlyEmojis = region.hourlyEmojis && region.hourlyEmojis.length === 4
+        ? region.hourlyEmojis.join('')
+        : this.getWeatherEmoji(region.weather).repeat(4);
+
+      formattedResult += `${regionName}：${hourlyEmojis}, ${region.temperature || '不明'}, ${region.chanceOfRain || '0%'}\n`;
+    });
+
+    // 上海の天気
+    const shanghaiPadding = '　';
+    const shanghaiEmojis = result.shanghai.hourlyEmojis && result.shanghai.hourlyEmojis.length === 4
+      ? result.shanghai.hourlyEmojis.join('')
+      : this.getWeatherEmoji(result.shanghai.weather).repeat(4);
+
+    formattedResult += `上海${shanghaiPadding}：${shanghaiEmojis}, ${result.shanghai.temperature}, ${result.shanghai.chanceOfRain}\n\n`;
+
+    formattedResult += `${result.overview}\n\n`;
+    formattedResult += `${result.advice}\n\n`;
+    formattedResult += result.closing;
+
+    return formattedResult;
+  }
+
+  // 天気に応じた絵文字を返すヘルパーメソッド
+  private getWeatherEmoji(weather: string): string {
+    const weatherMap: Record<string, string> = {
+      '晴れ': '☀️',
+      '曇り': '☁️',
+      '雨': '🌧️',
+      '雪': '❄️',
+      '雷': '⚡',
+      '霧': '🌫️',
+      '台風': '🌀',
+      '曇のち晴': '🌤️',
+      '晴のち曇': '🌥️',
+      '晴れ時々曇り': '⛅',
+      '曇り時々晴れ': '🌤️',
+      '雨時々晴れ': '🌦️',
+      '晴れ時々雨': '🌦️',
+      '曇り時々雨': '🌧️',
+      '雨時々曇り': '🌧️',
+      '雪時々晴れ': '🌨️',
+      '晴れ時々雪': '🌨️',
+      '曇り時々雪': '🌨️',
+      '雪時々曇り': '🌨️',
+    };
+
+    // 部分一致で検索
+    for (const [key, emoji] of Object.entries(weatherMap)) {
+      if (weather.includes(key)) {
+        return emoji;
+      }
+    }
+
+    // デフォルトの絵文字
+    return '🌈';
   }
 }
