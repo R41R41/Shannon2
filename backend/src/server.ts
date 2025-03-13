@@ -93,8 +93,13 @@ class Server {
   }
 
   private async startYoutubeClient() {
-    await this.youtubeClient.start();
-    console.log('\x1b[34mYoutube Client started\x1b[0m');
+    try {
+      await this.youtubeClient.start();
+      console.log('\x1b[34mYoutube Client started\x1b[0m');
+    } catch (error) {
+      console.error(`\x1b[31mYoutube Client start error: ${error}\x1b[0m`);
+      console.warn('\x1b[33mContinuing without Youtube functionality\x1b[0m');
+    }
   }
 
   private async startMinecraftClient() {
