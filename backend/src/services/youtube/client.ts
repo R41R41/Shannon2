@@ -269,13 +269,22 @@ export class YoutubeClient extends BaseClient {
   public async initialize() {
     try {
       // await this.getRefreshToken();
-      await this.setUpConnection();
-      this.setupEventHandlers();
-      this.lastSubscriberCount = await this.getSubscriberCount();
-      console.log('lastSubscriberCount:', this.lastSubscriberCount);
+      try {
+        await this.setUpConnection();
+        this.setupEventHandlers();
+        this.lastSubscriberCount = await this.getSubscriberCount();
+        console.log('lastSubscriberCount:', this.lastSubscriberCount);
+      } catch (error) {
+        console.error(`\x1b[31mYouTube initialization error: ${error}\x1b[0m`);
+        console.warn('\x1b[33mYouTube initialization failed, but continuing without YouTube functionality\x1b[0m');
+        // エラーをスローせずに処理を続行
+        this.status = 'stopped';
+      }
     } catch (error) {
-      console.error(`\x1b[31mYouTube initialization error: ${error}\x1b[0m`);
-      throw error;
+      console.error(`\x1b[31mYouTube initialization outer error: ${error}\x1b[0m`);
+      console.warn('\x1b[33mYouTube initialization failed, but continuing without YouTube functionality\x1b[0m');
+      // エラーをスローせずに処理を続行
+      this.status = 'stopped';
     }
   }
 
@@ -287,7 +296,9 @@ export class YoutubeClient extends BaseClient {
       console.log(clientId, clientSecret, this.refreshToken);
 
       if (!clientId || !clientSecret || !this.refreshToken) {
-        throw new Error('YouTube OAuth2認証情報が設定されていません');
+        console.warn('\x1b[33mYouTube OAuth2認証情報が設定されていません。YouTube機能は無効化されます。\x1b[0m');
+        this.status = 'stopped';
+        return; // 認証情報がない場合は早期リターン
       }
 
       this.oauth2Client = new google.auth.OAuth2(
@@ -306,7 +317,9 @@ export class YoutubeClient extends BaseClient {
       });
     } catch (error) {
       console.error(`\x1b[31mYouTube setUpConnection error: ${error}\x1b[0m`);
-      throw error;
+      console.warn('\x1b[33mYouTube connection failed, but continuing without YouTube functionality\x1b[0m');
+      this.status = 'stopped';
+      // エラーをスローせずに処理を続行
     }
   }
 }
