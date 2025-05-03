@@ -61,7 +61,7 @@ export class PostFortuneAgent {
       '競争', '忠実', '知性', '夢',
     ];
     this.model = new ChatOpenAI({
-      modelName: 'gpt-o4-mini',
+      modelName: 'gpt-4o',
       temperature: 0.7,
     });
   }
