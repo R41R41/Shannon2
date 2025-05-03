@@ -16,7 +16,7 @@ export class ReplyTwitterCommentAgent {
 
   private constructor(systemPrompt: string) {
     this.model = new ChatOpenAI({
-      modelName: 'gpt-4o',
+      modelName: 'gpt-o4-mini',
       temperature: 1,
       apiKey: OPENAI_API_KEY,
     });

@@ -18,7 +18,7 @@ export class PostAboutTodayAgent {
 
   private constructor(systemPrompt: string) {
     this.model = new ChatOpenAI({
-      modelName: 'gpt-4o',
+      modelName: 'gpt-o4-mini',
       temperature: 0,
     });
     this.systemPrompt = systemPrompt;

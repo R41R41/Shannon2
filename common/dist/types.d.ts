@@ -284,11 +284,11 @@ export interface MinecraftOutput {
   success?: boolean | null;
   message?: string | null;
   statuses?:
-    | {
-        serverName: MinecraftServerName;
-        status: boolean;
-      }[]
-    | null;
+  | {
+    serverName: MinecraftServerName;
+    status: boolean;
+  }[]
+  | null;
 }
 export type TaskStatus = "pending" | "in_progress" | "completed" | "error";
 export interface TaskTreeState {
@@ -302,26 +302,26 @@ export interface Event {
   type: EventType;
   memoryZone: MemoryZone;
   data:
-    | TwitterClientInput
-    | TwitterClientOutput
-    | OpenAIMessageInput
-    | DiscordClientInput
-    | ILog
-    | OpenAIMessageOutput
-    | DiscordClientOutput
-    | MinecraftInput
-    | MinecraftOutput
-    | SchedulerInput
-    | SchedulerOutput
-    | StatusAgentInput
-    | ServiceInput
-    | YoutubeClientOutput
-    | MinebotOutput
-    | MinebotInput
-    | ServiceOutput
-    | TaskInput
-    | TaskTreeState
-    | EmotionType;
+  | TwitterClientInput
+  | TwitterClientOutput
+  | OpenAIMessageInput
+  | DiscordClientInput
+  | ILog
+  | OpenAIMessageOutput
+  | DiscordClientOutput
+  | MinecraftInput
+  | MinecraftOutput
+  | SchedulerInput
+  | SchedulerOutput
+  | StatusAgentInput
+  | ServiceInput
+  | YoutubeClientOutput
+  | MinebotOutput
+  | MinebotInput
+  | ServiceOutput
+  | TaskInput
+  | TaskTreeState
+  | EmotionType;
   targetMemoryZones?: MemoryZone[];
 }
 export type Color =
@@ -367,9 +367,9 @@ export type StatusAgentOutputType = "service:status" | "service:command";
 export interface StatusAgentOutput {
   type: StatusAgentOutputType | "pong";
   service:
-    | "twitter"
-    | "discord"
-    | "minecraft"
-    | `minecraft:${MinecraftServerName}`;
+  | "twitter"
+  | "discord"
+  | "minecraft"
+  | `minecraft:${MinecraftServerName}`;
   data: ServiceStatus;
 }
