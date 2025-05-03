@@ -85,12 +85,12 @@ export class TaskGraph {
       apiKey: OPENAI_API_KEY,
     });
     const MediumModel = new ChatOpenAI({
-      modelName: 'gpt-4o-mini',
+      modelName: 'gpt-4o',
       temperature: 0.8,
       apiKey: OPENAI_API_KEY,
     });
     const LargeModel = new ChatOpenAI({
-      modelName: 'gpt-4o',
+      modelName: 'gpt-o4-mini',
       temperature: 0.8,
       apiKey: OPENAI_API_KEY,
     });

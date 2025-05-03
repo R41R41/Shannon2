@@ -37,6 +37,8 @@ export class DiscordBot extends BaseClient {
   private testXChannelId: string | null = null;
   private doukiGuildId: string | null = null;
   private doukiChannelId: string | null = null;
+  private colabGuildId: string | null = null;
+  private colabChannelId: string | null = null;
   private static instance: DiscordBot;
   public isTest: boolean = false;
   public static getInstance(isTest: boolean = false) {
@@ -74,8 +76,10 @@ export class DiscordBot extends BaseClient {
   private setUpChannels() {
     this.toyamaGuildId = process.env.TOYAMA_GUILD_ID ?? '';
     this.doukiGuildId = process.env.DOUKI_GUILD_ID ?? '';
+    this.colabGuildId = process.env.COLAB_GUILD_ID ?? '';
     this.toyamaChannelId = process.env.TOYAMA_CHANNEL_ID ?? '';
     this.doukiChannelId = process.env.DOUKI_CHANNEL_ID ?? '';
+    this.colabChannelId = process.env.COLAB_CHANNEL_ID ?? '';
     this.aiminelabGuildId = process.env.AIMINE_GUILD_ID ?? '';
     this.aiminelabXChannelId = process.env.AIMINE_X_CHANNEL_ID ?? '';
     this.aiminelabAnnounceChannelId =
@@ -281,6 +285,11 @@ export class DiscordBot extends BaseClient {
         message.channelId !== this.doukiChannelId
       )
         return;
+      if (
+        guildId === this.colabGuildId &&
+        message.channelId !== this.colabChannelId
+      )
+        return;
       this.eventBus.log(
         memoryZone,
         'white',
@@ -381,7 +390,14 @@ export class DiscordBot extends BaseClient {
             channel.send(text ?? '');
           }
         } else {
-          if (event.memoryZone === 'discord:douki_server') {
+          if (event.memoryZone === 'discord:colab_server') {
+            const colabChannel = this.client.channels.cache.get(
+              this.colabChannelId ?? ''
+            );
+            if (colabChannel?.isTextBased() && 'send' in colabChannel) {
+              colabChannel.send(text ?? '');
+            }
+          } else if (event.memoryZone === 'discord:douki_server') {
             const doukiChannel = this.client.channels.cache.get(
               this.doukiChannelId ?? ''
             );
