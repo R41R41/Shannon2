@@ -6,7 +6,8 @@ export type DiscordGuild =
   | "discord:toyama_server"
   | "discord:douki_server"
   | "discord:aiminelab_server"
-  | "discord:test_server";
+  | "discord:test_server"
+  | "discord:colab_server";
 
 export interface DiscordGetServerEmojiInput extends ServiceInput {
   guildId: string;
