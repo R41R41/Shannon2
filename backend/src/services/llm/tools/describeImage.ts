@@ -26,7 +26,7 @@ export default class DescribeImageTool extends StructuredTool {
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-o4-mini',
         messages: [
           {
             role: 'user',
