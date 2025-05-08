@@ -1,7 +1,7 @@
-const InstantSkill = require('./instantSkill.js');
+import { InstantSkill, CustomBot } from "../types.js";
 
 class SleepInBed extends InstantSkill{
-    constructor(bot){
+    constructor(bot: CustomBot){
         super(bot);
         this.skillName = "sleep-in-bed";
         this.description = "ベッドに眠ります";
@@ -15,20 +15,20 @@ class SleepInBed extends InstantSkill{
                 maxDistance: 16 // 探索する最大距離を指定
             });
 
-            if (bed.length === 0) {
+            if (!bed) {
                 return {"success": false, "result": "近くにベッドが見つかりませんでした"};
             }
 
             try {
                 await this.bot.sleep(bed);
                 return {"success": true, "result": "ベッドで眠りました"};
-            } catch (err) {
-                return {"success": false, "result": `ベッドで眠ることができませんでした: ${err}`};
+            } catch (error: any) {
+                return {"success": false, "result": `ベッドで眠ることができませんでした: ${error.message}`};
             }
-        } catch (error) {
+        } catch (error: any) {
             return {"success": false, "result": `${error.message} in ${error.stack}`};
         }
     }
 }
 
-module.exports = SleepInBed;
+export default SleepInBed;

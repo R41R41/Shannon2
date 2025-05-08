@@ -1,13 +1,12 @@
-const InstantSkill = require('./instantSkill.js');
-const { Vec3 } = require('vec3');
-const HoldItem = require('./holdItem.js');
-const { goals } = require('mineflayer-pathfinder');
+import { Vec3 } from 'vec3';
+import HoldItem from './holdItem.js';
+import { goals } from 'mineflayer-pathfinder';
+import { CustomBot, InstantSkill } from '../types.js';
+import { Block } from 'prismarine-block';
 
 class PlaceBlock extends InstantSkill {
-    /**
-     * @param {import('../types.js').CustomBot} bot
-     */
-    constructor(bot) {
+    private holdItem: HoldItem;
+    constructor(bot: CustomBot) {
         super(bot);
         this.skillName = "place-block";
         this.description = "指定したブロックを置きます。";
@@ -34,16 +33,11 @@ class PlaceBlock extends InstantSkill {
         ];
     }
 
-    /**
-     * @param {string} blockName
-     * @param {Vec3} placePosition
-     * @param {Vec3} placedBlockPosition
-     */
-    async run(blockName, placePosition, placedBlockPosition) {
+    async run(blockName: string, placePosition: Vec3, placedBlockPosition: Vec3) {
         console.log("placeBlock", blockName, placePosition, placedBlockPosition);
         try{
             const block = this.bot.blockAt(placedBlockPosition);
-            if (block.name.includes("air") || block.name.includes("void") || block.name.includes("water")) {
+            if (block?.name.includes("air") || block?.name.includes("void") || block?.name.includes("water")) {
                 return { "success": false, "result": `${placedBlockPosition}に設置可能なブロックがありません。get-blocks-dataツールで確認してください。` };
             }
             const response = await this.holdItem.run(blockName, "hand");
@@ -57,9 +51,9 @@ class PlaceBlock extends InstantSkill {
                 return { "success": false, "result": "ブロックを置く座標と既に置いてあるブロックの座標の差は単位ベクトルでなければなりません。" };
             }
             await this.bot.pathfinder.goto(new goals.GoalNear(placePosition.x, placePosition.y, placePosition.z, 3));
-            await this.bot.placeBlock(block, relativePosition);
+            await this.bot.placeBlock(block as Block, relativePosition);
             return { "success": true, "result": `${blockName}を${placePosition}に置きました。` };
-        } catch (error) {
+        } catch (error: any) {
             return { "success": false, "result": `${error.message} in ${error.stack}` };
         }
     }

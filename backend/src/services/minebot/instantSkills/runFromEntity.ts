@@ -1,10 +1,8 @@
-const InstantSkill = require('./instantSkill');
+import { CustomBot, InstantSkill } from '../types.js';
+import { Entity } from 'prismarine-entity';
 
 class RunFromEntity extends InstantSkill{
-    /**
-     * @param {import('../types').CustomBot} bot
-     */ 
-    constructor(bot) {
+    constructor(bot: CustomBot) {
         super(bot);
         this.skillName = 'runFromEntity';
         this.description = 'Run from the nearest entity';
@@ -17,15 +15,13 @@ class RunFromEntity extends InstantSkill{
         ];
     }
 
-    /**
-     * @param {string} entity_name
-     */
-    async run(entity_name) {
+    async run(entity_name: string) {
         const entity = this.bot.nearestEntity(entity => entity.displayName === entity_name);
         if (entity){
-            this.bot.utils.runFromEntities(this.bot, entity, 16);
+            this.bot.utils.runFromEntities(this.bot, [entity], 16);
         }
+        return { success: true, result: 'Run from the nearest entity' };
     }
 }
 
-module.exports = RunFromEntity;
+export default RunFromEntity;

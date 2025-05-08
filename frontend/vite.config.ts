@@ -13,11 +13,19 @@ export default defineConfig(({ mode }) => ({
       '/api': 'http://localhost:5000',
     },
     allowedHosts: ['sh4nnon.com', 'www.sh4nnon.com', 'localhost'],
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      'Cross-Origin-Embedder-Policy': 'require-corp'
+    }
   },
   // ホスト設定を追加
   preview: {
     host: true,
     port: 3000,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      'Cross-Origin-Embedder-Policy': 'require-corp'
+    }
   },
   resolve: {
     alias: {

@@ -377,9 +377,9 @@ export class SkillAgent {
           InstantSkill.status = false;
           console.log(`${skillName} ${response.result}`);
           if (response.success) {
-            this.bot.chat(response.result);
+            console.log(response.result);
           } else {
-            this.bot.chat(`${skillName} error: ${response.result}`);
+            console.log(`${skillName} error: ${response.result}`);
           }
         } catch (error) {
           console.log(`${skillName} error: ${error}`);
@@ -431,7 +431,18 @@ export class SkillAgent {
 
   async entitySpawn() {
     console.log(`\x1b[32m✓ entitySpawn\x1b[0m`);
-    this.bot.on('entitySpawn', async (entity) => {});
+    this.bot.on('entitySpawn', async (entity) => {
+      const autoPickUpItem = this.bot.constantSkills.getSkill('autoPickUpItem');
+      if (!autoPickUpItem) {
+        this.bot.chat('autoPickUpItemは存在しません');
+        return;
+      }
+      try {
+          autoPickUpItem.run(entity);
+      } catch (error) {
+          console.error('エラーが発生しました:', error);
+      }
+    });
   }
 
   async entityHurt() {
@@ -446,9 +457,9 @@ export class SkillAgent {
   async health() {
     console.log(`\x1b[32m✓ health\x1b[0m`);
     this.bot.on('health', async () => {
-      const autoEat = this.bot.constantSkills.getSkill('auto-eat');
+      const autoEat = this.bot.constantSkills.getSkill('autoEat');
       if (!autoEat) {
-        this.bot.chat('auto-eatは存在しません');
+        this.bot.chat('autoEatは存在しません');
         return;
       }
       if (!autoEat.status) return;

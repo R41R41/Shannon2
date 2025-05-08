@@ -1,11 +1,10 @@
-const InstantSkill = require('./instantSkill.js');
-const { goals } = require('mineflayer-pathfinder');
+import { CustomBot, InstantSkill } from '../types.js';
+import { goals } from 'mineflayer-pathfinder';
 
 class CollectBlock extends InstantSkill {
-    /**
-     * @param {import('../types.js').CustomBot} bot
-     */
-    constructor(bot) {
+    private mcData: any;
+    private searchDistance: number;
+    constructor(bot: CustomBot) {
         super(bot);
         this.skillName = 'collect-block';
         this.description = '指定されたブロックを集める';
@@ -32,12 +31,7 @@ class CollectBlock extends InstantSkill {
         ];
     }
 
-    /**
-     * @param {string} blockName
-     * @param {string} itemName
-     * @param {number} count
-     */
-    async run(blockName, itemName, count) {
+    async run(blockName: string, itemName: string, count: number) {
         console.log('collectBlock', blockName, count);
         try {
             const Block = this.mcData.blocksByName[blockName];
@@ -92,10 +86,10 @@ class CollectBlock extends InstantSkill {
                 collectCount = collectItems.reduce((acc, item) => acc + item.count, 0);
             }
             return { success: true, result: `${blockName}を${count}個集めました。` };
-        } catch (error) {
+        } catch (error: any) {
             return { success: false, result: `${error.message} in ${error.stack}` };
         }
     }
 }
 
-module.exports = CollectBlock;
+export default CollectBlock;

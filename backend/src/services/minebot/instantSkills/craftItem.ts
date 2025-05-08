@@ -1,17 +1,15 @@
-const InstantSkill = require('./instantSkill.js');
-const { goals } = require('mineflayer-pathfinder');
-const assert = require('assert')
+import { InstantSkill, CustomBot } from "../types.js";
+import { goals } from 'mineflayer-pathfinder';
+import minecraftData from 'minecraft-data';
 
 class CraftItem extends InstantSkill{
-    /**
-     * @param {import('../types.js').CustomBot} bot
-     */
-    constructor(bot){
+    private mcData: any;
+    constructor(bot: CustomBot){
         super(bot);
         this.skillName = "craft-item";
         this.description = "指定されたアイテムを作成する";
         this.status = false;
-        this.mcData = require('minecraft-data')(this.bot.version);
+        this.mcData = minecraftData(this.bot.version);
         this.params = [
             {
                 "name": "itemName",
@@ -25,11 +23,7 @@ class CraftItem extends InstantSkill{
         ];
     }
 
-    /**
-     * @param {string} itemName
-     * @param {number} amount
-     */
-    async run(itemName, amount){
+    async run(itemName: string, amount: number){
         console.log("craftItem", itemName);
         try{
             const item = this.mcData.itemsByName[itemName];
@@ -37,7 +31,6 @@ class CraftItem extends InstantSkill{
             if (!item) {
                 return {"success": false, "result": `アイテム ${itemName} が見つかりませんでした`};
             }
-            console.log(item.id);
             const recipe = this.bot.recipesFor(item.id,null,null,true)[0];
             await new Promise(resolve => setTimeout(resolve, 100));
             if (!recipe) {
@@ -53,18 +46,18 @@ class CraftItem extends InstantSkill{
                 }
                 await this.bot.pathfinder.goto(new goals.GoalNear(craftingTable.position.x, craftingTable.position.y, craftingTable.position.z, 3));
                 await this.bot.craft(recipe, amount, craftingTable);
-            }else{
-                await this.bot.craft(recipe, amount, null);
+            }else{  
+                await this.bot.craft(recipe, amount, undefined);
             }
             const items = this.bot.inventory.items().filter(item => item.name === itemName);
             if (items && items.length >= amount){
                 return {"success": true, "result": `${itemName}を${amount}個作成しました`};
             }
             return {"success": false, "result": `${itemName}を作成できませんでした`};
-        } catch (error) {
+        } catch (error: any) {
             return {"success": false, "result": `${error.message} in ${error.stack}`};
         }
     }
 }
 
-module.exports = CraftItem;
+export default CraftItem;

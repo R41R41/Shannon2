@@ -1,11 +1,16 @@
-const InstantSkill = require('./instantSkill.js');
-const HoldItem = require('./holdItem.js');
+import HoldItem from './holdItem.js';
+import { CustomBot, InstantSkill } from '../types.js';
+import { Entity } from 'prismarine-entity';
+
+// 独自の型定義を追加
+type WeaponType = 'bow' | 'crossbow';
 
 class AttackEntity extends InstantSkill {
-    /**
-     * @param {import('../types.js').CustomBot} bot
-     */
-    constructor(bot) {
+    private entities: Entity[];
+    private entities_length: number;
+    private holdItem: HoldItem;
+    private isLocked: boolean;
+    constructor(bot: CustomBot) {
         super(bot);
         this.skillName = "attack-entity";
         this.description = "指定したエンティティを攻撃します。";
@@ -35,12 +40,7 @@ class AttackEntity extends InstantSkill {
         this.isLocked = false;
     }
 
-    /**
-     * @param {number} num
-     * @param {string} entityName
-     * @param {string} toolName
-     */
-    async run(num, entityName, toolName) {
+    async run(num: number, entityName: string, toolName: string) {
         console.log("attackEntity:", num, entityName, toolName);
         try{
             if (toolName !== "null"){
@@ -49,9 +49,9 @@ class AttackEntity extends InstantSkill {
             }
             this.entities = await this.bot.utils.getNearestEntitiesByName(this.bot, entityName);
             this.entities_length = this.entities.length;
-            if (num === "null") num = this.entities_length;
+            if (num === null) num = this.entities_length;
             this.bot.on('entityHurt', (entity) => {
-                if (entity.health <= 0) {
+                if (entity.health && entity.health <= 0) {
                     num--;
                 }
             });
@@ -69,32 +69,32 @@ class AttackEntity extends InstantSkill {
             }else{
                 return {"success": true, "result": "攻撃を終了します"};
             }
-        }catch(error){
+        }catch(error: any){
             return {"success": false, "result": `${error.message} in ${error.stack}`};
         }
     }
 
-    async attackEntityOnce(entity, toolName) {
+    async attackEntityOnce(entity: Entity, toolName: string) {
         if (this.isLocked) return;
         this.isLocked = true;
         try{
             if (entity.name === 'creeper') {
                 await this.attackCreeper(entity, toolName);
-            } else if (['skeleton', 'stray', 'blaze', 'ghast', 'witch', 'wither_skelton', 'pillager'].includes(entity.name)) {
+            } else if (entity.name && ['skeleton', 'stray', 'blaze', 'ghast', 'witch', 'wither_skelton', 'pillager'].includes(entity.name)) {
                 await this.attackRangedEntityOnce(entity, toolName);
-            } else if (['zombified_piglin', 'enderman'].includes(entity.name)) {
+            } else if (entity.name && ['zombified_piglin', 'enderman'].includes(entity.name)) {
                 await this.attackNormalEntityOnce(entity, toolName);
             } else {
                 await this.attackNormalEntityOnce(entity, toolName);
             }
-        }catch(error){
+        }catch(error: any){
             console.log(error);
         }finally{
             this.isLocked = false;
         }
     }
 
-    async attackCreeper(entity, toolName) {
+    async attackCreeper(entity: Entity, toolName: string) {
         await this.bot.lookAt(entity.position.offset(0, entity.height * 0.85, 0));
         const distance = this.bot.entity.position.distanceTo(entity.position);
         if (toolName !== "null"){
@@ -103,7 +103,7 @@ class AttackEntity extends InstantSkill {
             const weaponName = await this.searchAndHoldWeapon(true);
             if (weaponName && weaponName.includes("bow")) {
                 if (distance > 16) { 
-                    this.bot.hawkEye.oneShot(entity, weaponName);
+                    this.bot.hawkEye.oneShot(entity, 'bow' as any);
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 } else if (distance <= 5) {
                     await this.attackNormalOnce(entity, distance, true);
@@ -116,7 +116,7 @@ class AttackEntity extends InstantSkill {
         }
     }
 
-    async attackRangedEntityOnce(entity, toolName) {
+    async attackRangedEntityOnce(entity: Entity, toolName: string) {
         await this.bot.lookAt(entity.position.offset(0, entity.height * 0.85, 0));
         const distance = this.bot.entity.position.distanceTo(entity.position);
         if (toolName !== "null"){
@@ -125,7 +125,7 @@ class AttackEntity extends InstantSkill {
             const weaponName = await this.searchAndHoldWeapon(true);
             if (weaponName && weaponName.includes("bow")) {
                 if (distance > 16) { 
-                    this.bot.hawkEye.oneShot(entity, weaponName);
+                    this.bot.hawkEye.oneShot(entity, (weaponName.includes('crossbow') ? 'crossbow' : 'bow') as any);
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 } else if (distance <= 5) {
                     await this.attackNormalOnce(entity, distance, false);
@@ -144,7 +144,7 @@ class AttackEntity extends InstantSkill {
      * @param {boolean} isBow
      * @returns {string}
      */
-    async searchAndHoldWeapon(isBow) {
+    async searchAndHoldWeapon(isBow: boolean) {
         const axe = this.bot.inventory.items().find(item => item.name.includes("axe"));
         const sword = this.bot.inventory.items().find(item => item.name.includes("sword"));
         const bow = this.bot.inventory.items().find(item => item.name.includes("bow"));
@@ -171,10 +171,10 @@ class AttackEntity extends InstantSkill {
 
     //通常の敵モブへの攻撃関数
     /**
-     * @param {import('../types').Entity} entity
+     * @param {import('../types.js').Entity} entity
      * @param {string} toolName
      */
-    async attackNormalEntityOnce(entity, toolName) {
+    async attackNormalEntityOnce(entity: Entity, toolName: string) {
         await this.bot.lookAt(entity.position.offset(0, entity.height * 0.85, 0));
         const distance = this.bot.entity.position.distanceTo(entity.position);
         if (toolName !== "null"){
@@ -183,7 +183,7 @@ class AttackEntity extends InstantSkill {
             const weaponName = await this.searchAndHoldWeapon(false);
             if (weaponName && weaponName.includes("bow")) {
                 if (distance > 8) { 
-                    this.bot.hawkEye.oneShot(entity, weaponName);
+                    this.bot.hawkEye.oneShot(entity, (weaponName.includes('crossbow') ? 'crossbow' : 'bow') as any);
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 } else if (distance <= 5) {
                     await this.attackNormalOnce(entity, distance, true);
@@ -196,7 +196,7 @@ class AttackEntity extends InstantSkill {
         }
     }
 
-    async attackNormalOnce(entity, distance, isHostileApproaching) {
+    async attackNormalOnce(entity: Entity, distance: number, isHostileApproaching: boolean) {
         let runDistance = 1;
         let attackDistance = 3;
         let approachDistance = 4;
@@ -220,4 +220,4 @@ class AttackEntity extends InstantSkill {
     }
 }
 
-module.exports = AttackEntity;
+export default AttackEntity;

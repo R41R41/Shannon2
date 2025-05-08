@@ -1,10 +1,7 @@
-const InstantSkill = require('./instantSkill.js');
+import { CustomBot, InstantSkill } from '../types.js';
 
 class Chat extends InstantSkill {
-    /**
-     * @param {import('../types.js').CustomBot} bot
-     */
-    constructor(bot) {
+    constructor(bot: CustomBot) {
         super(bot);
         this.skillName = "chat";
         this.description = "Chat with the bot";
@@ -19,10 +16,7 @@ class Chat extends InstantSkill {
         ]
     }
 
-    /**
-     * @param {string} text
-     */
-    async run(text) {
+    async run(text: string) {
         if (text === null) {
             return {"success": false, "result": "テキストが指定されていません"};
         }else{
@@ -32,4 +26,4 @@ class Chat extends InstantSkill {
     }
 }
 
-module.exports = Chat;
+export default Chat;

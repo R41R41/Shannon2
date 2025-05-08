@@ -1,7 +1,7 @@
-const InstantSkill = require('./instantSkill.js');
+import { InstantSkill, CustomBot } from "../types.js";
 
 class ThrowItem extends InstantSkill {
-    constructor(bot) {
+    constructor(bot: CustomBot) {
         super(bot);
         this.skillName = "throw-item";
         this.description = "特定のアイテムをまとめて捨てる";
@@ -16,10 +16,7 @@ class ThrowItem extends InstantSkill {
         ]
     }
 
-    /**
-     * @param {string} itemName
-     */
-    async run(itemName) {
+    async run(itemName: string) {
         try{
             console.log("throwItem", itemName);
             const item = this.bot.inventory.items().find(item => item.name === itemName);
@@ -30,10 +27,10 @@ class ThrowItem extends InstantSkill {
                 this.bot.chat("インベントリにそのアイテムはありません");
                 return {"success": false, "result": "インベントリにそのアイテムはありません"};
             }
-        } catch (error) {
+        } catch (error: any) {
             return {"success": false, "result": `${error.message} in ${error.stack}`};
         }
     }
 }
 
-module.exports = ThrowItem;
+export default ThrowItem;

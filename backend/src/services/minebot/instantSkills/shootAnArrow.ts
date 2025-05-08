@@ -1,11 +1,11 @@
-const InstantSkill = require('./instantSkill.js');
-const HoldItem = require('./holdItem.js');
+import { CustomBot, InstantSkill } from '../types.js';
+import HoldItem from './holdItem.js';
+import { Vec3 } from 'vec3';
 
 class ShootAnArrow extends InstantSkill {
-    /**
-     * @param {import('../types.js').CustomBot} bot
-     */
-    constructor(bot) {
+    private holdItem: HoldItem;
+    private isLocked: boolean;
+    constructor(bot: CustomBot) {
         super(bot);
         this.skillName = "shoot-an-arrow";
         this.description = "指定エンティティまたは指定座標に矢を射撃します。";
@@ -27,14 +27,7 @@ class ShootAnArrow extends InstantSkill {
         this.isLocked = false;
     }
 
-    /**
-     * @param {string} entityName
-     * @param {import('../types.js').Vec3} coordinate
-     * @param {number} distance
-     * @returns {import('../types.js').Entity}
-     * @description 指定した座標からdistance以内にいるエンティティの中で最も近いエンティティを取得します。
-     */
-    async getNearestEntity(entityName, coordinate, distance){
+    async getNearestEntity(entityName: string, coordinate: Vec3, distance: number){
         const entities = Object.values(this.bot.entities).filter(entity => {
             return entity.name === entityName && entity.position.distanceTo(coordinate) <= distance;
         });
@@ -50,7 +43,7 @@ class ShootAnArrow extends InstantSkill {
      * @param {string | null} entityName
      * @param {import('../types.js').Vec3} coordinate
      */
-    async run(entityName, coordinate) {
+    async run(entityName: string | null, coordinate: Vec3) {
         console.log("shootAnArrow:", entityName, coordinate);
         try{
             if (entityName !== null){
@@ -59,7 +52,7 @@ class ShootAnArrow extends InstantSkill {
                     return {"success": false, "result": `エンティティ${entityName}は見つかりませんでした`};
                 }
                 await this.holdItem.run("bow","hand");
-                this.bot.hawkEye.oneShot(entity, "bow");
+                this.bot.hawkEye.oneShot(entity, "bow" as any);
                 return {"success": true, "result": `エンティティ${entityName}に射撃しました`};
             } else {
                 await this.holdItem.run("bow","hand");
@@ -67,13 +60,13 @@ class ShootAnArrow extends InstantSkill {
                     position: coordinate,
                     isValid: true
                 }
-                this.bot.hawkEye.oneShot(blockPosition);
+                this.bot.hawkEye.oneShot(blockPosition as any, "bow" as any);
                 return {"success": true, "result": `座標${coordinate}に射撃しました`};
             }
-        } catch (error) {
+        } catch (error: any) {
             return {"success": false, "result": `${error.message} in ${error.stack}`};
         }
     }
 }
 
-module.exports = ShootAnArrow;
+export default ShootAnArrow;

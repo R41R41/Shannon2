@@ -1,11 +1,9 @@
-const InstantSkill = require('./instantSkill.js');
-const fs = require('fs');
+import { CustomBot, InstantSkill } from '../types.js';
+import fs from 'fs';
+import { Vec3 } from 'vec3';
 
 class GetEntitiesInfo extends InstantSkill {
-    /**
-     * @param {import('../types.js').CustomBot} bot
-     */
-    constructor(bot) {
+    constructor(bot: CustomBot) {
         super(bot);
         this.skillName = "get-entities-info";
         this.description = "自分を含めた周囲のmob, player, hostileの位置情報を取得します。";
@@ -16,7 +14,7 @@ class GetEntitiesInfo extends InstantSkill {
 
     async run() {
         try {
-            const entitiesInfo = [];
+            const entitiesInfo: { id: string; name: string; position: Vec3 }[] = [];
             const path = require('path');
             const filePath = path.join(process.cwd(), '../../saves/minecraft/surrounding_entities.txt');
 
@@ -31,17 +29,17 @@ class GetEntitiesInfo extends InstantSkill {
 
             sortedEntities.forEach(entity => {
                 entitiesInfo.push({
-                    id: entity.id,
-                    name: entity.username || entity.name,
+                    id: entity.id.toString(),
+                    name: entity.username || entity.name || '',
                     position: entity.position
                 });
             });
             fs.writeFileSync(filePath, JSON.stringify(entitiesInfo, null, 2));
             return { "success": true, "result": `周囲のエンティティのデータを以下に格納しました: ${filePath}` };
-        } catch (error) {
+        } catch (error: any) {
             return { "success": false, "result": `${error.message} in ${error.stack}` };
         }
     }
 }
 
-module.exports = GetEntitiesInfo;
+export default GetEntitiesInfo;

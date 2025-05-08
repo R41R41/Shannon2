@@ -1,11 +1,11 @@
-const InstantSkill = require('./instantSkill.js');
-const {goals} = require('mineflayer-pathfinder');
+import { CustomBot, InstantSkill } from '../types.js';
+import { goals } from 'mineflayer-pathfinder';
+import { Vec3 } from 'vec3';
 
 class SearchAndGotoBlock extends InstantSkill{
-    /**
-     * @param {import('../types.js').CustomBot} bot
-     */
-    constructor(bot){
+    private mcData: any;
+    private searchDistance: number;
+    constructor(bot: CustomBot) {
         super(bot);
         this.skillName = "search-and-goto-block";
         this.description = "指定されたブロックを探索してその位置に移動します。";
@@ -19,10 +19,7 @@ class SearchAndGotoBlock extends InstantSkill{
         }];
     }
 
-    /**
-     * @param {string} blockName
-     */
-    async run(blockName){
+    async run(blockName: string){
         console.log("searchBlock", blockName);
         try{
             const Block = this.mcData.blocksByName[blockName];
@@ -39,10 +36,10 @@ class SearchAndGotoBlock extends InstantSkill{
             }
             await this.bot.pathfinder.goto( new goals.GoalNear(Blocks[0].x, Blocks[0].y, Blocks[0].z, 1));
             return {"success": true, "result": `${blockName}は${Blocks[0].x} ${Blocks[0].y} ${Blocks[0].z}にあります。`};
-        } catch (error) {
+        } catch (error: any) {
             return {"success": false, "result": `${error.message} in ${error.stack}`};
         }
     }
 }
 
-module.exports = SearchAndGotoBlock;
+export default SearchAndGotoBlock;

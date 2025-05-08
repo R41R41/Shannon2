@@ -1,27 +1,24 @@
-const ConstantSkill = require('./constantSkill');
+import { ConstantSkill, CustomBot } from '../types.js';
+import type { Entity } from 'prismarine-entity';
 
 class AutoPickUpItem extends ConstantSkill {
-    /**
-     * @param {import('../types').CustomBot} bot
-     */
-    constructor(bot) {
+    private pickUpItemName: string;
+
+    constructor(bot: CustomBot) {
         super(bot);
         this.skillName = 'autoPickUpItem';
         this.description = '自動でアイテムを拾う';
         this.status = true;
-        this.interval = null;
-        /** @type {import('../types').Entity} */
-        this.pickUpItemName = null;
+        this.interval = 0;
+        this.pickUpItemName = '';
     }
 
-    /**
-     * @param {import('../types').Entity} entity
-     */
-    async run(entity) {
+    async run(entity: Entity) {
         if (entity.displayName === 'Item') {
             let item = null;
             setTimeout(async () => {
                 item = entity.getDroppedItem();
+                if (!item) return;
                 if (this.pickUpItemName) {
                     if (this.pickUpItemName !== item.name) {
                         return;
@@ -42,4 +39,4 @@ class AutoPickUpItem extends ConstantSkill {
     }
 }
 
-module.exports = AutoPickUpItem;
+export default AutoPickUpItem;

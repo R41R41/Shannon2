@@ -1,11 +1,10 @@
-const InstantSkill = require('./instantSkill.js');
-const { goals } = require('mineflayer-pathfinder');
+import { InstantSkill, CustomBot } from "../types.js";
+import { goals } from 'mineflayer-pathfinder';
+import { Item } from 'prismarine-item';
 
 class UseItemToEntity extends InstantSkill {
-    /**
-     * @param {import('../types.js').CustomBot} bot
-     */
-    constructor(bot) {
+    private mcData: any;
+    constructor(bot: CustomBot) {
         super(bot);
         this.skillName = 'use-item-to-entity';
         this.description = '指定したアイテムを指定したエンティティに対して使用します。';
@@ -31,12 +30,7 @@ class UseItemToEntity extends InstantSkill {
         ];
     }
 
-    /**
-     * @param {string} itemName
-     * @param {string} targetEntityName
-     * @param {number} itemCount
-     */
-    async run(itemName, targetEntityName, itemCount) {
+    async run(itemName: string, targetEntityName: string, itemCount: number) {
         try {
             const Item = this.mcData.itemsByName[itemName];
             if (!Item) {
@@ -90,7 +84,7 @@ class UseItemToEntity extends InstantSkill {
                     new goals.GoalNear(entity.position.x, entity.position.y, entity.position.z, 3)
                 );
                 const item = this.bot.inventory.items().find((i) => i.name === Item.name);
-                await this.bot.equip(item, 'hand');
+                await this.bot.equip(item as Item, 'hand');
                 await this.bot.lookAt(entity.position.offset(0, entity.height, 0));
                 await this.bot.useOn(entity);
                 await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -100,7 +94,7 @@ class UseItemToEntity extends InstantSkill {
                 success: true,
                 result: `アイテム${itemName}を${targetEntityName}に使用しました`,
             };
-        } catch (error) {
+        } catch (error: any) {
             return { success: false, result: `${error.message} in ${error.stack}` };
         }
     }

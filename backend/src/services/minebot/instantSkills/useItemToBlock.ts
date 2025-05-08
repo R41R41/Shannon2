@@ -1,17 +1,17 @@
-const InstantSkill = require('./instantSkill.js');
-const { goals } = require('mineflayer-pathfinder');
+import { InstantSkill, CustomBot } from "../types.js";
+import { goals } from 'mineflayer-pathfinder';
+import minecraftData from 'minecraft-data';
+import { Item } from 'prismarine-item';
 
 class UseItemToBlock extends InstantSkill {
-    /**
-     * @param {import('../types.js').CustomBot} bot
-     */
-    constructor(bot) {
+    private mcData: any;
+    constructor(bot: CustomBot) {
         super(bot);
         this.skillName = 'use-item-to-block';
         this.description = '指定したアイテムを指定したブロックの位置に対して使用します。';
         this.priority = 100;
         this.canUseByCommand = true;
-        this.mcData = require('minecraft-data')(this.bot.version);
+        this.mcData = minecraftData(this.bot.version);
         this.params = [
             {
                 name: 'itemName',
@@ -36,13 +36,7 @@ class UseItemToBlock extends InstantSkill {
         ];
     }
 
-    /**
-     * @param {string} itemName
-     * @param {string} targetBlockName
-     * @param {number} blockCount
-     * @param {boolean} isCheckBlockAbove
-     */
-    async run(itemName, targetBlockName, blockCount, isCheckBlockAbove) {
+    async run(itemName: string, targetBlockName: string, blockCount: number, isCheckBlockAbove: boolean) {
         try {
             const Item = this.mcData.itemsByName[itemName];
             if (!Item) {
@@ -90,11 +84,17 @@ class UseItemToBlock extends InstantSkill {
 
                 // 最初の有効なブロックを使用
                 const block = this.bot.blockAt(validBlocks[0]);
+                if (!block) {
+                    return {
+                        success: false,
+                        result: `ブロックが見つかりませんでした`,
+                    };
+                }
                 await this.bot.pathfinder.goto(
                     new goals.GoalNear(block.position.x, block.position.y, block.position.z, 3)
                 );
                 const item = this.bot.inventory.items().find((i) => i.name === Item.name);
-                await this.bot.equip(item, 'hand');
+                await this.bot.equip(item as Item, 'hand');
                 await this.bot.activateBlock(block);
                 await new Promise((resolve) => setTimeout(resolve, 1000));
                 count++;
@@ -103,7 +103,7 @@ class UseItemToBlock extends InstantSkill {
                 success: true,
                 result: `アイテム${itemName}を${targetBlockName}に使用しました`,
             };
-        } catch (error) {
+        } catch (error: any) {
             return { success: false, result: `${error.message} in ${error.stack}` };
         }
     }

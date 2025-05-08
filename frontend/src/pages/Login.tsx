@@ -6,6 +6,7 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
   onAuthStateChanged,
+  browserPopupRedirectResolver
 } from "firebase/auth";
 import { AuthAgent } from "@/services/agents/authAgent";
 import { UserInfo } from "@common/types/web";
@@ -57,7 +58,7 @@ const Login: React.FC = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      await signInWithPopup(auth, provider);
+      await signInWithPopup(auth, provider, browserPopupRedirectResolver);
     } catch (error) {
       console.error("Google login error:", error);
       alert("ログインに失敗しました");
