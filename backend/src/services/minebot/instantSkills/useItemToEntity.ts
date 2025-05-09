@@ -1,6 +1,8 @@
 import { InstantSkill, CustomBot } from "../types.js";
-import { goals } from 'mineflayer-pathfinder';
+import pathfinder from 'mineflayer-pathfinder';
+const { goals } = pathfinder;
 import { Item } from 'prismarine-item';
+import minecraftData from 'minecraft-data';
 
 class UseItemToEntity extends InstantSkill {
     private mcData: any;
@@ -10,7 +12,7 @@ class UseItemToEntity extends InstantSkill {
         this.description = '指定したアイテムを指定したエンティティに対して使用します。';
         this.priority = 100;
         this.canUseByCommand = true;
-        this.mcData = require('minecraft-data')(this.bot.version);
+        this.mcData = minecraftData(this.bot.version);
         this.params = [
             {
                 name: 'itemName',
@@ -100,4 +102,4 @@ class UseItemToEntity extends InstantSkill {
     }
 }
 
-module.exports = UseItemToEntity;
+export default UseItemToEntity;

@@ -1,0 +1,79 @@
+{
+  "equipment": {
+    "helmet": null,
+    "chestplate": null,
+    "leggings": null,
+    "boots": null,
+    "mainHand": {
+      "name": "dirt",
+      "count": 12
+    },
+    "offHand": null
+  },
+  "inventory": [
+    {
+      "name": "coal",
+      "count": 1
+    },
+    {
+      "name": "stick",
+      "count": 62
+    },
+    {
+      "name": "iron_block",
+      "count": 2
+    },
+    {
+      "name": "iron_ingot",
+      "count": 43
+    },
+    {
+      "name": "iron_axe",
+      "count": 1
+    },
+    {
+      "name": "iron_helmet",
+      "count": 1
+    },
+    {
+      "name": "golden_chestplate",
+      "count": 1
+    },
+    {
+      "name": "bread",
+      "count": 56
+    },
+    {
+      "name": "armadillo_scute",
+      "count": 9
+    },
+    {
+      "name": "oak_log",
+      "count": 1
+    },
+    {
+      "name": "egg",
+      "count": 3
+    },
+    {
+      "name": "diamond_axe",
+      "count": 1
+    },
+    {
+      "name": "arrow",
+      "count": 61
+    },
+    {
+      "name": "bow",
+      "count": 1
+    },
+    {
+      "name": "dirt",
+      "count": 12
+    },
+    {
+      "name": "iron_pickaxe",
+      "count": 1
+    }
+  ]
+}

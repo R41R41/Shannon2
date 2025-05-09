@@ -4,34 +4,41 @@ class HoldItem extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'hold-item';
-    this.description = 'インベントリの中から指定したアイテムを手に持ちます。';
+    this.description = 'インベントリの中から指定したアイテムを手に持ちます。nullを指定すると何も持たない状態になります。';
     this.params = [
       {
         name: 'itemName',
         type: 'string',
-        description: '手に持つアイテムの名前',
+        description: '手に持つアイテムの名前。nullを指定すると何も持たない状態になります。',
         default: 'null',
       },
       {
-        name: 'hand',
-        type: 'string',
-        description: '手の位置',
-        default: 'hand',
+        name: 'isOfhand',
+        type: 'boolean',
+        description: 'Offhandに持つかどうか',
+        default: 'false',
       },
     ];
   }
 
   /**
    * @param {string} itemName
-   * @param {string} hand
+   * @param {string} isOfhand
    */
-  async run(itemName: string, hand: string) {
-    console.log('holdItem', itemName, hand);
+  async run(itemName: string, isOfhand: boolean) {
+    console.log('holdItem', itemName, isOfhand);
     try {
+      let hand = isOfhand ? 'off-hand' : 'hand';
+      
+      if (!itemName || itemName === 'null' || itemName === '') {
+        await this.bot.unequip(hand as any);
+        return { success: true, result: `${hand}から全てのアイテムを外しました。` };
+      }
+      
       const item = this.bot.inventory.items().find((i) => i.name === itemName);
       if (item) {
         await this.bot.equip(item, hand as any);
-        return { success: true, result: `${itemName}を手に持ちました。` };
+        return { success: true, result: `${itemName}を${hand}に持ちました。` };
       } else {
         return {
           success: false,

@@ -17,9 +17,9 @@ class EquipArmor extends InstantSkill {
     }
 
     async run(armorType: string) {
-        console.log("equipArmor", armorType);
+        console.log(`equipArmor ${armorType}`);
         try{
-            if (armorType === "null"){
+            if (armorType == null){
                 const armorSlots = ["head", "torso", "legs", "feet"];
                 let unequipped = false;
                 for (const slot of armorSlots) {

@@ -18,7 +18,7 @@ class ShootAnArrow extends InstantSkill {
             },
             {
                 "name": "coordinate",
-                "type": "vec3",
+                "type": "Vec3",
                 "description": "射撃する座標を指定します。エンティティが指定されている場合はこの座標に最も近いエンティティに射撃します。",
                 "default": null
             }
@@ -39,31 +39,80 @@ class ShootAnArrow extends InstantSkill {
         return sortedEntities[0].entity;
     }
 
-    /**
-     * @param {string | null} entityName
-     * @param {import('../types.js').Vec3} coordinate
-     */
-    async run(entityName: string | null, coordinate: Vec3) {
+    // hawkEyeを使用して弓を発射する
+    private async shootWithHawkEye(target: any): Promise<void> {
+        console.log("hawkEyeでの射撃を開始します...");
+        
+        // hawkEyeでターゲットを狙って発射
+        this.bot.hawkEye.oneShot(target, "bow" as any);
+        
+        // 発射が完了するまで待機
+        await new Promise(resolve => {
+            let shotsLeft = 2; // 2回のイベントを待機（弓を引く＋矢を放つ）
+            
+            const checkStatus = () => {
+                shotsLeft--;
+                if (shotsLeft <= 0) {
+                    this.bot.removeListener('physicsTick', checkStatus);
+                    resolve(undefined);
+                }
+            };
+            
+            // 一定時間後に解決する（タイムアウト）
+            const timeout = setTimeout(() => {
+                this.bot.removeListener('physicsTick', checkStatus);
+                // 弓が引かれたままなら強制的に解除
+                try {
+                    this.bot.deactivateItem();
+                } catch (err) {
+                    // エラーは無視
+                }
+                resolve(undefined);
+            }, 4000);
+            
+            // 物理ティックごとにステータスをチェック
+            this.bot.on('physicsTick', checkStatus);
+        });
+        
+        console.log("射撃完了");
+    }
+
+    async run(entityName: string | null, coordinate: Vec3 | null) {
         console.log("shootAnArrow:", entityName, coordinate);
         try{
             if (entityName !== null){
-                const entity = await this.getNearestEntity(entityName, coordinate, 16);
-                if (!entity) {
+                const entities = await this.bot.utils.getNearestEntitiesByName(this.bot, entityName);
+                if (entities.length === 0) {
                     return {"success": false, "result": `エンティティ${entityName}は見つかりませんでした`};
                 }
-                await this.holdItem.run("bow","hand");
-                this.bot.hawkEye.oneShot(entity, "bow" as any);
+                await this.holdItem.run("bow", false);
+                await this.shootWithHawkEye(entities[0]);
                 return {"success": true, "result": `エンティティ${entityName}に射撃しました`};
+            } else if (coordinate !== null) {
+                await this.holdItem.run("bow", false);
+                
+                // 座標を正しくターゲットとして構成
+                const targetPos = new Vec3(coordinate.x, coordinate.y, coordinate.z);
+                const target = {
+                    position: targetPos,
+                    isValid: true,
+                    velocity: { x: 0, y: 0, z: 0 },
+                    height: 0.5,
+                    width: 0.5,
+                    onGround: true
+                };
+                await this.shootWithHawkEye(target);
+                return {"success": true, "result": `座標${coordinate.x},${coordinate.y},${coordinate.z}に射撃しました`};
             } else {
-                await this.holdItem.run("bow","hand");
-                const blockPosition = {
-                    position: coordinate,
-                    isValid: true
-                }
-                this.bot.hawkEye.oneShot(blockPosition as any, "bow" as any);
-                return {"success": true, "result": `座標${coordinate}に射撃しました`};
+                return {"success": false, "result": `エンティティ名または座標が指定されていません`};
             }
         } catch (error: any) {
+            // エラー時に念のため右クリックを解除
+            try {
+                this.bot.deactivateItem();
+            } catch (err) {
+                // エラーは無視
+            }
             return {"success": false, "result": `${error.message} in ${error.stack}`};
         }
     }

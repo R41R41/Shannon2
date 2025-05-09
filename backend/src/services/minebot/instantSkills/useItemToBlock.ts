@@ -1,5 +1,6 @@
 import { InstantSkill, CustomBot } from "../types.js";
-import { goals } from 'mineflayer-pathfinder';
+import pathfinder from 'mineflayer-pathfinder';
+const { goals } = pathfinder;
 import minecraftData from 'minecraft-data';
 import { Item } from 'prismarine-item';
 
@@ -71,7 +72,6 @@ class UseItemToBlock extends InstantSkill {
                     // 上にブロックがないブロックを探す
                     validBlocks = Blocks.filter((pos) => {
                         const blockAbove = this.bot.blockAt(pos.offset(0, 1, 0));
-                        console.log(blockAbove);
                         return !blockAbove || blockAbove.type === 0; // type 0 は air
                     });
                     if (validBlocks.length === 0) {
@@ -109,4 +109,4 @@ class UseItemToBlock extends InstantSkill {
     }
 }
 
-module.exports = UseItemToBlock;
+export default UseItemToBlock;

@@ -21,8 +21,7 @@ export async function getParams(
       result[param.name] = param.default;
     } else {
       const parsedValue = convertType(response, param.type);
-      if (parsedValue !== null && parsedValue.error) {
-        bot.chat('here:' + parsedValue.result);
+      if (parsedValue.result !== null && parsedValue.error) {
         return { success: false, result: 'エラーが発生しました' };
       }
       result[param.name] = parsedValue.result;
@@ -62,7 +61,7 @@ function convertType(
       }
     case 'string':
       return { error: false, result: String(value) };
-    case 'vec3':
+    case 'Vec3':
       const vec3 = String(value).split(',');
       return {
         error: false,

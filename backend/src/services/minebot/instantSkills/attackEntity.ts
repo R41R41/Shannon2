@@ -2,9 +2,6 @@ import HoldItem from './holdItem.js';
 import { CustomBot, InstantSkill } from '../types.js';
 import { Entity } from 'prismarine-entity';
 
-// 独自の型定義を追加
-type WeaponType = 'bow' | 'crossbow';
-
 class AttackEntity extends InstantSkill {
     private entities: Entity[];
     private entities_length: number;
@@ -40,11 +37,11 @@ class AttackEntity extends InstantSkill {
         this.isLocked = false;
     }
 
-    async run(num: number, entityName: string, toolName: string) {
+    async run(num: number, entityName: string, toolName: string | null) {
         console.log("attackEntity:", num, entityName, toolName);
         try{
-            if (toolName !== "null"){
-                const response = await this.holdItem.run(toolName, "hand");
+            if (toolName !== null){
+                const response = await this.holdItem.run(toolName, false);
                 if (!response.success) return response;
             }
             this.entities = await this.bot.utils.getNearestEntitiesByName(this.bot, entityName);
@@ -74,7 +71,7 @@ class AttackEntity extends InstantSkill {
         }
     }
 
-    async attackEntityOnce(entity: Entity, toolName: string) {
+    async attackEntityOnce(entity: Entity, toolName: string | null) {
         if (this.isLocked) return;
         this.isLocked = true;
         try{
@@ -94,7 +91,7 @@ class AttackEntity extends InstantSkill {
         }
     }
 
-    async attackCreeper(entity: Entity, toolName: string) {
+    async attackCreeper(entity: Entity, toolName: string | null) {
         await this.bot.lookAt(entity.position.offset(0, entity.height * 0.85, 0));
         const distance = this.bot.entity.position.distanceTo(entity.position);
         if (toolName !== "null"){
@@ -116,10 +113,10 @@ class AttackEntity extends InstantSkill {
         }
     }
 
-    async attackRangedEntityOnce(entity: Entity, toolName: string) {
+    async attackRangedEntityOnce(entity: Entity, toolName: string | null) {
         await this.bot.lookAt(entity.position.offset(0, entity.height * 0.85, 0));
         const distance = this.bot.entity.position.distanceTo(entity.position);
-        if (toolName !== "null"){
+        if (toolName !== null){
             await this.attackNormalOnce(entity, distance, false);
         }else{
             const weaponName = await this.searchAndHoldWeapon(true);
@@ -151,19 +148,19 @@ class AttackEntity extends InstantSkill {
         const arrow = this.bot.inventory.items().find(item => item.name.includes("arrow"));
         const heldItem = await this.bot.utils.getHoldingItem.run("hand");
         if (isBow && bow && arrow) {
-            if (!heldItem.result.includes("bow")) await this.holdItem.run(bow.name, "hand");
+            if (!heldItem.result.includes("bow")) await this.holdItem.run(bow.name, false);
             return bow.name;
         }else if (isBow && axe) {
-            if (!heldItem.result.includes("axe")) await this.holdItem.run(axe.name, "hand");
+            if (!heldItem.result.includes("axe")) await this.holdItem.run(axe.name, false);
             return axe.name;
         }else if (isBow && sword) {
-            if (!heldItem.result.includes("sword")) await this.holdItem.run(sword.name, "hand");
+            if (!heldItem.result.includes("sword")) await this.holdItem.run(sword.name, false);
             return sword.name;
         }else if (!isBow && axe) {
-            if (!heldItem.result.includes("axe")) await this.holdItem.run(axe.name, "hand");
+            if (!heldItem.result.includes("axe")) await this.holdItem.run(axe.name, false);
             return axe.name;
         }else if (!isBow && sword) {
-            if (!heldItem.result.includes("sword")) await this.holdItem.run(sword.name, "hand");
+            if (!heldItem.result.includes("sword")) await this.holdItem.run(sword.name, false);
             return sword.name;
         }
         return null;
@@ -174,7 +171,7 @@ class AttackEntity extends InstantSkill {
      * @param {import('../types.js').Entity} entity
      * @param {string} toolName
      */
-    async attackNormalEntityOnce(entity: Entity, toolName: string) {
+    async attackNormalEntityOnce(entity: Entity, toolName: string | null) {
         await this.bot.lookAt(entity.position.offset(0, entity.height * 0.85, 0));
         const distance = this.bot.entity.position.distanceTo(entity.position);
         if (toolName !== "null"){

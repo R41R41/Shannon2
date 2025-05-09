@@ -1,5 +1,6 @@
 import { CustomBot, InstantSkill } from '../types.js';
 import fs from 'fs';
+import path from 'path';
 
 class GetInventoryItems extends InstantSkill {
     constructor(bot: CustomBot) {
@@ -14,14 +15,11 @@ class GetInventoryItems extends InstantSkill {
     async run() {
         try {
             const items = this.bot.inventory.items();
-            const path = require('path');
             const filePath = path.join(
                 process.cwd(),
-                '..',
-                '..',
                 'saves',
                 'minecraft',
-                'inventory.txt'
+                'inventory_data.json'
             );
 
             // 装備アイテムの取得
@@ -33,29 +31,28 @@ class GetInventoryItems extends InstantSkill {
             const mainHand = this.bot.inventory.slots[36 + quickBarSlot];
             const offHand = this.bot.inventory.slots[45];
             
-            // 装備の情報を作成
-            const equipmentInfo = [
-                '===== 装備アイテム =====',
-                `ヘルメット: ${helmet ? helmet.name : 'なし'}`,
-                `チェストプレート: ${chestplate ? chestplate.name : 'なし'}`,
-                `レギンス: ${leggings ? leggings.name : 'なし'}`,
-                `ブーツ: ${boots ? boots.name : 'なし'}`,
-                `メインハンド: ${mainHand ? `${mainHand.name} (数量: ${mainHand.count})` : 'なし'}`,
-                `オフハンド: ${offHand ? `${offHand.name} (数量: ${offHand.count})` : 'なし'}`,
-                '===== インベントリアイテム ====='
-            ].join('\n');
+            // JSON形式で装備情報を作成
+            const equipmentInfo = {
+                equipment: {
+                    helmet: helmet ? { name: helmet.name, count: helmet.count } : null,
+                    chestplate: chestplate ? { name: chestplate.name, count: chestplate.count } : null,
+                    leggings: leggings ? { name: leggings.name, count: leggings.count } : null,
+                    boots: boots ? { name: boots.name, count: boots.count } : null,
+                    mainHand: mainHand ? { name: mainHand.name, count: mainHand.count } : null,
+                    offHand: offHand ? { name: offHand.name, count: offHand.count } : null
+                },
+                inventory: items.map(item => ({
+                    name: item.name,
+                    count: item.count
+                }))
+            };
 
-            // インベントリアイテムの情報
-            const itemDescriptions = items
-                .map((item) => `name: ${item.name}, count: ${item.count}`)
-                .join('\n');
-
-            // ファイルに書き込み
-            fs.writeFileSync(filePath, `${equipmentInfo}\n${itemDescriptions}`);
+            // JSON形式でファイルに保存
+            fs.writeFileSync(filePath, JSON.stringify(equipmentInfo, null, 2));
 
             return {
                 success: true,
-                result: `インベントリーと装備のデータを以下に格納しました: ${filePath}`,
+                result: `インベントリーと装備のデータをJSON形式で ${filePath} に保存しました`,
             };
         } catch (error: any) {
             return { success: false, result: `${error.message} in ${error.stack}` };

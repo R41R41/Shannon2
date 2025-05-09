@@ -27,7 +27,7 @@ class EatFood extends InstantSkill {
       if (this.bot.food === 20) {
         return { success: false, result: '満腹なので食べることができません' };
       }
-      await this.holdItem.run(itemName, 'hand');
+      await this.holdItem.run(itemName, false);
       this.bot.deactivateItem();
       this.bot.activateItem();
       await new Promise((resolve) => setTimeout(resolve, 3000));

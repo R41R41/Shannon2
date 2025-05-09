@@ -21,7 +21,15 @@ class ThrowItem extends InstantSkill {
             console.log("throwItem", itemName);
             const item = this.bot.inventory.items().find(item => item.name === itemName);
             if (item) {
+                const autoPickUpItem = this.bot.constantSkills.getSkill("autoPickUpItem");
+                if (autoPickUpItem) {
+                    autoPickUpItem.status = false;
+                }
                 await this.bot.tossStack(item);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                if (autoPickUpItem) {
+                    autoPickUpItem.status = true;
+                }
                 return {"success": true, "result": "アイテムを投げました"};
             } else {
                 this.bot.chat("インベントリにそのアイテムはありません");

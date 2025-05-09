@@ -1,6 +1,7 @@
 import { CustomBot, InstantSkill } from '../types.js';
 import fs from 'fs';
 import { Vec3 } from 'vec3';
+import path from 'path';
 
 class GetEntitiesInfo extends InstantSkill {
     constructor(bot: CustomBot) {
@@ -15,8 +16,7 @@ class GetEntitiesInfo extends InstantSkill {
     async run() {
         try {
             const entitiesInfo: { id: string; name: string; position: Vec3 }[] = [];
-            const path = require('path');
-            const filePath = path.join(process.cwd(), '../../saves/minecraft/surrounding_entities.txt');
+            const filePath = path.join(process.cwd(), 'saves/minecraft/entities_data.json');
 
             const sortedEntities = Object.values(this.bot.entities)
                 .filter(entity => this.bot.entity.position.distanceTo(entity.position) <= 32 && (entity.type === 'mob' || entity.type === 'player' || entity.type === 'hostile'))
@@ -34,8 +34,11 @@ class GetEntitiesInfo extends InstantSkill {
                     position: entity.position
                 });
             });
+            
+            // JSON形式でファイルに保存（すでにJSON.stringifyを使用しているため変更なし）
             fs.writeFileSync(filePath, JSON.stringify(entitiesInfo, null, 2));
-            return { "success": true, "result": `周囲のエンティティのデータを以下に格納しました: ${filePath}` };
+            
+            return { "success": true, "result": `周囲のエンティティのデータをJSON形式で ${filePath} に保存しました` };
         } catch (error: any) {
             return { "success": false, "result": `${error.message} in ${error.stack}` };
         }

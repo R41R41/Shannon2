@@ -34,7 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   isMobile = false,
   userInfo,
 }) => {
-  const [activeTab, setActiveTab] = useState("search");
+  const [activeTab, setActiveTab] = useState("status");
   const [searchResults, setSearchResults] = useState<ILog[]>([]);
 
   return (

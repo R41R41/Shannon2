@@ -313,7 +313,6 @@ export class SkillAgent {
           this.bot.chat('display-instant-skill-listは存在しません');
           return;
         }
-        console.log('here');
         const response = await displayInstantSkillList.run();
         if (!response.success) {
           this.bot.chat(`display-instant-skill-list error: ${response.result}`);
@@ -437,10 +436,11 @@ export class SkillAgent {
         this.bot.chat('autoPickUpItemは存在しません');
         return;
       }
+      if (!autoPickUpItem.status) return;
       try {
-          autoPickUpItem.run(entity);
+        autoPickUpItem.run(entity);
       } catch (error) {
-          console.error('エラーが発生しました:', error);
+        console.error('エラーが発生しました:', error);
       }
     });
   }
@@ -472,26 +472,6 @@ export class SkillAgent {
     });
   }
 
-  async entityMoved() {
-    console.log(`\x1b[32m✓ entityMoved\x1b[0m`);
-    this.bot.on('entityMoved', async (entity) => {
-      if (entity.type !== 'projectile') return;
-      const autoAvoidProjectile = this.bot.constantSkills.getSkill(
-        'auto-avoid-projectile'
-      );
-      if (!autoAvoidProjectile) {
-        this.bot.chat('auto-avoid-projectileは存在しません');
-        return;
-      }
-      if (autoAvoidProjectile.isLocked) return;
-      try {
-        await autoAvoidProjectile.run(entity);
-      } catch (error) {
-        console.error('エラーが発生しました:', error);
-      }
-    });
-  }
-
   async startAgent() {
     try {
       const initSkillsResponse = await this.initSkills();
@@ -502,7 +482,6 @@ export class SkillAgent {
       await this.registerPost();
       await this.botOnChat();
       await this.entitySpawn();
-      await this.entityMoved();
       await this.entityHurt();
       await this.health();
       return { success: true, result: 'agent started' };

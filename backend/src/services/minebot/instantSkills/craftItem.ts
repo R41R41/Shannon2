@@ -1,5 +1,6 @@
 import { InstantSkill, CustomBot } from "../types.js";
-import { goals } from 'mineflayer-pathfinder';
+import pathfinder from 'mineflayer-pathfinder';
+const { goals } = pathfinder;
 import minecraftData from 'minecraft-data';
 
 class CraftItem extends InstantSkill{
@@ -49,6 +50,7 @@ class CraftItem extends InstantSkill{
             }else{  
                 await this.bot.craft(recipe, amount, undefined);
             }
+            await new Promise(resolve => setTimeout(resolve, 100));
             const items = this.bot.inventory.items().filter(item => item.name === itemName);
             if (items && items.length >= amount){
                 return {"success": true, "result": `${itemName}を${amount}個作成しました`};

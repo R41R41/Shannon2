@@ -28,34 +28,54 @@ class GetBlocksData extends InstantSkill {
         ]
     }
 
-    async run(startPosition: Vec3, endPosition: Vec3) {
+    async run(startPosition: Vec3 | null = null, endPosition: Vec3 | null = null) {
+        // ブロックデータの収集開始
         try {
-            const blocksInfo: { name: string; position: string; metadata: number }[] = [];
-            const filePath = path.join(process.cwd(), '../../saves/minecraft/surrounding_blocks.txt');
+            const botPosition = this.bot.entity.position;
+            const start = startPosition || new Vec3(
+                Math.floor(botPosition.x) - 5,
+                Math.floor(botPosition.y) - 3,
+                Math.floor(botPosition.z) - 5
+            );
+            const end = endPosition || new Vec3(
+                Math.floor(botPosition.x) + 5,
+                Math.floor(botPosition.y) + 5,
+                Math.floor(botPosition.z) + 5
+            );
 
-            // 開始座標から終了座標までのブロックを取得
-            for (let x = startPosition.x; x <= endPosition.x; x++) {
-                for (let y = startPosition.y; y <= endPosition.y; y++) {
-                    for (let z = startPosition.z; z <= endPosition.z; z++) {
-                        const pos = new Vec3(x, y, z);
-                        const block = this.bot.blockAt(pos);
-                        if (block) {
-                            blocksInfo.push({
+            const blocksInfo = [];
+            // 指定範囲内のブロックをスキャン
+            for (let x = start.x; x <= end.x; x++) {
+                for (let y = start.y; y <= end.y; y++) {
+                    for (let z = start.z; z <= end.z; z++) {
+                        const position = new Vec3(x, y, z);
+                        const block = this.bot.blockAt(position);
+                        
+                        if (block && block.name !== 'air') {
+                            // ブロックの詳細プロパティを取得
+                            const blockProperties = {
                                 name: block.name,
-                                position: `${x},${y},${z}`,
-                                metadata: block.metadata
-                            });
+                                position: {
+                                    x: block.position.x,
+                                    y: block.position.y,
+                                    z: block.position.z
+                                },
+                                stateId: block.stateId,
+                                properties: block.getProperties ? block.getProperties() : {},
+                            };
+                            
+                            blocksInfo.push(blockProperties);
                         }
                     }
                 }
             }
+
+            // JSON形式でファイルに保存
+            const filePath = path.join(process.cwd(), 'saves', 'minecraft', 'blocks_data.json');
             fs.writeFileSync(filePath, JSON.stringify(blocksInfo, null, 2));
-            return { 
-                "success": true, 
-                "result": `周囲のブロックのデータを以下に格納しました: ${filePath}` 
-            };
+            return { success: true, result: `ブロックデータをJSON形式で${filePath}に保存しました。合計${blocksInfo.length}個のブロックを検出しました。` };
         } catch (error: any) {
-            return { "success": false, "result": `${error.message} in ${error.stack}` };
+            return { success: false, result: error.message };
         }
     }
 }

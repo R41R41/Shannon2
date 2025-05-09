@@ -1,5 +1,7 @@
 import { CustomBot, InstantSkill } from '../types.js';
-import { goals } from 'mineflayer-pathfinder';
+import pathfinder from 'mineflayer-pathfinder';
+const { goals } = pathfinder;
+import minecraftData from 'minecraft-data';
 
 class CollectBlock extends InstantSkill {
     private mcData: any;
@@ -9,7 +11,7 @@ class CollectBlock extends InstantSkill {
         this.skillName = 'collect-block';
         this.description = '指定されたブロックを集める';
         this.status = false;
-        this.mcData = require('minecraft-data')(this.bot.version);
+        this.mcData = minecraftData(this.bot.version);
         this.searchDistance = 256;
         this.params = [
             {
@@ -29,6 +31,35 @@ class CollectBlock extends InstantSkill {
                 type: 'number',
             },
         ];
+    }
+
+    // 適切なツールを選択して装備する関数
+    private async equipBestTool(block: any) {
+        try {
+            // ブロックに最適なツールを見つける
+            const tool = this.bot.pathfinder.bestHarvestTool(block);
+            if (tool) {
+                await this.bot.equip(tool, 'hand');
+                return true;
+            }
+            // 特定のツールがない場合は、インベントリ内の任意のツールを試す
+            const possibleTools = this.bot.inventory.items().filter(item => 
+                item.name.includes('_pickaxe') || 
+                item.name.includes('_axe') || 
+                item.name.includes('_shovel') || 
+                item.name.includes('_hoe') ||
+                item.name.includes('shears')
+            );
+            
+            if (possibleTools.length > 0) {
+                await this.bot.equip(possibleTools[0], 'hand');
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('ツールの装備に失敗しました:', error);
+            return false;
+        }
     }
 
     async run(blockName: string, itemName: string, count: number) {
@@ -72,6 +103,10 @@ class CollectBlock extends InstantSkill {
                 await this.bot.pathfinder.goto(
                     new goals.GoalNear(Blocks[0].x, Blocks[0].y, Blocks[0].z, 3)
                 );
+                
+                // ブロックを掘る前に最適なツールを装備
+                await this.equipBestTool(block);
+                
                 await this.bot.dig(block);
                 await new Promise((resolve) => setTimeout(resolve, 1000)); // ブロックがドロップするのを待つ
                 const items = this.bot.nearestEntity((entity) => entity.name === dropItemName);
