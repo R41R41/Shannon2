@@ -11,7 +11,7 @@ export async function getParams(
     let response: string;
     response = await getChatResponse(
       bot,
-      `${param.name}: ${param.type}の値を教えてください`
+      `${param.name}（型：${param.type}）の値を教えてください`
     );
     if (response == '.') {
       bot.chat('キャンセルしました');

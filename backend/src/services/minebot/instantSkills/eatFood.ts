@@ -6,12 +6,13 @@ class EatFood extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'eat-food';
-    this.description = '指定されたアイテムを食べる';
+    this.description = '指定されたアイテムを食べます。';
     this.status = false;
     this.params = [
       {
         name: 'itemName',
-        description: '食べるアイテム',
+        description:
+          '食べるアイテムの名前を指定します。例: apple, bread, beef, cooked_beef, など',
         type: 'string',
       },
     ];

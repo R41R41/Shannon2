@@ -4,12 +4,13 @@ class HoldItem extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'hold-item';
-    this.description = 'インベントリの中から指定したアイテムを手に持ちます。nullを指定すると何も持たない状態になります。';
+    this.description = 'インベントリの中から指定したアイテムを手に持ちます。';
     this.params = [
       {
         name: 'itemName',
         type: 'string',
-        description: '手に持つアイテムの名前。nullを指定すると何も持たない状態になります。',
+        description:
+          '手に持つアイテムの名前。nullを指定すると何も持たない状態になります。例: iron_sword, diamond_axe, など',
         default: 'null',
       },
       {
@@ -29,12 +30,15 @@ class HoldItem extends InstantSkill {
     console.log('holdItem', itemName, isOfhand);
     try {
       let hand = isOfhand ? 'off-hand' : 'hand';
-      
+
       if (!itemName || itemName === 'null' || itemName === '') {
         await this.bot.unequip(hand as any);
-        return { success: true, result: `${hand}から全てのアイテムを外しました。` };
+        return {
+          success: true,
+          result: `${hand}から全てのアイテムを外しました。`,
+        };
       }
-      
+
       const item = this.bot.inventory.items().find((i) => i.name === itemName);
       if (item) {
         await this.bot.equip(item, hand as any);

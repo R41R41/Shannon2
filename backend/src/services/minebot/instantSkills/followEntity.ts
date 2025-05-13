@@ -11,14 +11,15 @@ export class FollowEntity extends InstantSkill {
       {
         name: 'entityName',
         type: 'string',
-        description: 'The name of the entity to follow',
+        description:
+          'エンティティの名前。例: zombie, creeper, R41R41(ユーザー名)など',
         default: null,
       },
     ];
   }
 
   async run(entityName: string) {
-    console.log('followEntity run', entityName);
+    console.log('followEntity', entityName);
     try {
       if (entityName === null) {
         return {
@@ -34,6 +35,7 @@ export class FollowEntity extends InstantSkill {
         return { success: false, result: 'エンティティが見つからない' };
       const entity = entities[0];
 
+      this.status = true;
       while (this.status) {
         this.bot.pathfinder.setGoal(null);
         this.bot.setControlState('sprint', false);

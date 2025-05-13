@@ -1,8 +1,10 @@
-const ConstantSkill = require("./constantSkill.js");
-const { goals } = require('mineflayer-pathfinder');
+import { CustomBot, ConstantSkill } from '../types.js' ;
+import pathfinder from 'mineflayer-pathfinder';
+const { goals } = pathfinder;
+import { Vec3 } from 'vec3';
 
 class AutoAvoidProjectileRange extends ConstantSkill {
-    constructor(bot){
+    constructor(bot: CustomBot) {
         super(bot);
         this.skillName = "autoAvoidProjectileRange";
         this.description = "自動で投擲物の射撃範囲から逃げる";
@@ -40,7 +42,7 @@ class AutoAvoidProjectileRange extends ConstantSkill {
         await this.bot.pathfinder.goto(new goals.GoalBlock(escapePosition.x, escapePosition.y, escapePosition.z));
     }
 
-    rotateVector(vector, angle) {
+    rotateVector(vector: Vec3, angle: number) {
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
         return vector.clone().set(
@@ -51,4 +53,4 @@ class AutoAvoidProjectileRange extends ConstantSkill {
     }
 }
 
-module.exports = AutoAvoidProjectileRange;
+export default AutoAvoidProjectileRange;

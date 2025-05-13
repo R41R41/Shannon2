@@ -22,3 +22,12 @@ export type MinebotSkillInput = {
 export type MinebotInput = MinebotStartOrStopInput | MinebotSkillInput;
 
 export type MinebotEventType = `minebot:${string}`;
+
+export type SkillParameters = {
+  skillParameters: any;
+};
+
+export type SkillResult = {
+  success: boolean;
+  result: string;
+};

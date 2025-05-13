@@ -1,10 +1,10 @@
-const ConstantSkill = require("./constantSkill.js");
+import { CustomBot, ConstantSkill } from '../types.js' ;
 
 class AutoRunFromHostiles extends ConstantSkill{
-    /**
-     * @param {import('../types.js').CustomBot} bot
-     */
-    constructor(bot) {
+    distance: number;
+    radius: number;
+    runIfFatal: boolean;
+    constructor(bot: CustomBot) {
         super(bot);
         this.skillName = "autoRunFromHostiles";
         this.description = "自動で敵モブから逃げる";
@@ -23,4 +23,4 @@ class AutoRunFromHostiles extends ConstantSkill{
     }
 }
 
-module.exports = AutoRunFromHostiles;
+export default AutoRunFromHostiles;

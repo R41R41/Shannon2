@@ -1,0 +1,17 @@
+{
+    "name": "simple_line",
+    "blocks": [
+      {
+        "name": "stone",
+        "position": { "x": 0, "y": 0, "z": 0 }
+      },
+      {
+        "name": "stone",
+        "position": { "x": 1, "y": 0, "z": 0 }
+      },
+      {
+        "name": "stone",
+        "position": { "x": 2, "y": 0, "z": 0 }
+      }
+    ]
+  }

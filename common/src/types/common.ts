@@ -22,7 +22,13 @@ import {
   MinecraftEventType,
 } from "./minecraft";
 import { YoutubeClientOutput, YoutubeEventType } from "./youtube";
-import { MinebotOutput, MinebotInput, MinebotEventType } from "./minebot";
+import {
+  MinebotOutput,
+  MinebotInput,
+  MinebotEventType,
+  SkillParameters,
+  SkillResult,
+} from "./minebot";
 import {
   TaskInput,
   TaskTreeState,
@@ -159,7 +165,9 @@ export interface Event {
     | TaskTreeState
     | EmotionType
     | SkillInfo[]
-    | WebSkillInput;
+    | WebSkillInput
+    | SkillParameters
+    | SkillResult;
   targetMemoryZones?: MemoryZone[];
 }
 

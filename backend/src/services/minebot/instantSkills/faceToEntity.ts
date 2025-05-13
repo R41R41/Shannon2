@@ -4,12 +4,13 @@ export class FaceToEntity extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'face-to-entity';
-    this.description = '視線を指定されたエンティティに向ける';
+    this.description = '視線を指定されたエンティティに向けます。';
     this.params = [
       {
         name: 'entityName',
         type: 'string',
-        description: 'エンティティの名前を指定します。',
+        description:
+          'エンティティの名前。例: zombie, creeper, R41R41(ユーザー名)など',
         default: null,
       },
     ];

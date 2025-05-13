@@ -4,7 +4,7 @@ class DisplayBotStatus extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'display-bot-status';
-    this.description = 'ボットの体力と満腹度を表示する';
+    this.description = 'ボットの体力と満腹度を表示します。';
     this.status = false;
     this.params = [];
   }

@@ -14,9 +14,14 @@
     "dev-frontend": "npm run dev -w frontend"
   },
   "dependencies": {
-    "@shannon/common": "*"
+    "@shannon/common": "*",
+    "canvas": "^3.1.0",
+    "node-canvas-webgl": "^0.3.0",
+    "prismarine-block": "^1.21.0",
+    "prismarine-viewer": "^1.33.0"
   },
   "devDependencies": {
+    "@types/node": "^22.15.17",
     "concurrently": "^8.2.2",
     "ts-node": "^10.9.2",
     "tsc-watch": "^6.2.1",

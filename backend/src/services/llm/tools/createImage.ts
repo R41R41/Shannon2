@@ -31,7 +31,7 @@ export default class CreateImageTool extends StructuredTool {
         size: '1024x1024',
       });
 
-      return `Image created url: ${response.data[0].url}`;
+      return `Image created url: ${response.data?.[0]?.url}`;
     } catch (error) {
       console.error('Image description error:', error);
       return `An error occurred while analyzing the image: ${error}`;

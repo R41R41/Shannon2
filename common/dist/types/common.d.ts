@@ -3,7 +3,7 @@ import { OpenAIMessageOutput, OpenAIInput, WebEventType, WebSkillInput } from ".
 import { DiscordClientInput, DiscordClientOutput, DiscordEventType, DiscordGuild } from "./discord";
 import { MinecraftInput, MinecraftOutput, MinecraftEventType } from "./minecraft";
 import { YoutubeClientOutput, YoutubeEventType } from "./youtube";
-import { MinebotOutput, MinebotInput, MinebotEventType } from "./minebot";
+import { MinebotOutput, MinebotInput, MinebotEventType, SkillParameters, SkillResult } from "./minebot";
 import { TaskInput, TaskTreeState, EmotionType, TaskEventType } from "./taskGraph";
 import { SchedulerInput, SchedulerOutput, SchedulerEventType } from "./scheduler";
 import { LLMEventType, SkillInfo } from "./llm";
@@ -31,7 +31,7 @@ export type EventType = TaskEventType | TwitterEventType | YoutubeEventType | Mi
 export interface Event {
     type: EventType;
     memoryZone: MemoryZone;
-    data: TwitterClientInput | TwitterClientOutput | OpenAIInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput | ServiceOutput | TaskInput | TaskTreeState | EmotionType | SkillInfo[] | WebSkillInput;
+    data: TwitterClientInput | TwitterClientOutput | OpenAIInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput | ServiceOutput | TaskInput | TaskTreeState | EmotionType | SkillInfo[] | WebSkillInput | SkillParameters | SkillResult;
     targetMemoryZones?: MemoryZone[];
 }
 export interface ILog {

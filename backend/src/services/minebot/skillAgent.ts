@@ -1,4 +1,5 @@
-import { MinebotInput, MinebotSkillInput } from '@shannon/common';
+import { MinebotSkillInput } from '@shannon/common';
+import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -8,8 +9,8 @@ import {
   CustomBot,
   InstantSkills,
   ResponseType,
-  ConstantSkill,
 } from './types.js';
+import { TaskGraph } from './llm/graph/taskGraph.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -19,12 +20,15 @@ export class SkillAgent {
   private constantSkillDir: string;
   private bot: CustomBot;
   private eventBus: EventBus;
-
+  private taskGraph: TaskGraph;
+  private recentMessages: BaseMessage[] = [];
   constructor(bot: CustomBot, eventBus: EventBus) {
     this.bot = bot;
     this.eventBus = eventBus;
     this.instantSkillDir = join(__dirname, 'instantSkills');
     this.constantSkillDir = join(__dirname, 'constantSkills');
+    this.taskGraph = TaskGraph.getInstance(this.bot);
+    this.recentMessages = [];
   }
 
   async loadInstantSkills(): Promise<ResponseType> {
@@ -91,44 +95,22 @@ export class SkillAgent {
       this.eventBus.log('minecraft', 'green', `✓ ${skill.skillName}`);
       this.eventBus.subscribe(`minebot:${skill.skillName}`, async (event) => {
         try {
-          const data = event.data as any;
-          if (skill.status) {
-            this.eventBus.publish({
-              type: `minebot:skillResult`,
-              memoryZone: 'minecraft',
-              data: {
-                skillName: skill.skillName,
-                success: false,
-                result: `already active`,
-              },
-            });
-            return;
-          }
+          const parameters = event.data as any;
           skill.status = true;
-          const response = await skill.run(...data);
+          const response = await skill.run(...parameters);
           skill.status = false;
           this.eventBus.publish({
-            type: `minebot:skillResult`,
+            type: `minebot:${skill.skillName}Result`,
             memoryZone: 'minecraft',
-            data: {
-              skillName: skill.skillName,
-              success: response.success,
-              result: response.result,
-            },
+            data: response,
           });
-        } catch (error) {
-          this.eventBus.log(
-            'minecraft',
-            'red',
-            `${skill.skillName} error: ${error}`
-          );
+        } catch (error: any) {
           this.eventBus.publish({
-            type: `minebot:skillResult`,
+            type: `minebot:${skill.skillName}Result`,
             memoryZone: 'minecraft',
             data: {
-              skillName: skill.skillName,
               success: false,
-              result: `error: ${error}`,
+              result: error,
             },
           });
         }
@@ -299,6 +281,11 @@ export class SkillAgent {
         return;
       }
       if (username === 'I_am_Sh4nnon') {
+        const currentTime = new Date().toLocaleString('ja-JP', {
+          timeZone: 'Asia/Tokyo',
+        });
+        const newMessage = `${currentTime} ${username}: ${message}`;
+        this.recentMessages.push(new AIMessage(newMessage));
         return;
       }
       console.log(`[${username}] ${message}`);
@@ -406,19 +393,21 @@ export class SkillAgent {
         return;
       }
       const sender = this.bot.players[username]?.entity;
-      const data = {
+      const environmentState = {
         senderName: username,
-        message: message,
         senderPosition: sender.position.toString(),
+      };
+      const selfState = {
         botPosition: this.bot.entity.position.toString(),
         botHealth: `${this.bot.health}/20`,
         botFoodLevel: `${this.bot.food}/20`,
       };
-      this.eventBus.publish({
-        type: 'minebot:chat',
-        memoryZone: 'minecraft',
-        data: data,
-      });
+      await this.processMessage(
+        username,
+        message,
+        JSON.stringify(environmentState),
+        JSON.stringify(selfState)
+      );
     });
     this.eventBus.subscribe('minebot:chat', async (event) => {
       const { text } = event.data as MinebotSkillInput;
@@ -472,6 +461,30 @@ export class SkillAgent {
     });
   }
 
+  private async processMessage(
+    userName?: string | null,
+    message?: string | null,
+    environmentState?: string | null,
+    selfState?: string | null
+  ) {
+    try {
+      const currentTime = new Date().toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+      });
+      const newMessage = `${currentTime} ${userName}: ${message}`;
+      this.recentMessages.push(new HumanMessage(newMessage));
+      await this.taskGraph.invoke({
+        environmentState: environmentState || null,
+        selfState: selfState || null,
+        messages: this.recentMessages,
+        userMessage: newMessage,
+      });
+    } catch (error) {
+      console.error(`\x1b[31mLLM処理エラー:${error}\n\x1b[0m`);
+      throw error;
+    }
+  }
+
   async startAgent() {
     try {
       const initSkillsResponse = await this.initSkills();
@@ -484,6 +497,7 @@ export class SkillAgent {
       await this.entitySpawn();
       await this.entityHurt();
       await this.health();
+      await this.taskGraph.initializeTools();
       return { success: true, result: 'agent started' };
     } catch (error) {
       console.log(`error: ${error}`);

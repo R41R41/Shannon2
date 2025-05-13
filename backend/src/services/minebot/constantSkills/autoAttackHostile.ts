@@ -1,11 +1,12 @@
-const ConstantSkill = require("./constantSkill.js");
-const AttackEntity = require("../instantSkills/attackEntity.js");
-const { Vec3 } = require('vec3');
+import { CustomBot, ConstantSkill } from '../types.js' ;
+import AttackEntity from '../instantSkills/attackEntity.js';
+import { Vec3 } from 'vec3';
+
 class AutoAttackHostile extends ConstantSkill{
-    /**
-     * @param {import('../types.js').CustomBot} bot
-     */
-    constructor(bot) {
+    distance: number;
+    tool_name: string | null;
+    attackEntity: AttackEntity;
+    constructor(bot: CustomBot) {
         super(bot);
         this.skillName = "autoAttackHostile";
         this.description = "自動で敵モブを攻撃する";
@@ -16,13 +17,7 @@ class AutoAttackHostile extends ConstantSkill{
         this.status = false;
     }
 
-    /**
-         * ボットと敵対的モブの間に非透過ブロックがあるかを判定する関数
-         * @param {Vec3} start - 開始座標
-         * @param {Vec3} end - 終了座標
-         * @returns {boolean} - 非透過ブロックがある場合はtrue、ない場合はfalse
-         */
-    async isOpaqueBlockBetween(start, end) {
+    async isOpaqueBlockBetween(start: Vec3, end: Vec3) {
         try {
             const direction = end.minus(start).normalize();
             let currentPos = start.clone();
@@ -42,12 +37,7 @@ class AutoAttackHostile extends ConstantSkill{
         }
     }
 
-    /**
-     * distance以内の敵対的モブを取得
-     * @param {number} distance
-     * @returns {import('../types').Entities}
-     */
-    async getNearestHostiles(distance) {
+    async getNearestHostiles(distance: number) {
         const entities = Object.values(this.bot.entities).filter(entity => {
             // 敵対的モブであり、指定された距離以内にあるかをチェック
             return entity.type === 'hostile' && this.bot.entity.position.distanceTo(entity.position) <= distance;
@@ -77,10 +67,10 @@ class AutoAttackHostile extends ConstantSkill{
         if (hostile) {
             console.log("敵対的モブを発見しました");
             this.bot.attackEntity = hostile;
-            await this.attackEntity.attackEntityOnce(hostile, "null");
+            await this.attackEntity.attackEntityOnce(hostile.id);
             this.bot.attackEntity = null;
         }
     }
 }
 
-module.exports = AutoAttackHostile;
+export default AutoAttackHostile;
