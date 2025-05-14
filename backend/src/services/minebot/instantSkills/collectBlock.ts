@@ -9,7 +9,8 @@ class CollectBlock extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'collect-block';
-    this.description = '指定されたブロックを集める';
+    this.description =
+      '指定したブロックを壊して指定されたアイテムを集めます。正しいブロック名とアイテム名を指定してください（例：blockName: stone, itemName: cobblestone, count: 10）';
     this.status = false;
     this.mcData = minecraftData(this.bot.version);
     this.searchDistance = 256;

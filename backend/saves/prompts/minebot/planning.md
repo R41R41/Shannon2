@@ -52,6 +52,7 @@ To response to the user's message, plan what you should do and output it in the 
 - When you are trying to achieve your goal, top level status must be in_progress.
 - When your goal is achieved, status must be completed.
 - If you try multiple times and fail to achieve your goal, report the reason to the user and then set top level status to error and end.
+- However, even if you decide to abandon the completion of a task, keep the status as in_progress until you communicate that intention in chat.
 
 ## subtasks
 
@@ -62,3 +63,4 @@ To response to the user's message, plan what you should do and output it in the 
 - If the user's message contains "do XX at YY time", create a subtask to use wait tool to wait until YY time
 - If an error occurs when using a tool, read the error message and update subtasks to try appropriate method.
 - According to the actionLog, update status of subtasks.
+- If you are given a task(even if it's a small task), always add a subtask to report the result at the end by using chat tool.

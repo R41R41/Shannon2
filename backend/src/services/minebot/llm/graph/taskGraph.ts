@@ -59,10 +59,13 @@ class InstantSkillTool extends StructuredTool {
           }
 
           // デフォルト値があれば設定
-          if (param.default !== undefined && param.default !== null) {
+          if (param.default !== undefined) {
             // anyでキャストして型の互換性問題を回避
             zodType = (zodType as any).default(param.default);
           }
+
+          // null許容を追加
+          zodType = zodType.nullable();
 
           // 説明を追加
           zodType = zodType.describe(param.description || '');
@@ -97,9 +100,7 @@ class InstantSkillTool extends StructuredTool {
       const result = await skill.run(...args);
       return typeof result === 'string'
         ? result
-        : `結果: ${result.success ? '成功' : '失敗'} メッセージ: ${
-            result.result
-          }`;
+        : `結果: ${result.success ? '成功' : '失敗'} 詳細: ${result.result}`;
     } catch (error) {
       console.error(`${this.name}スキル実行エラー:`, error);
       return `スキル実行エラー: ${error}`;
@@ -182,9 +183,30 @@ export class TaskGraph {
     // instantSkillsから全スキルを取得
     const skills = this.bot.instantSkills.getSkills();
     for (const skill of skills) {
+      if (!skill.isToolForLLM) continue;
       const skillTool = new InstantSkillTool(skill, this.bot);
       console.log('skillToolName', skillTool.name);
       this.tools.push(skillTool);
+    }
+    const toolsDir = join(__dirname, '../tools');
+    const toolFiles = readdirSync(toolsDir).filter(
+      (file) =>
+        (file.endsWith('.ts') || file.endsWith('.js')) &&
+        !file.includes('.d.ts')
+    );
+
+    for (const file of toolFiles) {
+      if (file === 'index.ts' || file === 'index.js') continue;
+
+      try {
+        const toolModule = await import(join(toolsDir, file));
+        const ToolClass = toolModule.default;
+        if (ToolClass?.prototype?.constructor) {
+          this.tools.push(new ToolClass());
+        }
+      } catch (error) {
+        console.error(`ツール読み込みエラー: ${file}`, error);
+      }
     }
     console.log('tools', this.tools.length);
   }
@@ -371,8 +393,7 @@ export class TaskGraph {
     };
 
     try {
-      // 再帰制限を大幅に増やす
-      return await this.graph.invoke(state, { recursionLimit: 32 });
+      return await this.graph.invoke(state, { recursionLimit: 64 });
     } catch (error) {
       // 再帰制限エラーの場合
       if (error instanceof Error && 'lc_error_code' in error) {

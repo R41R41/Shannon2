@@ -18,7 +18,7 @@ class AttackEntity extends InstantSkill {
     super(bot);
     this.skillName = 'attack-entity';
     this.description =
-      '指定したエンティティを攻撃し、オプションでドロップアイテムを収集します。';
+      '近くにいる指定したエンティティに近づいて攻撃し、オプションでドロップアイテムを収集します。';
     this.params = [
       {
         name: 'entityName',
@@ -38,7 +38,7 @@ class AttackEntity extends InstantSkill {
         name: 'targetAmount',
         type: 'number',
         description:
-          '収集するドロップアイテムの目標数量。collectDropItemがnullでない場合に使用します。',
+          '収集するドロップアイテムの目標数量。collectDropItemがnullの場合は必ず0を指定してください。',
         default: 1,
       },
     ];
@@ -137,6 +137,7 @@ class AttackEntity extends InstantSkill {
       let collectedTotal = 0;
       let attempts = 0;
       const maxAttempts = 30; // 安全のため最大試行回数を設定
+      this.status = true;
       while (
         collectedTotal < targetAmount &&
         attempts < maxAttempts &&
@@ -148,7 +149,11 @@ class AttackEntity extends InstantSkill {
           `試行回数:${attempts} 収集したアイテム数:${collectedTotal}`
         );
         const attackResult = await this.attackSingleEntity(entityName);
-        if (!attackResult.success) continue;
+        if (!attackResult.success) {
+          attempts++;
+          console.log(attackResult.result);
+          continue;
+        }
         // アイテムがドロップするまで待機
         await new Promise((resolve) => setTimeout(resolve, 1000));
         // 指定されたドロップアイテムを収集
@@ -506,23 +511,35 @@ class AttackEntity extends InstantSkill {
     await this.bot.lookAt(entity.position.offset(0, entity.height * 0.85, 0));
     if (distance > approachDistance) {
       console.log('エンティティに近づきます　現在の距離:', distance);
-      await this.bot.utils.goalDistanceEntity.run(entityId, attackDistance);
+      const result = await this.bot.utils.goalDistanceEntity.run(
+        entityId,
+        attackDistance
+      );
+      if (!result.success) {
+        return;
+      }
       const newDistance = this.bot.entity.position.distanceTo(entity.position);
       if (newDistance <= attackDistance + 0.5) {
         console.log('攻撃します');
         await this.bot.attack(entity);
       } else {
         console.log('近づきます');
-        await this.bot.utils.goalDistanceEntity.run(
+        const result = await this.bot.utils.goalDistanceEntity.run(
           entityId,
           attackDistance - 0.5
         );
+        if (!result.success) {
+          return;
+        }
         console.log('攻撃します');
         await this.bot.attack(entity);
       }
     } else if (distance <= runDistance && isHostileApproaching) {
       console.log('遠ざかります');
-      await this.bot.utils.goalDistanceEntity.run(entityId, -12);
+      const result = await this.bot.utils.goalDistanceEntity.run(entityId, -12);
+      if (!result.success) {
+        return;
+      }
     } else {
       // 適切な距離にいるか確認
       if (distance <= attackDistance + 0.5) {
@@ -530,7 +547,13 @@ class AttackEntity extends InstantSkill {
         await this.bot.attack(entity);
       } else {
         console.log('近づきます');
-        await this.bot.utils.goalDistanceEntity.run(entityId, attackDistance);
+        const result = await this.bot.utils.goalDistanceEntity.run(
+          entityId,
+          attackDistance
+        );
+        if (!result.success) {
+          return;
+        }
         console.log('攻撃します');
         await this.bot.attack(entity);
       }

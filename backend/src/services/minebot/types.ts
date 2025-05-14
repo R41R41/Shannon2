@@ -72,11 +72,13 @@ export abstract class Skill {
   description: string;
   status: boolean;
   bot: CustomBot;
+  isToolForLLM: boolean;
   constructor(bot: CustomBot) {
     this.skillName = 'skill';
     this.description = 'skill';
     this.status = true;
     this.bot = bot;
+    this.isToolForLLM = true;
   }
 }
 

@@ -5,74 +5,126 @@
     "leggings": null,
     "boots": null,
     "mainHand": {
-      "name": "dirt",
-      "count": 12
+      "name": "iron_pickaxe",
+      "count": 1
     },
     "offHand": null
   },
   "inventory": [
     {
-      "name": "coal",
-      "count": 1
-    },
-    {
-      "name": "stick",
-      "count": 62
-    },
-    {
-      "name": "iron_block",
+      "name": "dirt",
       "count": 2
     },
     {
-      "name": "iron_ingot",
-      "count": 43
-    },
-    {
-      "name": "iron_axe",
-      "count": 1
-    },
-    {
-      "name": "iron_helmet",
-      "count": 1
-    },
-    {
-      "name": "golden_chestplate",
-      "count": 1
-    },
-    {
-      "name": "bread",
-      "count": 56
-    },
-    {
-      "name": "armadillo_scute",
-      "count": 9
-    },
-    {
-      "name": "oak_log",
-      "count": 1
+      "name": "oak_sapling",
+      "count": 2
     },
     {
       "name": "egg",
-      "count": 3
+      "count": 8
     },
     {
-      "name": "diamond_axe",
+      "name": "iron_sword",
+      "count": 1
+    },
+    {
+      "name": "cobbled_deepslate",
       "count": 1
     },
     {
       "name": "arrow",
-      "count": 61
+      "count": 22
+    },
+    {
+      "name": "armadillo_scute",
+      "count": 17
+    },
+    {
+      "name": "stick",
+      "count": 4
     },
     {
       "name": "bow",
       "count": 1
     },
     {
-      "name": "dirt",
-      "count": 12
+      "name": "bone",
+      "count": 4
+    },
+    {
+      "name": "wheat_seeds",
+      "count": 6
+    },
+    {
+      "name": "stone",
+      "count": 58
+    },
+    {
+      "name": "rotten_flesh",
+      "count": 4
+    },
+    {
+      "name": "iron_helmet",
+      "count": 1
+    },
+    {
+      "name": "stone",
+      "count": 52
+    },
+    {
+      "name": "dandelion",
+      "count": 1
+    },
+    {
+      "name": "oak_planks",
+      "count": 8
+    },
+    {
+      "name": "stick",
+      "count": 64
+    },
+    {
+      "name": "crafting_table",
+      "count": 1
+    },
+    {
+      "name": "stone_pickaxe",
+      "count": 1
+    },
+    {
+      "name": "bread",
+      "count": 13
+    },
+    {
+      "name": "porkchop",
+      "count": 62
+    },
+    {
+      "name": "bread",
+      "count": 63
+    },
+    {
+      "name": "glass",
+      "count": 61
     },
     {
       "name": "iron_pickaxe",
+      "count": 1
+    },
+    {
+      "name": "iron_axe",
+      "count": 1
+    },
+    {
+      "name": "porkchop",
+      "count": 2
+    },
+    {
+      "name": "granite",
+      "count": 3
+    },
+    {
+      "name": "milk_bucket",
       "count": 1
     }
   ]

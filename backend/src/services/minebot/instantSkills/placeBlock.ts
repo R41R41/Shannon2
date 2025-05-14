@@ -22,12 +22,12 @@ class PlaceBlock extends InstantSkill {
       },
       {
         name: 'placePosition',
-        type: 'vec3',
+        type: 'Vec3',
         description: 'ブロックを置く座標',
       },
       {
         name: 'placedBlockPosition',
-        type: 'vec3',
+        type: 'Vec3',
         description:
           'ブロックを面で接するように置く先の既に置いてあるブロックの座標',
       },

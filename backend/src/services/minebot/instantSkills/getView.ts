@@ -6,13 +6,16 @@ import path from 'path';
 import fs from 'fs';
 import { exec } from 'child_process';
 import pathfinder from 'mineflayer-pathfinder';
+import express from 'express';
+import http from 'http';
 const { goals } = pathfinder;
 
 class GetView extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'get-view';
-    this.description = '指定した座標領域が映るようなbot視点の画像を取得します';
+    this.description =
+      '指定した座標領域が映るようなbot視点の画像を取得するために適切な位置に移動してスクショを撮り、画像のパスを返します。建築の進行状況や近くの状況を知る必要がある際に使用します。';
     this.params = [
       {
         name: 'startPosition',
@@ -108,17 +111,17 @@ class GetView extends InstantSkill {
       const pngName = `view_${timeStamp}.png`;
       const pngPath = path.join(saveDir, pngName);
       await headless(this.bot as any, {
-        output: mp4Path,
-        frames: 20,
+        output: pngPath,
+        frames: 1,
         width: 640,
         height: 480,
         jpegOption: undefined,
       });
-      await new Promise((resolve) => setTimeout(resolve, 8000));
+      await new Promise((resolve) => setTimeout(resolve, 20000));
       // ffmpegでmp4の最後のフレーム（n=19）をpngに変換
       await new Promise((resolve, reject) => {
         exec(
-          `ffmpeg -y -i "${mp4Path}" -vf "select=eq(n\\,19)" -vframes 1 "${pngPath}"`,
+          `ffmpeg -y -i "${mp4Path}" -vf "select=eq(n\\,110)" -vframes 1 "${pngPath}"`,
           (err, stdout, stderr) => {
             if (err) reject(err);
             else resolve(true);
@@ -127,9 +130,45 @@ class GetView extends InstantSkill {
       });
       // mp4一時ファイルを削除
       fs.unlinkSync(mp4Path);
+
+      // --- ここからファイル整理処理 ---
+      const screenshotsDir = path.join(
+        process.cwd(),
+        'saves',
+        'minecraft',
+        'screenshots'
+      );
+      // 1. mp4ファイルを全て削除
+      const files = fs.readdirSync(screenshotsDir);
+      for (const file of files) {
+        if (file.endsWith('.mp4')) {
+          try {
+            fs.unlinkSync(path.join(screenshotsDir, file));
+          } catch (e) {}
+        }
+      }
+      // 2. pngファイルが8件を超える場合は古いものから削除
+      const pngFiles = files
+        .filter((f) => f.endsWith('.png'))
+        .map((f) => ({
+          name: f,
+          time: fs.statSync(path.join(screenshotsDir, f)).mtime.getTime(),
+        }))
+        .sort((a, b) => a.time - b.time);
+      while (pngFiles.length > 8) {
+        const oldest = pngFiles.shift();
+        if (oldest) {
+          try {
+            fs.unlinkSync(path.join(screenshotsDir, oldest.name));
+          } catch (e) {}
+        }
+      }
+      // --- ファイル整理ここまで ---
+
+      // 画像ファイルのパスを返す
       return {
         success: true,
-        result: `視点画像を ${pngPath} に保存しました。`,
+        result: pngPath,
       };
     } catch (error: any) {
       return {

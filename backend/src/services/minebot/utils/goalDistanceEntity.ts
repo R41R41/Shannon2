@@ -11,7 +11,7 @@ export class GoalDistanceEntity {
   }
   async run(entityId: number, distance: number): Promise<ResponseType> {
     const entity = this.bot.entities[entityId];
-    if (!entity || !entity.position) {
+    if (!entity || !entity.position || !entity.velocity) {
       console.error('エンティティの位置情報が取得できません:', entity); // デバッグ情報を追加
       return {
         success: false,
@@ -34,6 +34,12 @@ export class GoalDistanceEntity {
     );
     try {
       console.log(entity.name, adjustedTarget.x, adjustedTarget.z);
+      if (isNaN(adjustedTarget.x) || isNaN(adjustedTarget.z)) {
+        return {
+          success: false,
+          result: 'ゴールに到達できませんでした',
+        };
+      }
       await this.bot.pathfinder.goto(
         new goals.GoalXZ(adjustedTarget.x, adjustedTarget.z)
       );
@@ -58,11 +64,34 @@ export class GoalDistanceEntity {
     const dz = entityZ - botZ;
     const vx = entitySpeedX;
     const vz = entitySpeedZ;
+    console.log(dx, dz, vx, vz);
+
+    // 速度がほぼ0なら現在位置を使う
+    if (
+      (Math.abs(vx) < 0.1 && Math.abs(vz) < 0.1) ||
+      vx === undefined ||
+      vz === undefined
+    ) {
+      // bot→entityのベクトルを計算
+      const dx = botX - entityX;
+      const dz = botZ - entityZ;
+      const len = Math.sqrt(dx * dx + dz * dz);
+
+      // 距離が0の場合は適当にX方向に逃がす
+      if (len < 0.1) {
+        return new Vec3(entityX + distance, 0, entityZ);
+      }
+
+      // 距離が正ならentityから離れる、負なら近づく
+      const ratio = distance / len;
+      return new Vec3(entityX + dx * ratio, 0, entityZ + dz * ratio);
+    }
+
     const a = botSpeed * botSpeed - (vx * vx + vz * vz);
     const b = 2 * (dx * vx + dz * vz);
     const c = dx * dx + dz * dz - distance * distance;
     const D = b * b - 4 * a * c;
-    if (D < 0 || a === 0) {
+    if (D < 0 || Math.abs(a) < 0.1) {
       // 解なし、またはa=0で解けない場合は現在のentity位置を使う
       return new Vec3(entityX, 0, entityZ);
     }
@@ -75,7 +104,7 @@ export class GoalDistanceEntity {
     const ddx = ex - botX;
     const ddz = ez - botZ;
     const len = Math.sqrt(ddx * ddx + ddz * ddz);
-    if (len === 0) {
+    if (len < 0.1 || distance < 0.1) {
       return new Vec3(botX, 0, botZ);
     }
     const ratio = distance / len;

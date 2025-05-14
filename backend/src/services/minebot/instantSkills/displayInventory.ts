@@ -7,6 +7,7 @@ class DisplayInventory extends InstantSkill {
     this.description = 'インベントリの中身を表示します。';
     this.priority = 10;
     this.params = [];
+    this.isToolForLLM = false;
   }
 
   async run() {

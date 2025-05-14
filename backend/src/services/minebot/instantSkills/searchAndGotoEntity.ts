@@ -5,46 +5,45 @@ import { Vec3 } from 'vec3';
 import minecraftData from 'minecraft-data';
 import { Bot } from 'mineflayer';
 
-class SearchAndGotoBlock extends InstantSkill {
+class SearchAndGotoEntity extends InstantSkill {
   private mcData: any;
-  private searchDistance: number;
   constructor(bot: CustomBot) {
     super(bot);
-    this.skillName = 'search-and-goto-block';
-    this.description = '指定されたブロックを探索してその位置に移動します';
+    this.skillName = 'search-and-goto-entity';
+    this.description = '指定されたエンティティを探索してその位置に移動します';
     this.status = false;
     this.mcData = minecraftData(this.bot.version);
-    this.searchDistance = 64;
     this.params = [
       {
-        name: 'blockName',
+        name: 'entityName',
         description:
-          '探索するブロックの名前。例: iron_ore, acacia_log, crafting_tableなど',
+          '探索するエンティティの名前。例: zombie, spider, creeper, R41R41(player)など',
         type: 'string',
       },
     ];
   }
 
-  async run(blockName: string) {
-    console.log('searchBlock', blockName);
+  async run(entityName: string) {
+    console.log('searchEntity', entityName);
     try {
-      const Block = this.mcData.blocksByName[blockName];
-      if (!Block) {
-        return { success: false, result: `ブロック${blockName}はありません` };
-      }
-      const Blocks = this.bot.findBlocks({
-        matching: Block.id,
-        maxDistance: this.searchDistance,
-        count: 1,
-      });
-      if (Blocks.length === 0) {
+      const Entities = this.bot.utils.getNearestEntitiesByName(
+        this.bot,
+        entityName
+      );
+      if (Entities.length === 0) {
         return {
           success: false,
-          result: `周囲${this.searchDistance}ブロック以内に${blockName}は見つかりませんでした`,
+          result: `周囲64ブロック以内に${entityName}は見つかりませんでした`,
         };
       }
 
-      const targetPos = new Vec3(Blocks[0].x, Blocks[0].y, Blocks[0].z);
+      const targetPos = new Vec3(
+        Entities[0].position.x,
+        Entities[0].position.y,
+        Entities[0].position.z
+      );
+
+      console.log('targetPos', targetPos);
 
       // 移動設定を構成
       const defaultMove = new Movements(this.bot as unknown as Bot);
@@ -61,7 +60,7 @@ class SearchAndGotoBlock extends InstantSkill {
       ) => {
         try {
           console.log(
-            `${blockName}へ到達を試みています... 残り試行回数: ${remainingAttempts}`
+            `${entityName}へ到達を試みています... 残り試行回数: ${remainingAttempts}`
           );
 
           // タイムアウト処理
@@ -81,7 +80,7 @@ class SearchAndGotoBlock extends InstantSkill {
           await Promise.race([movePromise, timeoutPromise]);
           return {
             success: true,
-            result: `${blockName}は${targetPos.x} ${targetPos.y} ${targetPos.z}にあります。`,
+            result: `${entityName}は${targetPos.x} ${targetPos.y} ${targetPos.z}にあります。`,
           };
         } catch (moveError: any) {
           console.log(`到達試行中にエラー: ${moveError.message}`);
@@ -94,7 +93,7 @@ class SearchAndGotoBlock extends InstantSkill {
           if (distance <= 3) {
             return {
               success: true,
-              result: `${blockName}は${targetPos.x} ${targetPos.y} ${
+              result: `${entityName}は${targetPos.x} ${targetPos.y} ${
                 targetPos.z
               }にあります。目標変更エラーが発生しましたが、十分に近づけました（距離: ${distance.toFixed(
                 2
@@ -112,7 +111,7 @@ class SearchAndGotoBlock extends InstantSkill {
             console.log('search-and-goto-block error:', moveError);
             return {
               success: false,
-              result: `${blockName}へ到達できませんでした。最終距離: ${distance.toFixed(
+              result: `${entityName}へ到達できませんでした。最終距離: ${distance.toFixed(
                 2
               )}ブロック`,
             };
@@ -128,4 +127,4 @@ class SearchAndGotoBlock extends InstantSkill {
   }
 }
 
-export default SearchAndGotoBlock;
+export default SearchAndGotoEntity;

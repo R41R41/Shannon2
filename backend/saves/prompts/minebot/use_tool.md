@@ -15,3 +15,4 @@ Please use a tool to response to the user's message.
 # Output Rules
 
 - You can use only one tool at this time.
+- Please specify all parameters of the tool.

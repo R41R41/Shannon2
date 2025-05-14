@@ -2,10 +2,13 @@ import { CustomBot, InstantSkill } from '../types.js';
 import { Entity } from 'prismarine-entity';
 
 export class FollowEntity extends InstantSkill {
+  private followTask: Promise<void> | null = null;
+
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'follow-entity';
-    this.description = 'エンティティを追尾します';
+    this.description =
+      'エンティティを追尾します。開始するとstopSkillで終了しない限り指定されたエンティティを追尾し続けます。ユーザーの後を追う際に使用します。単にエンティティの位置に移動するだけなら、searchAndGotoEntityを使用してください。';
     this.priority = 10;
     this.params = [
       {
@@ -20,23 +23,40 @@ export class FollowEntity extends InstantSkill {
 
   async run(entityName: string) {
     console.log('followEntity', entityName);
-    try {
-      if (entityName === null) {
-        return {
-          success: false,
-          result: 'エンティティの名前が指定されていません',
-        };
-      }
-      let entities = await this.bot.utils.getNearestEntitiesByName(
-        this.bot,
-        entityName
-      );
-      if (entities.length === 0)
-        return { success: false, result: 'エンティティが見つからない' };
-      const entity = entities[0];
+    if (entityName === null) {
+      return {
+        success: false,
+        result: 'エンティティの名前が指定されていません',
+      };
+    }
+    // すでに追尾中なら何もしない
+    if (this.status) {
+      return {
+        success: true,
+        result: 'すでに追尾中です',
+      };
+    }
+    this.status = true;
+    // 非同期で追尾ループを開始
+    this.followTask = this.followLoop(entityName);
+    return {
+      success: true,
+      result: `${entityName}の追尾を開始しました（stopSkillで停止できます）`,
+    };
+  }
 
-      this.status = true;
+  private async followLoop(entityName: string) {
+    try {
       while (this.status) {
+        let entities = await this.bot.utils.getNearestEntitiesByName(
+          this.bot,
+          entityName
+        );
+        if (entities.length === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          continue;
+        }
+        const entity = entities[0];
         this.bot.pathfinder.setGoal(null);
         this.bot.setControlState('sprint', false);
         this.bot.setControlState('forward', false);
@@ -50,9 +70,8 @@ export class FollowEntity extends InstantSkill {
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
       this.bot.pathfinder.setGoal(null);
-      return { success: true, result: 'エンティティの追尾を終了しました' };
     } catch (error: any) {
-      return { success: false, result: `${error.message} in ${error.stack}` };
+      console.error('追尾ループ中にエラー:', error);
     }
   }
 
