@@ -1,7 +1,8 @@
 import { CustomBot, InstantSkill } from '../types.js';
 import pathfinder from 'mineflayer-pathfinder';
-const { goals } = pathfinder;
+const { goals, Movements } = pathfinder;
 import minecraftData from 'minecraft-data';
+import { Bot } from 'mineflayer';
 
 class CollectBlock extends InstantSkill {
   private mcData: any;
@@ -121,14 +122,28 @@ class CollectBlock extends InstantSkill {
           (entity) => entity.name === dropItemName
         );
         if (items) {
-          await this.bot.pathfinder.goto(
-            new goals.GoalNear(
-              items.position.x,
-              items.position.y,
-              items.position.z,
-              1
-            )
+          const defaultMove = new Movements(this.bot as unknown as Bot);
+          defaultMove.canDig = true;
+          defaultMove.digCost = 1; // 掘るコストを低めに設定
+
+          // 移動設定を適用
+          this.bot.pathfinder.setMovements(defaultMove);
+          // タイムアウト処理
+          const timeout = 60000;
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('移動タイムアウト')), timeout);
+          });
+
+          // 目標への移動
+          const goal = new goals.GoalNear(
+            items.position.x,
+            items.position.y,
+            items.position.z,
+            0.5
           );
+          const movePromise = this.bot.pathfinder.goto(goal);
+
+          await Promise.race([movePromise, timeoutPromise]);
         }
         collectItems = this.bot.inventory
           .items()

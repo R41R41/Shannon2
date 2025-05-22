@@ -1,39 +1,40 @@
-import { CustomBot, InstantSkill } from '../types.js';
-import { Vec3 } from 'vec3';
-import pkg from 'prismarine-viewer';
+import {
+  CustomBot,
+  InstantSkill,
+} from "../backend/src/services/minebot/types.js";
+import { Vec3 } from "vec3";
+import pkg from "prismarine-viewer";
 const { headless } = pkg;
-import path from 'path';
-import fs from 'fs';
-import { exec } from 'child_process';
-import pathfinder from 'mineflayer-pathfinder';
-import express from 'express';
-import http from 'http';
+import path from "path";
+import fs from "fs";
+import { exec } from "child_process";
+import pathfinder from "mineflayer-pathfinder";
 const { goals } = pathfinder;
 
 class GetView extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
-    this.skillName = 'get-view';
+    this.skillName = "get-view";
     this.description =
-      '指定した座標領域が映るようなbot視点の画像を取得するために適切な位置に移動してスクショを撮り、画像のパスを返します。建築の進行状況や近くの状況を知る必要がある際に使用します。';
+      "指定した座標領域が映るようなbot視点の画像を取得するために適切な位置に移動してスクショを撮り、画像のパスを返します。建築の進行状況や近くの状況を知る必要がある際に使用します。使用後に、describe-imageを使用して画像の内容を分析してください。";
     this.params = [
       {
-        name: 'startPosition',
-        description: '観察したい座標領域の開始座標',
-        type: 'Vec3',
+        name: "startPosition",
+        description: "観察したい座標領域の開始座標",
+        type: "Vec3",
         required: true,
       },
       {
-        name: 'endPosition',
-        description: '観察したい座標領域の終了座標',
-        type: 'Vec3',
+        name: "endPosition",
+        description: "観察したい座標領域の終了座標",
+        type: "Vec3",
         required: true,
       },
       {
-        name: 'direction',
+        name: "direction",
         description:
-          'どの方角から撮影するか。例: north, south, east, west, up, down',
-        type: 'string',
+          "どの方角から撮影するか。例: north, south, east, west, up, down",
+        type: "string",
         required: false,
       },
     ];
@@ -42,8 +43,12 @@ class GetView extends InstantSkill {
   async run(
     startPosition: Vec3,
     endPosition: Vec3,
-    direction: string = 'south'
+    direction: string = "south"
   ) {
+    // 元の位置・視点を保存
+    const originalPos = this.bot.entity.position.clone();
+    const originalYaw = this.bot.entity.yaw;
+    const originalPitch = this.bot.entity.pitch;
     try {
       // 中心座標を計算
       const centerX = (startPosition.x + endPosition.x) / 2;
@@ -61,22 +66,22 @@ class GetView extends InstantSkill {
       // 方角ごとにbotの目標座標を計算
       let targetPos: Vec3;
       switch (direction) {
-        case 'north':
+        case "north":
           targetPos = new Vec3(centerX, centerY, centerZ - distance);
           break;
-        case 'south':
+        case "south":
           targetPos = new Vec3(centerX, centerY, centerZ + distance);
           break;
-        case 'east':
+        case "east":
           targetPos = new Vec3(centerX + distance, centerY, centerZ);
           break;
-        case 'west':
+        case "west":
           targetPos = new Vec3(centerX - distance, centerY, centerZ);
           break;
-        case 'up':
+        case "up":
           targetPos = new Vec3(centerX, centerY + distance, centerZ);
           break;
-        case 'down':
+        case "down":
           targetPos = new Vec3(centerX, centerY - distance, centerZ);
           break;
         default:
@@ -96,12 +101,12 @@ class GetView extends InstantSkill {
       await this.bot.lookAt(viewCenter);
 
       // 保存ファイル名を生成
-      const timeStamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const timeStamp = new Date().toISOString().replace(/[:.]/g, "-");
       const saveDir = path.join(
         process.cwd(),
-        'saves',
-        'minecraft',
-        'screenshots'
+        "saves",
+        "minecraft",
+        "screenshots"
       );
       if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true });
 
@@ -111,8 +116,8 @@ class GetView extends InstantSkill {
       const pngName = `view_${timeStamp}.png`;
       const pngPath = path.join(saveDir, pngName);
       await headless(this.bot as any, {
-        output: pngPath,
-        frames: 1,
+        output: mp4Path,
+        frames: 60,
         width: 640,
         height: 480,
         jpegOption: undefined,
@@ -121,7 +126,7 @@ class GetView extends InstantSkill {
       // ffmpegでmp4の最後のフレーム（n=19）をpngに変換
       await new Promise((resolve, reject) => {
         exec(
-          `ffmpeg -y -i "${mp4Path}" -vf "select=eq(n\\,110)" -vframes 1 "${pngPath}"`,
+          `ffmpeg -y -i "${mp4Path}" -vf "select=eq(n\\,59)" -vframes 1 "${pngPath}"`,
           (err, stdout, stderr) => {
             if (err) reject(err);
             else resolve(true);
@@ -134,14 +139,14 @@ class GetView extends InstantSkill {
       // --- ここからファイル整理処理 ---
       const screenshotsDir = path.join(
         process.cwd(),
-        'saves',
-        'minecraft',
-        'screenshots'
+        "saves",
+        "minecraft",
+        "screenshots"
       );
       // 1. mp4ファイルを全て削除
       const files = fs.readdirSync(screenshotsDir);
       for (const file of files) {
-        if (file.endsWith('.mp4')) {
+        if (file.endsWith(".mp4")) {
           try {
             fs.unlinkSync(path.join(screenshotsDir, file));
           } catch (e) {}
@@ -149,7 +154,7 @@ class GetView extends InstantSkill {
       }
       // 2. pngファイルが8件を超える場合は古いものから削除
       const pngFiles = files
-        .filter((f) => f.endsWith('.png'))
+        .filter((f) => f.endsWith(".png"))
         .map((f) => ({
           name: f,
           time: fs.statSync(path.join(screenshotsDir, f)).mtime.getTime(),
@@ -175,6 +180,11 @@ class GetView extends InstantSkill {
         success: false,
         result: `視点画像の取得中にエラーが発生しました: ${error.message}`,
       };
+    } finally {
+      // スキル終了時に元の位置・視点に戻す
+      this.bot.entity.position = originalPos;
+      this.bot.entity.yaw = originalYaw;
+      this.bot.entity.pitch = originalPitch;
     }
   }
 }

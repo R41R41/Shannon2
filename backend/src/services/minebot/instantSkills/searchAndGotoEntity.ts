@@ -10,7 +10,8 @@ class SearchAndGotoEntity extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'search-and-goto-entity';
-    this.description = '指定されたエンティティを探索してその位置に移動します';
+    this.description =
+      '指定されたエンティティを探索してその位置に移動します。プレイヤーの場合は、プレイヤーの元に向かう際などに使います。';
     this.status = false;
     this.mcData = minecraftData(this.bot.version);
     this.params = [

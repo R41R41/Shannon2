@@ -6,9 +6,10 @@ export interface TaskStateInput {
   environmentState?: string | null;
   selfState?: string | null;
   humanFeedback?: string | null;
-  selfFeedback?: string | null;
   taskTree?: TaskTreeState | null;
   messages?: BaseMessage[];
   responseMessage?: string | null;
   userMessage?: string | null;
+  humanFeedbackPending?: boolean;
+  forceStop?: boolean;
 }

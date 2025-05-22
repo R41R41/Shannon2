@@ -7,7 +7,7 @@ class AutoSwim extends ConstantSkill {
   private distance: number;
   constructor(bot: CustomBot) {
     super(bot);
-    this.skillName = 'autoSwim';
+    this.skillName = 'auto-swim';
     this.description = '自動で泳ぐ';
     this.interval = 1000;
     this.distance = 24;

@@ -10,8 +10,7 @@ import {
   InstantSkills,
   ResponseType,
 } from './types.js';
-import { TaskGraph } from './llm/graph/taskGraph.js';
-
+import { CentralAgent } from './llm/graph/centralAgent.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -20,14 +19,14 @@ export class SkillAgent {
   private constantSkillDir: string;
   private bot: CustomBot;
   private eventBus: EventBus;
-  private taskGraph: TaskGraph;
+  private centralAgent: CentralAgent;
   private recentMessages: BaseMessage[] = [];
   constructor(bot: CustomBot, eventBus: EventBus) {
     this.bot = bot;
     this.eventBus = eventBus;
     this.instantSkillDir = join(__dirname, 'instantSkills');
     this.constantSkillDir = join(__dirname, 'constantSkills');
-    this.taskGraph = TaskGraph.getInstance(this.bot);
+    this.centralAgent = CentralAgent.getInstance(this.bot);
     this.recentMessages = [];
   }
 
@@ -131,7 +130,7 @@ export class SkillAgent {
           if (skill.status && !skill.isLocked) {
             try {
               await skill.run();
-            } catch (error) {
+            } catch (error: any) {
               this.eventBus.log(
                 'minecraft',
                 'red',
@@ -392,13 +391,16 @@ export class SkillAgent {
         );
         return;
       }
+      if (!message.startsWith('シャノン、')) {
+        return;
+      }
       const sender = this.bot.players[username]?.entity;
       const environmentState = {
         senderName: username,
-        senderPosition: sender.position.toString(),
+        senderPosition: sender ? sender.position.toString() : 'spectator mode',
       };
       const selfState = {
-        botPosition: this.bot.entity.position.toString(),
+        botPosition: this.bot.entity.position.toString() || 'null',
         botHealth: `${this.bot.health}/20`,
         botFoodLevel: `${this.bot.food}/20`,
       };
@@ -420,7 +422,8 @@ export class SkillAgent {
   async entitySpawn() {
     console.log(`\x1b[32m✓ entitySpawn\x1b[0m`);
     this.bot.on('entitySpawn', async (entity) => {
-      const autoPickUpItem = this.bot.constantSkills.getSkill('autoPickUpItem');
+      const autoPickUpItem =
+        this.bot.constantSkills.getSkill('auto-pick-up-item');
       if (!autoPickUpItem) {
         this.bot.chat('autoPickUpItemは存在しません');
         return;
@@ -446,7 +449,7 @@ export class SkillAgent {
   async health() {
     console.log(`\x1b[32m✓ health\x1b[0m`);
     this.bot.on('health', async () => {
-      const autoEat = this.bot.constantSkills.getSkill('autoEat');
+      const autoEat = this.bot.constantSkills.getSkill('auto-eat');
       if (!autoEat) {
         this.bot.chat('autoEatは存在しません');
         return;
@@ -462,10 +465,10 @@ export class SkillAgent {
   }
 
   private async processMessage(
-    userName?: string | null,
-    message?: string | null,
-    environmentState?: string | null,
-    selfState?: string | null
+    userName: string,
+    message: string,
+    environmentState?: string,
+    selfState?: string
   ) {
     try {
       const currentTime = new Date().toLocaleString('ja-JP', {
@@ -473,12 +476,12 @@ export class SkillAgent {
       });
       const newMessage = `${currentTime} ${userName}: ${message}`;
       this.recentMessages.push(new HumanMessage(newMessage));
-      await this.taskGraph.invoke({
-        environmentState: environmentState || null,
-        selfState: selfState || null,
-        messages: this.recentMessages,
-        userMessage: newMessage,
-      });
+      await this.centralAgent.handlePlayerMessage(
+        userName,
+        message,
+        environmentState,
+        selfState
+      );
     } catch (error) {
       console.error(`\x1b[31mLLM処理エラー:${error}\n\x1b[0m`);
       throw error;
@@ -491,13 +494,13 @@ export class SkillAgent {
       if (!initSkillsResponse.success) {
         return { success: false, result: initSkillsResponse.result };
       }
-      await this.setInterval();
-      await this.registerPost();
       await this.botOnChat();
       await this.entitySpawn();
       await this.entityHurt();
       await this.health();
-      await this.taskGraph.initializeTools();
+      await this.setInterval();
+      await this.registerPost();
+      await this.centralAgent.initialize();
       return { success: true, result: 'agent started' };
     } catch (error) {
       console.log(`error: ${error}`);

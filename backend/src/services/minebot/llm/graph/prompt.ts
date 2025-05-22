@@ -89,11 +89,6 @@ export class Prompt {
             `humanFeedback: ${JSON.stringify(state.humanFeedback)}`
           )
         : null,
-      state.selfFeedback
-        ? new SystemMessage(
-            `selfFeedback: ${JSON.stringify(state.selfFeedback)}`
-          )
-        : null,
       isToolInfo ? new SystemMessage(toolInfoMessage) : null,
       new SystemMessage(`the actionLog is as follows.`),
       ...(state.messages?.slice(-8) ?? []),

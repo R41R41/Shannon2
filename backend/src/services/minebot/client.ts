@@ -13,7 +13,7 @@ import { plugin as projectile } from 'mineflayer-projectile';
 import { plugin as pvp } from 'mineflayer-pvp';
 import { plugin as toolPlugin } from 'mineflayer-tool';
 import { plugin as cmd } from 'mineflayer-cmd';
-import minecraftHawkEye from 'minecrafthawkeye';
+import pkg from 'minecrafthawkeye';
 import { SkillAgent } from './skillAgent.js';
 import { ConstantSkills, CustomBot, InstantSkills } from './types.js';
 import { Utils } from './utils/index.js';
@@ -33,7 +33,7 @@ if (
 const ports = {
   '1.21.4-test': 25566,
   '1.19.0-youtube': 25564,
-  '1.21.4-play': 25567,
+  '1.21.1-play': 25565,
 };
 
 export class MinebotClient extends BaseClient {
@@ -67,6 +67,8 @@ export class MinebotClient extends BaseClient {
     const port = ports[serverName as keyof typeof ports];
     const version = serverName?.split('-')[0];
 
+    console.log(`${port} ${version}に接続します`);
+
     this.bot = mineflayer.createBot({
       host: '127.0.0.1',
       port,
@@ -84,6 +86,8 @@ export class MinebotClient extends BaseClient {
     this.bot.loadPlugin(toolPlugin);
     cmd.allowConsoleInput = true;
     this.bot.loadPlugin(cmd);
+    console.log(pkg);
+    const minecraftHawkEye = pkg.default;
     try {
       this.bot.loadPlugin(minecraftHawkEye);
     } catch (error) {

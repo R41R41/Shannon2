@@ -31,19 +31,22 @@ class ShootAnArrow extends InstantSkill {
 
   async getNearestEntity(
     entityName: string,
-    coordinate: Vec3,
+    coordinate: Vec3 | null,
     distance: number
   ) {
     const entities = Object.values(this.bot.entities).filter((entity) => {
-      return (
-        entity.name === entityName &&
-        entity.position.distanceTo(coordinate) <= distance
-      );
+      if (entity.name !== entityName) return false;
+      if (coordinate && entity.position.distanceTo(coordinate) > distance)
+        return false;
+      return true;
     });
     if (entities.length === 0) return null;
     const sortedEntities = entities
       .map((entity) => {
-        const dist = entity.position.distanceTo(coordinate);
+        // coordinateがnullならbotの位置との距離でソート
+        const dist = coordinate
+          ? entity.position.distanceTo(coordinate)
+          : entity.position.distanceTo(this.bot.entity.position);
         return { entity, distance: dist };
       })
       .sort((a, b) => a.distance - b.distance);
@@ -103,6 +106,12 @@ class ShootAnArrow extends InstantSkill {
           };
         }
         await this.holdItem.run('bow', false);
+        if (!this.bot.hawkEye) {
+          return {
+            success: false,
+            result: `hawkEyeが有効になっていません`,
+          };
+        }
         await this.shootWithHawkEye(entities[0]);
         return {
           success: true,

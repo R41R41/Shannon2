@@ -8,21 +8,31 @@ class GetBlocksData extends InstantSkill {
     super(bot);
     this.skillName = 'get-blocks-data';
     this.description =
-      '特定の座標領域のブロックのデータを取得します。ただし、ブロックの数が500個以上ある場合はエラーが出ます。';
+      '周囲のブロックのデータを取得します。座標領域やブロックの名前を指定することもできます。ただし、ブロックの数が500個以上ある場合はエラーが出ます。';
     this.priority = 100;
     this.canUseByCommand = false;
     this.params = [
       {
         name: 'startPosition',
-        description: '取得する開始座標',
+        description:
+          '取得する開始座標。これを指定する際はblockNameはnullで指定してください。',
         type: 'Vec3',
         required: false,
         default: null,
       },
       {
         name: 'endPosition',
-        description: '取得する終了座標',
+        description:
+          '取得する終了座標。これを指定する際はblockNameはnullで指定してください。',
         type: 'Vec3',
+        required: false,
+        default: null,
+      },
+      {
+        name: 'blockName',
+        description:
+          '取得するブロックの名前。これを指定する際はstartPositionとendPositionはnullで指定してください。',
+        type: 'string',
         required: false,
         default: null,
       },
@@ -31,24 +41,37 @@ class GetBlocksData extends InstantSkill {
 
   async run(
     startPosition: Vec3 | null = null,
-    endPosition: Vec3 | null = null
+    endPosition: Vec3 | null = null,
+    blockName: string | null = null
   ) {
     // ブロックデータの収集開始
     try {
       const botPosition = this.bot.entity.position;
+
+      // パラメータの検証
+      if (!startPosition && !endPosition && !blockName) {
+        return {
+          success: false,
+          result:
+            'startPositionとendPositionの両方がnullの場合は、blockNameを指定する必要があります。',
+        };
+      }
+
+      // 範囲が指定されていない場合、ボットの周囲64ブロック四方を検索範囲とする
+      const searchRange = 32; // 片側32ブロックで合計64ブロック四方
       const start =
         startPosition ||
         new Vec3(
-          Math.floor(botPosition.x) - 5,
-          Math.floor(botPosition.y) - 3,
-          Math.floor(botPosition.z) - 5
+          Math.floor(botPosition.x) - (blockName ? searchRange : 5),
+          Math.floor(botPosition.y) - (blockName ? searchRange : 3),
+          Math.floor(botPosition.z) - (blockName ? searchRange : 5)
         );
       const end =
         endPosition ||
         new Vec3(
-          Math.floor(botPosition.x) + 5,
-          Math.floor(botPosition.y) + 5,
-          Math.floor(botPosition.z) + 5
+          Math.floor(botPosition.x) + (blockName ? searchRange : 5),
+          Math.floor(botPosition.y) + (blockName ? searchRange : 5),
+          Math.floor(botPosition.z) + (blockName ? searchRange : 5)
         );
 
       const blocksInfo = [];
@@ -60,6 +83,11 @@ class GetBlocksData extends InstantSkill {
             const block = this.bot.blockAt(position);
 
             if (block && block.name !== 'air') {
+              // blockNameが指定されている場合、一致するブロックのみを追加
+              if (blockName && block.name !== blockName) {
+                continue;
+              }
+
               // ブロックの詳細プロパティを取得
               const blockProperties = {
                 name: block.name,
@@ -85,6 +113,16 @@ class GetBlocksData extends InstantSkill {
             'ブロックの数が500個以上あるため表示できません。もっと領域を絞ってください。',
         };
       }
+
+      if (blocksInfo.length === 0) {
+        return {
+          success: true,
+          result: blockName
+            ? `指定された名前「${blockName}」のブロックは見つかりませんでした。`
+            : '指定された範囲内にブロックが見つかりませんでした。',
+        };
+      }
+
       // JSON形式でファイルに保存
       const filePath = path.join(
         process.cwd(),

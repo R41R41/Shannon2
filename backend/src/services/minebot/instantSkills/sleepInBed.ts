@@ -8,8 +8,16 @@ class SleepInBed extends InstantSkill {
     super(bot);
     this.skillName = 'sleep-in-bed';
     this.description =
-      'ベッドで眠ります。ベッドがない場合はベッドを設置して眠ります。';
+      'ベッドで眠ります。ベッドがない場合はベッドを設置して眠ります。wakeUpをtrueにするとベッドから起きます。';
     this.status = false;
+    this.params = [
+      {
+        name: 'wakeUp',
+        type: 'boolean',
+        description: 'trueの場合、ベッドから起きます',
+        default: false,
+      },
+    ];
   }
 
   // ベッドを設置できる場所を探す
@@ -68,8 +76,19 @@ class SleepInBed extends InstantSkill {
     return null;
   }
 
-  async run() {
+  async run(wakeUp?: boolean) {
     try {
+      // ベッドから起きる場合
+      if (wakeUp) {
+        if (this.bot.isSleeping) {
+          await this.bot.wake();
+          return { success: true, result: 'ベッドから起きました' };
+        } else {
+          return { success: false, result: '現在寝ていません' };
+        }
+      }
+
+      // ベッドで寝る場合（以降は既存のコード）
       // まず近くにベッドがあるか探す
       const bed = this.bot.findBlock({
         matching: this.bot.isABed,

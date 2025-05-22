@@ -27,34 +27,25 @@ LLM:
   ☐ 再開する
   ☐ 終了する
   ☐ フィードバック入力
-  ☐ centralAgentの作成
   
 Minebot:
-  ☐ Minecraft bot の統合 @high
-  ☐ ささやく @high
-  ☐ chat
-  ☐ attack
-  ☐ auto_attack
-  ☐ autoPickUpItem
-  ☐ autoRunFromHostile
-  ☐ 環境状態を LLM に読ませる @high
-    ☐ 常時：座標、HP、空腹度、インベントリ
-    ☐ 検索：バイオーム、周囲ブロック、周囲エンティティ、画面
-  ☐ 最新バージョンで動作
+  ☐ ケーキを作るための材料を集めてクラフトして
+  ☐ ネザー要塞を探す
+  ☐ フグを釣りで集める、進捗「生臭い仕事」
+  ☐ ポーションを作る、進捗「町のお薬屋さん」
+  ☐ 泳いで移動
   ☐ minebotは別screenで動かす。LLMも別。起動と停止だけできるようにする。 @high
-    
+
 その他:
   ☐ 自発性 => CentralAgent
 
 Minecraft入力用mod:
   ☐ プロトタイプをホットリロードできる環境作る @high @today
-  ☐ チャット入出力
-  ☐ 音声会話
+  ☐ 画像取得
   ☐ アイコンと体力・空腹度
-  ☐ 開くとタブが3つと実行中タスク
-    ☐ チャット欄
-    ☐ スキル一覧（constant、instant）
-    ☐ インベントリ
+  ☐ チャット欄
+  ☐ スキル一覧（constant、instant）
+  ☐ インベントリ
 
 各serviceのeventBus:
   web:
@@ -137,55 +128,25 @@ wsを追加したときにやること:
   - ログの確認 sudo tail -f /var/log/nginx/error.log
 
 Archive:
-  ✔ 「今日は何の日？」のバグ修正 @high @done(25-03-11 15:47) @project(バグ)
-  ✔ 天気予報のバグ修正 @high @done(25-03-11 15:35) @project(バグ)
-  ✔ 12星座占いのバグ修正 @high @done(25-03-11 13:54) @project(バグ)
-  ✔ 登録者数をdiscordに表示 @high @today @done(25-03-11 13:48) @project(Youtube)
-  ✔ 上海の天気取得できない問題の解消 @high @done(25-03-02 21:03) @project(LLM)
-  ✔ 天気予報の曜日間違える問題の解消 @high @done(25-03-02 20:48) @project(LLM)
-  ✔ 自動チャットで末尾にby Shannonを追加 @high @today @done(25-02-23 19:03) @project(Youtube)
-  ✔ testの時は定時ツイートは送らない @high @today @done(25-02-23 18:13) @project(Twitter)
-  ✔ "アットマーク"を読めるようにして誰宛かを判断する @high @today @done(25-02-23 18:10) @project(discord)
-  ✔ gmail認証 @critical(25-02-20 16:01) @done(25-02-21 13:53) @project(Web)
-  ✔ 画像認識ツールの作成 @today(25-02-20 16:01) @done(25-02-21 12:14) @project(LLM)
-  ✔ 画像添付 @today(25-02-20 16:01) @done(25-02-21 12:14) @project(discord)
-  ✔ スキルの表示 @today(25-02-20 16:01) @high(25-02-20 16:01) @done(25-02-21 10:34) @project(Web)
-  ✔ postAboutTodayとpostWeatherAgentをTaskGraphと別にする @today(25-02-20 16:01) @high(25-02-20 16:01) @done(25-02-20 22:40) @project(LLM)
-  ✔ 計算スキル @today(25-02-19 16:54) @done(25-02-20 21:28) @project(LLM)
-  ✔ ShannonUIにチャットスキル @today(25-02-17 16:54) @done(25-02-20 16:01) @project(LLM)
-  ✔ discordに顔文字スキル @today(25-02-08) @done(25-02-20 15:22) @project(LLM)
-  ✔ 感情状態の表示 @today(25-02-19 15:46) @done(25-02-20 09:06) @project(Web)
-  ✔ taskTreeをwebに表示する @today(25-02-19 15:46) @done(25-02-20 06:29) @project(LLM)
-  ✔ 何かのレスポンスを待つeventBus.subscribe @today(25-02-17 16:54) @done(25-02-19 15:46) @project(LLM)
-  ✔ 指定時間だけ一時停止する、指定時刻まで一時停止するtool @today(25-02-17 16:54) @done(25-02-19 15:46) @project(LLM)
-  ✔ callModelの出力をjsonで必要最小限に @today(25-02-08) @done(25-02-17 16:54) @project(LLM)
-  ✔ 人間からのアドバイスstate @done(25-02-17 16:54) @project(LLM)
-  ✔ discordに投稿スキル @today(25-02-08) @done(25-02-17 16:53) @project(LLM)
-  ✔ minebot 起動・停止・状態 @done(25-02-14 05:00) @project(Web)
-  ✔ 感情状態 @done(25-02-09 04:46) @project(その他)
-  ✔ 与えるプロンプトを必要最小限に @today(25-02-08) @done(25-02-09 04:45) @project(LLM)
-  ✔ minecraft 起動・停止・状態 @done(25-02-08 08:09) @project(Web)
-  ✔ 返信の一時的廃止 @done(25-02-07 20:29) @project(Twitter)
-  ✔ 状態確認・起動・停止 @done(25-02-08 07:57) @project(Minecraft)
-  ✔ ステータスの更新ノード、必要ならプランの更新、今までのプランを読み込ませる @done(25-02-06 11:53) @project(LLM)
-  ✔ 話しかけられているか判定ノード @high(25-02-03 20:40) @done(25-02-05 20:39) @project(LLM)
-  ✔ channelログをllmに渡す @high(25-02-04 21:10) @done(25-02-05 20:24) @project(discord)
-  ✔ web を https ＋ドメインで公開 @critical(25-02-03 20:40) @done(25-02-05 03:55) @project(その他)
-  ✔ Youtube 自動返信*1 @done(25-02-04 21:10) @project(Youtube)
-  ✔ 1 コメントにつき 1 返信*1 @done(25-02-04 21:10) @project(Youtube)
-  ✔ twitter の定時ツイートが表示される*1 @done(25-02-03 20:37) @project(discord)
-  ✔ 定時ツイートが分かりやすい @done(25-02-03 20:37) @project(Twitter)
-  ✔ 特定チャンネルだけで会話できる*1 @done(25-02-03 20:12) @project(discord)
-  ✔ テスト体制の整備 @done(25-02-03 12:08) @project(その他)
-  ✔ discord bot 起動・停止・状態*1 @started(25-02-03 11:25) @done(25-02-03 12:02) @lasted(37m40s) @project(Web)
-  ✔ ログインできる @done(25-02-03 09:15) @project(Web)
-  ✔ text 会話ができる @done(25-02-03 09:15) @project(Web)
-  ✔ realtime text 会話ができる @done(25-02-03 09:15) @project(Web)
-  ✔ realtime audio 会話ができる @done(25-02-03 09:15) @project(Web)
-  ✔ vad モードで realtime audio 会話ができる @done(25-02-03 09:15) @project(Web)
-  ✔ ログが分かりやすく見れる @done(25-02-03 09:15) @project(Web)
-  ✔ ログの検索ができる @done(25-02-03 09:15) @project(Web)
-  ✔ Twitter 定時投稿 @done(25-02-03 09:15) @project(Web)
-  ✔ Twitter bot 起動・停止・状態*1 @done(25-02-03 11:25) @project(Web)
-  ✔ text 会話ができる @done(25-02-03 09:16) @project(discord)
-  ✔ 定時ツイートがされる @done(25-02-03 09:16) @project(Twitter)
+  ✔ 人と交易、進捗「いい取引だ！」 @done(25-05-22 01:55) @project(Minebot)
+  ✔ ネザーに入る、進捗「さらなる深みへ」 @done(25-05-22 01:55) @project(Minebot)
+  ✔ モブから食料を集める @done(25-05-21 22:17) @project(Minebot)
+  ✔ ダイヤを集める @done(25-05-21 22:17) @project(Minebot)
+  ✔ ネザーゲートを建てる @done(25-05-21 22:17) @project(Minebot)
+  ✔ シャノン、ネザーゲートに着火して @done(25-05-21 22:17) @project(Minebot)
+  ✔ シャノン、一旦やめて @done(25-05-21 22:17) @project(Minebot)
+  ✔ centralAgentの作成 @done(25-05-20 19:44) @project(LLM)
+  ✔ 実行結果の状態 @done(25-05-20 19:18) @project(Minebot)
+  ✔ centralGraphの作成 @done(25-05-20 19:18) @project(Minebot)
+  ✔ getBluePrintList @done(25-05-19 20:22) @project(Minebot)
+  ✔ createBluePrint @done(25-05-19 20:22) @project(Minebot)
+  ✔ 環境状態を LLM に読ませる @high @done(25-05-18 23:23) @project(Minebot)
+  ✔ 常時：座標、HP、空腹度、インベントリ @done(25-05-18 23:23) @project(Minebot)
+  ✔ 検索：バイオーム、周囲ブロック、周囲エンティティ、画面 @done(25-05-18 23:23) @project(Minebot)
+  ✔ auto_attack @done(25-05-18 23:23) @project(Minebot)
+  ✔ 夜になったら寝るようにして @done(25-05-18 23:22) @project(Minebot)
+  ✔ 常時スキルのオンオフ @done(25-05-18 22:13) @project(Minebot)
+  ✔ そのチェストの中身を教えて @done(25-05-18 19:25) @project(Minebot)
+  ✔ 近くのチェストからあなたが欲しいものを取り出して @done(25-05-18 19:25) @project(Minebot)
+  ✔ 近くのゾンビに矢を撃って @done(25-05-18 16:20) @project(Minebot)
+  ✔ 今いるバイオームは？ @done(25-05-18 15:23) @project(Minebot)

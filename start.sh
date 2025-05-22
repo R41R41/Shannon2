@@ -18,9 +18,9 @@ fi
 # バックエンドを起動
 cd backend
 if [ "$IS_TEST" = true ]; then
-    screen -dmS $BACKEND_SESSION bash -c 'xvfb-run -s "-ac -screen 0 1280x1024x24" npm run dev:test'
+    screen -dmS $BACKEND_SESSION bash -c 'xvfb-run -a -s "-ac -screen 0 1280x1024x24" npm run dev:test'
 else
-    screen -dmS $BACKEND_SESSION bash -c 'xvfb-run -s "-ac -screen 0 1280x1024x24" npm run dev'
+    screen -dmS $BACKEND_SESSION bash -c 'xvfb-run -a -s "-ac -screen 0 1280x1024x24" npm run dev'
 fi
 echo "Backend started in screen session: $BACKEND_SESSION"
 

@@ -8,7 +8,7 @@ export class FollowEntity extends InstantSkill {
     super(bot);
     this.skillName = 'follow-entity';
     this.description =
-      'エンティティを追尾します。開始するとstopSkillで終了しない限り指定されたエンティティを追尾し続けます。ユーザーの後を追う際に使用します。単にエンティティの位置に移動するだけなら、searchAndGotoEntityを使用してください。';
+      'エンティティを追尾します。開始するとstopSkillで終了しない限り指定されたエンティティを追尾し続けます。ユーザーの後を追う際に使用します。単にユーザーやエンティティの位置に移動するだけなら、searchAndGotoEntityを使用してください。';
     this.priority = 10;
     this.params = [
       {

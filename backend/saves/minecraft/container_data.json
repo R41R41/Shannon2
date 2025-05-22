@@ -1,0 +1,40 @@
+{
+  "type": "chest",
+  "position": {
+    "x": -12,
+    "y": 80,
+    "z": 161
+  },
+  "items": [
+    {
+      "name": "granite",
+      "count": 3,
+      "displayName": "Granite",
+      "slot": 0
+    },
+    {
+      "name": "egg",
+      "count": 8,
+      "displayName": "Egg",
+      "slot": 1
+    },
+    {
+      "name": "cobbled_deepslate",
+      "count": 1,
+      "displayName": "Cobbled Deepslate",
+      "slot": 2
+    },
+    {
+      "name": "flint",
+      "count": 62,
+      "displayName": "Flint",
+      "slot": 3
+    },
+    {
+      "name": "cake",
+      "count": 1,
+      "displayName": "Cake",
+      "slot": 4
+    }
+  ]
+}

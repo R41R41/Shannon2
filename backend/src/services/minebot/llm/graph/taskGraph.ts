@@ -108,25 +108,54 @@ class InstantSkillTool extends StructuredTool {
   }
 }
 
+// forceStop/humanFeedbackPending監視用Promise
+function waitForStop(state: any) {
+  return new Promise((_, reject) => {
+    // 最大待機時間（ミリ秒）
+    const maxWaitTime = 10000; // 10秒
+    let elapsedTime = 0;
+
+    const interval = setInterval(() => {
+      // 強制停止または人間フィードバック要求の場合
+      if (state.forceStop || state.humanFeedbackPending) {
+        clearInterval(interval);
+        console.log('waitForStop', state.forceStop, state.humanFeedbackPending);
+        reject(new Error('強制終了または人間フィードバック要求で中断'));
+        return;
+      }
+
+      // 経過時間を増加
+      elapsedTime += 100;
+
+      // 最大待機時間を超えた場合
+      if (elapsedTime >= maxWaitTime) {
+        clearInterval(interval);
+        reject(new Error('waitForStop関数がタイムアウトしました'));
+      }
+    }, 100);
+  });
+}
+
 export class TaskGraph {
   private static instance: TaskGraph;
   private largeModel: ChatOpenAI | null = null;
   private mediumModel: ChatOpenAI | null = null;
   private smallModel: ChatOpenAI | null = null;
   private tools: any[] = [];
-  private toolNode: ToolNode;
+  private toolNodeInstance: ToolNode;
   private graph: any;
   private eventBus: EventBus;
   private prompt: Prompt;
   private isRunning: boolean = true;
   private waitSeconds: number | null = null;
   private bot: CustomBot;
+  public currentState: any = null;
   constructor(bot: CustomBot) {
     this.bot = bot;
     this.eventBus = getEventBus();
     this.initializeModel();
     this.initializeTools();
-    this.toolNode = new ToolNode(this.tools);
+    this.toolNodeInstance = new ToolNode(this.tools);
     this.graph = this.createGraph();
     this.initializeEventBus();
     this.prompt = new Prompt(this.tools);
@@ -244,11 +273,28 @@ export class TaskGraph {
       tool_choice: 'any',
     });
     try {
-      const response = await forcedToolLLM.invoke(messages);
-      console.log('toolAgentNode response:', response);
-      return {
-        messages: [response],
-      };
+      // 中断条件をチェックしてから処理を開始
+      if (state.forceStop || state.humanFeedbackPending) {
+        console.log('toolAgentNode: 既に中断条件が満たされています');
+        throw new Error('強制終了または人間フィードバック要求で中断');
+      }
+
+      const result = await Promise.race([
+        forcedToolLLM.invoke(messages),
+        waitForStop(state),
+      ]);
+      if (state.forceStop) {
+        // 強制終了フラグが立っていたら何も返さず終了
+        return {
+          taskTree: {
+            status: 'error',
+            goal: '強制終了されました',
+            strategy: '',
+            subTasks: null,
+          },
+        };
+      }
+      return { messages: [result] };
     } catch (error) {
       console.error('toolAgentNode error:', error);
       return this.errorHandler(state, error as Error);
@@ -256,10 +302,24 @@ export class TaskGraph {
   };
 
   private planningNode = async (state: typeof this.TaskState.State) => {
-    console.log('planning', state.messages);
+    // humanFeedbackPendingをリセット
+    const hadFeedback = state.humanFeedbackPending;
+    this.currentState.humanFeedbackPending = false;
+    state.humanFeedbackPending = false;
+    state.humanFeedback = this.currentState.humanFeedback;
+
     if (!this.mediumModel) {
       throw new Error('Medium model not initialized');
     }
+
+    // 人間フィードバックがあった場合はメッセージに追加
+    if (hadFeedback && state.humanFeedback) {
+      console.log(
+        'planningNode: 人間フィードバックを処理します:',
+        state.humanFeedback
+      );
+    }
+
     const PlanningSchema = z.object({
       status: z.enum(['pending', 'in_progress', 'completed', 'error']),
       goal: z.string(),
@@ -275,6 +335,7 @@ export class TaskGraph {
             ]),
             subTaskGoal: z.string(),
             subTaskStrategy: z.string(),
+            subTaskResult: z.string().nullable(),
           })
         )
         .nullable(),
@@ -321,10 +382,6 @@ export class TaskGraph {
       reducer: (_, next) => next,
       default: () => null,
     }),
-    selfFeedback: Annotation<string | null>({
-      reducer: (_, next) => next,
-      default: () => null,
-    }),
     messages: Annotation<BaseMessage[]>({
       reducer: (prev, next) => {
         if (next === null) {
@@ -343,26 +400,46 @@ export class TaskGraph {
       reducer: (_, next) => next,
       default: () => null,
     }),
+    // humanFeedbackPendingフラグを追加
+    humanFeedbackPending: Annotation<boolean>({
+      reducer: (_, next) => next,
+      default: () => false,
+    }),
+    forceStop: Annotation<boolean>({
+      reducer: (_, next) => next,
+      default: () => false,
+    }),
   });
 
   private createGraph() {
     const workflow = new StateGraph(this.TaskState)
       .addNode('planning', this.planningNode)
       .addNode('tool_agent', this.toolAgentNode)
-      .addNode('use_tool', this.toolNode)
+      .addNode('use_tool', this.toolNodeInstance)
       .addEdge(START, 'planning')
       .addConditionalEdges('planning', (state) => {
+        if (this.currentState.forceStop) {
+          return END;
+        }
+        if (this.currentState.humanFeedbackPending) {
+          this.currentState.humanFeedbackPending = false;
+          return 'planning';
+        }
         if (
           state.taskTree?.status === 'completed' ||
           state.taskTree?.status === 'error'
         ) {
-          console.log('taskTree completed');
+          console.log('\x1b[31mtaskTree completed\x1b[0m');
           return END;
         } else {
           return 'tool_agent';
         }
       })
       .addConditionalEdges('tool_agent', (state) => {
+        // humanFeedbackPendingがtrueならplanningに強制遷移
+        if (this.currentState.forceStop) {
+          return END;
+        }
         const lastMessage = state.messages[state.messages.length - 1];
         if (
           lastMessage instanceof AIMessage &&
@@ -375,6 +452,14 @@ export class TaskGraph {
         }
       })
       .addConditionalEdges('use_tool', (state) => {
+        // humanFeedbackPendingがtrueならplanningに強制遷移
+        if (this.currentState.forceStop) {
+          return END;
+        }
+        if (this.currentState.humanFeedbackPending) {
+          this.currentState.humanFeedbackPending = false;
+          return 'planning';
+        }
         return 'planning';
       });
     return workflow.compile();
@@ -385,15 +470,33 @@ export class TaskGraph {
       taskId: crypto.randomUUID(),
       environmentState: partialState.environmentState ?? null,
       selfState: partialState.selfState ?? null,
-      humanFeedback: null,
-      selfFeedback: null,
+      humanFeedback: partialState.humanFeedback ?? null,
       messages: partialState.messages ?? [],
       userMessage: partialState.userMessage ?? null,
-      taskTree: null,
+      taskTree: {
+        status: 'in_progress',
+        goal: '',
+        strategy: '',
+        subTasks: null,
+      },
+      humanFeedbackPending: false,
+      forceStop: false,
     };
+    this.currentState = state;
 
     try {
-      return await this.graph.invoke(state, { recursionLimit: 64 });
+      console.log('タスクグラフ実行開始 ID:', state.taskId);
+      const result = await this.graph.invoke(state, { recursionLimit: 64 });
+
+      // 実行後の状態サマリーをログ出力
+      console.log('タスクグラフ完了:', {
+        taskId: result.taskId,
+        status: result.taskTree?.status,
+        wasForceStop: result.forceStop,
+        messageCount: result.messages.length,
+      });
+
+      return result;
     } catch (error) {
       // 再帰制限エラーの場合
       if (error instanceof Error && 'lc_error_code' in error) {
@@ -410,7 +513,38 @@ export class TaskGraph {
           };
         }
       }
-      throw error;
+
+      // その他のエラーの場合
+      console.error('タスクグラフ実行エラー:', error);
+      return {
+        ...state,
+        taskTree: {
+          status: 'error',
+          goal: `エラーにより強制終了: ${
+            error instanceof Error ? error.message : '不明なエラー'
+          }`,
+          strategy: '',
+          subTasks: null,
+        },
+      };
+    }
+  }
+
+  // humanFeedbackを更新
+  public updateHumanFeedback(feedback: string) {
+    console.log('updateHumanFeedback', feedback);
+    if (this.currentState) {
+      this.currentState.humanFeedback = feedback;
+      this.currentState.humanFeedbackPending = true;
+      console.log('humanFeedbackが更新されました:', feedback);
+    }
+  }
+
+  // タスクを強制終了
+  public forceStop() {
+    console.log('forceStop');
+    if (this.currentState) {
+      this.currentState.forceStop = true;
     }
   }
 }

@@ -1,0 +1,85 @@
+{
+  "name": "Nether_Portal_Basic",
+  "blocks": [
+    {
+      "name": "obsidian",
+      "position": {
+        "x": 1,
+        "y": 0,
+        "z": 0
+      }
+    },
+    {
+      "name": "obsidian",
+      "position": {
+        "x": 2,
+        "y": 0,
+        "z": 0
+      }
+    },
+    {
+      "name": "obsidian",
+      "position": {
+        "x": 0,
+        "y": 1,
+        "z": 0
+      }
+    },
+    {
+      "name": "obsidian",
+      "position": {
+        "x": 0,
+        "y": 2,
+        "z": 0
+      }
+    },
+    {
+      "name": "obsidian",
+      "position": {
+        "x": 0,
+        "y": 3,
+        "z": 0
+      }
+    },
+    {
+      "name": "obsidian",
+      "position": {
+        "x": 3,
+        "y": 1,
+        "z": 0
+      }
+    },
+    {
+      "name": "obsidian",
+      "position": {
+        "x": 3,
+        "y": 2,
+        "z": 0
+      }
+    },
+    {
+      "name": "obsidian",
+      "position": {
+        "x": 3,
+        "y": 3,
+        "z": 0
+      }
+    },
+    {
+      "name": "obsidian",
+      "position": {
+        "x": 1,
+        "y": 4,
+        "z": 0
+      }
+    },
+    {
+      "name": "obsidian",
+      "position": {
+        "x": 2,
+        "y": 4,
+        "z": 0
+      }
+    }
+  ]
+}

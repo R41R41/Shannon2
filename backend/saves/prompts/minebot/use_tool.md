@@ -16,3 +16,4 @@ Please use a tool to response to the user's message.
 
 - You can use only one tool at this time.
 - Please specify all parameters of the tool.
+- When specifying the block name or item name, please use the official Minecraft name. (bed => white_bed, etc.)
