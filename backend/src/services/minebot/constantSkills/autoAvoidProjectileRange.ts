@@ -9,6 +9,7 @@ class AutoAvoidProjectileRange extends ConstantSkill {
     this.skillName = 'auto-avoid-projectile-range';
     this.description = '自動で投擲物の射撃範囲から逃げる';
     this.interval = 1000;
+    this.status = false;
   }
 
   async run() {

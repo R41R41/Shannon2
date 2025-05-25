@@ -14,7 +14,7 @@ export class CentralAgent {
   private constructor(bot: CustomBot) {
     this.bot = bot;
     this.openai = new ChatOpenAI({
-      modelName: 'gpt-4o-mini',
+      modelName: 'gpt-4o',
       apiKey: process.env.OPENAI_API_KEY!,
     });
     this.currentTaskGraph = TaskGraph.getInstance(this.bot);
@@ -41,12 +41,12 @@ export class CentralAgent {
     selfState?: string
   ) {
     let action: TaskAction = 'new_task';
-    if (this.currentTaskGraph?.currentState) {
-      const currentState = this.currentTaskGraph.currentState;
-      if (currentState.taskTree.status) {
-        action = await this.judgeAction(message);
-      }
-    }
+    // if (this.currentTaskGraph?.currentState) {
+    //   const currentState = this.currentTaskGraph.currentState;
+    //   if (currentState.taskTree.status) {
+    //     action = await this.judgeAction(message);
+    //   }
+    // }
 
     if (action === 'new_task') {
       // 既存タスクがあれば強制終了
@@ -93,11 +93,11 @@ export class CentralAgent {
       typeof res.content === 'string'
         ? res.content.trim()
         : Array.isArray(res.content)
-        ? res.content
+          ? res.content
             .map((c: any) => (typeof c === 'string' ? c : c.text))
             .join(' ')
             .trim()
-        : '';
+          : '';
     if (text.includes('new_task')) return 'new_task';
     if (text.includes('feedback')) return 'feedback';
     if (text.includes('stop')) return 'stop';

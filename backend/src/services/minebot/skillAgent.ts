@@ -153,8 +153,8 @@ export class SkillAgent {
     }, 1000);
 
     setInterval(() => {
-      this.bot.emit('taskPer10000ms');
-    }, 10000);
+      this.bot.emit('taskPer5000ms');
+    }, 5000);
   }
 
   async registerPost() {
@@ -385,8 +385,7 @@ export class SkillAgent {
         }
         ConstantSkill.status = !ConstantSkill.status;
         this.bot.chat(
-          `常時スキル${skillName}のステータスを${
-            ConstantSkill.status ? 'オン' : 'オフ'
+          `常時スキル${skillName}のステータスを${ConstantSkill.status ? 'オン' : 'オフ'
           }にしました`
         );
         return;

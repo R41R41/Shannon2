@@ -4,7 +4,7 @@ import { loadPrompt } from '../config/prompts.js';
 import { ChatOpenAI } from '@langchain/openai';
 import { AgentExecutor, createOpenAIToolsAgent } from 'langchain/agents';
 import { SystemMessage } from '@langchain/core/messages';
-import BingSearchTool from '../tools/bingSearch.js';
+import BingSearchTool from '../tools/googleSearch.js';
 const jst = 'Asia/Tokyo';
 import { pull } from 'langchain/hub';
 import { ChatPromptTemplate } from '@langchain/core/prompts';

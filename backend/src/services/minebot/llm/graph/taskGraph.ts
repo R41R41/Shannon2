@@ -520,9 +520,8 @@ export class TaskGraph {
         ...state,
         taskTree: {
           status: 'error',
-          goal: `エラーにより強制終了: ${
-            error instanceof Error ? error.message : '不明なエラー'
-          }`,
+          goal: `エラーにより強制終了: ${error instanceof Error ? error.message : '不明なエラー'
+            }`,
           strategy: '',
           subTasks: null,
         },

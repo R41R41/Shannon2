@@ -11,14 +11,14 @@ class SearchAndGotoEntity extends InstantSkill {
     super(bot);
     this.skillName = 'search-and-goto-entity';
     this.description =
-      '指定されたエンティティを探索してその位置に移動します。プレイヤーの場合は、プレイヤーの元に向かう際などに使います。';
+      '指定されたエンティティを探索してその位置に移動します。プレイヤーの場合は、プレイヤーの元に向かう際などに使います。経験値オーブを拾う際などにも使います。';
     this.status = false;
     this.mcData = minecraftData(this.bot.version);
     this.params = [
       {
         name: 'entityName',
         description:
-          '探索するエンティティの名前。例: zombie, spider, creeper, R41R41(player)など',
+          '探索するエンティティの名前。例: zombie, spider, creeper, R41R41(player),経験値オーブ(experience_orb)など',
         type: 'string',
       },
     ];
@@ -94,11 +94,10 @@ class SearchAndGotoEntity extends InstantSkill {
           if (distance <= 3) {
             return {
               success: true,
-              result: `${entityName}は${targetPos.x} ${targetPos.y} ${
-                targetPos.z
-              }にあります。目標変更エラーが発生しましたが、十分に近づけました（距離: ${distance.toFixed(
-                2
-              )}ブロック）。`,
+              result: `${entityName}は${targetPos.x} ${targetPos.y} ${targetPos.z
+                }にあります。目標変更エラーが発生しましたが、十分に近づけました（距離: ${distance.toFixed(
+                  2
+                )}ブロック）。`,
             };
           }
 

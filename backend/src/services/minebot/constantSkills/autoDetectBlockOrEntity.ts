@@ -16,27 +16,29 @@ class AutoDetectBlockOrEntity extends ConstantSkill {
 
     async run() {
         this.lock();
-        if (this.args[0].blockName) {
-            const Block = this.mcData.blocksByName[this.args[0].blockName];
+        if (this.args.blockName) {
+            const Block = this.mcData.blocksByName[this.args.blockName];
             if (!Block) {
-                this.bot.chat(`ブロック${this.args[0].blockName}はありません`);
+                this.bot.chat(`ブロック${this.args.blockName}はありません`);
             }
             const Blocks = this.bot.findBlocks({
                 matching: Block.id,
-                maxDistance: this.args[2].searchDistance,
+                maxDistance: this.args.searchDistance,
                 count: 1,
             });
             if (Blocks.length > 0) {
-                this.bot.chat(`周囲${this.args[2].searchDistance}ブロック以内に${this.args[0].blockName}が見つかりました`);
+                this.bot.chat(`周囲${this.args.searchDistance}ブロック以内に${this.args.blockName}が見つかりました`);
+                this.status = false;
             }
         }
-        if (this.args[1].entityName) {
+        if (this.args.entityName) {
             const Entities = this.bot.utils.getNearestEntitiesByName(
                 this.bot,
-                this.args[1].entityName
+                this.args.entityName
             );
             if (Entities.length > 0) {
-                this.bot.chat(`周囲${this.args[2].searchDistance}ブロック以内に${this.args[1].entityName}が見つかりました`);
+                this.bot.chat(`周囲${this.args.searchDistance}ブロック以内に${this.args.entityName}が見つかりました`);
+                this.status = false;
             }
         }
         this.unlock();

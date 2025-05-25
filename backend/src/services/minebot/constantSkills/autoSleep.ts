@@ -20,7 +20,7 @@ class AutoSleep extends ConstantSkill {
 
     // 夜の時間帯 (12000-23000)
     const isNightTime =
-      this.bot.time.timeOfDay >= 12000 && this.bot.time.timeOfDay <= 23000;
+      this.bot.time.timeOfDay >= 12500 && this.bot.time.timeOfDay <= 23500;
 
     // 朝の時間帯 (0-1000)
     const isMorningTime =
