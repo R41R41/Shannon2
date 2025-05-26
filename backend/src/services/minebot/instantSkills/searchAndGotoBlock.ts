@@ -46,14 +46,6 @@ class SearchAndGotoBlock extends InstantSkill {
 
       const targetPos = new Vec3(Blocks[0].x, Blocks[0].y, Blocks[0].z);
 
-      // 移動設定を構成
-      const defaultMove = new Movements(this.bot as unknown as Bot);
-      defaultMove.canDig = true;
-      defaultMove.digCost = 1; // 掘るコストを低めに設定
-
-      // 移動設定を適用
-      this.bot.pathfinder.setMovements(defaultMove);
-
       // 到達を試行する関数
       const attemptToReachGoal = async (
         remainingAttempts = 16,
@@ -94,11 +86,10 @@ class SearchAndGotoBlock extends InstantSkill {
           if (distance <= 3) {
             return {
               success: true,
-              result: `${blockName}は${targetPos.x} ${targetPos.y} ${
-                targetPos.z
-              }にあります。目標変更エラーが発生しましたが、十分に近づけました（距離: ${distance.toFixed(
-                2
-              )}ブロック）。`,
+              result: `${blockName}は${targetPos.x} ${targetPos.y} ${targetPos.z
+                }にあります。目標変更エラーが発生しましたが、十分に近づけました（距離: ${distance.toFixed(
+                  2
+                )}ブロック）。`,
             };
           }
 

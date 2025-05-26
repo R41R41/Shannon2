@@ -12,19 +12,55 @@
   },
   "inventory": [
     {
-      "name": "cooked_beef",
-      "count": 64
+      "name": "lingering_potion",
+      "count": 1
     },
     {
-      "name": "spyglass",
-      "count": 1
+      "name": "rotten_flesh",
+      "count": 20
     },
     {
       "name": "arrow",
-      "count": 1
+      "count": 52
+    },
+    {
+      "name": "arrow",
+      "count": 64
+    },
+    {
+      "name": "iron_ingot",
+      "count": 5
     },
     {
       "name": "bow",
+      "count": 1
+    },
+    {
+      "name": "diamond_sword",
+      "count": 1
+    },
+    {
+      "name": "baked_potato",
+      "count": 61
+    },
+    {
+      "name": "lingering_potion",
+      "count": 1
+    },
+    {
+      "name": "lingering_potion",
+      "count": 1
+    },
+    {
+      "name": "lingering_potion",
+      "count": 1
+    },
+    {
+      "name": "lingering_potion",
+      "count": 1
+    },
+    {
+      "name": "lingering_potion",
       "count": 1
     }
   ]

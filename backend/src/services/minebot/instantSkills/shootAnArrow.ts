@@ -2,6 +2,11 @@ import { CustomBot, InstantSkill } from '../types.js';
 import HoldItem from './holdItem.js';
 import { Vec3 } from 'vec3';
 import minecraftData from 'minecraft-data';
+import { Block } from 'prismarine-block';
+
+interface BlockInTrayect extends Block {
+  intersect: Vec3;
+}
 
 class ShootAnArrow extends InstantSkill {
   private holdItem: HoldItem;
@@ -66,6 +71,82 @@ class ShootAnArrow extends InstantSkill {
   }
 
   // hawkEyeを使用して弓を発射する
+  private async simplyShootWithHawkEye(yaw: number, pitch: number): Promise<void> {
+    console.log('hawkEyeでの射撃を開始します...');
+
+    // hawkEyeでターゲットを狙って発射
+    this.bot.hawkEye.simplyShot(yaw, pitch);
+
+    // 発射が完了するまで待機
+    await new Promise((resolve) => {
+      let shotsLeft = 2; // 2回のイベントを待機（弓を引く＋矢を放つ）
+
+      const checkStatus = () => {
+        shotsLeft--;
+        if (shotsLeft <= 0) {
+          this.bot.removeListener('physicsTick', checkStatus);
+          resolve(undefined);
+        }
+      };
+
+      // 物理ティックごとにステータスをチェック
+      this.bot.on('physicsTick', checkStatus);
+    });
+
+    console.log('射撃完了');
+  }
+
+  private async calculateYawAndPitch(target: Vec3): Promise<{ yaw: number, pitch: number }> {
+    const botPos = this.bot.entity.position;
+    const arrowPosition = botPos.plus(new Vec3(0, 1.55, 0));
+    const dx = target.x - arrowPosition.x;
+    const dy = target.y - arrowPosition.y;
+    const dz = target.z - arrowPosition.z;
+    const distance = Math.sqrt(dx * dx + dz * dz);
+    const yaw = Math.atan2(-dx, -dz);
+    const initialpitch = Math.atan2(dy, distance);
+    const arrowInitialSpeed = 3;
+    console.log('initialpitch', initialpitch);
+    let pitch = initialpitch;
+    let pitch_1 = null;
+    let pitch_01 = null;
+    let pitch_001 = null;
+    while (true) {
+      const arrowTrayectory = this.bot.hawkEye.calculateArrowTrayectory(arrowPosition, arrowInitialSpeed, pitch, yaw, 'bow' as any);
+      const blockInTrayect = arrowTrayectory.blockInTrayect as BlockInTrayect;
+      const diff_x = Math.abs(blockInTrayect.intersect.x - target.x);
+      const diff_y = Math.abs(blockInTrayect.intersect.y - target.y);
+      const diff_z = Math.abs(blockInTrayect.intersect.z - target.z);
+      if (diff_x < 1 && diff_y < 1 && diff_z < 1) {
+        console.log("pitch", pitch);
+        console.log('blockInTrayect', blockInTrayect);
+        pitch_1 = pitch;
+      }
+      if (diff_x < 0.1 && diff_y < 0.1 && diff_z < 0.1) {
+        console.log("pitch", pitch);
+        console.log('blockInTrayect', blockInTrayect);
+        pitch_01 = pitch;
+      }
+      if (diff_x < 0.01 && diff_y < 0.01 && diff_z < 0.01) {
+        pitch_001 = pitch;
+        break;
+      }
+      pitch += 0.001;
+      if (pitch > Math.PI / 2) {
+        break;
+      }
+    }
+    console.log('pitch_1', pitch_1);
+    console.log('pitch_01', pitch_01);
+    console.log('pitch_001', pitch_001);
+    if (pitch_1) pitch = pitch_1;
+    if (pitch_01) pitch = pitch_01;
+    if (pitch_001) pitch = pitch_001;
+
+    return { yaw, pitch };
+  }
+
+  // hawkEyeを使用して弓を発射する
   private async shootWithHawkEye(target: any): Promise<void> {
     console.log('hawkEyeでの射撃を開始します...');
 
@@ -84,23 +165,35 @@ class ShootAnArrow extends InstantSkill {
         }
       };
 
-      // 一定時間後に解決する（タイムアウト）
-      const timeout = setTimeout(() => {
-        this.bot.removeListener('physicsTick', checkStatus);
-        // 弓が引かれたままなら強制的に解除
-        try {
-          this.bot.deactivateItem();
-        } catch (err) {
-          // エラーは無視
-        }
-        resolve(undefined);
-      }, 4000);
-
       // 物理ティックごとにステータスをチェック
       this.bot.on('physicsTick', checkStatus);
     });
 
     console.log('射撃完了');
+  }
+
+  private getFaceCenter(blockPosition: Vec3): Vec3 {
+    const botPos = this.bot.entity.position;
+    const blockCenter = blockPosition.plus(new Vec3(0.5, 0.5, 0.5));
+    const toBlock = blockCenter.minus(botPos);
+    const abs = { x: Math.abs(toBlock.x), y: Math.abs(toBlock.y), z: Math.abs(toBlock.z) };
+    let face: 'x' | 'y' | 'z';
+    let sign: number;
+    if (abs.x >= abs.y && abs.x >= abs.z) {
+      face = 'x';
+      sign = toBlock.x > 0 ? -1 : 1;
+    } else if (abs.y >= abs.x && abs.y >= abs.z) {
+      face = 'y';
+      sign = toBlock.y > 0 ? -1 : 1;
+    } else {
+      face = 'z';
+      sign = toBlock.z > 0 ? -1 : 1;
+    }
+    const faceCenter = blockPosition.clone();
+    if (face === 'x') faceCenter.x += 0.5 * sign;
+    if (face === 'y') faceCenter.y += 0.5 * sign;
+    if (face === 'z') faceCenter.z += 0.5 * sign;
+    return faceCenter;
   }
 
   async run(
@@ -133,24 +226,6 @@ class ShootAnArrow extends InstantSkill {
           success: true,
           result: `エンティティ${entityName}に射撃しました`,
         };
-      } else if (coordinate !== null) {
-        await this.holdItem.run('bow', false);
-
-        // 座標を正しくターゲットとして構成
-        const targetPos = new Vec3(coordinate.x, coordinate.y, coordinate.z);
-        const target = {
-          position: targetPos,
-          isValid: true,
-          velocity: { x: 0, y: 0, z: 0 },
-          height: 1,
-          width: 1,
-          onGround: true,
-        };
-        await this.shootWithHawkEye(target);
-        return {
-          success: true,
-          result: `座標${coordinate.x},${coordinate.y},${coordinate.z}に射撃しました`,
-        };
       } else if (blockName !== null) {
         const Block = this.mcData.blocksByName[blockName];
         if (!Block) {
@@ -169,55 +244,34 @@ class ShootAnArrow extends InstantSkill {
         }
         await this.holdItem.run('bow', false);
         const block = Blocks[0];
-        const blockPos = new Vec3(block.x, block.y, block.z);
-        const botPos = this.bot.entity.position;
 
-        // ブロックの各面の中心座標を計算
-        // 各面の位置とその面の1ブロック先の位置を計算
-        const faces = [
-          { pos: new Vec3(block.x + 0.5, block.y + 0.5, block.z), normal: new Vec3(0, 0, -1), checkPos: new Vec3(block.x, block.y, block.z - 1) }, // 北
-          { pos: new Vec3(block.x + 0.5, block.y + 0.5, block.z + 1), normal: new Vec3(0, 0, 1), checkPos: new Vec3(block.x, block.y, block.z + 1) }, // 南
-          { pos: new Vec3(block.x, block.y + 0.5, block.z + 0.5), normal: new Vec3(-1, 0, 0), checkPos: new Vec3(block.x - 1, block.y, block.z) }, // 西
-          { pos: new Vec3(block.x + 1, block.y + 0.5, block.z + 0.5), normal: new Vec3(1, 0, 0), checkPos: new Vec3(block.x + 1, block.y, block.z) }, // 東
-          { pos: new Vec3(block.x + 0.5, block.y, block.z + 0.5), normal: new Vec3(0, -1, 0), checkPos: new Vec3(block.x, block.y - 1, block.z) }, // 下
-          { pos: new Vec3(block.x + 0.5, block.y + 1, block.z + 0.5), normal: new Vec3(0, 1, 0), checkPos: new Vec3(block.x, block.y + 1, block.z) }, // 上
-        ];
-
-        // 各面がブロックで覆われているかチェックし、見えている面のみをフィルタリング
-        const visibleFaces = faces.filter(face => {
-          const blockAtFace = this.bot.blockAt(face.checkPos);
-          return !blockAtFace || blockAtFace.name === 'air';
-        });
-
-        if (visibleFaces.length === 0) {
-          return {
-            success: false,
-            result: `ブロック${blockName}の全ての面が他のブロックで覆われています`,
-          };
-        }
-
-        // botから最も見えている面を計算
-        const botToBlock = blockPos.minus(botPos).normalize();
-        const mostVisibleFace = visibleFaces.reduce((prev, curr) => {
-          const dot1 = botToBlock.dot(prev.normal);
-          const dot2 = botToBlock.dot(curr.normal);
-          return dot1 > dot2 ? prev : curr;
-        });
-
-        const target = {
-          position: mostVisibleFace.pos,
-          isValid: false,
-          velocity: { x: 0, y: 0, z: 0 },
-          height: 0,
-          width: 0,
-          onGround: true,
-        };
-        await this.bot.lookAt(target.position);
-        await this.shootWithHawkEye(target);
+        const blockPosition = new Vec3(block.x, block.y, block.z);
+        const faceCenter = this.getFaceCenter(blockPosition);
+        // 少しだけボット寄りにオフセット
+        console.log('faceCenter', faceCenter);
+        await this.bot.lookAt(faceCenter);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const { yaw, pitch } = await this.calculateYawAndPitch(faceCenter);
+        await this.simplyShootWithHawkEye(yaw, pitch);
         return {
           success: true,
           result: `ブロック${blockName}に射撃しました`,
         }
+      } else if (coordinate !== null) {
+        await this.holdItem.run('bow', false);
+
+        // 座標を正しくターゲットとして構成
+        const targetPos = new Vec3(coordinate.x, coordinate.y, coordinate.z);
+        console.log('targetPos', targetPos);
+        const faceCenter = this.getFaceCenter(targetPos);
+        await this.bot.lookAt(faceCenter);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const { yaw, pitch } = await this.calculateYawAndPitch(faceCenter);
+        await this.simplyShootWithHawkEye(yaw, pitch);
+        return {
+          success: true,
+          result: `座標${coordinate.x},${coordinate.y},${coordinate.z}に射撃しました`,
+        };
       } else {
         return {
           success: false,

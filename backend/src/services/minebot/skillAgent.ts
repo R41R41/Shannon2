@@ -479,7 +479,8 @@ export class SkillAgent {
         userName,
         message,
         environmentState,
-        selfState
+        selfState,
+        this.recentMessages
       );
     } catch (error) {
       console.error(`\x1b[31mLLM処理エラー:${error}\n\x1b[0m`);

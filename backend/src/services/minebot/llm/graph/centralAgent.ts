@@ -1,7 +1,7 @@
 import { CustomBot } from '../../types.js';
 import { TaskGraph } from './taskGraph.js';
 import { ChatOpenAI } from '@langchain/openai';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { BaseMessage, AIMessage, HumanMessage, SystemMessage } from '@langchain/core/messages';
 
 type TaskAction = 'new_task' | 'feedback' | 'stop';
 
@@ -38,21 +38,25 @@ export class CentralAgent {
     userName: string,
     message: string,
     environmentState?: string,
-    selfState?: string
+    selfState?: string,
+    recentMessages?: BaseMessage[]
   ) {
     let action: TaskAction = 'new_task';
-    // if (this.currentTaskGraph?.currentState) {
-    //   const currentState = this.currentTaskGraph.currentState;
-    //   if (currentState.taskTree.status) {
-    //     action = await this.judgeAction(message);
-    //   }
-    // }
+    if (this.currentTaskGraph?.currentState) {
+      const currentState = this.currentTaskGraph.currentState;
+      if (currentState.taskTree.status && currentState.taskTree.status === 'in_progress') {
+        console.log('judgeAction');
+        action = await this.judgeAction(message, recentMessages || []);
+      }
+    }
 
     if (action === 'new_task') {
+      console.log('\x1b[31m新しいタスクを作成します\x1b[0m');
       // 既存タスクがあれば強制終了
       if (this.currentTaskGraph?.currentState) {
         const currentState = this.currentTaskGraph.currentState;
         if (currentState.taskTree.status) {
+          console.log('\x1b[31m既存タスクを強制終了します\x1b[0m');
           this.currentTaskGraph.forceStop();
         }
       }
@@ -62,7 +66,7 @@ export class CentralAgent {
       }
       try {
         this.currentTaskGraph.invoke({
-          messages: [new HumanMessage(message)],
+          messages: recentMessages,
           userMessage: message,
           environmentState: environmentState,
           selfState: selfState,
@@ -73,6 +77,7 @@ export class CentralAgent {
       }
     } else if (action === 'feedback' && this.currentTaskGraph) {
       // humanFeedbackを更新
+      console.log('\x1b[31mフィードバックを更新します\x1b[0m');
       this.currentTaskGraph.updateHumanFeedback(message);
     } else if (action === 'stop' && this.currentTaskGraph) {
       // タスクを終了
@@ -82,10 +87,13 @@ export class CentralAgent {
   }
 
   // OpenAIでアクション判定
-  private async judgeAction(message: string): Promise<TaskAction> {
-    const systemPrompt = `プレイヤーの発言が新しいタスクの依頼か、既存タスクへのアドバイスか、タスク終了要望かを判定し、"new_task" "feedback" "stop"のいずれかで返答してください。`;
+  private async judgeAction(message: string, recentMessages: BaseMessage[]): Promise<TaskAction> {
+    const systemPrompt1 = `プレイヤーの発言が新しいタスクの依頼か、既存タスクへのアドバイスか、タスク終了要望かを判定し、"new_task" "feedback" "stop"のいずれかで返答してください。`;
+    const systemPrompt2 = `実行中のタスク: ${JSON.stringify(this.currentTaskGraph?.currentState)}`
     const res = await this.openai.invoke([
-      new SystemMessage(systemPrompt),
+      new SystemMessage(systemPrompt1),
+      new SystemMessage(systemPrompt2),
+      ...recentMessages,
       new HumanMessage(message),
     ]);
     // contentがstring型であることを保証

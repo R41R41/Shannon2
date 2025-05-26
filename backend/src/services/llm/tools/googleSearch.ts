@@ -1,36 +1,47 @@
-import { GoogleSearchAPIWrapper } from '@langchain/community/tools/googlesearchapiwrapper';
 import { StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import dotenv from 'dotenv';
+import fetch from 'node-fetch';
 
 dotenv.config();
 
 export default class GoogleSearchTool extends StructuredTool {
   name = 'google-search';
-  description =
-    'A Google search tool. Always include the source of the final response.';
+  description = 'A Google search tool using Custom Search JSON API.';
   schema = z.object({
-    query: z
-      .string()
-      .describe(
-        'The content you want to search for (specify in the language appropriate for the search content)'
-      ),
+    query: z.string().describe('The content you want to search for'),
+    dateRestrict: z.string().optional().describe('Restrict results to a specific date range (e.g., "d1", "w1", "m1", "y1")'),
   });
-  private googleSearchAPI: GoogleSearchAPIWrapper;
+
+  private apiKey: string;
+  private searchEngineId: string;
 
   constructor() {
     super();
-    const googleApiKey = process.env.GOOGLE_API_KEY;
-    if (!googleApiKey) {
-      throw new Error('GOOGLE_API_KEY environment variable is not set.');
-    }
+    this.apiKey = process.env.GOOGLE_API_KEY || '';
+    this.searchEngineId = process.env.SEARCH_ENGINE_ID || '';
 
-    this.googleSearchAPI = new GoogleSearchAPIWrapper(googleApiKey);
+    if (!this.apiKey || !this.searchEngineId) {
+      throw new Error('API key or Search Engine ID is not set in environment variables.');
+    }
   }
 
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
+    let url = `https://www.googleapis.com/customsearch/v1?key=${this.apiKey}&cx=${this.searchEngineId}&q=${encodeURIComponent(data.query)}`;
+
+    if (data.dateRestrict) {
+      url += `&dateRestrict=${data.dateRestrict}`;
+    }
+
     try {
-      return await this.googleSearchAPI.invoke(data.query);
+      const response = await fetch(url);
+      const result = await response.json();
+
+      if (result.items && result.items.length > 0) {
+        return result.items.map((item: any) => item.title).join(', ');
+      } else {
+        return 'No results found.';
+      }
     } catch (error) {
       console.error('Google search error:', error);
       return `An error occurred while searching: ${error}`;

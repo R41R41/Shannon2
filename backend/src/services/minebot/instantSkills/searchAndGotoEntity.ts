@@ -46,14 +46,6 @@ class SearchAndGotoEntity extends InstantSkill {
 
       console.log('targetPos', targetPos);
 
-      // 移動設定を構成
-      const defaultMove = new Movements(this.bot as unknown as Bot);
-      defaultMove.canDig = true;
-      defaultMove.digCost = 1; // 掘るコストを低めに設定
-
-      // 移動設定を適用
-      this.bot.pathfinder.setMovements(defaultMove);
-
       // 到達を試行する関数
       const attemptToReachGoal = async (
         remainingAttempts = 16,

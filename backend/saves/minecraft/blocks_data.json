@@ -1,62 +1,26 @@
 [
   {
-    "name": "diamond_ore",
+    "name": "oak_log",
     "position": {
-      "x": -999,
-      "y": 11,
-      "z": -984
+      "x": -73,
+      "y": 72,
+      "z": 146
     },
-    "stateId": 4329,
-    "properties": {}
+    "stateId": 137,
+    "properties": {
+      "axis": "y"
+    }
   },
   {
-    "name": "diamond_ore",
+    "name": "oak_log",
     "position": {
-      "x": -999,
-      "y": 11,
-      "z": -983
+      "x": -73,
+      "y": 73,
+      "z": 146
     },
-    "stateId": 4329,
-    "properties": {}
-  },
-  {
-    "name": "diamond_ore",
-    "position": {
-      "x": -998,
-      "y": 11,
-      "z": -983
-    },
-    "stateId": 4329,
-    "properties": {}
-  },
-  {
-    "name": "diamond_ore",
-    "position": {
-      "x": -978,
-      "y": 12,
-      "z": -948
-    },
-    "stateId": 4329,
-    "properties": {}
-  },
-  {
-    "name": "diamond_ore",
-    "position": {
-      "x": -978,
-      "y": 12,
-      "z": -947
-    },
-    "stateId": 4329,
-    "properties": {}
-  },
-  {
-    "name": "diamond_ore",
-    "position": {
-      "x": -977,
-      "y": 12,
-      "z": -948
-    },
-    "stateId": 4329,
-    "properties": {}
+    "stateId": 137,
+    "properties": {
+      "axis": "y"
+    }
   }
 ]

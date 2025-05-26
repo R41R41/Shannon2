@@ -496,6 +496,8 @@ export class TaskGraph {
         messageCount: result.messages.length,
       });
 
+      this.currentState = result;
+
       return result;
     } catch (error) {
       // 再帰制限エラーの場合

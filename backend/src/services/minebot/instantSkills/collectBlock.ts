@@ -122,12 +122,6 @@ class CollectBlock extends InstantSkill {
           (entity) => entity.name === dropItemName
         );
         if (items) {
-          const defaultMove = new Movements(this.bot as unknown as Bot);
-          defaultMove.canDig = true;
-          defaultMove.digCost = 1; // 掘るコストを低めに設定
-
-          // 移動設定を適用
-          this.bot.pathfinder.setMovements(defaultMove);
           // タイムアウト処理
           const timeout = 60000;
           const timeoutPromise = new Promise((_, reject) => {
