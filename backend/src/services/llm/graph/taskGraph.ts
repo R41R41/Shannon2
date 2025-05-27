@@ -126,52 +126,6 @@ export class TaskGraph {
     console.log('tools', this.tools.length);
   }
 
-  private baseMessagesToLog(messages: BaseMessage[], memoryZone: MemoryZone) {
-    console.log('-------------------------------');
-    for (const message of messages) {
-      try {
-        if (message instanceof HumanMessage) {
-          console.log(`\x1b[37m${message.content}\x1b[0m`);
-        } else if (message instanceof AIMessage) {
-          if (message.additional_kwargs.tool_calls) {
-            if (this.eventBus) {
-              this.eventBus.log(
-                memoryZone,
-                'green',
-                message.additional_kwargs.tool_calls[0].function.name,
-                true
-              );
-            }
-            if (this.eventBus) {
-              this.eventBus.log(
-                memoryZone,
-                'green',
-                message.additional_kwargs.tool_calls[0].function.arguments,
-                true
-              );
-            }
-          } else {
-            console.log(`\x1b[32mShannon: ${message.content}\x1b[0m`);
-          }
-        } else if (message instanceof SystemMessage) {
-          console.log(`\x1b[37m${message.content}\x1b[0m`);
-        } else if (message instanceof ToolMessage) {
-          if (this.eventBus) {
-            this.eventBus.log(
-              memoryZone,
-              'blue',
-              message.content.toString(),
-              true
-            );
-          }
-        }
-      } catch (error) {
-        console.error('ログ出力エラー:', error);
-      }
-    }
-    console.log('-------------------------------');
-  }
-
   private errorHandler = async (
     state: typeof this.TaskState.State,
     error: Error
@@ -247,7 +201,7 @@ export class TaskGraph {
     const messages = this.prompt.getMessages(state, 'planning', true, true);
 
     try {
-      console.log('planning', JSON.stringify(messages, null, 2));
+      // console.log('planning', JSON.stringify(messages, null, 2));
       const response = await structuredLLM.invoke(messages);
       if (this.eventBus) {
         console.log('eventBus publish');
@@ -269,6 +223,7 @@ export class TaskGraph {
           });
         }
       }
+      console.log('planning', JSON.stringify(response, null, 2));
       return {
         taskTree: {
           status: response.status,

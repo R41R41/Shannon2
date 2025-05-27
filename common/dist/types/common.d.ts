@@ -8,7 +8,8 @@ import { TaskInput, TaskTreeState, EmotionType, TaskEventType } from "./taskGrap
 import { SchedulerInput, SchedulerOutput, SchedulerEventType } from "./scheduler";
 import { LLMEventType, SkillInfo } from "./llm";
 import { ToolEventType } from "./tools";
-export type Platform = "web" | "discord" | "minecraft" | "scheduler" | "twitter" | "youtube" | "minebot";
+import { NotionClientInput, NotionClientOutput, NotionEventType } from "./notion";
+export type Platform = "web" | "discord" | "minecraft" | "scheduler" | "twitter" | "youtube" | "notion" | "minebot";
 export type ConversationType = "text" | "audio" | "realtime_text" | "realtime_audio" | "command" | "log" | "user_transcript";
 export declare const promptTypes: PromptType[];
 export type PromptType = TwitterSchedulePostEndpoint | "base_text" | "base_voice" | "discord" | "minecraft" | "weather_to_emoji" | "forecast_for_toyama_server" | "reply_youtube_comment" | "planning" | "reply_twitter_comment" | "emotion" | "use_tool";
@@ -26,12 +27,12 @@ export interface StatusAgentInput extends ServiceInput {
     service: Platform;
     status: ServiceStatus;
 }
-export type MemoryZone = "web" | DiscordGuild | "twitter:schedule_post" | "twitter:post" | "minecraft" | "youtube" | "scheduler" | "minebot" | "null";
-export type EventType = TaskEventType | TwitterEventType | YoutubeEventType | MinecraftEventType | DiscordEventType | LLMEventType | WebEventType | SchedulerEventType | MinebotEventType | ToolEventType;
+export type MemoryZone = "web" | DiscordGuild | "twitter:schedule_post" | "twitter:post" | "minecraft" | "youtube" | "scheduler" | "minebot" | "null" | "notion";
+export type EventType = TaskEventType | TwitterEventType | YoutubeEventType | MinecraftEventType | DiscordEventType | LLMEventType | WebEventType | SchedulerEventType | MinebotEventType | ToolEventType | NotionEventType;
 export interface Event {
     type: EventType;
     memoryZone: MemoryZone;
-    data: TwitterClientInput | TwitterClientOutput | OpenAIInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput | ServiceOutput | TaskInput | TaskTreeState | EmotionType | SkillInfo[] | WebSkillInput | SkillParameters | SkillResult;
+    data: TwitterClientInput | TwitterClientOutput | OpenAIInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput | ServiceOutput | TaskInput | TaskTreeState | EmotionType | SkillInfo[] | WebSkillInput | SkillParameters | SkillResult | NotionClientInput | NotionClientOutput;
     targetMemoryZones?: MemoryZone[];
 }
 export interface ILog {

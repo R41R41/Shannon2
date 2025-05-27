@@ -33,6 +33,7 @@ export class DiscordBot extends BaseClient {
   private aiminelabGuildId: string | null = null;
   private aiminelabXChannelId: string | null = null;
   private aiminelabAnnounceChannelId: string | null = null;
+  private aiminelabUpdateChannelId: string | null = null;
   private testGuildId: string | null = null;
   private testXChannelId: string | null = null;
   private doukiGuildId: string | null = null;
@@ -84,6 +85,8 @@ export class DiscordBot extends BaseClient {
     this.aiminelabXChannelId = process.env.AIMINE_X_CHANNEL_ID ?? '';
     this.aiminelabAnnounceChannelId =
       process.env.AIMINE_ANNOUNCE_CHANNEL_ID ?? '';
+    this.aiminelabUpdateChannelId =
+      process.env.AIMINE_UPDATE_CHANNEL_ID ?? '';
     this.testGuildId = process.env.TEST_GUILD_ID ?? '';
     this.testXChannelId = process.env.TEST_X_CHANNEL_ID ?? '';
   }
@@ -244,6 +247,8 @@ export class DiscordBot extends BaseClient {
         (mention) => mention.id === this.client.user?.id
       );
       if (mentions.length > 0 && !isMentioned) return;
+
+      if (message.channelId === this.aiminelabUpdateChannelId) return;
 
       const messageContent = message.content.replace(
         /<@!?(\d+)>/g,

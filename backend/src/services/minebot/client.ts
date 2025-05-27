@@ -107,7 +107,7 @@ export class MinebotClient extends BaseClient {
     this.bot.instantSkills = new InstantSkills();
     this.bot.constantSkills = new ConstantSkills();
     this.bot.utils = new Utils(this.bot);
-    this.bot.utils.setMovements(this.bot, true, true, true, true, true, true, false, true, 1, true);
+    // this.bot.utils.setMovements(this.bot, true, true, true, true, true, true, false, true, 1, true);
 
     this.bot.on('respawn', () => {
       if (!this.bot) {
