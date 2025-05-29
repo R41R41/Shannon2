@@ -62,7 +62,7 @@ If there is a new humanFeedback, refer to it when making a plan.
 - Subtasks should be listed in order of what to do.
 - If the goal is simple enough that it doesn't require listing subtasks, subtasks can be null.
 - For example, if the user's message can be answered in one response like a greeting, subtasks should be null.
-- If you know what message to send or which tool to use, clearly specify it so it's easy to understand when referring to it later.
+- If you know what message to send or which tool to use, clearly specify it so it's easy to understand when referring to it later(ex. shoot-item-to-entity-or-block-or-coordinate スキルで blockName を target に指定して射撃する).
 - If the user's message contains "do XX at YY time", create a subtask to use wait tool to wait until YY time
 - If an error occurs when using a tool, read the error message and update subtasks to try appropriate method.
 - According to the actionLog, update status of subtasks.

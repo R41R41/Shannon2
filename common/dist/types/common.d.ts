@@ -27,7 +27,7 @@ export interface StatusAgentInput extends ServiceInput {
     service: Platform;
     status: ServiceStatus;
 }
-export type MemoryZone = "web" | DiscordGuild | "twitter:schedule_post" | "twitter:post" | "minecraft" | "youtube" | "scheduler" | "minebot" | "null" | "notion";
+export type MemoryZone = "web" | DiscordGuild | "twitter:schedule_post" | "twitter:post" | "twitter:get" | "minecraft" | "youtube" | "scheduler" | "minebot" | "null" | "notion";
 export type EventType = TaskEventType | TwitterEventType | YoutubeEventType | MinecraftEventType | DiscordEventType | LLMEventType | WebEventType | SchedulerEventType | MinebotEventType | ToolEventType | NotionEventType;
 export interface Event {
     type: EventType;

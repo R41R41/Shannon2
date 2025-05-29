@@ -2,6 +2,7 @@ import { ServiceInput } from "./common";
 export type TwitterSchedulePostEndpoint = "about_today" | "forecast" | "fortune" | "check_replies";
 export interface TwitterClientInput extends ServiceInput {
     text: string;
+    tweetId?: string | null;
     replyId?: string | null;
     imageUrl?: string | null;
     command?: TwitterSchedulePostEndpoint | null;
@@ -9,7 +10,13 @@ export interface TwitterClientInput extends ServiceInput {
 export interface TwitterClientOutput extends ServiceInput {
     text: string;
     replyId?: string | null;
-    authorName?: string | null;
     myTweet?: string | null;
+    createdAt?: string | null;
+    retweetCount?: number | null;
+    replyCount?: number | null;
+    likeCount?: number | null;
+    authorId?: string | null;
+    authorName?: string | null;
+    mediaUrl?: string | null;
 }
-export type TwitterEventType = "twitter:status" | "twitter:start" | "twitter:stop" | "twitter:post_scheduled_message" | "twitter:post_message" | "twitter:check_replies" | "twitter:get_message";
+export type TwitterEventType = "twitter:status" | "twitter:start" | "twitter:stop" | "twitter:post_scheduled_message" | "twitter:post_message" | "twitter:check_replies" | "twitter:get_message" | "twitter:get_tweet_content";

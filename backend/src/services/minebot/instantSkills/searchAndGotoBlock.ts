@@ -32,7 +32,7 @@ class SearchAndGotoBlock extends InstantSkill {
       if (!Block) {
         return { success: false, result: `ブロック${blockName}はありません` };
       }
-      const Blocks = this.bot.findBlocks({
+      const Blocks = await this.bot.findBlocks({
         matching: Block.id,
         maxDistance: this.searchDistance,
         count: 1,
@@ -44,8 +44,14 @@ class SearchAndGotoBlock extends InstantSkill {
         };
       }
 
-      const targetPos = new Vec3(Blocks[0].x, Blocks[0].y, Blocks[0].z);
-
+      const block = this.bot.blockAt(Blocks[0]);
+      if (!block) {
+        return {
+          success: false,
+          result: `ブロック${blockName}は見つかりませんでした`,
+        };
+      }
+      const targetPos = new Vec3(block.position.x, block.position.y, block.position.z);
       // 到達を試行する関数
       const attemptToReachGoal = async (
         remainingAttempts = 16,

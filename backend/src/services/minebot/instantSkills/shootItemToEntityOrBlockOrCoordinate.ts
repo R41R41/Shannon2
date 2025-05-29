@@ -8,35 +8,42 @@ interface BlockInTrayect extends Block {
   intersect: Vec3;
 }
 
-class ShootAnArrow extends InstantSkill {
+class ShootItemToEntityOrBlockOrCoordinate extends InstantSkill {
   private holdItem: HoldItem;
   private isLocked: boolean;
   private mcData: any;
   private searchDistance: number;
   constructor(bot: CustomBot) {
     super(bot);
-    this.skillName = 'shoot-an-arrow';
-    this.description = '近くにある指定エンティティまたは指定座標、または指定した名前のブロックに弓を射撃します';
+    this.skillName = 'shoot-item-to-entity-or-block-or-coordinate';
+    this.description = '近くにある指定エンティティまたは指定座標または指定した名前のブロックに指定したアイテムを射撃します。弓を手に持ったり、座標を特定することはこのスキル内で自動で行われます。';
     this.params = [
+      {
+        name: 'itemName',
+        type: 'string',
+        description:
+          '射撃するアイテムの名前を指定します。nullの場合は弓を射撃します。例: snowball, ender_pearl, null',
+        default: null,
+      },
       {
         name: 'entityName',
         type: 'string',
         description:
-          '射撃するエンティティの名前を指定します。nullの場合は指定座標に射撃します。例: zombie, creeper, R41R41(ユーザー名)など',
+          '射撃するエンティティの名前を指定します。指定されている場合は一番近くのそのエンティティに射撃します。例: zombie, creeper, R41R41(ユーザー名)など',
         default: null,
       },
       {
         name: 'blockName',
         type: 'string',
         description:
-          '射撃するブロックの名前を指定します。nullの場合は指定エンティティか指定座標に射撃します。例: targetなど',
+          '射撃するブロックの名前を指定します。指定されている場合は一番近くのそのブロックに射撃します。例: targetなど',
         default: null,
       },
       {
         name: 'coordinate',
         type: 'Vec3',
         description:
-          '射撃する座標を指定します。エンティティが指定されている場合はこの座標に最も近いエンティティに射撃します。',
+          '射撃する座標を指定します。',
         default: null,
       },
     ];
@@ -69,89 +76,15 @@ class ShootAnArrow extends InstantSkill {
       .sort((a, b) => a.distance - b.distance);
     return sortedEntities[0].entity;
   }
-
   // hawkEyeを使用して弓を発射する
-  private async simplyShootWithHawkEye(yaw: number, pitch: number): Promise<void> {
+  private async shootWithHawkEye(target: any, itemName: string | null): Promise<void> {
     console.log('hawkEyeでの射撃を開始します...');
 
     // hawkEyeでターゲットを狙って発射
-    this.bot.hawkEye.simplyShot(yaw, pitch);
-
-    // 発射が完了するまで待機
-    await new Promise((resolve) => {
-      let shotsLeft = 2; // 2回のイベントを待機（弓を引く＋矢を放つ）
-
-      const checkStatus = () => {
-        shotsLeft--;
-        if (shotsLeft <= 0) {
-          this.bot.removeListener('physicsTick', checkStatus);
-          resolve(undefined);
-        }
-      };
-
-      // 物理ティックごとにステータスをチェック
-      this.bot.on('physicsTick', checkStatus);
-    });
-
-    console.log('射撃完了');
-  }
-
-  private async calculateYawAndPitch(target: Vec3): Promise<{ yaw: number, pitch: number }> {
-    const botPos = this.bot.entity.position;
-    const arrowPosition = botPos.plus(new Vec3(0, 1.55, 0));
-    const dx = target.x - arrowPosition.x;
-    const dy = target.y - arrowPosition.y;
-    const dz = target.z - arrowPosition.z;
-    const distance = Math.sqrt(dx * dx + dz * dz);
-    const yaw = Math.atan2(-dx, -dz);
-    const initialpitch = Math.atan2(dy, distance);
-    const arrowInitialSpeed = 3;
-    console.log('initialpitch', initialpitch);
-    let pitch = initialpitch;
-    let pitch_1 = null;
-    let pitch_01 = null;
-    let pitch_001 = null;
-    while (true) {
-      const arrowTrayectory = this.bot.hawkEye.calculateArrowTrayectory(arrowPosition, arrowInitialSpeed, pitch, yaw, 'bow' as any);
-      const blockInTrayect = arrowTrayectory.blockInTrayect as BlockInTrayect;
-      const diff_x = Math.abs(blockInTrayect.intersect.x - target.x);
-      const diff_y = Math.abs(blockInTrayect.intersect.y - target.y);
-      const diff_z = Math.abs(blockInTrayect.intersect.z - target.z);
-      if (diff_x < 1 && diff_y < 1 && diff_z < 1) {
-        console.log("pitch", pitch);
-        console.log('blockInTrayect', blockInTrayect);
-        pitch_1 = pitch;
-      }
-      if (diff_x < 0.1 && diff_y < 0.1 && diff_z < 0.1) {
-        console.log("pitch", pitch);
-        console.log('blockInTrayect', blockInTrayect);
-        pitch_01 = pitch;
-      }
-      if (diff_x < 0.01 && diff_y < 0.01 && diff_z < 0.01) {
-        pitch_001 = pitch;
-        break;
-      }
-      pitch += 0.001;
-      if (pitch > Math.PI / 2) {
-        break;
-      }
+    if (itemName === null) {
+      itemName = 'bow';
     }
-    console.log('pitch_1', pitch_1);
-    console.log('pitch_01', pitch_01);
-    console.log('pitch_001', pitch_001);
-    if (pitch_1) pitch = pitch_1;
-    if (pitch_01) pitch = pitch_01;
-    if (pitch_001) pitch = pitch_001;
-
-    return { yaw, pitch };
-  }
-
-  // hawkEyeを使用して弓を発射する
-  private async shootWithHawkEye(target: any): Promise<void> {
-    console.log('hawkEyeでの射撃を開始します...');
-
-    // hawkEyeでターゲットを狙って発射
-    this.bot.hawkEye.oneShot(target, 'bow' as any);
+    this.bot.hawkEye.oneShot(target, itemName as any);
 
     // 発射が完了するまで待機
     await new Promise((resolve) => {
@@ -196,13 +129,49 @@ class ShootAnArrow extends InstantSkill {
     return faceCenter;
   }
 
+  private async summonInvisibleMarkerEntity(pos: Vec3): Promise<string> {
+    // 一意な名前をつける
+    const name = `shoot_target_${Date.now()}`;
+    const cmd = `/summon area_effect_cloud ${pos.x} ${pos.y} ${pos.z} {Radius:0.1,Duration:600,Invisible:1b,NoGravity:1b,Marker:1b,Tags:['${name}']}`;
+    await this.bot.chat(cmd);
+    // 少し待つ（サーバー反映待ち）
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return name;
+  }
+
+  private async killEntityByName(name: string) {
+    const cmd = `/kill @e[type=area_effect_cloud, tag=${name}]`;
+    await this.bot.chat(cmd);
+  }
+
   async run(
+    itemName: string | null,
     entityName: string | null,
     blockName: string | null,
     coordinate: Vec3 | null
   ) {
-    console.log('shootAnArrow:', entityName, blockName, coordinate);
+    console.log('\x1b[32m%s\x1b[0m', `shootItemToEntityOrBlockOrCoordinate: ${itemName} ${entityName} ${blockName} ${coordinate}`);
+    if (itemName == 'arrow' || itemName == 'bow') itemName = null;
     try {
+      if (itemName !== null) {
+        const item = this.bot.inventory.items().find((item) => item.name === itemName);
+        if (item) {
+          await this.holdItem.run(itemName, false);
+        } else {
+          return {
+            success: false,
+            result: `アイテム${itemName}は見つかりませんでした`,
+          };
+        }
+      } else {
+        await this.holdItem.run('bow', false);
+      }
+      if (!this.bot.hawkEye) {
+        return {
+          success: false,
+          result: `hawkEyeが有効になっていません`,
+        };
+      }
       if (entityName !== null) {
         const entities = await this.bot.utils.getNearestEntitiesByName(
           this.bot,
@@ -214,14 +183,7 @@ class ShootAnArrow extends InstantSkill {
             result: `エンティティ${entityName}は見つかりませんでした`,
           };
         }
-        await this.holdItem.run('bow', false);
-        if (!this.bot.hawkEye) {
-          return {
-            success: false,
-            result: `hawkEyeが有効になっていません`,
-          };
-        }
-        await this.shootWithHawkEye(entities[0]);
+        await this.shootWithHawkEye(entities[0], itemName);
         return {
           success: true,
           result: `エンティティ${entityName}に射撃しました`,
@@ -242,36 +204,53 @@ class ShootAnArrow extends InstantSkill {
             result: `ブロック${blockName}は見つかりませんでした`,
           };
         }
-        await this.holdItem.run('bow', false);
-        const block = Blocks[0];
-
-        const blockPosition = new Vec3(block.x, block.y, block.z);
+        const block = this.bot.blockAt(Blocks[0]);
+        if (!block) {
+          return {
+            success: false,
+            result: `ブロック${blockName}は見つかりませんでした`,
+          };
+        }
+        const blockPosition = new Vec3(block.position.x, block.position.y, block.position.z);
         const faceCenter = this.getFaceCenter(blockPosition);
-        // 少しだけボット寄りにオフセット
-        console.log('faceCenter', faceCenter);
-        await this.bot.lookAt(faceCenter);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const { yaw, pitch } = await this.calculateYawAndPitch(faceCenter);
-        await this.simplyShootWithHawkEye(yaw, pitch);
-        return {
-          success: true,
-          result: `ブロック${blockName}に射撃しました`,
+        const entityName = await this.summonInvisibleMarkerEntity(faceCenter);
+        const entities = await this.bot.utils.getNearestEntitiesByName(this.bot, 'area_effect_cloud');
+        const target = entities.find(e => e.name === "area_effect_cloud");
+        if (target) {
+          await this.shootWithHawkEye(target, itemName);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          await this.killEntityByName(entityName);
+          return {
+            success: true,
+            result: `ブロック${blockName}に射撃しました`,
+          }
+        } else {
+          return {
+            success: false,
+            result: `エンティティ${entityName}は見つかりませんでした`,
+          };
         }
       } else if (coordinate !== null) {
         await this.holdItem.run('bow', false);
-
-        // 座標を正しくターゲットとして構成
         const targetPos = new Vec3(coordinate.x, coordinate.y, coordinate.z);
-        console.log('targetPos', targetPos);
         const faceCenter = this.getFaceCenter(targetPos);
-        await this.bot.lookAt(faceCenter);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const { yaw, pitch } = await this.calculateYawAndPitch(faceCenter);
-        await this.simplyShootWithHawkEye(yaw, pitch);
-        return {
-          success: true,
-          result: `座標${coordinate.x},${coordinate.y},${coordinate.z}に射撃しました`,
-        };
+        const entityName = await this.summonInvisibleMarkerEntity(faceCenter);
+        const entities = await this.bot.utils.getNearestEntitiesByName(this.bot, 'area_effect_cloud');
+        const target = entities.find(e => e.name === "area_effect_cloud");
+        if (target) {
+          await this.shootWithHawkEye(target, itemName);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          await this.killEntityByName(entityName);
+          return {
+            success: true,
+            result: `ブロック${blockName}に射撃しました`,
+          }
+        } else {
+          return {
+            success: false,
+            result: `エンティティ${entityName}は見つかりませんでした`,
+          };
+        }
       } else {
         return {
           success: false,
@@ -290,4 +269,4 @@ class ShootAnArrow extends InstantSkill {
   }
 }
 
-export default ShootAnArrow;
+export default ShootItemToEntityOrBlockOrCoordinate;

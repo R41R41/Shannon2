@@ -26,12 +26,12 @@ export default class DescribeImageTool extends StructuredTool {
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'o4-mini',
         messages: [
           {
             role: 'user',
             content: [
-              { type: 'text', text: 'Please describe the image in detail.' },
+              { type: 'text', text: 'この画像を日本語で説明してください。テキストが含まれる場合は、ひらがなの部分はひらがなで、漢字の部分は漢字で表記してください。' },
               {
                 type: 'image_url',
                 image_url: {

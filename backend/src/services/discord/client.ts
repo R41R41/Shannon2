@@ -13,11 +13,17 @@ import {
   YoutubeSubscriberUpdateOutput,
 } from '@shannon/common';
 import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChatInputCommandInteraction,
+  ComponentType,
   Client,
   GatewayIntentBits,
   SlashCommandBuilder,
   TextChannel,
   User,
+  EmbedBuilder,
 } from 'discord.js';
 import dotenv from 'dotenv';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
@@ -25,6 +31,17 @@ import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
 import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 dotenv.config();
+
+type VoteState = {
+  [userId: string]: number | null; // userId -> index of voted option
+};
+
+const voteDurations: { [key: string]: number } = {
+  '1m': 60 * 1000,
+  '1h': 60 * 60 * 1000,
+  '1d': 24 * 60 * 60 * 1000,
+  '1w': 7 * 24 * 60 * 60 * 1000,
+};
 
 export class DiscordBot extends BaseClient {
   private client: Client;
@@ -126,6 +143,39 @@ export class DiscordBot extends BaseClient {
                 { name: 'ワールド2', value: 'world2' }
               )
           ),
+        new SlashCommandBuilder()
+          .setName('vote')
+          .setDescription('投票を開始します')
+          .addStringOption(option =>
+            option
+              .setName('description')
+              .setDescription('投票の説明')
+              .setRequired(true)
+          )
+          .addStringOption(option =>
+            option
+              .setName('options')
+              .setDescription('カンマ区切りの投票候補（例: 選択肢A,選択肢B,選択肢C）')
+              .setRequired(true)
+          )
+          .addStringOption(option =>
+            option
+              .setName('duration')
+              .setDescription('投票期間')
+              .setRequired(true)
+              .addChoices(
+                { name: '1分', value: '1m' },
+                { name: '1時間', value: '1h' },
+                { name: '1日', value: '1d' },
+                { name: '1週間', value: '1w' }
+              )
+          )
+          .addIntegerOption(option =>
+            option
+              .setName('max_votes')
+              .setDescription('1人あたりの最大投票数')
+              .setRequired(true)
+          )
       ];
 
       // コマンドをJSON形式に変換
@@ -166,12 +216,124 @@ export class DiscordBot extends BaseClient {
               }
             }
             break;
+          case 'vote':
+            if (interaction.isChatInputCommand()) {
+              const description = interaction.options.getString('description', true);
+              const options = interaction.options.getString('options', true);
+              const duration = interaction.options.getString('duration', true);
+              const maxVotes = interaction.options.getInteger('max_votes', true);
+              await this.sendVoteMessage(interaction, description, options, duration, maxVotes);
+            }
+            break;
         }
       });
       console.log('\x1b[32mSlash command setup completed\x1b[0m');
     } catch (error) {
       console.error(`\x1b[31mSlash command setup error: ${error}\x1b[0m`);
     }
+  }
+
+  /**
+ * 投票メッセージを送信する関数
+ * @param interaction DiscordのスラッシュコマンドなどのInteraction
+ * @param options カンマ区切りの投票候補（例: "選択肢A,選択肢B,選択肢C"）
+ * @param duration 投票期間（'1m', '1h', '1d', '1w' のいずれか）
+ */
+  private async sendVoteMessage(
+    interaction: ChatInputCommandInteraction,
+    description: string,
+    options: string,
+    duration: string,
+    maxVotes: number
+  ) {
+    const optionList = options.split(',').map(opt => opt.trim());
+    const voteId = `vote_${Date.now()}`;
+    const voteState: { [userId: string]: number[] } = {};
+    const voteCounts: number[] = Array(optionList.length).fill(0);
+
+    const components = optionList.map((option, index) => {
+      const customId = `${voteId}_option_${index}`;
+      return new ButtonBuilder()
+        .setCustomId(customId)
+        .setLabel(`0票 | ${option}`)
+        .setStyle(ButtonStyle.Secondary);
+    });
+
+    // ボタンを5個ずつのActionRowにまとめる
+    const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+    for (let i = 0; i < components.length; i += 5) {
+      rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...components.slice(i, i + 5)));
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle('📊 投票を開始します！')
+      .setDescription(description + '\n' + '一人あたり' + maxVotes + '票まで投票できます。')
+      .setColor(0x00ae86)
+      .setFooter({ text: `投票終了まで: ${duration}` });
+
+    const message = await interaction.reply({
+      embeds: [embed],
+      components: rows,
+      fetchReply: true,
+    });
+
+    const collector = message.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      time: voteDurations[duration] ?? voteDurations['1h'],
+    });
+
+    collector.on('collect', async i => {
+      const userId = i.user.id;
+      const pressedIndex = parseInt(i.customId.split('_').pop() || '0', 10);
+      if (!voteState[userId]) voteState[userId] = [];
+
+      // 既にこの候補に投票している場合は投票解除
+      if (voteState[userId].includes(pressedIndex)) {
+        voteState[userId] = voteState[userId].filter(idx => idx !== pressedIndex);
+        voteCounts[pressedIndex]--;
+      } else {
+        // まだ投票していなくて、最大票数未満なら投票追加
+        if (voteState[userId].length < maxVotes) {
+          voteState[userId].push(pressedIndex);
+          voteCounts[pressedIndex]++;
+        } else {
+          // 最大票数に達している場合は何もしない or メッセージ
+          await i.reply({ content: `あなたは最大${maxVotes}票まで投票できます。`, ephemeral: true });
+          return;
+        }
+      }
+
+      // ボタンの状態更新
+      const newComponents = optionList.map((option, index) => {
+        const customId = `${voteId}_option_${index}`;
+        const isVoted = voteState[userId].includes(index);
+        return new ButtonBuilder()
+          .setCustomId(customId)
+          .setLabel(`${voteCounts[index]}票 | ${option}`)
+          .setStyle(isVoted ? ButtonStyle.Success : ButtonStyle.Secondary);
+      });
+
+      // ボタンを5個ずつのActionRowにまとめる
+      const newRows: ActionRowBuilder<ButtonBuilder>[] = [];
+      for (let i = 0; i < newComponents.length; i += 5) {
+        newRows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...newComponents.slice(i, i + 5)));
+      }
+
+      await i.update({ components: newRows });
+    });
+
+    collector.on('end', async () => {
+      const results = optionList
+        .map((option, index) => `- ${option}: ${voteCounts[index]}票`)
+        .join('\n');
+
+      const resultEmbed = new EmbedBuilder()
+        .setTitle('📊 投票結果')
+        .setDescription(results)
+        .setColor(0x00ae86);
+
+      await message.edit({ embeds: [resultEmbed], components: [] });
+    });
   }
 
   private getUserNickname(user: User, guildId?: string) {

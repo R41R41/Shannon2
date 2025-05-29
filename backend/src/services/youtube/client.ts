@@ -2,6 +2,7 @@ import {
   YoutubeClientInput,
   YoutubeCommentOutput,
   YoutubeSubscriberUpdateOutput,
+  YoutubeClientOutput,
 } from '@shannon/common';
 import dotenv from 'dotenv';
 import { OAuth2Client } from 'google-auth-library';
@@ -105,10 +106,28 @@ export class YoutubeClient extends BaseClient {
 
       await this.replyComment(videoId, commentId, reply);
     });
+    this.eventBus.subscribe('youtube:get_video_info', async (event) => {
+      const { videoId } = event.data as YoutubeClientInput;
+      if (!videoId) {
+        console.error(`\x1b[31mInvalid input for getVideoInfo: ${JSON.stringify(event.data)}\x1b[0m`);
+        return;
+      }
+      const videoInfo = await this.getVideoInfo(videoId);
+      this.eventBus.publish({
+        type: 'tool:get_video_info',
+        memoryZone: 'youtube',
+        data: videoInfo as YoutubeClientOutput,
+      });
+    });
   }
 
-  private async getAuthUrl(oauth2Client: OAuth2Client) {
+  private async getAuthUrl() {
     try {
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.YOUTUBE_CLIENT_ID,
+        process.env.YOUTUBE_CLIENT_SECRET,
+        'http://localhost'
+      );
       const authUrl = oauth2Client.generateAuthUrl({
         access_type: 'offline',
         scope: ['https://www.googleapis.com/auth/youtube.force-ssl'],
@@ -268,6 +287,7 @@ export class YoutubeClient extends BaseClient {
 
   public async initialize() {
     try {
+      // await this.getAuthUrl();
       // await this.getRefreshToken();
       try {
         await this.setUpConnection();
@@ -320,6 +340,50 @@ export class YoutubeClient extends BaseClient {
       console.warn('\x1b[33mYouTube connection failed, but continuing without YouTube functionality\x1b[0m');
       this.status = 'stopped';
       // エラーをスローせずに処理を続行
+    }
+  }
+
+  /**
+   * 動画IDからタイトル・投稿者名・サムネイルURL・説明・公開日・視聴回数・いいね数・コメント数を取得
+   */
+  public async getVideoInfo(videoId: string) {
+    if (!this.client) {
+      throw new Error('YouTube client is not initialized');
+    }
+    try {
+      const response = await this.client.videos.list({
+        part: ['snippet', 'statistics'],
+        id: [videoId],
+      });
+      const video = response.data.items?.[0];
+      if (!video) {
+        throw new Error('動画が見つかりません');
+      }
+      const title = video.snippet?.title || '';
+      const author = video.snippet?.channelTitle || '';
+      const thumbnail = video.snippet?.thumbnails?.high?.url
+        || video.snippet?.thumbnails?.default?.url
+        || '';
+      const description = video.snippet?.description || '';
+      const publishedAt = video.snippet?.publishedAt || '';
+      const viewCount = Number(video.statistics?.viewCount || 0);
+      const likeCount = Number(video.statistics?.likeCount || 0);
+      const commentCount = Number(video.statistics?.commentCount || 0);
+      console.log('videoInfo:', { title, author, thumbnail, description, publishedAt, viewCount, likeCount, commentCount });
+
+      return {
+        title,
+        author,
+        thumbnail,
+        description,
+        publishedAt,
+        viewCount,
+        likeCount,
+        commentCount,
+      };
+    } catch (error) {
+      console.error(`\x1b[31mYouTube getVideoInfo error: ${error}\x1b[0m`);
+      throw error;
     }
   }
 }

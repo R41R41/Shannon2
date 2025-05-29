@@ -124,6 +124,7 @@ export type MemoryZone =
   | DiscordGuild
   | "twitter:schedule_post"
   | "twitter:post"
+  | "twitter:get"
   | "minecraft"
   | "youtube"
   | "scheduler"

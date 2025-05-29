@@ -294,27 +294,26 @@ export class LLMService {
       type: 'twitter:post_scheduled_message',
       memoryZone: 'twitter:schedule_post',
       data: {
-        command: message.command,
         text: post,
+        imageUrl: null,
       } as TwitterClientInput,
-      targetMemoryZones: ['twitter:schedule_post'],
     });
-    this.eventBus.publish({
-      type: 'discord:scheduled_post',
-      memoryZone: 'discord:toyama_server',
-      data: {
-        command: message.command,
-        text: postForToyama,
-      } as DiscordScheduledPostInput,
-    });
-    this.eventBus.publish({
-      type: 'discord:scheduled_post',
-      memoryZone: 'discord:douki_server',
-      data: {
-        command: message.command,
-        text: post,
-      } as DiscordScheduledPostInput,
-    });
+    // this.eventBus.publish({
+    //   type: 'discord:scheduled_post',
+    //   memoryZone: 'discord:toyama_server',
+    //   data: {
+    //     command: message.command,
+    //     text: postForToyama,
+    //   } as DiscordScheduledPostInput,
+    // });
+    // this.eventBus.publish({
+    //   type: 'discord:scheduled_post',
+    //   memoryZone: 'discord:douki_server',
+    //   data: {
+    //     command: message.command,
+    //     text: post,
+    //   } as DiscordScheduledPostInput,
+    // });
     // this.eventBus.publish({
     //   type: 'discord:scheduled_post',
     //   memoryZone: 'discord:test_server',

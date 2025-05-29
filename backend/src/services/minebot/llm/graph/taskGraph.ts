@@ -77,16 +77,18 @@ class InstantSkillTool extends StructuredTool {
   }
 
   async _call(data: any): Promise<string> {
+
     const skill = this.bot.instantSkills.getSkill(this.name);
     if (!skill) {
       return `${this.name}スキルが存在しません。`;
     }
+    console.log(`\x1b[32m%s\x1b[0m`, `${skill.skillName}を実行します。パラメータ：${JSON.stringify(data)}`);
 
     try {
       // スキルのパラメータ定義を取得
       const params = skill.params || [];
       const args = params.map((param) => {
-        if (param.type === 'Vec3') {
+        if (param.type === 'Vec3' && data[param.name]) {
           return new Vec3(
             data[param.name].x,
             data[param.name].y,

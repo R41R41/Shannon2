@@ -8,14 +8,14 @@ class GetBlocksData extends InstantSkill {
     super(bot);
     this.skillName = 'get-blocks-data';
     this.description =
-      '周囲のブロックのデータを取得します。座標領域やブロックの名前を指定することもできます。ただし、ブロックの数が500個以上ある場合はエラーが出ます。';
+      '周囲のブロックのデータを取得します。座標領域やブロックの名前を指定することもできます。';
     this.priority = 100;
     this.canUseByCommand = false;
     this.params = [
       {
         name: 'startPosition',
         description:
-          '取得する開始座標。これを指定する際はblockNameはnullで指定してください。',
+          '取得する開始座標。これを指定する際はblockNameはnullで指定してください。ブロック名を指定する場合は32ブロック四方を検索範囲とします。',
         type: 'Vec3',
         required: false,
         default: null,
@@ -23,7 +23,7 @@ class GetBlocksData extends InstantSkill {
       {
         name: 'endPosition',
         description:
-          '取得する終了座標。これを指定する際はblockNameはnullで指定してください。',
+          '取得する終了座標。これを指定する際はblockNameはnullで指定してください。ブロック名を指定する場合は32ブロック四方を検索範囲とします。',
         type: 'Vec3',
         required: false,
         default: null,
@@ -87,7 +87,6 @@ class GetBlocksData extends InstantSkill {
               if (blockName && block.name !== blockName) {
                 continue;
               }
-
               // ブロックの詳細プロパティを取得
               const blockProperties = {
                 name: block.name,
@@ -118,7 +117,7 @@ class GetBlocksData extends InstantSkill {
         return {
           success: true,
           result: blockName
-            ? `指定された名前「${blockName}」のブロックは見つかりませんでした。`
+            ? `指定された名前「${blockName}」のブロックは周囲32ブロック四方内に見つかりませんでした。`
             : '指定された範囲内にブロックが見つかりませんでした。',
         };
       }

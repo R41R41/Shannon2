@@ -1,5 +1,5 @@
 import { ConstantSkill, CustomBot } from '../types.js';
-import ShootAnArrow from '../instantSkills/shootAnArrow.js';
+import ShootAnArrow from '../instantSkills/shootItemToEntityOrBlockOrCoordinate.js';
 
 class AutoShootArrowToBlock extends ConstantSkill {
   private shootAnArrow: ShootAnArrow;
@@ -23,7 +23,7 @@ class AutoShootArrowToBlock extends ConstantSkill {
     }
 
     this.lock();
-    this.shootAnArrow.run(null, this.args.blockName, null);
+    this.shootAnArrow.run('arrow', null, this.args.blockName, null);
     this.unlock();
   }
 }

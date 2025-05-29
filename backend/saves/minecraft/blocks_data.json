@@ -1,26 +1,14 @@
 [
   {
-    "name": "oak_log",
+    "name": "target",
     "position": {
-      "x": -73,
+      "x": -32,
       "y": 72,
-      "z": 146
+      "z": 217
     },
-    "stateId": 137,
+    "stateId": 20394,
     "properties": {
-      "axis": "y"
-    }
-  },
-  {
-    "name": "oak_log",
-    "position": {
-      "x": -73,
-      "y": 73,
-      "z": 146
-    },
-    "stateId": 137,
-    "properties": {
-      "axis": "y"
+      "power": "0"
     }
   }
 ]

@@ -85,12 +85,12 @@ export class TaskGraph {
       apiKey: OPENAI_API_KEY,
     });
     const MediumModel = new ChatOpenAI({
-      modelName: 'gpt-4o-mini',
+      modelName: 'gpt-4o',
       temperature: 0.8,
       apiKey: OPENAI_API_KEY,
     });
     const LargeModel = new ChatOpenAI({
-      modelName: 'gpt-4o',
+      modelName: 'o4-mini',
       temperature: 0.8,
       apiKey: OPENAI_API_KEY,
     });
@@ -152,10 +152,10 @@ export class TaskGraph {
   private toolAgentNode = async (state: typeof this.TaskState.State) => {
     console.log('toolAgentNode');
     const messages = this.prompt.getMessages(state, 'use_tool', true, false);
-    if (!this.largeModel) {
-      throw new Error('Large model not initialized');
+    if (!this.mediumModel) {
+      throw new Error('Medium model not initialized');
     }
-    const llmWithTools = this.largeModel.bindTools(this.tools);
+    const llmWithTools = this.mediumModel.bindTools(this.tools);
     const forcedToolLLM = llmWithTools.bind({
       tool_choice: 'any',
     });
@@ -173,8 +173,8 @@ export class TaskGraph {
 
   private planningNode = async (state: typeof this.TaskState.State) => {
     console.log('planning');
-    if (!this.largeModel) {
-      throw new Error('Large model not initialized');
+    if (!this.mediumModel) {
+      throw new Error('Medium model not initialized');
     }
     const PlanningSchema = z.object({
       status: z.enum(['pending', 'in_progress', 'completed', 'error']),
@@ -191,11 +191,12 @@ export class TaskGraph {
             ]),
             subTaskGoal: z.string(),
             subTaskStrategy: z.string(),
+            subTaskResult: z.string().nullable(),
           })
         )
         .nullable(),
     });
-    const structuredLLM = this.largeModel.withStructuredOutput(PlanningSchema, {
+    const structuredLLM = this.mediumModel.withStructuredOutput(PlanningSchema, {
       name: 'Planning',
     });
     const messages = this.prompt.getMessages(state, 'planning', true, true);
@@ -314,33 +315,11 @@ export class TaskGraph {
     }),
     messages: Annotation<BaseMessage[]>({
       reducer: (prev, next) => {
-        // 変更可能な新しい配列を作成
-        let updatedPrev = [...prev];
-
-        // nextの各メッセージをチェック
-        const validNext = next.filter((message, index, array) => {
-          if (message instanceof ToolMessage) {
-            // 直前のメッセージがAIMessageでtool_callsを持っているか確認
-            const prevMessage = updatedPrev[updatedPrev.length - 1];
-            return (
-              prevMessage instanceof AIMessage &&
-              prevMessage.additional_kwargs.tool_calls
-            );
-          } else {
-            // ToolMessage以外の場合、直前のメッセージをチェック
-            const prevMessage = updatedPrev[updatedPrev.length - 1];
-            if (
-              prevMessage instanceof AIMessage &&
-              prevMessage.additional_kwargs.tool_calls
-            ) {
-              // tool_callsを含むメッセージを削除
-              updatedPrev = updatedPrev.slice(0, -1);
-            }
-          }
-          return true; // ToolMessage以外は全て保持
-        });
-
-        return updatedPrev.concat(validNext);
+        if (next === null) {
+          return prev;
+        } else {
+          return prev?.concat(next) ?? next;
+        }
       },
       default: () => [],
     }),
@@ -405,7 +384,12 @@ export class TaskGraph {
       messages: partialState.messages ?? [],
       userMessage: partialState.userMessage ?? null,
       emotion: partialState.emotion ?? null,
-      taskTree: null,
+      taskTree: {
+        status: 'in_progress',
+        goal: '',
+        strategy: '',
+        subTasks: null,
+      },
     };
 
     try {
