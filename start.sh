@@ -4,16 +4,18 @@
 FRONTEND_SESSION="shannon-frontend"
 BACKEND_SESSION="shannon-backend"
 
-# 既存のセッションを確認・終了
-screen -X -S $FRONTEND_SESSION quit > /dev/null 2>&1
-screen -X -S $BACKEND_SESSION quit > /dev/null 2>&1
-
 # テストモードフラグをチェック
 IS_TEST=false
 if [ "$1" = "--test" ]; then
     IS_TEST=true
+    BACKEND_SESSION="$BACKEND_SESSION-test"
+    FRONTEND_SESSION="$FRONTEND_SESSION-test"
     echo "Starting in test mode..."
 fi
+
+# 既存のセッションを確認・終了
+screen -X -S $FRONTEND_SESSION quit > /dev/null 2>&1
+screen -X -S $BACKEND_SESSION quit > /dev/null 2>&1
 
 # バックエンドを起動
 cd backend
