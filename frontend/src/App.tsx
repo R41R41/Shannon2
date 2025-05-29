@@ -4,7 +4,11 @@ import Login from "./pages/Login";
 import ShannonUI from "./pages/ShannonUI";
 import AuthGuard from "./components/AuthGuard/AuthGuard";
 
-const App: React.FC = () => {
+interface AppProps {
+  isTest?: boolean;
+}
+
+const App: React.FC<AppProps> = ({ isTest }) => {
   return (
     <BrowserRouter>
       <Routes>
@@ -13,7 +17,7 @@ const App: React.FC = () => {
           path="/shannonUI"
           element={
             <AuthGuard>
-              <ShannonUI />
+              <ShannonUI isTest={isTest} />
             </AuthGuard>
           }
         />

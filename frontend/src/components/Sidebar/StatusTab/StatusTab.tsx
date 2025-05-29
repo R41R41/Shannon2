@@ -9,6 +9,7 @@ import { UserInfo } from "@common/types/web";
 interface StatusTabProps {
   status: StatusAgent | null;
   userInfo?: UserInfo | null;
+  isTest?: boolean;
 }
 
 interface ServiceStatuses {
@@ -27,7 +28,7 @@ const SERVICES = [
   "minebot:bot",
 ] as const;
 
-export const StatusTab: React.FC<StatusTabProps> = ({ status, userInfo }) => {
+export const StatusTab: React.FC<StatusTabProps> = ({ status, userInfo, isTest }) => {
   const [serviceStatuses, setServiceStatuses] = useState<ServiceStatuses>({
     twitter: "stopped",
     discord: "stopped",
@@ -77,7 +78,7 @@ export const StatusTab: React.FC<StatusTabProps> = ({ status, userInfo }) => {
     <div className={styles.container}>
       <span className={styles.title}>Service Status</span>
       <div className={styles.serviceList}>
-        {userInfo?.isAdmin && (
+        {(userInfo?.isAdmin || isTest) && (
           <>
             <ServiceItem
               name="Twitter Bot"
@@ -142,7 +143,7 @@ export const StatusTab: React.FC<StatusTabProps> = ({ status, userInfo }) => {
             />
           </>
         )}
-        {!userInfo?.isAdmin && (
+        {(!userInfo?.isAdmin && !isTest) && (
           <>
             <ServiceItem
               name="Minecraft 1.21.1-play"

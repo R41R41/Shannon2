@@ -24,6 +24,7 @@ interface SidebarProps {
   skill: SkillAgent | null;
   isMobile?: boolean;
   userInfo?: UserInfo | null;
+  isTest?: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -33,6 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   skill,
   isMobile = false,
   userInfo,
+  isTest,
 }) => {
   const [activeTab, setActiveTab] = useState("status");
   const [searchResults, setSearchResults] = useState<ILog[]>([]);
@@ -75,7 +77,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
           <TaskAltOutlinedIcon />
         </div>
-        {userInfo?.isAdmin && (
+        {(userInfo?.isAdmin || isTest) && (
           <div
             className={classNames(styles.tab, {
               [styles.active]: activeTab === "schedule",
@@ -109,7 +111,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           {activeTab === "tasks" && <div></div>}
           {activeTab === "schedule" && <ScheduleTab scheduler={scheduler} />}
           {activeTab === "status" && (
-            <StatusTab status={status} userInfo={userInfo} />
+            <StatusTab status={status} userInfo={userInfo} isTest={isTest} />
           )}
           {activeTab === "skills" && <SkillsTab skill={skill} />}
         </div>
