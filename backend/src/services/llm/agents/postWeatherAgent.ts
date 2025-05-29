@@ -94,7 +94,7 @@ export class PostWeatherAgent {
     cities: string[] = ['仙台', '東京', '名古屋', '大阪', '福岡']
   ) {
     this.model = new ChatOpenAI({
-      modelName: 'gpt-4o',
+      modelName: 'gpt-o4-mini',
       temperature: 0.8,
       apiKey: OPENAI_API_KEY,
     });
