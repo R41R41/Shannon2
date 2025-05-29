@@ -1,0 +1,37 @@
+{
+  "equipment": {
+    "helmet": {
+      "name": "carved_pumpkin",
+      "count": 1
+    },
+    "chestplate": null,
+    "leggings": null,
+    "boots": {
+      "name": "golden_boots",
+      "count": 1
+    },
+    "mainHand": {
+      "name": "bow",
+      "count": 1
+    },
+    "offHand": null
+  },
+  "inventory": [
+    {
+      "name": "arrow",
+      "count": 63
+    },
+    {
+      "name": "bow",
+      "count": 1
+    },
+    {
+      "name": "arrow",
+      "count": 28
+    },
+    {
+      "name": "bread",
+      "count": 62
+    }
+  ]
+}

@@ -72,11 +72,13 @@ export abstract class Skill {
   description: string;
   status: boolean;
   bot: CustomBot;
+  isToolForLLM: boolean;
   constructor(bot: CustomBot) {
     this.skillName = 'skill';
     this.description = 'skill';
     this.status = true;
     this.bot = bot;
+    this.isToolForLLM = true;
   }
 }
 
@@ -84,11 +86,13 @@ export abstract class ConstantSkill extends Skill {
   priority: number;
   isLocked: boolean;
   interval: number;
+  args: any;
   constructor(bot: CustomBot) {
     super(bot);
     this.priority = 0;
     this.isLocked = false;
     this.interval = 1000;
+    this.args = {};
   }
   lock() {
     if (this.isLocked) return;

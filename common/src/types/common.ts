@@ -22,7 +22,13 @@ import {
   MinecraftEventType,
 } from "./minecraft";
 import { YoutubeClientOutput, YoutubeEventType } from "./youtube";
-import { MinebotOutput, MinebotInput, MinebotEventType } from "./minebot";
+import {
+  MinebotOutput,
+  MinebotInput,
+  MinebotEventType,
+  SkillParameters,
+  SkillResult,
+} from "./minebot";
 import {
   TaskInput,
   TaskTreeState,
@@ -36,6 +42,7 @@ import {
 } from "./scheduler";
 import { LLMEventType, SkillInfo } from "./llm";
 import { ToolEventType } from "./tools";
+import { NotionClientInput, NotionClientOutput, NotionEventType } from "./notion";
 
 export type Platform =
   | "web"
@@ -44,6 +51,7 @@ export type Platform =
   | "scheduler"
   | "twitter"
   | "youtube"
+  | "notion"
   | "minebot";
 
 export type ConversationType =
@@ -116,11 +124,13 @@ export type MemoryZone =
   | DiscordGuild
   | "twitter:schedule_post"
   | "twitter:post"
+  | "twitter:get"
   | "minecraft"
   | "youtube"
   | "scheduler"
   | "minebot"
-  | "null";
+  | "null"
+  | "notion";
 
 export type EventType =
   | TaskEventType
@@ -132,34 +142,39 @@ export type EventType =
   | WebEventType
   | SchedulerEventType
   | MinebotEventType
-  | ToolEventType;
+  | ToolEventType
+  | NotionEventType;
 
 export interface Event {
   type: EventType;
   memoryZone: MemoryZone;
   data:
-    | TwitterClientInput
-    | TwitterClientOutput
-    | OpenAIInput
-    | DiscordClientInput
-    | ILog
-    | OpenAIMessageOutput
-    | DiscordClientOutput
-    | MinecraftInput
-    | MinecraftOutput
-    | SchedulerInput
-    | SchedulerOutput
-    | StatusAgentInput
-    | ServiceInput
-    | YoutubeClientOutput
-    | MinebotOutput
-    | MinebotInput
-    | ServiceOutput
-    | TaskInput
-    | TaskTreeState
-    | EmotionType
-    | SkillInfo[]
-    | WebSkillInput;
+  | TwitterClientInput
+  | TwitterClientOutput
+  | OpenAIInput
+  | DiscordClientInput
+  | ILog
+  | OpenAIMessageOutput
+  | DiscordClientOutput
+  | MinecraftInput
+  | MinecraftOutput
+  | SchedulerInput
+  | SchedulerOutput
+  | StatusAgentInput
+  | ServiceInput
+  | YoutubeClientOutput
+  | MinebotOutput
+  | MinebotInput
+  | ServiceOutput
+  | TaskInput
+  | TaskTreeState
+  | EmotionType
+  | SkillInfo[]
+  | WebSkillInput
+  | SkillParameters
+  | SkillResult
+  | NotionClientInput
+  | NotionClientOutput;
   targetMemoryZones?: MemoryZone[];
 }
 

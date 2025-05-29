@@ -8,3 +8,4 @@ export * from "./types/taskGraph";
 export * from "./types/twitter";
 export * from "./types/web";
 export * from "./types/youtube";
+export * from "./types/notion";

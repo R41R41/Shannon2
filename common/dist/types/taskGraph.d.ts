@@ -12,6 +12,7 @@ export interface TaskTreeState {
         subTaskGoal: string;
         subTaskStrategy: string;
         subTaskStatus: TaskStatus;
+        subTaskResult?: string | null;
     }[] | null;
 }
 export interface EmotionType {

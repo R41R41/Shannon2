@@ -8,6 +8,7 @@ import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
 import { MinecraftClient } from './services/minecraft/client.js';
 import { MinebotClient } from './services/minebot/client.js';
+import { NotionClient } from './services/notion/client.js';
 dotenv.config();
 
 class Server {
@@ -19,7 +20,7 @@ class Server {
   private youtubeClient: YoutubeClient;
   private minecraftClient: MinecraftClient;
   private minebotClient: MinebotClient;
-
+  private notionClient: NotionClient;
   constructor() {
     const isTestMode = process.argv.includes('--test');
     this.llmService = LLMService.getInstance(isTestMode);
@@ -30,6 +31,7 @@ class Server {
     this.youtubeClient = YoutubeClient.getInstance(isTestMode);
     this.minecraftClient = MinecraftClient.getInstance(isTestMode);
     this.minebotClient = MinebotClient.getInstance(isTestMode);
+    this.notionClient = NotionClient.getInstance(isTestMode);
   }
 
   private async connectDatabase() {
@@ -61,6 +63,7 @@ class Server {
         this.startYoutubeClient(),
         this.startMinecraftClient(),
         this.startMinebotClient(),
+        this.startNotionClient(),
       ]);
     } catch (error) {
       console.error(`\x1b[31mサービス起動エラー: ${error}\x1b[0m`);
@@ -110,6 +113,11 @@ class Server {
   private async startMinebotClient() {
     await this.minebotClient.start();
     console.log('\x1b[34mMinebot Client started\x1b[0m');
+  }
+
+  private async startNotionClient() {
+    await this.notionClient.start();
+    console.log('\x1b[34mNotion Client started\x1b[0m');
   }
 
   public async shutdown() {

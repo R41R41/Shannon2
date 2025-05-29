@@ -6,7 +6,7 @@ class AutoEat extends ConstantSkill {
   private bannedFood: string[];
   constructor(bot: CustomBot) {
     super(bot);
-    this.skillName = 'autoEat';
+    this.skillName = 'auto-eat';
     this.description = '自動で食べる';
     this.isLocked = false;
     this.eatFood = new EatFood(this.bot);

@@ -1,4 +1,5 @@
-import { MinebotInput, MinebotSkillInput } from '@shannon/common';
+import { MinebotSkillInput } from '@shannon/common';
+import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -8,9 +9,8 @@ import {
   CustomBot,
   InstantSkills,
   ResponseType,
-  ConstantSkill,
 } from './types.js';
-
+import { CentralAgent } from './llm/graph/centralAgent.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -19,12 +19,15 @@ export class SkillAgent {
   private constantSkillDir: string;
   private bot: CustomBot;
   private eventBus: EventBus;
-
+  private centralAgent: CentralAgent;
+  private recentMessages: BaseMessage[] = [];
   constructor(bot: CustomBot, eventBus: EventBus) {
     this.bot = bot;
     this.eventBus = eventBus;
     this.instantSkillDir = join(__dirname, 'instantSkills');
     this.constantSkillDir = join(__dirname, 'constantSkills');
+    this.centralAgent = CentralAgent.getInstance(this.bot);
+    this.recentMessages = [];
   }
 
   async loadInstantSkills(): Promise<ResponseType> {
@@ -91,44 +94,22 @@ export class SkillAgent {
       this.eventBus.log('minecraft', 'green', `✓ ${skill.skillName}`);
       this.eventBus.subscribe(`minebot:${skill.skillName}`, async (event) => {
         try {
-          const data = event.data as any;
-          if (skill.status) {
-            this.eventBus.publish({
-              type: `minebot:skillResult`,
-              memoryZone: 'minecraft',
-              data: {
-                skillName: skill.skillName,
-                success: false,
-                result: `already active`,
-              },
-            });
-            return;
-          }
+          const parameters = event.data as any;
           skill.status = true;
-          const response = await skill.run(...data);
+          const response = await skill.run(...parameters);
           skill.status = false;
           this.eventBus.publish({
-            type: `minebot:skillResult`,
+            type: `minebot:${skill.skillName}Result`,
             memoryZone: 'minecraft',
-            data: {
-              skillName: skill.skillName,
-              success: response.success,
-              result: response.result,
-            },
+            data: response,
           });
-        } catch (error) {
-          this.eventBus.log(
-            'minecraft',
-            'red',
-            `${skill.skillName} error: ${error}`
-          );
+        } catch (error: any) {
           this.eventBus.publish({
-            type: `minebot:skillResult`,
+            type: `minebot:${skill.skillName}Result`,
             memoryZone: 'minecraft',
             data: {
-              skillName: skill.skillName,
               success: false,
-              result: `error: ${error}`,
+              result: error,
             },
           });
         }
@@ -149,7 +130,7 @@ export class SkillAgent {
           if (skill.status && !skill.isLocked) {
             try {
               await skill.run();
-            } catch (error) {
+            } catch (error: any) {
               this.eventBus.log(
                 'minecraft',
                 'red',
@@ -172,8 +153,8 @@ export class SkillAgent {
     }, 1000);
 
     setInterval(() => {
-      this.bot.emit('taskPer10000ms');
-    }, 10000);
+      this.bot.emit('taskPer5000ms');
+    }, 5000);
   }
 
   async registerPost() {
@@ -299,6 +280,11 @@ export class SkillAgent {
         return;
       }
       if (username === 'I_am_Sh4nnon') {
+        const currentTime = new Date().toLocaleString('ja-JP', {
+          timeZone: 'Asia/Tokyo',
+        });
+        const newMessage = `${currentTime} ${username}: ${message}`;
+        this.recentMessages.push(new AIMessage(newMessage));
         return;
       }
       console.log(`[${username}] ${message}`);
@@ -313,7 +299,6 @@ export class SkillAgent {
           this.bot.chat('display-instant-skill-listは存在しません');
           return;
         }
-        console.log('here');
         const response = await displayInstantSkillList.run();
         if (!response.success) {
           this.bot.chat(`display-instant-skill-list error: ${response.result}`);
@@ -377,9 +362,9 @@ export class SkillAgent {
           InstantSkill.status = false;
           console.log(`${skillName} ${response.result}`);
           if (response.success) {
-            this.bot.chat(response.result);
+            console.log(response.result);
           } else {
-            this.bot.chat(`${skillName} error: ${response.result}`);
+            console.log(`${skillName} error: ${response.result}`);
           }
         } catch (error) {
           console.log(`${skillName} error: ${error}`);
@@ -400,26 +385,30 @@ export class SkillAgent {
         }
         ConstantSkill.status = !ConstantSkill.status;
         this.bot.chat(
-          `常時スキル${skillName}のステータスを${
-            ConstantSkill.status ? 'オン' : 'オフ'
+          `常時スキル${skillName}のステータスを${ConstantSkill.status ? 'オン' : 'オフ'
           }にしました`
         );
         return;
       }
+      if (!message.startsWith('シャノン、')) {
+        return;
+      }
       const sender = this.bot.players[username]?.entity;
-      const data = {
+      const environmentState = {
         senderName: username,
-        message: message,
-        senderPosition: sender.position.toString(),
-        botPosition: this.bot.entity.position.toString(),
+        senderPosition: sender ? sender.position.toString() : 'spectator mode',
+      };
+      const selfState = {
+        botPosition: this.bot.entity.position.toString() || 'null',
         botHealth: `${this.bot.health}/20`,
         botFoodLevel: `${this.bot.food}/20`,
       };
-      this.eventBus.publish({
-        type: 'minebot:chat',
-        memoryZone: 'minecraft',
-        data: data,
-      });
+      await this.processMessage(
+        username,
+        message,
+        JSON.stringify(environmentState),
+        JSON.stringify(selfState)
+      );
     });
     this.eventBus.subscribe('minebot:chat', async (event) => {
       const { text } = event.data as MinebotSkillInput;
@@ -431,7 +420,20 @@ export class SkillAgent {
 
   async entitySpawn() {
     console.log(`\x1b[32m✓ entitySpawn\x1b[0m`);
-    this.bot.on('entitySpawn', async (entity) => {});
+    this.bot.on('entitySpawn', async (entity) => {
+      const autoPickUpItem =
+        this.bot.constantSkills.getSkill('auto-pick-up-item');
+      if (!autoPickUpItem) {
+        this.bot.chat('autoPickUpItemは存在しません');
+        return;
+      }
+      if (!autoPickUpItem.status) return;
+      try {
+        autoPickUpItem.run(entity);
+      } catch (error) {
+        console.error('エラーが発生しました:', error);
+      }
+    });
   }
 
   async entityHurt() {
@@ -448,7 +450,7 @@ export class SkillAgent {
     this.bot.on('health', async () => {
       const autoEat = this.bot.constantSkills.getSkill('auto-eat');
       if (!autoEat) {
-        this.bot.chat('auto-eatは存在しません');
+        this.bot.chat('autoEatは存在しません');
         return;
       }
       if (!autoEat.status) return;
@@ -461,24 +463,29 @@ export class SkillAgent {
     });
   }
 
-  async entityMoved() {
-    console.log(`\x1b[32m✓ entityMoved\x1b[0m`);
-    this.bot.on('entityMoved', async (entity) => {
-      if (entity.type !== 'projectile') return;
-      const autoAvoidProjectile = this.bot.constantSkills.getSkill(
-        'auto-avoid-projectile'
+  private async processMessage(
+    userName: string,
+    message: string,
+    environmentState?: string,
+    selfState?: string
+  ) {
+    try {
+      const currentTime = new Date().toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+      });
+      const newMessage = `${currentTime} ${userName}: ${message}`;
+      this.recentMessages.push(new HumanMessage(newMessage));
+      await this.centralAgent.handlePlayerMessage(
+        userName,
+        message,
+        environmentState,
+        selfState,
+        this.recentMessages
       );
-      if (!autoAvoidProjectile) {
-        this.bot.chat('auto-avoid-projectileは存在しません');
-        return;
-      }
-      if (autoAvoidProjectile.isLocked) return;
-      try {
-        await autoAvoidProjectile.run(entity);
-      } catch (error) {
-        console.error('エラーが発生しました:', error);
-      }
-    });
+    } catch (error) {
+      console.error(`\x1b[31mLLM処理エラー:${error}\n\x1b[0m`);
+      throw error;
+    }
   }
 
   async startAgent() {
@@ -487,13 +494,13 @@ export class SkillAgent {
       if (!initSkillsResponse.success) {
         return { success: false, result: initSkillsResponse.result };
       }
-      await this.setInterval();
-      await this.registerPost();
       await this.botOnChat();
       await this.entitySpawn();
-      await this.entityMoved();
       await this.entityHurt();
       await this.health();
+      await this.setInterval();
+      await this.registerPost();
+      await this.centralAgent.initialize();
       return { success: true, result: 'agent started' };
     } catch (error) {
       console.log(`error: ${error}`);

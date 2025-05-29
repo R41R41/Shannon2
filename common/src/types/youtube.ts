@@ -8,7 +8,8 @@ export interface YoutubeClientInput extends ServiceInput {
 
 export type YoutubeClientOutput =
   | YoutubeCommentOutput
-  | YoutubeSubscriberUpdateOutput;
+  | YoutubeSubscriberUpdateOutput
+  | YoutubeVideoInfoOutput;
 
 export interface YoutubeCommentOutput extends ServiceInput {
   videoId: string;
@@ -18,6 +19,17 @@ export interface YoutubeCommentOutput extends ServiceInput {
   publishedAt: string;
   videoTitle: string;
   videoDescription: string;
+}
+
+export interface YoutubeVideoInfoOutput extends ServiceInput {
+  title: string;
+  author: string;
+  thumbnail: string;
+  description: string;
+  publishedAt: string;
+  viewCount: number;
+  likeCount: number;
+  commentCount: number;
 }
 
 export interface YoutubeSubscriberUpdateOutput extends ServiceInput {
@@ -32,4 +44,5 @@ export type YoutubeEventType =
   | "youtube:check_subscribers"
   | "youtube:reply_comment"
   | "youtube:status"
-  | "youtube:subscriber_update";
+  | "youtube:subscriber_update"
+  | "youtube:get_video_info";

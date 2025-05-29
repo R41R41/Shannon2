@@ -1,0 +1,9 @@
+{
+  "typescript.format.enable": true,
+  "javascript.format.enable": true,
+  "editor.formatOnSave": true,
+  "[typescript]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  },
+  "typescript.surveys.enabled": false
+}

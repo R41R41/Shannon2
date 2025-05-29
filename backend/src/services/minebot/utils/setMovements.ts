@@ -11,7 +11,9 @@ export function setMovements(
   canOpenDoors = true,
   canDig = true,
   infiniteLiquidDropdownDistance = false,
-  dontMineUnderFallingBlock = true
+  dontMineUnderFallingBlock = true,
+  digCost = 1,
+  allowFreeMotion = true,
 ) {
   const defaultMove = new Movements(bot as Bot);
   defaultMove.allow1by1towers = allow1by1towers;
@@ -22,5 +24,7 @@ export function setMovements(
   defaultMove.canDig = canDig;
   defaultMove.infiniteLiquidDropdownDistance = infiniteLiquidDropdownDistance;
   defaultMove.dontMineUnderFallingBlock = dontMineUnderFallingBlock;
+  defaultMove.digCost = digCost;
+  defaultMove.allowFreeMotion = allowFreeMotion;
   bot.pathfinder.setMovements(defaultMove);
 }

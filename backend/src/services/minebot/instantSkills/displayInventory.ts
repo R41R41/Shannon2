@@ -4,9 +4,10 @@ class DisplayInventory extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'display-inventory';
-    this.description = 'インベントリを表示します。';
+    this.description = 'インベントリの中身を表示します。';
     this.priority = 10;
     this.params = [];
+    this.isToolForLLM = false;
   }
 
   async run() {

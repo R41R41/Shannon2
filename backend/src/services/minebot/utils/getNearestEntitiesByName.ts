@@ -5,14 +5,12 @@ export function getNearestEntitiesByName(
   bot: CustomBot,
   entity_name: string
 ): Entity[] {
-  console.log('getNearestEntitiesByName:', entity_name);
   const entities = Object.values(bot.entities).filter((entity) => {
     if (entity_name) {
       return entity.name === entity_name || entity.username === entity_name;
     }
     return true;
   });
-  console.log('entities:', entities);
   if (entities.length === 0) return [];
   const sortedEntities = entities
     .map((entity) => {

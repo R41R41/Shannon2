@@ -7,6 +7,7 @@ class DisplayConstantSkillList extends InstantSkill {
     this.description = 'Constant Skillのリストを表示します。';
     this.priority = 100;
     this.params = [];
+    this.isToolForLLM = false;
   }
 
   async run(): Promise<{
