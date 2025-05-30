@@ -30,7 +30,14 @@ import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
 import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
+import path from 'path';
+import * as Jimp from 'jimp';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 type VoteState = {
   [userId: string]: number | null; // userId -> index of voted option
@@ -42,7 +49,6 @@ const voteDurations: { [key: string]: number } = {
   '1d': 24 * 60 * 60 * 1000,
   '1w': 7 * 24 * 60 * 60 * 1000,
 };
-
 export class DiscordBot extends BaseClient {
   private client: Client;
   private toyamaGuildId: string | null = null;
@@ -175,7 +181,18 @@ export class DiscordBot extends BaseClient {
               .setName('max_votes')
               .setDescription('1人あたりの最大投票数')
               .setRequired(true)
-          )
+          ),
+        new SlashCommandBuilder()
+          .setName('dice')
+          .setDescription('6面ダイスをn個振って出目を表示します')
+          .addIntegerOption(option =>
+            option
+              .setName('count')
+              .setDescription('振るダイスの個数（1~10）')
+              .setRequired(true)
+              .setMinValue(1)
+              .setMaxValue(10)
+          ),
       ];
 
       // コマンドをJSON形式に変換
@@ -225,12 +242,66 @@ export class DiscordBot extends BaseClient {
               await this.sendVoteMessage(interaction, description, options, duration, maxVotes);
             }
             break;
+          case 'dice':
+            if (interaction.isChatInputCommand()) {
+              const count = interaction.options.getInteger('count', true);
+              await this.sendDiceMessage(interaction, count);
+            }
+            break;
         }
       });
       console.log('\x1b[32mSlash command setup completed\x1b[0m');
     } catch (error) {
       console.error(`\x1b[31mSlash command setup error: ${error}\x1b[0m`);
     }
+  }
+
+  private async sendDiceMessage(interaction: ChatInputCommandInteraction, count: number) {
+    if (count < 1 || count > 10) {
+      await interaction.reply('ダイスの個数は1~10で指定してください。');
+      return;
+    }
+    // ダイスを振る
+    const results = Array.from({ length: count }, () => Math.floor(Math.random() * 6) + 1);
+
+    const diceSize = 32; // 1個あたりのサイズ（px）
+    const canvasSize = diceSize * 1.5;
+
+    const diceImages = await Promise.all(results.map(async (num) => {
+      // 1. 画像読み込み
+      let img = await Jimp.Jimp.read(path.join(__dirname, '../../../saves/images/dice/', `dice_${num}.png`));
+      // 2. リサイズ
+      const img2 = img.resize({ w: diceSize, h: diceSize });
+      // 3. 回転
+      const angle = Math.floor(Math.random() * 360);
+      const img3 = img2.rotate(angle);
+
+      // 4. はみ出し防止: 新しいキャンバスに中央配置
+      const canvas = new Jimp.Jimp({ width: canvasSize, height: canvasSize, color: 0x00000000 });
+      const x = (canvasSize - img3.bitmap.width) / 2;
+      const y = (canvasSize - img3.bitmap.height) / 2;
+      canvas.composite(img3, x, y);
+
+      return canvas;
+    }));
+
+    // 横に結合
+    const resultImage = new Jimp.Jimp({ width: canvasSize * count, height: canvasSize, color: 0x00000000 });
+    diceImages.forEach((img, i) => {
+      resultImage.composite(img, i * canvasSize, 0);
+    });
+
+    // 一時ファイルとして保存
+    const filePath = path.join(__dirname, '../../../saves/images/dice', `dice_result_${Date.now()}.png`);
+    await resultImage.write(filePath as `${string}.${string}`);
+    interaction.reply({
+      content: `🎲 ${count}個の6面ダイスを振った結果（合計: ${results.reduce((a, b) => a + b, 0)}）`,
+      files: [filePath]
+    });
+    // 2秒後に一時ファイルを削除
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    fs.unlinkSync(filePath);
+    console.log("ファイル削除");
   }
 
   /**
