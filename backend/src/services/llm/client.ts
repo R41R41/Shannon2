@@ -298,22 +298,22 @@ export class LLMService {
         imageUrl: null,
       } as TwitterClientInput,
     });
-    // this.eventBus.publish({
-    //   type: 'discord:scheduled_post',
-    //   memoryZone: 'discord:toyama_server',
-    //   data: {
-    //     command: message.command,
-    //     text: postForToyama,
-    //   } as DiscordScheduledPostInput,
-    // });
-    // this.eventBus.publish({
-    //   type: 'discord:scheduled_post',
-    //   memoryZone: 'discord:douki_server',
-    //   data: {
-    //     command: message.command,
-    //     text: post,
-    //   } as DiscordScheduledPostInput,
-    // });
+    this.eventBus.publish({
+      type: 'discord:scheduled_post',
+      memoryZone: 'discord:toyama_server',
+      data: {
+        command: message.command,
+        text: postForToyama,
+      } as DiscordScheduledPostInput,
+    });
+    this.eventBus.publish({
+      type: 'discord:scheduled_post',
+      memoryZone: 'discord:douki_server',
+      data: {
+        command: message.command,
+        text: post,
+      } as DiscordScheduledPostInput,
+    });
     // this.eventBus.publish({
     //   type: 'discord:scheduled_post',
     //   memoryZone: 'discord:test_server',

@@ -1,13 +1,16 @@
 import { TwitterClientInput, TwitterClientOutput } from '@shannon/common';
 import dotenv from 'dotenv';
 import { BaseClient } from '../common/BaseClient.js';
+import { TwitterApi } from 'twitter-api-v2';
 import { getEventBus } from '../eventBus/index.js';
 import axios from "axios";
+import WebSocket from 'ws';
 
 dotenv.config();
 
 export class TwitterClient extends BaseClient {
   private myUserId: string | null = null;
+  private client: TwitterApi;
   public isTest: boolean = false;
   private apiKey: string;
   private static instance: TwitterClient;
@@ -16,7 +19,7 @@ export class TwitterClient extends BaseClient {
   private login_data: string;
   private two_fa_code: string;
   private auth_session: string;
-
+  private lastCheckedReplyIds: Set<string> = new Set();
   public static getInstance(isTest: boolean = false) {
     const eventBus = getEventBus();
     if (!TwitterClient.instance) {
@@ -36,6 +39,21 @@ export class TwitterClient extends BaseClient {
     this.login_data = process.env.TWITTER_LOGIN_DATA || '';
     this.two_fa_code = process.env.TWITTER_TWO_FA_CODE || '';
     this.auth_session = process.env.TWITTER_AUTH_SESSION || '';
+    const apiKey = process.env.TWITTER_API_KEY;
+    const apiKeySecret = process.env.TWITTER_API_KEY_SECRET;
+    const accessToken = process.env.TWITTER_ACCESS_TOKEN;
+    const accessTokenSecret = process.env.TWITTER_ACCESS_TOKEN_SECRET;
+
+    if (!apiKey || !apiKeySecret || !accessToken || !accessTokenSecret) {
+      throw new Error('Twitter APIの認証情報が設定されていません');
+    }
+
+    this.client = new TwitterApi({
+      appKey: apiKey,
+      appSecret: apiKeySecret,
+      accessToken: accessToken,
+      accessSecret: accessTokenSecret,
+    });
   }
 
   private setupEventHandlers() {
@@ -61,7 +79,7 @@ export class TwitterClient extends BaseClient {
       const { text, imageUrl } = event.data as TwitterClientInput;
       try {
         if (text) {
-          await this.postTweet(text, imageUrl ?? null);
+          await this.postTweetByApi(text);
         }
       } catch (error) {
         console.error('Twitter post error:', error);
@@ -71,11 +89,7 @@ export class TwitterClient extends BaseClient {
       if (this.status !== 'running') return;
       const { replyId, text, imageUrl } = event.data as TwitterClientInput;
       try {
-        if (replyId) {
-          await this.replyTweet(replyId, text);
-        } else {
-          await this.postTweet(text, imageUrl ?? null);
-        }
+        await this.postTweet(text, imageUrl ?? null, replyId ?? null);
       } catch (error) {
         console.error(`\x1b[31mTwitter post error: ${error}\x1b[0m`);
       }
@@ -172,44 +186,12 @@ export class TwitterClient extends BaseClient {
     }
   }
 
-  private async postTweet(content: string, mediaUrl: string | null) {
+  private async postTweetByApi(content: string) {
     if (this.status !== 'running') return;
     try {
-      console.log(`\x1b[32mpostTweet, content: ${content}, mediaUrl: ${mediaUrl}\x1b[0m`);
-      const endpoint = "https://api.twitterapi.io/twitter/create_tweet";
-      const data = {
-        auth_session: this.auth_session,
-        tweet_text: content,
-        media_id: mediaUrl ?? null
-      };
-      const config = {
-        headers: {
-          'X-API-Key': this.apiKey,
-        }
-      };
-      const response = await axios.post(endpoint, data, config);
+      const response = await this.client.v2.tweet(content);
       console.log(
-        `\x1b[32mTweet posted successfully ${JSON.stringify(response.data)}\x1b[0m`
-      );
-      return response
-    } catch (error: any) {
-      console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
-      return error;
-    }
-  }
-
-  private async replyTweet(replyId: string, text: string) {
-    if (this.status !== 'running') return;
-    try {
-      const endpoint = "https://api.twitterapi.io/twitter/reply_tweet";
-      const options = {
-        method: 'POST',
-        headers: { 'X-API-Key': this.apiKey },
-        data: { tweet_text: text, reply_id: replyId }
-      };
-      const response = await axios.post(endpoint, options);
-      console.log(
-        `\x1b[32mTweet replied successfully ${response.data.id}\x1b[0m`
+        `\x1b[32mTweet posted successfully ${response.data.id}\x1b[0m`
       );
     } catch (error: any) {
       console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
@@ -217,10 +199,109 @@ export class TwitterClient extends BaseClient {
     }
   }
 
+  private async getLatestTweets() {
+    try {
+      const endpoint = "https://api.twitterapi.io/twitter/user/last_tweets";
+      const options = {
+        method: 'GET',
+        headers: { 'X-API-Key': this.apiKey },
+        params: { userName: "I_am_Sh4nnon" }
+      };
+      const res = await axios.get(endpoint, options);
+      if (res.data.status === "success") {
+        const tweets = res.data.data.tweets;
+        const filteredTweets = tweets.filter((tweet: any) => !tweet.is_reply);
+        return filteredTweets.slice(0, 3);
+      } else {
+        console.error(`\x1b[31mTweet error: ${res.data.data.message}\x1b[0m`);
+        return [];
+      }
+    } catch (error: any) {
+      console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
+      throw error;
+    }
+  }
+
+  private async getReplies(tweet: any) {
+    const endpoint = "https://api.twitterapi.io/twitter/tweet/replies";
+    const options = {
+      method: 'GET',
+      headers: { 'X-API-Key': this.apiKey },
+      params: { tweetId: tweet.id }
+    };
+    const res = await axios.get(endpoint, options);
+    if (res.data.status === "success") {
+      const replies = res.data.tweets;
+      const filteredReplies = replies.filter((reply: any) => reply.replyCount === 0 && reply.author.id !== this.myUserId);
+      return {
+        reply: filteredReplies[0],
+        myTweet: tweet.text
+      };
+    } else {
+      console.error(`\x1b[31mTweet error: ${res.data.data.message}\x1b[0m`);
+      return {};
+    }
+  }
+
+  private async checkRepliesAndRespond() {
+    try {
+      const tweets = await this.getLatestTweets();
+      if (tweets.length === 0) return;
+
+      const replies: { reply: any, myTweet: any }[] = [];
+      for (const tweet of tweets) {
+        const { reply, myTweet } = await this.getReplies(tweet);
+        if (reply) {
+          replies.push({ reply, myTweet });
+        }
+      }
+      if (replies.length === 0) return;
+      console.log("replies: ", replies[0]);
+      this.eventBus.publish({
+        type: 'llm:post_twitter_reply',
+        memoryZone: 'twitter:post',
+        data: {
+          replyId: replies[0].reply.id,
+          text: replies[0].reply.text,
+          authorName: replies[0].reply.author.name,
+          myTweet: replies[0].myTweet,
+        }
+      });
+    } catch (err: any) {
+      console.error("❌ エラー:", err.response?.data || err.message);
+    }
+  }
+
+  private async postTweet(content: string, mediaUrl: string | null, replyId: string | null) {
+    if (this.status !== 'running') return;
+    try {
+      const endpoint = "https://api.twitterapi.io/twitter/create_tweet";
+      const data = {
+        auth_session: this.auth_session,
+        tweet_text: content,
+        media_id: mediaUrl ?? null,
+        in_reply_to_tweet_id: replyId ?? null
+      };
+      const config = {
+        headers: {
+          'X-API-Key': this.apiKey,
+        }
+      };
+      const response = await axios.post(endpoint, data, config);
+      return response
+    } catch (error: any) {
+      console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
+      return error;
+    }
+  }
+
   public async initialize() {
     try {
       // await this.login1Step();
       // await this.login2Step();
+      if (!this.isTest) {
+        setInterval(() => this.checkRepliesAndRespond(), 60 * 1000);
+      }
       this.setupEventHandlers();
     } catch (error) {
       if (error instanceof Error && error.message.includes('429')) {
