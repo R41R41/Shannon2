@@ -288,48 +288,51 @@ export class LLMService {
       post = await this.aboutTodayAgent.createPost();
       postForToyama = post;
     }
-    this.eventBus.log('twitter:schedule_post', 'green', post, true);
-    this.eventBus.log('discord:toyama_server', 'green', postForToyama, true);
-    this.eventBus.publish({
-      type: 'twitter:post_scheduled_message',
-      memoryZone: 'twitter:schedule_post',
-      data: {
-        text: post,
-        imageUrl: null,
-      } as TwitterClientInput,
-    });
-    this.eventBus.publish({
-      type: 'discord:scheduled_post',
-      memoryZone: 'discord:toyama_server',
-      data: {
-        command: message.command,
-        text: postForToyama,
-      } as DiscordScheduledPostInput,
-    });
-    this.eventBus.publish({
-      type: 'discord:scheduled_post',
-      memoryZone: 'discord:douki_server',
-      data: {
-        command: message.command,
-        text: post,
-      } as DiscordScheduledPostInput,
-    });
-    // this.eventBus.publish({
-    //   type: 'discord:scheduled_post',
-    //   memoryZone: 'discord:test_server',
-    //   data: {
-    //     command: message.command,
-    //     text: post,
-    //   } as DiscordScheduledPostInput,
-    // });
-    // this.eventBus.publish({
-    //   type: 'discord:scheduled_post',
-    //   memoryZone: 'discord:test_server',
-    //   data: {
-    //     command: message.command,
-    //     text: postForToyama,
-    //   } as DiscordScheduledPostInput,
-    // });
+    if (this.isTestMode) {
+      this.eventBus.publish({
+        type: 'discord:scheduled_post',
+        memoryZone: 'discord:test_server',
+        data: {
+          command: message.command,
+          text: post,
+        } as DiscordScheduledPostInput,
+      });
+      this.eventBus.publish({
+        type: 'discord:scheduled_post',
+        memoryZone: 'discord:test_server',
+        data: {
+          command: message.command,
+          text: postForToyama,
+        } as DiscordScheduledPostInput,
+      });
+    } else {
+      this.eventBus.log('twitter:schedule_post', 'green', post, true);
+      this.eventBus.log('discord:toyama_server', 'green', postForToyama, true);
+      this.eventBus.publish({
+        type: 'twitter:post_scheduled_message',
+        memoryZone: 'twitter:schedule_post',
+        data: {
+          text: post,
+          imageUrl: null,
+        } as TwitterClientInput,
+      });
+      this.eventBus.publish({
+        type: 'discord:scheduled_post',
+        memoryZone: 'discord:toyama_server',
+        data: {
+          command: message.command,
+          text: postForToyama,
+        } as DiscordScheduledPostInput,
+      });
+      this.eventBus.publish({
+        type: 'discord:scheduled_post',
+        memoryZone: 'discord:douki_server',
+        data: {
+          command: message.command,
+          text: post,
+        } as DiscordScheduledPostInput,
+      });
+    }
   }
 
   private async processMessage(

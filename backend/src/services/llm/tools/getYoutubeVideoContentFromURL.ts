@@ -29,6 +29,10 @@ export default class GetYoutubeVideoContentFromURLTool extends StructuredTool {
         match = url.match(/youtu\.be\/([^\?\&]+)/);
         if (match) return match[1];
 
+        // Shorts URL（youtube.com/shorts/）に対応
+        match = url.match(/youtube\.com\/shorts\/([\w-]+)/);
+        if (match) return match[1];
+
         return null;
     }
 
