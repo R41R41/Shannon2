@@ -19,7 +19,11 @@ const ResizeHandle = ({ className = "" }) => (
   <PanelResizeHandle className={`${styles.resizeHandle} ${className}`} />
 );
 
-const ShannonUI: React.FC = () => {
+interface ShannonUIProps {
+  isTest?: boolean;
+}
+
+const ShannonUI: React.FC<ShannonUIProps> = ({ isTest }) => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [monitoring, setMonitoring] = useState<MonitoringAgent | null>(null);
   const [openai, setOpenai] = useState<OpenAIAgent | null>(null);
@@ -96,6 +100,7 @@ const ShannonUI: React.FC = () => {
                 skill={skill}
                 isMobile={true}
                 userInfo={userInfo}
+                isTest={isTest}
               />
             </div>
           </div>
@@ -109,6 +114,7 @@ const ShannonUI: React.FC = () => {
                 status={status}
                 skill={skill}
                 userInfo={userInfo}
+                isTest={isTest}
               />
             </Panel>
             <ResizeHandle />

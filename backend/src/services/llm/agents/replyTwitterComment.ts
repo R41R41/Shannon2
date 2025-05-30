@@ -39,6 +39,7 @@ export class ReplyTwitterCommentAgent {
     if (!this.systemPrompt) {
       throw new Error('systemPrompt is not set');
     }
+    console.log("reply");
     const systemContent = this.systemPrompt;
     const humanContent = `自分のツイート:${myTweet}\nコメント:${text}\nリプライ先のユーザー名:${authorName}`;
     const response = await this.model.invoke([
