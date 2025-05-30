@@ -11,6 +11,7 @@ import { pull } from 'langchain/hub';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { createOpenAIToolsAgent } from 'langchain/agents';
 import WolframAlphaTool from '../tools/wolframAlpha.js';
+import GoogleSearchTool from '../tools/googleSearch.js';
 import { z } from 'zod';
 
 dotenv.config();
@@ -28,9 +29,9 @@ const WeatherSchema = z.object({
     z.object({
       region: z.string(),
       weather: z.string(),
-      temperature: z.string().optional(),
-      chanceOfRain: z.string().optional(),
-      hourlyEmojis: z.array(z.string()).optional(), // 6時間ごとの天気絵文字
+      temperature: z.string().nullable(),
+      chanceOfRain: z.string().nullable(),
+      hourlyEmojis: z.array(z.string()).nullable(), // 6時間ごとの天気絵文字
     })
   ),
   advice: z.string(),
@@ -45,9 +46,9 @@ const ToyamaWeatherSchema = z.object({
     z.object({
       region: z.string(),
       weather: z.string(),
-      temperature: z.string().optional(),
-      chanceOfRain: z.string().optional(),
-      hourlyEmojis: z.array(z.string()).optional(), // 6時間ごとの天気絵文字
+      temperature: z.string().nullable(),
+      chanceOfRain: z.string().nullable(),
+      hourlyEmojis: z.array(z.string()).nullable(), // 6時間ごとの天気絵文字
     })
   ),
   shanghai: z.object({
@@ -94,8 +95,7 @@ export class PostWeatherAgent {
     cities: string[] = ['仙台', '東京', '名古屋', '大阪', '福岡']
   ) {
     this.model = new ChatOpenAI({
-      modelName: 'gpt-o4-mini',
-      temperature: 0.8,
+      modelName: 'o4-mini',
       apiKey: OPENAI_API_KEY,
     });
     this.executor = null;
@@ -179,7 +179,8 @@ export class PostWeatherAgent {
   private setTools() {
     // const bingSearchTool = new BingSearchTool();
     const wolframAlphaTool = new WolframAlphaTool();
-    this.tools = [wolframAlphaTool];
+    const googleSearchTool = new GoogleSearchTool();
+    this.tools = [wolframAlphaTool, googleSearchTool];
   }
 
   private async initializeAgent() {
