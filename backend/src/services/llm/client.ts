@@ -19,6 +19,7 @@ import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus/eventBus.js';
 import { PostAboutTodayAgent } from './agents/postAboutTodayAgent.js';
 import { PostFortuneAgent } from './agents/postFortuneAgent.js';
+import { PostNewsAgent } from './agents/postNewsAgent.js';
 import { PostWeatherAgent } from './agents/postWeatherAgent.js';
 import { RealtimeAPIService } from './agents/realtimeApiAgent.js';
 import { ReplyTwitterCommentAgent } from './agents/replyTwitterComment.js';
@@ -39,6 +40,7 @@ export class LLMService {
   private aboutTodayAgent!: PostAboutTodayAgent;
   private weatherAgent!: PostWeatherAgent;
   private fortuneAgent!: PostFortuneAgent;
+  private newsAgent!: PostNewsAgent;
   private replyTwitterCommentAgent!: ReplyTwitterCommentAgent;
   private replyYoutubeCommentAgent!: ReplyYoutubeCommentAgent;
   private tools: any[] = [];
@@ -65,6 +67,7 @@ export class LLMService {
     this.fortuneAgent = await PostFortuneAgent.create();
     this.replyTwitterCommentAgent = await ReplyTwitterCommentAgent.create();
     this.replyYoutubeCommentAgent = await ReplyYoutubeCommentAgent.create();
+    this.newsAgent = await PostNewsAgent.create();
     console.log('\x1b[36mLLM Service initialized\x1b[0m');
   }
 
@@ -286,6 +289,9 @@ export class LLMService {
       postForToyama = post;
     } else if (message.command === 'about_today') {
       post = await this.aboutTodayAgent.createPost();
+      postForToyama = post;
+    } else if (message.command === 'news_today') {
+      post = await this.newsAgent.createPost();
       postForToyama = post;
     }
     if (this.isTestMode) {

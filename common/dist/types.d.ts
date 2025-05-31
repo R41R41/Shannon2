@@ -45,7 +45,8 @@ export type TwitterSchedulePostEndpoint =
   | "about_today"
   | "forecast"
   | "fortune"
-  | "check_replies";
+  | "check_replies"
+  | "news_today";
 export type MinecraftServerEndpoint = "status" | "start" | "stop";
 export type DiscordGuild =
   | "discord:toyama_server"

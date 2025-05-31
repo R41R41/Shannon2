@@ -5,6 +5,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import { AgentExecutor, createOpenAIToolsAgent } from 'langchain/agents';
 import { SystemMessage } from '@langchain/core/messages';
 import GoogleSearchTool from '../tools/googleSearch.js';
+import SearchByWikipediaTool from '../tools/searchByWikipedia.js';
 const jst = 'Asia/Tokyo';
 import { pull } from 'langchain/hub';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
@@ -18,8 +19,7 @@ export class PostAboutTodayAgent {
 
   private constructor(systemPrompt: string) {
     this.model = new ChatOpenAI({
-      modelName: 'gpt-4o',
-      temperature: 0,
+      modelName: 'o4-mini',
     });
     this.systemPrompt = systemPrompt;
     this.executor = null;
@@ -38,7 +38,8 @@ export class PostAboutTodayAgent {
 
   private setTools() {
     const googleSearchTool = new GoogleSearchTool();
-    this.tools = [googleSearchTool];
+    const searchByWikipediaTool = new SearchByWikipediaTool();
+    this.tools = [googleSearchTool, searchByWikipediaTool];
   }
 
   private async initializeAgent() {
@@ -86,7 +87,7 @@ export class PostAboutTodayAgent {
 
   public async createPost(): Promise<string> {
     const today = this.getTodayDate();
-    const infoMessage = `date:${today}`;
+    const infoMessage = `今日の日付:${today}`;
     const result = await this.llm(this.systemPrompt + '\n' + infoMessage);
     return `【今日は何の日？】\n${result}`;
   }
