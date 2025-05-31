@@ -1,9 +1,6 @@
 {
   "equipment": {
-    "helmet": {
-      "name": "carved_pumpkin",
-      "count": 1
-    },
+    "helmet": null,
     "chestplate": null,
     "leggings": null,
     "boots": {
@@ -19,7 +16,7 @@
   "inventory": [
     {
       "name": "arrow",
-      "count": 63
+      "count": 4
     },
     {
       "name": "bow",
@@ -31,7 +28,15 @@
     },
     {
       "name": "bread",
-      "count": 62
+      "count": 60
+    },
+    {
+      "name": "ender_pearl",
+      "count": 10
+    },
+    {
+      "name": "ender_pearl",
+      "count": 13
     }
   ]
 }

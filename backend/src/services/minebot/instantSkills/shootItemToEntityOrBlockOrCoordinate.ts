@@ -16,7 +16,7 @@ class ShootItemToEntityOrBlockOrCoordinate extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'shoot-item-to-entity-or-block-or-coordinate';
-    this.description = '近くにある指定エンティティまたは指定座標または指定した名前のブロックに指定したアイテムを射撃します。弓を手に持ったり、座標を特定することはこのスキル内で自動で行われます。';
+    this.description = '近くにある指定エンティティまたは指定座標または指定した名前のブロックに指定したアイテムを射撃します。アイテムを手に持ったり、座標を特定することはこのスキル内で自動で行われます。';
     this.params = [
       {
         name: 'itemName',
@@ -43,7 +43,7 @@ class ShootItemToEntityOrBlockOrCoordinate extends InstantSkill {
         name: 'coordinate',
         type: 'Vec3',
         description:
-          '射撃する座標を指定します。',
+          '射撃する座標を指定します。nullでもエンティティ名かブロック名が指定されている場合はその位置に射撃します。',
         default: null,
       },
     ];
@@ -105,6 +105,17 @@ class ShootItemToEntityOrBlockOrCoordinate extends InstantSkill {
     console.log('射撃完了');
   }
 
+  public async shootToCoordinate(coordinate: Vec3, itemName: string | null): Promise<void> {
+    const entityName = await this.summonInvisibleMarkerEntity(coordinate);
+    const entities = await this.bot.utils.getNearestEntitiesByName(this.bot, 'armor_stand');
+    const target = entities.find(e => e.name === "armor_stand");
+    if (target) {
+      await this.shootWithHawkEye(target, itemName);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await this.killEntityByName(entityName);
+    }
+  }
+
   private getFaceCenter(blockPosition: Vec3): Vec3 {
     const botPos = this.bot.entity.position;
     const blockCenter = blockPosition.plus(new Vec3(0.5, 0.5, 0.5));
@@ -132,7 +143,7 @@ class ShootItemToEntityOrBlockOrCoordinate extends InstantSkill {
   private async summonInvisibleMarkerEntity(pos: Vec3): Promise<string> {
     // 一意な名前をつける
     const name = `shoot_target_${Date.now()}`;
-    const cmd = `/summon area_effect_cloud ${pos.x} ${pos.y} ${pos.z} {Radius:0.1,Duration:600,Invisible:1b,NoGravity:1b,Marker:1b,Tags:['${name}']}`;
+    const cmd = `/summon area_effect_cloud ${pos.x} ${pos.y} ${pos.z} {Radius:0.1,Duration:600,Invisible:1b,NoGravity:1b,Marker:1b,Tags:['${name}'],Particle:{type:'block',block_state:'minecraft:air'}}`;
     await this.bot.chat(cmd);
     // 少し待つ（サーバー反映待ち）
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -140,8 +151,10 @@ class ShootItemToEntityOrBlockOrCoordinate extends InstantSkill {
   }
 
   private async killEntityByName(name: string) {
-    const cmd = `/kill @e[type=area_effect_cloud, tag=${name}]`;
-    await this.bot.chat(cmd);
+    const cmd1 = `/tp @e[type=area_effect_cloud, tag=${name}] ~ ~1000 ~`;
+    const cmd2 = `/kill @e[type=area_effect_cloud, tag=${name}]`;
+    await this.bot.chat(cmd1);
+    await this.bot.chat(cmd2);
   }
 
   async run(

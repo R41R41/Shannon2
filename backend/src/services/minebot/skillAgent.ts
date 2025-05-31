@@ -398,10 +398,12 @@ export class SkillAgent {
         senderName: username,
         senderPosition: sender ? sender.position.toString() : 'spectator mode',
       };
+      const heldItem = this.bot.heldItem ? this.bot.heldItem.name : 'なし';
       const selfState = {
         botPosition: this.bot.entity.position.toString() || 'null',
         botHealth: `${this.bot.health}/20`,
         botFoodLevel: `${this.bot.food}/20`,
+        botHeldItem: heldItem,
       };
       await this.processMessage(
         username,
@@ -498,6 +500,7 @@ export class SkillAgent {
       await this.entitySpawn();
       await this.entityHurt();
       await this.health();
+      await new Promise(resolve => setTimeout(resolve, 2000));
       await this.setInterval();
       await this.registerPost();
       await this.centralAgent.initialize();

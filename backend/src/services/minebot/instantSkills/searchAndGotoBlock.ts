@@ -11,7 +11,7 @@ class SearchAndGotoBlock extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'search-and-goto-block';
-    this.description = '指定されたブロックを探索してその位置に移動します';
+    this.description = '指定されたブロックを探索してその位置に移動します。ブロックの検知だけではなく移動が必要な場合のみに使用してください。';
     this.status = false;
     this.mcData = minecraftData(this.bot.version);
     this.searchDistance = 64;
