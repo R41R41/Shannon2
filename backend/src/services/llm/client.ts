@@ -78,7 +78,7 @@ export class LLMService {
     });
 
     this.eventBus.subscribe('llm:post_scheduled_message', (event) => {
-      if (this.isTestMode) return;
+      // if (this.isTestMode) return;
       this.processCreateScheduledPost(event.data as TwitterClientInput);
     });
 
