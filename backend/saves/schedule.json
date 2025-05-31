@@ -36,7 +36,7 @@
     }
   },
   {
-    "time": "0 0 * * *",
+    "time": "0 22 * * *",
     "name": "twitter:news_today",
     "data": {
       "type": "llm:post_scheduled_message",
