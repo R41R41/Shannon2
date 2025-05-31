@@ -67,6 +67,7 @@ export const promptTypes: PromptType[] = [
   "base_text",
   "base_voice",
   "about_today",
+  "news_today",
   "weather_to_emoji",
   "fortune",
   "discord",

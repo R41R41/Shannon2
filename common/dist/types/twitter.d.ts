@@ -1,5 +1,5 @@
 import { ServiceInput } from "./common";
-export type TwitterSchedulePostEndpoint = "about_today" | "forecast" | "fortune" | "check_replies";
+export type TwitterSchedulePostEndpoint = "about_today" | "forecast" | "fortune" | "check_replies" | "news_today";
 export interface TwitterClientInput extends ServiceInput {
     text: string;
     tweetId?: string | null;

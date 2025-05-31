@@ -619,7 +619,8 @@ export class DiscordBot extends BaseClient {
       if (
         command === 'forecast' ||
         command === 'fortune' ||
-        command === 'about_today'
+        command === 'about_today' ||
+        command === 'news_today'
       ) {
         if (this.isTest) {
           const xChannelId = this.testXChannelId ?? '';

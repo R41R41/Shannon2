@@ -2,6 +2,7 @@ import { ServiceInput } from "./common";
 
 export type TwitterSchedulePostEndpoint =
   | "about_today"
+  | "news_today"
   | "forecast"
   | "fortune"
   | "check_replies";
