@@ -22,16 +22,16 @@ class Server {
   private minebotClient: MinebotClient;
   private notionClient: NotionClient;
   constructor() {
-    const isTestMode = process.argv.includes('--test');
-    this.llmService = LLMService.getInstance(isTestMode);
-    this.discordBot = DiscordBot.getInstance(isTestMode);
-    this.webClient = WebClient.getInstance(isTestMode);
-    this.twitterClient = TwitterClient.getInstance(isTestMode);
-    this.scheduler = Scheduler.getInstance(isTestMode);
-    this.youtubeClient = YoutubeClient.getInstance(isTestMode);
-    this.minecraftClient = MinecraftClient.getInstance(isTestMode);
-    this.minebotClient = MinebotClient.getInstance(isTestMode);
-    this.notionClient = NotionClient.getInstance(isTestMode);
+    const isDevMode = process.argv.includes('--dev');
+    this.llmService = LLMService.getInstance(isDevMode);
+    this.discordBot = DiscordBot.getInstance(isDevMode);
+    this.webClient = WebClient.getInstance(isDevMode);
+    this.twitterClient = TwitterClient.getInstance(isDevMode);
+    this.scheduler = Scheduler.getInstance(isDevMode);
+    this.youtubeClient = YoutubeClient.getInstance(isDevMode);
+    this.minecraftClient = MinecraftClient.getInstance(isDevMode);
+    this.minebotClient = MinebotClient.getInstance(isDevMode);
+    this.notionClient = NotionClient.getInstance(isDevMode);
   }
 
   private async connectDatabase() {

@@ -38,21 +38,21 @@ const ports = {
 
 export class MinebotClient extends BaseClient {
   private bot: CustomBot | null = null;
-  public isTest: boolean = false;
+  public isDev: boolean = false;
   private static instance: MinebotClient;
   private skillAgent: SkillAgent | null = null;
 
-  constructor(serviceName: 'minebot', isTest: boolean) {
+  constructor(serviceName: 'minebot', isDev: boolean) {
     const eventBus = getEventBus();
     super(serviceName, eventBus);
   }
 
-  public static getInstance(isTest: boolean = false) {
+  public static getInstance(isDev: boolean = false) {
     const eventBus = getEventBus();
     if (!MinebotClient.instance) {
-      MinebotClient.instance = new MinebotClient('minebot', isTest);
+      MinebotClient.instance = new MinebotClient('minebot', isDev);
     }
-    MinebotClient.instance.isTest = isTest;
+    MinebotClient.instance.isDev = isDev;
     return MinebotClient.instance;
   }
 
@@ -99,7 +99,7 @@ export class MinebotClient extends BaseClient {
     });
 
     this.bot.isTest =
-      process.env.IS_TEST === 'True' || process.argv[3] === 'test';
+      process.env.IS_DEV === 'True' || process.argv[3] === 'dev';
     this.bot.chatMode = true;
     this.bot.attackEntity = null;
     this.bot.runFromEntity = null;

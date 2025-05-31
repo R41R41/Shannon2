@@ -44,9 +44,9 @@ export class LLMService {
   private replyTwitterCommentAgent!: ReplyTwitterCommentAgent;
   private replyYoutubeCommentAgent!: ReplyYoutubeCommentAgent;
   private tools: any[] = [];
-  private isTestMode: boolean;
-  constructor(isTestMode: boolean) {
-    this.isTestMode = isTestMode;
+  private isDevMode: boolean;
+  constructor(isDevMode: boolean) {
+    this.isDevMode = isDevMode;
     this.eventBus = getEventBus();
     this.realtimeApi = RealtimeAPIService.getInstance();
     this.taskGraph = TaskGraph.getInstance();
@@ -54,9 +54,9 @@ export class LLMService {
     this.setupRealtimeAPICallback();
   }
 
-  public static getInstance(isTestMode: boolean): LLMService {
+  public static getInstance(isDevMode: boolean): LLMService {
     if (!LLMService.instance) {
-      LLMService.instance = new LLMService(isTestMode);
+      LLMService.instance = new LLMService(isDevMode);
     }
     return LLMService.instance;
   }
@@ -81,17 +81,17 @@ export class LLMService {
     });
 
     this.eventBus.subscribe('llm:post_scheduled_message', (event) => {
-      if (this.isTestMode) return;
+      if (this.isDevMode) return;
       this.processCreateScheduledPost(event.data as TwitterClientInput);
     });
 
     this.eventBus.subscribe('llm:post_twitter_reply', (event) => {
-      if (this.isTestMode) return;
+      if (this.isDevMode) return;
       this.processTwitterReply(event.data as TwitterClientOutput);
     });
 
     this.eventBus.subscribe('llm:reply_youtube_comment', (event) => {
-      if (this.isTestMode) return;
+      if (this.isDevMode) return;
       this.processYoutubeReply(event.data as YoutubeCommentOutput);
     });
 
@@ -294,7 +294,7 @@ export class LLMService {
       post = await this.newsAgent.createPost();
       postForToyama = post;
     }
-    if (this.isTestMode) {
+    if (this.isDevMode) {
       this.eventBus.publish({
         type: 'discord:scheduled_post',
         memoryZone: 'discord:test_server',
