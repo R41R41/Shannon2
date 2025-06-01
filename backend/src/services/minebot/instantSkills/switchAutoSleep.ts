@@ -16,7 +16,7 @@ export class SwitchAutoSleep extends InstantSkill {
     ];
   }
 
-  async run(enable: boolean) {
+  async runImpl(enable: boolean) {
     console.log('switchAutoSleep', enable);
     try {
       const skill = this.bot.constantSkills.getSkill('auto-sleep');

@@ -13,6 +13,7 @@ class AutoFaceMovedEntity extends ConstantSkill {
 
     async run(entity: Entity) {
         if (entity.name === 'item' && entity.onGround) return;
+        if (this.bot.executingSkill) return;
         if (this.isLocked) return;
         this.isLocked = true;
         // エンティティの頭の位置を計算

@@ -16,7 +16,7 @@ export class SwitchAutoThrowEnderPearlToAvoidFall extends InstantSkill {
         ];
     }
 
-    async run(enable: boolean) {
+    async runImpl(enable: boolean) {
         console.log('switchAutoThrowEnderPearlToAvoidFall', enable);
         try {
             const skill = this.bot.constantSkills.getSkill('auto-throw-ender-pearl-to-avoid-fall');

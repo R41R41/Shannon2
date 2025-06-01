@@ -16,7 +16,7 @@ export class SwitchAutoAvoidProjectileRange extends InstantSkill {
     ];
   }
 
-  async run(enable: boolean) {
+  async runImpl(enable: boolean) {
     try {
       const skill = this.bot.constantSkills.getSkill(
         'auto-avoid-projectile-range'

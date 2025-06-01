@@ -16,7 +16,7 @@ export class SwitchAutoFaceEntityOrBlock extends InstantSkill {
         ];
     }
 
-    async run(enable: boolean) {
+    async runImpl(enable: boolean) {
         console.log('switchAutoFaceEntityOrBlock', enable);
         try {
             const autoFaceUpdatedBlock = this.bot.constantSkills.getSkill('auto-face-updated-block');

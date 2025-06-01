@@ -25,7 +25,7 @@ class SearchAndGotoBlock extends InstantSkill {
     ];
   }
 
-  async run(blockName: string) {
+  async runImpl(blockName: string) {
     console.log('searchBlock', blockName);
     try {
       const Block = this.mcData.blocksByName[blockName];

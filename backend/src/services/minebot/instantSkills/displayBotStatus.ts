@@ -10,7 +10,7 @@ class DisplayBotStatus extends InstantSkill {
     this.isToolForLLM = false;
   }
 
-  async run(): Promise<{
+  async runImpl(): Promise<{
     success: boolean;
     result: string;
   }> {

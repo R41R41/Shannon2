@@ -24,7 +24,7 @@ class SearchAndGotoEntity extends InstantSkill {
     ];
   }
 
-  async run(entityName: string) {
+  async runImpl(entityName: string) {
     console.log('searchEntity', entityName);
     try {
       const Entities = this.bot.utils.getNearestEntitiesByName(
@@ -48,19 +48,13 @@ class SearchAndGotoEntity extends InstantSkill {
 
       // 到達を試行する関数
       const attemptToReachGoal = async (
-        remainingAttempts = 16,
+        remainingAttempts = 10,
         timeout = 60000
       ) => {
         try {
           console.log(
             `${entityName}へ到達を試みています... 残り試行回数: ${remainingAttempts}`
           );
-
-          // タイムアウト処理
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('移動タイムアウト')), timeout);
-          });
-
           // 目標への移動
           const goal = new goals.GoalNear(
             targetPos.x,
@@ -68,13 +62,35 @@ class SearchAndGotoEntity extends InstantSkill {
             targetPos.z,
             1
           );
-          const movePromise = this.bot.pathfinder.goto(goal);
+          await this.bot.pathfinder.goto(goal);
+          const currentPos = this.bot.entity.position;
+          const distance = currentPos.distanceTo(targetPos);
 
-          await Promise.race([movePromise, timeoutPromise]);
-          return {
-            success: true,
-            result: `${entityName}は${targetPos.x} ${targetPos.y} ${targetPos.z}にあります。`,
-          };
+          // 十分近い場合（3ブロック以内）は成功と見なす
+          if (distance <= 3) {
+            return {
+              success: true,
+              result: `${entityName}は${targetPos.x} ${targetPos.y} ${targetPos.z
+                }にあります。目標変更エラーが発生しましたが、十分に近づけました（距離: ${distance.toFixed(
+                  2
+                )}ブロック）。`,
+            };
+          }
+
+          // 再試行回数が残っている場合は再試行
+          if (remainingAttempts > 1) {
+            console.log(`再試行します... 距離: ${distance.toFixed(2)}ブロック`);
+            // 一時停止してから再試行
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            return attemptToReachGoal(remainingAttempts - 1, timeout);
+          } else {
+            return {
+              success: false,
+              result: `${entityName}へ到達できませんでした。最終距離: ${distance.toFixed(
+                2
+              )}ブロック`,
+            };
+          }
         } catch (moveError: any) {
           console.log(`到達試行中にエラー: ${moveError.message}`);
 
@@ -111,8 +127,8 @@ class SearchAndGotoEntity extends InstantSkill {
         }
       };
 
-      // 到達試行を開始
-      return await attemptToReachGoal();
+      // 到達試行を開始（上限10回）
+      return await attemptToReachGoal(10);
     } catch (error: any) {
       return { success: false, result: `${error.message} in ${error.stack}` };
     }

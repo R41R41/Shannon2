@@ -157,7 +157,7 @@ class ShootItemToEntityOrBlockOrCoordinate extends InstantSkill {
     await this.bot.chat(cmd2);
   }
 
-  async run(
+  async runImpl(
     itemName: string | null,
     entityName: string | null,
     blockName: string | null,

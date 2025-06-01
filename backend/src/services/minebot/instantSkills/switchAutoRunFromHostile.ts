@@ -16,7 +16,7 @@ export class SwitchAutoRunFromHostile extends InstantSkill {
     ];
   }
 
-  async run(enable: boolean) {
+  async runImpl(enable: boolean) {
     console.log('switchAutoRunFromHostile', enable);
     try {
       const skill = this.bot.constantSkills.getSkill('auto-run-from-hostile');
@@ -26,9 +26,8 @@ export class SwitchAutoRunFromHostile extends InstantSkill {
       skill.status = enable;
       return {
         success: true,
-        result: `敵モブから自動で逃げる機能を${
-          enable ? '有効' : '無効'
-        }にしました`,
+        result: `敵モブから自動で逃げる機能を${enable ? '有効' : '無効'
+          }にしました`,
       };
     } catch (error: any) {
       return { success: false, result: `${error.message} in ${error.stack}` };

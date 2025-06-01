@@ -25,7 +25,7 @@ class AutoUpdateLookingAt extends ConstantSkill {
                     this.bot.lookingAt = {
                         isDroppedItem: true,
                         name: itemName,
-                        position: entity.position,
+                        position: entity.position ? entity.position : null,
                         metadata: entity.metadata,
                     };
                 }

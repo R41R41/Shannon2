@@ -30,7 +30,7 @@ class PutItemInContainer extends InstantSkill {
     this.canUseByCommand = false;
   }
 
-  async run(containerPosition: Vec3, itemName: string, amount: number) {
+  async runImpl(containerPosition: Vec3, itemName: string, amount: number) {
     try {
       // ブロック確認
       const block = this.bot.blockAt(containerPosition);

@@ -16,12 +16,8 @@ class AutoEquipBestToolForTargetBlock extends ConstantSkill {
       const targetBlock = this.bot.targetDigBlock;
       if (!targetBlock) return;
 
-      // 最適なツールを選択
-      const tool = this.bot.pathfinder.bestHarvestTool(targetBlock);
-      if (!tool) return;
-
-      // ツールを装備
-      await this.bot.equip(tool, 'hand');
+      // 最適なツールを装備
+      await this.bot.tool.equipForBlock(targetBlock);
       return;
     } catch (error) {
       console.error('ツール装備エラー:', error);

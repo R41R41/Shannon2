@@ -16,7 +16,7 @@ export class SwitchAutoPickUpItem extends InstantSkill {
     ];
   }
 
-  async run(enable: boolean) {
+  async runImpl(enable: boolean) {
     console.log('switchAutoPickUpItem', enable);
     try {
       const skill = this.bot.constantSkills.getSkill('auto-pick-up-item');
@@ -26,9 +26,8 @@ export class SwitchAutoPickUpItem extends InstantSkill {
       skill.status = enable;
       return {
         success: true,
-        result: `落ちているアイテムの自動収集を${
-          enable ? '有効' : '無効'
-        }にしました`,
+        result: `落ちているアイテムの自動収集を${enable ? '有効' : '無効'
+          }にしました`,
       };
     } catch (error: any) {
       return { success: false, result: `${error.message} in ${error.stack}` };

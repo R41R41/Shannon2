@@ -46,7 +46,7 @@ interface CustomBotEvents extends BotEvents {
 export type DroppedItem = {
   isDroppedItem: boolean;
   name: string;
-  position: Vec3;
+  position: Vec3 | null;
   metadata: any;
 };
 
@@ -75,6 +75,7 @@ export interface CustomBot extends Omit<Bot, 'on' | 'once' | 'emit'> {
   isInWater: boolean;
   cmd: CommandManager;
   lookingAt: Block | Entity | DroppedItem | null;
+  executingSkill: boolean;
 }
 
 export abstract class Skill {
@@ -127,10 +128,17 @@ export abstract class InstantSkill extends Skill {
     this.params = [];
     this.canUseByCommand = true;
   }
-  abstract run(...args: any[]): Promise<{
-    success: boolean;
-    result: string;
-  }>;
+
+  async run(...args: any[]): Promise<{ success: boolean; result: string }> {
+    this.bot.executingSkill = true;
+    try {
+      return await this.runImpl(...args);
+    } finally {
+      this.bot.executingSkill = false;
+    }
+  }
+
+  abstract runImpl(...args: any[]): Promise<{ success: boolean; result: string }>;
 }
 
 export class InstantSkills {

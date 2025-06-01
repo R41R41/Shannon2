@@ -12,6 +12,7 @@ class AutoFaceUpdatedBlock extends ConstantSkill {
     }
 
     async run(block: Block) {
+        if (this.bot.executingSkill) return;
         if (this.isLocked) return;
         this.isLocked = true;
         const blockPos = new Vec3(

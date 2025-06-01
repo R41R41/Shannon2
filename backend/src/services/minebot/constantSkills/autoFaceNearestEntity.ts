@@ -12,6 +12,7 @@ class AutoFaceNearestEntity extends ConstantSkill {
     }
 
     async run() {
+        if (this.bot.executingSkill) return;
         if (this.isLocked) return;
         const entities = Object.values(this.bot.entities)
             .filter(e => e.id !== this.bot.entity.id)

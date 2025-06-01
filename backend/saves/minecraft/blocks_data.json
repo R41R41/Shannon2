@@ -1,14 +1,618 @@
 [
   {
-    "name": "target",
+    "name": "dirt",
     "position": {
-      "x": -32,
-      "y": 72,
-      "z": 217
+      "x": -5,
+      "y": 78,
+      "z": 157
     },
-    "stateId": 20394,
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -5,
+      "y": 78,
+      "z": 158
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -5,
+      "y": 78,
+      "z": 159
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -5,
+      "y": 78,
+      "z": 160
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -5,
+      "y": 79,
+      "z": 157
+    },
+    "stateId": 9,
     "properties": {
-      "power": "0"
+      "snowy": false
     }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -5,
+      "y": 79,
+      "z": 158
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -5,
+      "y": 79,
+      "z": 159
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -5,
+      "y": 79,
+      "z": 160
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "short_grass",
+    "position": {
+      "x": -5,
+      "y": 80,
+      "z": 159
+    },
+    "stateId": 2048,
+    "properties": {}
+  },
+  {
+    "name": "short_grass",
+    "position": {
+      "x": -5,
+      "y": 80,
+      "z": 160
+    },
+    "stateId": 2048,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -4,
+      "y": 78,
+      "z": 157
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -4,
+      "y": 78,
+      "z": 158
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -4,
+      "y": 78,
+      "z": 159
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -4,
+      "y": 78,
+      "z": 160
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -4,
+      "y": 79,
+      "z": 157
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -4,
+      "y": 79,
+      "z": 158
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -4,
+      "y": 79,
+      "z": 160
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "short_grass",
+    "position": {
+      "x": -4,
+      "y": 80,
+      "z": 157
+    },
+    "stateId": 2048,
+    "properties": {}
+  },
+  {
+    "name": "short_grass",
+    "position": {
+      "x": -4,
+      "y": 80,
+      "z": 158
+    },
+    "stateId": 2048,
+    "properties": {}
+  },
+  {
+    "name": "short_grass",
+    "position": {
+      "x": -4,
+      "y": 80,
+      "z": 160
+    },
+    "stateId": 2048,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -3,
+      "y": 78,
+      "z": 157
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -3,
+      "y": 78,
+      "z": 158
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -3,
+      "y": 78,
+      "z": 159
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -3,
+      "y": 78,
+      "z": 160
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -3,
+      "y": 79,
+      "z": 157
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -3,
+      "y": 79,
+      "z": 158
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -3,
+      "y": 79,
+      "z": 160
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "short_grass",
+    "position": {
+      "x": -3,
+      "y": 80,
+      "z": 157
+    },
+    "stateId": 2048,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -2,
+      "y": 78,
+      "z": 157
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -2,
+      "y": 78,
+      "z": 158
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -2,
+      "y": 78,
+      "z": 159
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -2,
+      "y": 78,
+      "z": 160
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -2,
+      "y": 79,
+      "z": 157
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -2,
+      "y": 79,
+      "z": 158
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -2,
+      "y": 79,
+      "z": 159
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -2,
+      "y": 79,
+      "z": 160
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -1,
+      "y": 78,
+      "z": 157
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -1,
+      "y": 78,
+      "z": 158
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -1,
+      "y": 78,
+      "z": 159
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": -1,
+      "y": 78,
+      "z": 160
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -1,
+      "y": 79,
+      "z": 157
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -1,
+      "y": 79,
+      "z": 158
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -1,
+      "y": 79,
+      "z": 159
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": -1,
+      "y": 79,
+      "z": 160
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "short_grass",
+    "position": {
+      "x": -1,
+      "y": 80,
+      "z": 158
+    },
+    "stateId": 2048,
+    "properties": {}
+  },
+  {
+    "name": "short_grass",
+    "position": {
+      "x": -1,
+      "y": 80,
+      "z": 159
+    },
+    "stateId": 2048,
+    "properties": {}
+  },
+  {
+    "name": "short_grass",
+    "position": {
+      "x": -1,
+      "y": 80,
+      "z": 160
+    },
+    "stateId": 2048,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": 0,
+      "y": 78,
+      "z": 157
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": 0,
+      "y": 78,
+      "z": 158
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": 0,
+      "y": 78,
+      "z": 159
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "dirt",
+    "position": {
+      "x": 0,
+      "y": 78,
+      "z": 160
+    },
+    "stateId": 10,
+    "properties": {}
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": 0,
+      "y": 79,
+      "z": 157
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": 0,
+      "y": 79,
+      "z": 158
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": 0,
+      "y": 79,
+      "z": 159
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "grass_block",
+    "position": {
+      "x": 0,
+      "y": 79,
+      "z": 160
+    },
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "short_grass",
+    "position": {
+      "x": 0,
+      "y": 80,
+      "z": 158
+    },
+    "stateId": 2048,
+    "properties": {}
+  },
+  {
+    "name": "short_grass",
+    "position": {
+      "x": 0,
+      "y": 80,
+      "z": 160
+    },
+    "stateId": 2048,
+    "properties": {}
   }
 ]

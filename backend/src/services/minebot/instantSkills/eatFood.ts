@@ -22,7 +22,7 @@ class EatFood extends InstantSkill {
   /**
    * @param {string} itemName
    */
-  async run(itemName: string) {
+  async runImpl(itemName: string) {
     console.log('eatFood', itemName);
     try {
       if (this.bot.food === 20) {

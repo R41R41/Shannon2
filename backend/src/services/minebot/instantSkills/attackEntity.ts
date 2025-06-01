@@ -97,7 +97,7 @@ class AttackEntity extends InstantSkill {
     };
   }
 
-  async run(
+  async runImpl(
     entityName: string,
     collectDropItem: string | null,
     targetAmount: number = 1
@@ -297,7 +297,7 @@ class AttackEntity extends InstantSkill {
             // 2秒ごとに攻撃
             await this.attackEntityOnce(entity.id);
           }
-        } catch (error) {}
+        } catch (error) { }
         await new Promise((resolve) => setTimeout(resolve, 500));
         waitCount++;
       }

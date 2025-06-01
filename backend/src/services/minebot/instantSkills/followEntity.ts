@@ -21,7 +21,7 @@ export class FollowEntity extends InstantSkill {
     ];
   }
 
-  async run(entityName: string) {
+  async runImpl(entityName: string) {
     console.log('followEntity', entityName);
     if (entityName === null) {
       return {

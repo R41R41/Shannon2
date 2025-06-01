@@ -30,7 +30,7 @@ class TradeWithVillager extends InstantSkill {
     ];
   }
 
-  async run(tradeIndex: number, times: number = 1, villagerEntityId?: number) {
+  async runImpl(tradeIndex: number, times: number = 1, villagerEntityId?: number) {
     try {
       // 村人を取得
       let villager: any;

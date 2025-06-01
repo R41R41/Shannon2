@@ -18,7 +18,7 @@ export class SwitchAutoEquipBestToolForTargetBlock extends InstantSkill {
     ];
   }
 
-  async run(enable: boolean) {
+  async runImpl(enable: boolean) {
     console.log('switchAutoEquipBestToolForTargetBlock', enable);
     try {
       const skill = this.bot.constantSkills.getSkill(
@@ -30,9 +30,8 @@ export class SwitchAutoEquipBestToolForTargetBlock extends InstantSkill {
       skill.status = enable;
       return {
         success: true,
-        result: `ブロックに対する最適なツールの自動選択を${
-          enable ? '有効' : '無効'
-        }にしました`,
+        result: `ブロックに対する最適なツールの自動選択を${enable ? '有効' : '無効'
+          }にしました`,
       };
     } catch (error: any) {
       return { success: false, result: `${error.message} in ${error.stack}` };

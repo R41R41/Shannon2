@@ -26,7 +26,7 @@ class HoldItem extends InstantSkill {
    * @param {string} itemName
    * @param {string} isOfhand
    */
-  async run(itemName: string, isOfhand: boolean) {
+  async runImpl(itemName: string, isOfhand: boolean) {
     console.log('holdItem', itemName, isOfhand);
     try {
       let hand = isOfhand ? 'off-hand' : 'hand';

@@ -16,7 +16,7 @@ export class SwitchAutoEat extends InstantSkill {
     ];
   }
 
-  async run(enable: boolean) {
+  async runImpl(enable: boolean) {
     console.log('switchAutoEat', enable);
     try {
       const skill = this.bot.constantSkills.getSkill('auto-eat');

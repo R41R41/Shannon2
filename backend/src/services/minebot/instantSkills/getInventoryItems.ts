@@ -12,7 +12,7 @@ class GetInventoryItems extends InstantSkill {
     this.canUseByCommand = false;
   }
 
-  async run() {
+  async runImpl() {
     try {
       const items = this.bot.inventory.items();
       const filePath = path.join(

@@ -33,7 +33,7 @@ class UseItemToEntity extends InstantSkill {
     ];
   }
 
-  async run(itemName: string, targetEntityName: string, itemCount: number) {
+  async runImpl(itemName: string, targetEntityName: string, itemCount: number) {
     try {
       const Item = this.mcData.itemsByName[itemName];
       if (!Item) {

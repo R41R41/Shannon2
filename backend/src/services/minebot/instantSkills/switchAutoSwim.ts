@@ -16,7 +16,7 @@ export class SwitchAutoSwim extends InstantSkill {
     ];
   }
 
-  async run(enable: boolean) {
+  async runImpl(enable: boolean) {
     console.log('switchAutoSwim', enable);
     try {
       const skill = this.bot.constantSkills.getSkill('auto-swim');
@@ -26,9 +26,8 @@ export class SwitchAutoSwim extends InstantSkill {
       skill.status = enable;
       return {
         success: true,
-        result: `水中に入ったら自動で泳ぐ機能を${
-          enable ? '有効' : '無効'
-        }にしました`,
+        result: `水中に入ったら自動で泳ぐ機能を${enable ? '有効' : '無効'
+          }にしました`,
       };
     } catch (error: any) {
       return { success: false, result: `${error.message} in ${error.stack}` };

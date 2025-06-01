@@ -16,7 +16,7 @@ export class StopSkill extends InstantSkill {
     ];
   }
 
-  async run(skillName: string) {
+  async runImpl(skillName: string) {
     console.log('stopSkill', skillName);
     try {
       const skill = this.bot.instantSkills.getSkill(skillName);

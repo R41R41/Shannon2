@@ -3,40 +3,18 @@
     "helmet": null,
     "chestplate": null,
     "leggings": null,
-    "boots": {
-      "name": "golden_boots",
-      "count": 1
-    },
-    "mainHand": {
-      "name": "bow",
-      "count": 1
-    },
+    "boots": null,
+    "mainHand": null,
     "offHand": null
   },
   "inventory": [
     {
-      "name": "arrow",
-      "count": 4
-    },
-    {
       "name": "bow",
       "count": 1
     },
     {
       "name": "arrow",
-      "count": 28
-    },
-    {
-      "name": "bread",
-      "count": 60
-    },
-    {
-      "name": "ender_pearl",
-      "count": 10
-    },
-    {
-      "name": "ender_pearl",
-      "count": 13
+      "count": 4
     }
   ]
 }
