@@ -22,7 +22,7 @@ class AutoUpdateLookingAt extends ConstantSkill {
                 if (meta) {
                     const itemId = meta.itemId;
                     const itemName = this.mcData.items[itemId as number]?.name;
-                    this.bot.lookingAt = {
+                    this.bot.selfState.lookingAt = {
                         isDroppedItem: true,
                         name: itemName,
                         position: entity.position ? entity.position : null,
@@ -30,12 +30,12 @@ class AutoUpdateLookingAt extends ConstantSkill {
                     };
                 }
             } else {
-                this.bot.lookingAt = entity;
+                this.bot.selfState.lookingAt = entity;
             }
         } else if (block) {
-            this.bot.lookingAt = block;
+            this.bot.selfState.lookingAt = block;
         } else {
-            this.bot.lookingAt = null;
+            this.bot.selfState.lookingAt = null;
         }
     }
 }

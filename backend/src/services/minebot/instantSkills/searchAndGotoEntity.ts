@@ -55,6 +55,10 @@ class SearchAndGotoEntity extends InstantSkill {
           console.log(
             `${entityName}へ到達を試みています... 残り試行回数: ${remainingAttempts}`
           );
+          // タイムアウト処理
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('移動タイムアウト')), timeout);
+          });
           // 目標への移動
           const goal = new goals.GoalNear(
             targetPos.x,
@@ -62,7 +66,9 @@ class SearchAndGotoEntity extends InstantSkill {
             targetPos.z,
             1
           );
-          await this.bot.pathfinder.goto(goal);
+          const movePromise = this.bot.pathfinder.goto(goal);
+
+          await Promise.race([movePromise, timeoutPromise]);
           const currentPos = this.bot.entity.position;
           const distance = currentPos.distanceTo(targetPos);
 

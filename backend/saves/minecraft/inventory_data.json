@@ -4,7 +4,10 @@
     "chestplate": null,
     "leggings": null,
     "boots": null,
-    "mainHand": null,
+    "mainHand": {
+      "name": "minecart",
+      "count": 1
+    },
     "offHand": null
   },
   "inventory": [
@@ -14,7 +17,19 @@
     },
     {
       "name": "arrow",
-      "count": 4
+      "count": 3
+    },
+    {
+      "name": "wheat_seeds",
+      "count": 1
+    },
+    {
+      "name": "oak_boat",
+      "count": 1
+    },
+    {
+      "name": "minecart",
+      "count": 1
     }
   ]
 }

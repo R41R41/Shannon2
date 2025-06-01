@@ -394,18 +394,8 @@ export class SkillAgent {
         return;
       }
       const sender = this.bot.players[username]?.entity;
-      const environmentState = {
-        senderName: username,
-        senderPosition: sender ? sender.position.toString() : 'spectator mode',
-      };
-      const heldItem = this.bot.heldItem ? this.bot.heldItem.name : 'なし';
-      const selfState = {
-        botPosition: this.bot.entity.position.toString() || 'null',
-        botHealth: `${this.bot.health}/20`,
-        botFoodLevel: `${this.bot.food}/20`,
-        botHeldItem: heldItem,
-        lookingAt: JSON.stringify(this.bot.lookingAt),
-      };
+      this.bot.environmentState.senderName = username;
+      this.bot.environmentState.senderPosition = sender ? sender.position.toString() : 'spectator mode';
       const faceToEntity = this.bot.instantSkills.getSkill('face-to-entity');
       if (faceToEntity) {
         faceToEntity.run(username);
@@ -413,8 +403,8 @@ export class SkillAgent {
       await this.processMessage(
         username,
         message,
-        JSON.stringify(environmentState),
-        JSON.stringify(selfState)
+        JSON.stringify(this.bot.environmentState),
+        JSON.stringify(this.bot.selfState)
       );
     });
     this.eventBus.subscribe('minebot:chat', async (event) => {
@@ -506,6 +496,19 @@ export class SkillAgent {
       } catch (error) {
         console.error('エラーが発生しました:', error);
       }
+    });
+  }
+
+  async bossbar() {
+    console.log(`\x1b[32m✓ bossbar\x1b[0m`);
+    this.bot.on('bossBarCreated', async (bossbar) => {
+      this.bot.environmentState.bossbar = JSON.stringify(bossbar);
+    });
+    this.bot.on('bossBarUpdated', async (bossbar) => {
+      this.bot.environmentState.bossbar = JSON.stringify(bossbar);
+    });
+    this.bot.on('bossBarDeleted', async (bossbar) => {
+      this.bot.environmentState.bossbar = null;
     });
   }
 

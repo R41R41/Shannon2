@@ -309,6 +309,8 @@ export class TaskGraph {
     this.currentState.humanFeedbackPending = false;
     state.humanFeedbackPending = false;
     state.humanFeedback = this.currentState.humanFeedback;
+    state.environmentState = JSON.stringify(this.bot.environmentState);
+    state.selfState = JSON.stringify(this.bot.selfState);
 
     if (!this.mediumModel) {
       throw new Error('Medium model not initialized');
@@ -489,6 +491,9 @@ export class TaskGraph {
     try {
       console.log('タスクグラフ実行開始 ID:', state.taskId);
       const result = await this.graph.invoke(state, { recursionLimit: 64 });
+      if (result.taskTree?.status === 'in_progress') {
+        result.taskTree.status = 'error';
+      }
 
       // 実行後の状態サマリーをログ出力
       console.log('タスクグラフ完了:', {

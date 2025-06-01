@@ -74,8 +74,23 @@ export interface CustomBot extends Omit<Bot, 'on' | 'once' | 'emit'> {
   utils: Utils;
   isInWater: boolean;
   cmd: CommandManager;
-  lookingAt: Block | Entity | DroppedItem | null;
   executingSkill: boolean;
+  environmentState: {
+    senderName: string;
+    senderPosition: string;
+    weather: string;
+    time: string;
+    biome: string;
+    dimension: string;
+    bossbar: string | null;
+  };
+  selfState: {
+    botPosition: Vec3 | null;
+    botHealth: string;
+    botFoodLevel: string;
+    botHeldItem: string;
+    lookingAt: Block | Entity | DroppedItem | null;
+  };
 }
 
 export abstract class Skill {

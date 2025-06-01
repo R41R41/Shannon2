@@ -107,7 +107,22 @@ export class MinebotClient extends BaseClient {
     this.bot.instantSkills = new InstantSkills();
     this.bot.constantSkills = new ConstantSkills();
     this.bot.utils = new Utils(this.bot);
-    this.bot.lookingAt = null;
+    this.bot.selfState = {
+      botPosition: null,
+      botHealth: '20/20',
+      botFoodLevel: '20/20',
+      botHeldItem: '',
+      lookingAt: null,
+    };
+    this.bot.environmentState = {
+      senderName: '',
+      senderPosition: '',
+      weather: '',
+      time: '',
+      biome: '',
+      dimension: '',
+      bossbar: null,
+    };
     await new Promise((resolve) => setTimeout(resolve, 1000));
     this.bot.utils.setMovements(this.bot);
 
