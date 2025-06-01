@@ -406,7 +406,10 @@ export class SkillAgent {
         botHeldItem: heldItem,
         lookingAt: JSON.stringify(this.bot.lookingAt),
       };
-      console.log(selfState.lookingAt);
+      const faceToEntity = this.bot.instantSkills.getSkill('face-to-entity');
+      if (faceToEntity) {
+        faceToEntity.run(username);
+      }
       await this.processMessage(
         username,
         message,
