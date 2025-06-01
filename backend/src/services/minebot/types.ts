@@ -95,13 +95,13 @@ export abstract class Skill {
 export abstract class ConstantSkill extends Skill {
   priority: number;
   isLocked: boolean;
-  interval: number;
+  interval: number | null;
   args: any;
   constructor(bot: CustomBot) {
     super(bot);
     this.priority = 0;
     this.isLocked = false;
-    this.interval = 1000;
+    this.interval = null;
     this.args = {};
   }
   lock() {

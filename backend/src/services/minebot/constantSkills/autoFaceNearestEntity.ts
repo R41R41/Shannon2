@@ -5,21 +5,22 @@ class AutoFaceNearestEntity extends ConstantSkill {
     constructor(bot: CustomBot) {
         super(bot);
         this.skillName = 'auto-face-nearest-entity';
-        this.description = '8ブロック以内にある最も近いエンティティに注目します';
-        this.interval = 1000;
+        this.description = '4ブロック以内にある最も近いエンティティに注目します';
         this.status = true;
+        this.isLocked = false;
+        this.interval = 1000;
     }
 
     async run() {
-        // 自分自身以外のエンティティを8ブロック以内で取得
+        if (this.isLocked) return;
         const entities = Object.values(this.bot.entities)
             .filter(e => e.id !== this.bot.entity.id)
-            .filter(e => this.bot.entity.position.distanceTo(e.position) <= 8);
+            .filter(e => this.bot.entity.position.distanceTo(e.position) <= 4);
         if (entities.length === 0) return;
-        // 最も近いエンティティを選択
         const nearest = entities.reduce((a, b) =>
             this.bot.entity.position.distanceTo(a.position) < this.bot.entity.position.distanceTo(b.position) ? a : b
         );
+        this.isLocked = true;
         // エンティティの頭の位置を計算
         const headPos = new Vec3(
             nearest.position.x,
@@ -27,6 +28,8 @@ class AutoFaceNearestEntity extends ConstantSkill {
             nearest.position.z
         );
         await this.bot.lookAt(headPos);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        this.isLocked = false;
     }
 }
 
