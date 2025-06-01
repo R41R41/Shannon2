@@ -8,7 +8,7 @@ class AutoPickUpItem extends ConstantSkill {
     super(bot);
     this.skillName = 'auto-pick-up-item';
     this.description = '自動でアイテムを拾う';
-    this.status = true;
+    this.status = false;
     this.interval = 0;
     this.pickUpItemName = '';
   }

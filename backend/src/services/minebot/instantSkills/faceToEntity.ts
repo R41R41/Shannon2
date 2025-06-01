@@ -17,6 +17,10 @@ export class FaceToEntity extends InstantSkill {
   }
   async run(entityName: string) {
     try {
+      const autoFaceNearestEntity = this.bot.constantSkills.getSkill('auto-face-nearest-entity');
+      if (autoFaceNearestEntity) {
+        autoFaceNearestEntity.status = false;
+      }
       const entity = this.bot.utils.getNearestEntitiesByName(
         this.bot,
         entityName

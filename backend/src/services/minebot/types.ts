@@ -3,6 +3,8 @@ import { goals } from 'mineflayer-pathfinder';
 import { Entity } from 'prismarine-entity';
 import { Utils } from './utils/index.js';
 import { CommandManager } from 'mineflayer-cmd';
+import { Block } from 'prismarine-block';
+import { Vec3 } from 'vec3';
 
 export type Goal = goals.Goal;
 
@@ -41,6 +43,13 @@ interface CustomBotEvents extends BotEvents {
   [key: `taskPer${number}ms`]: () => void;
 }
 
+export type DroppedItem = {
+  isDroppedItem: boolean;
+  name: string;
+  position: Vec3;
+  metadata: any;
+};
+
 // CustomBotの定義を更新
 export interface CustomBot extends Omit<Bot, 'on' | 'once' | 'emit'> {
   on<K extends keyof CustomBotEvents>(
@@ -65,6 +74,7 @@ export interface CustomBot extends Omit<Bot, 'on' | 'once' | 'emit'> {
   utils: Utils;
   isInWater: boolean;
   cmd: CommandManager;
+  lookingAt: Block | Entity | DroppedItem | null;
 }
 
 export abstract class Skill {

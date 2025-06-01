@@ -404,7 +404,9 @@ export class SkillAgent {
         botHealth: `${this.bot.health}/20`,
         botFoodLevel: `${this.bot.food}/20`,
         botHeldItem: heldItem,
+        lookingAt: JSON.stringify(this.bot.lookingAt),
       };
+      console.log(selfState.lookingAt);
       await this.processMessage(
         username,
         message,
