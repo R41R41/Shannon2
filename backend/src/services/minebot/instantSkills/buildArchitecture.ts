@@ -1,8 +1,8 @@
-import { CustomBot, InstantSkill } from '../types.js';
-import { Vec3 } from 'vec3';
 import fs from 'fs';
 import path from 'path';
-import { Block } from 'prismarine-block';
+import { Vec3 } from 'vec3';
+import { CustomBot, InstantSkill } from '../types.js';
+import HoldItem from './holdItem.js';
 
 interface ArchitectureBlock {
   name: string; // ブロック名
@@ -21,6 +21,7 @@ interface Architecture {
 }
 
 class BuildArchitecture extends InstantSkill {
+  private holdItem: HoldItem;
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'build-architecture';
@@ -40,9 +41,10 @@ class BuildArchitecture extends InstantSkill {
         required: true,
       },
     ];
+    this.holdItem = new HoldItem(bot);
   }
 
-  async run(architectureName: string, placePosition: Vec3) {
+  async runImpl(architectureName: string, placePosition: Vec3) {
     try {
       // 設計図のJSONファイルを読み込む
       const architectureData = await this.loadArchitectureData(
@@ -87,6 +89,15 @@ class BuildArchitecture extends InstantSkill {
                   console.log(
                     `異なるブロック "${existingBlock.name}" を破壊します。期待値: "${block.name}"`
                   );
+                  const toolIds = existingBlock.harvestTools ? Object.keys(existingBlock.harvestTools).map(Number) : [];
+                  const hasTool = this.bot.inventory.items().some(item => toolIds.includes(item.type));
+                  if (!hasTool && existingBlock.harvestTools !== undefined) {
+                    return { success: false, result: `掘るためのツールがインベントリにありません。` };
+                  }
+                  const bestTool = this.bot.pathfinder.bestHarvestTool(existingBlock);
+                  if (bestTool) {
+                    await this.holdItem.run(bestTool.name);
+                  }
                   await this.bot.dig(existingBlock);
                   // 少し待機して連続操作によるエラーを防止
                   await new Promise((resolve) => setTimeout(resolve, 250));
@@ -226,11 +237,10 @@ class BuildArchitecture extends InstantSkill {
           result: `設計図 "${architectureName}" の建築チェックに失敗しました。内部エラーです。`,
         };
       }
-      let resultMsg = `設計図 "${architectureName}" の建築を完了しましたが、${
-        lastCheckResult.incorrect
-      } 箇所で設計図と異なるブロックがあります。\n${lastCheckResult.details
-        .slice(0, 5)
-        .join('\n')}${lastCheckResult.incorrect > 5 ? ' ...' : ''}`;
+      let resultMsg = `設計図 "${architectureName}" の建築を完了しましたが、${lastCheckResult.incorrect
+        } 箇所で設計図と異なるブロックがあります。\n${lastCheckResult.details
+          .slice(0, 5)
+          .join('\n')}${lastCheckResult.incorrect > 5 ? ' ...' : ''}`;
       return {
         success: false,
         result: resultMsg,
@@ -399,8 +409,7 @@ class BuildArchitecture extends InstantSkill {
       } else {
         incorrect++;
         details.push(
-          `(${blockPos.x},${blockPos.y},${blockPos.z}): 期待=${
-            block.name
+          `(${blockPos.x},${blockPos.y},${blockPos.z}): 期待=${block.name
           }, 実際=${existingBlock ? existingBlock.name : '空気'}`
         );
       }

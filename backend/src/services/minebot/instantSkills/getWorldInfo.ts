@@ -23,7 +23,7 @@ export class GetWorldInfo extends InstantSkill {
     this.params = [];
   }
 
-  async run() {
+  async runImpl() {
     try {
       // バイオーム情報の取得
       const position = this.bot.entity.position;

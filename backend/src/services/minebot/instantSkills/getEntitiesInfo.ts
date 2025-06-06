@@ -29,7 +29,7 @@ class GetEntitiesInfo extends InstantSkill {
     ];
   }
 
-  async run(distance: number = 32, entityType: string | null = null) {
+  async runImpl(distance: number = 32, entityType: string | null = null) {
     try {
       const entitiesInfo: {
         id: string;

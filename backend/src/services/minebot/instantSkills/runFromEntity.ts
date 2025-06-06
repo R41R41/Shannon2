@@ -15,7 +15,7 @@ class RunFromEntity extends InstantSkill {
     ];
   }
 
-  async run(entity_name: string) {
+  async runImpl(entity_name: string) {
     const entity = this.bot.utils.getNearestEntitiesByName(
       this.bot,
       entity_name

@@ -39,7 +39,7 @@ class GetBlocksData extends InstantSkill {
     ];
   }
 
-  async run(
+  async runImpl(
     startPosition: Vec3 | null = null,
     endPosition: Vec3 | null = null,
     blockName: string | null = null

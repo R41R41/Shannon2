@@ -394,20 +394,17 @@ export class SkillAgent {
         return;
       }
       const sender = this.bot.players[username]?.entity;
-      const environmentState = {
-        senderName: username,
-        senderPosition: sender ? sender.position.toString() : 'spectator mode',
-      };
-      const selfState = {
-        botPosition: this.bot.entity.position.toString() || 'null',
-        botHealth: `${this.bot.health}/20`,
-        botFoodLevel: `${this.bot.food}/20`,
-      };
+      this.bot.environmentState.senderName = username;
+      this.bot.environmentState.senderPosition = sender ? sender.position.toString() : 'spectator mode';
+      const faceToEntity = this.bot.instantSkills.getSkill('face-to-entity');
+      if (faceToEntity) {
+        faceToEntity.run(username);
+      }
       await this.processMessage(
         username,
         message,
-        JSON.stringify(environmentState),
-        JSON.stringify(selfState)
+        JSON.stringify(this.bot.environmentState),
+        JSON.stringify(this.bot.selfState)
       );
     });
     this.eventBus.subscribe('minebot:chat', async (event) => {
@@ -463,6 +460,58 @@ export class SkillAgent {
     });
   }
 
+  async blockUpdate() {
+    console.log(`\x1b[32m✓ blockUpdate\x1b[0m`);
+    this.bot.on('blockUpdate', async (block) => {
+      if (!block) return;
+      const distance = this.bot.entity.position.distanceTo(block.position);
+      if (distance > 4) return;
+      const autoFaceUpdatedBlock = this.bot.constantSkills.getSkill('auto-face-updated-block');
+      if (!autoFaceUpdatedBlock) {
+        return;
+      }
+      if (!autoFaceUpdatedBlock.status) return;
+      if (autoFaceUpdatedBlock.isLocked) return;
+      try {
+        await autoFaceUpdatedBlock.run(block);
+      } catch (error) {
+        console.error('エラーが発生しました:', error);
+      }
+    });
+  }
+
+  async entityMove() {
+    console.log(`\x1b[32m✓ entityMove\x1b[0m`);
+    this.bot.on('entityMoved', async (entity) => {
+      const distance = this.bot.entity.position.distanceTo(entity.position);
+      if (distance > 4) return;
+      const autoFaceMovedEntity = this.bot.constantSkills.getSkill('auto-face-moved-entity');
+      if (!autoFaceMovedEntity) {
+        return;
+      }
+      if (!autoFaceMovedEntity.status) return;
+      if (autoFaceMovedEntity.isLocked) return;
+      try {
+        await autoFaceMovedEntity.run(entity);
+      } catch (error) {
+        console.error('エラーが発生しました:', error);
+      }
+    });
+  }
+
+  async bossbar() {
+    console.log(`\x1b[32m✓ bossbar\x1b[0m`);
+    this.bot.on('bossBarCreated', async (bossbar) => {
+      this.bot.environmentState.bossbar = JSON.stringify(bossbar);
+    });
+    this.bot.on('bossBarUpdated', async (bossbar) => {
+      this.bot.environmentState.bossbar = JSON.stringify(bossbar);
+    });
+    this.bot.on('bossBarDeleted', async (bossbar) => {
+      this.bot.environmentState.bossbar = null;
+    });
+  }
+
   private async processMessage(
     userName: string,
     message: string,
@@ -498,6 +547,9 @@ export class SkillAgent {
       await this.entitySpawn();
       await this.entityHurt();
       await this.health();
+      await this.blockUpdate();
+      await this.entityMove();
+      await new Promise(resolve => setTimeout(resolve, 2000));
       await this.setInterval();
       await this.registerPost();
       await this.centralAgent.initialize();

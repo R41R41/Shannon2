@@ -34,7 +34,7 @@ export class SwitchAutoDetectBlockOrEntity extends InstantSkill {
         ];
     }
 
-    async run(enable: boolean, blockName: string, entityName: string, searchDistance: number) {
+    async runImpl(enable: boolean, blockName: string, entityName: string, searchDistance: number) {
         console.log('switchAutoDetectBlockOrEntity', enable, blockName, entityName);
         try {
             const skill = this.bot.constantSkills.getSkill('auto-detect-block-or-entity');

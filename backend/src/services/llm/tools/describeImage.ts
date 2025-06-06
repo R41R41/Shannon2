@@ -1,6 +1,6 @@
 import { StructuredTool } from '@langchain/core/tools';
-import { z } from 'zod';
 import OpenAI from 'openai';
+import { z } from 'zod';
 
 export default class DescribeImageTool extends StructuredTool {
   name = 'describe-image';
@@ -26,7 +26,7 @@ export default class DescribeImageTool extends StructuredTool {
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'o4-mini',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'user',

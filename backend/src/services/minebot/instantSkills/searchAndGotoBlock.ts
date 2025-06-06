@@ -11,7 +11,7 @@ class SearchAndGotoBlock extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'search-and-goto-block';
-    this.description = '指定されたブロックを探索してその位置に移動します';
+    this.description = '指定されたブロックまたは座標を探索してその位置に移動します。ブロックの検知だけではなく移動が必要な場合のみに使用してください。';
     this.status = false;
     this.mcData = minecraftData(this.bot.version);
     this.searchDistance = 64;
@@ -21,13 +21,31 @@ class SearchAndGotoBlock extends InstantSkill {
         description:
           '探索するブロックの名前。例: iron_ore, acacia_log, crafting_tableなど',
         type: 'string',
+        default: null,
+      },
+      {
+        name: 'coordinate',
+        description: '探索する座標',
+        type: 'Vec3',
+        default: null,
       },
     ];
   }
 
-  async run(blockName: string) {
-    console.log('searchBlock', blockName);
+  async runImpl(blockName: string, coordinate: Vec3) {
+    console.log('searchBlock', blockName, coordinate);
     try {
+      if (coordinate) {
+        const goal = new goals.GoalNear(
+          coordinate.x,
+          coordinate.y,
+          coordinate.z,
+          1
+        );
+        const movePromise = this.bot.pathfinder.goto(goal);
+        await movePromise;
+        return { success: true, result: `座標${coordinate.x} ${coordinate.y} ${coordinate.z}に移動しました。` };
+      }
       const Block = this.mcData.blocksByName[blockName];
       if (!Block) {
         return { success: false, result: `ブロック${blockName}はありません` };

@@ -76,7 +76,7 @@ class SleepInBed extends InstantSkill {
     return null;
   }
 
-  async run(wakeUp?: boolean) {
+  async runImpl(wakeUp?: boolean) {
     try {
       // ベッドから起きる場合
       if (wakeUp) {

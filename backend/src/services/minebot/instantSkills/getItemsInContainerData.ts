@@ -20,7 +20,9 @@ class GetItemsInContainerData extends InstantSkill {
     ];
   }
 
-  async run(containerPosition: Vec3 | { x: number; y: number; z: number }) {
+  async runImpl(
+    containerPosition: Vec3 | { x: number; y: number; z: number }
+  ) {
     try {
       // コンテナの座標を確認 (Vec3オブジェクトまたはx,y,z座標を含むオブジェクト)
       let containerPos: Vec3;

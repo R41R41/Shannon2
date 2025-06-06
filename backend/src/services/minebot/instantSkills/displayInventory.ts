@@ -10,7 +10,7 @@ class DisplayInventory extends InstantSkill {
     this.isToolForLLM = false;
   }
 
-  async run() {
+  async runImpl() {
     try {
       const inventoryItems = await this.bot.inventory.items();
       inventoryItems.sort((a, b) => a.name.localeCompare(b.name));

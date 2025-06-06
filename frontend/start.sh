@@ -9,7 +9,7 @@ screen -X -S $FRONTEND_SESSION quit > /dev/null 2>&1
 # 既存のNode.jsプロセスを終了
 echo "Killing existing Node.js processes..."
 pkill -f "node.*npm run dev"
-pkill -f "node.*npm run dev:test"
+pkill -f "node.*npm run dev:dev"
 
 # 使用中のポートをチェックして解放
 kill_port() {
@@ -22,12 +22,12 @@ kill_port() {
 }
 
 # テストモードフラグをチェック
-IS_TEST=false
+IS_DEV=false
 PORT=3000
-if [ "$1" = "--test" ]; then
-    IS_TEST=true
+if [ "$1" = "--dev" ]; then
+    IS_DEV=true
     PORT=13000
-    echo "Starting frontend in test mode on port $PORT..."
+    echo "Starting frontend in dev mode on port $PORT..."
 else
     echo "Starting frontend on port $PORT..."
 fi
@@ -40,8 +40,8 @@ kill_port $PORT
 sleep 2
 
 # フロントエンドを起動
-if [ "$IS_TEST" = true ]; then
-    screen -dmS $FRONTEND_SESSION bash -c "PORT=$PORT npm run dev:test"
+if [ "$IS_DEV" = true ]; then
+    screen -dmS $FRONTEND_SESSION bash -c "PORT=$PORT npm run dev:dev"
 else
     screen -dmS $FRONTEND_SESSION bash -c "PORT=$PORT npm run dev"
 fi

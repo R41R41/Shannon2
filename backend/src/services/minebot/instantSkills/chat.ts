@@ -18,7 +18,7 @@ class Chat extends InstantSkill {
     ];
   }
 
-  async run(text: string) {
+  async runImpl(text: string) {
     console.log('chat input:', text);
     if (text === null) {
       return { success: false, result: 'テキストが指定されていません' };

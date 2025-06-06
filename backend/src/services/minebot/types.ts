@@ -3,6 +3,8 @@ import { goals } from 'mineflayer-pathfinder';
 import { Entity } from 'prismarine-entity';
 import { Utils } from './utils/index.js';
 import { CommandManager } from 'mineflayer-cmd';
+import { Block } from 'prismarine-block';
+import { Vec3 } from 'vec3';
 
 export type Goal = goals.Goal;
 
@@ -41,6 +43,13 @@ interface CustomBotEvents extends BotEvents {
   [key: `taskPer${number}ms`]: () => void;
 }
 
+export type DroppedItem = {
+  isDroppedItem: boolean;
+  name: string;
+  position: Vec3 | null;
+  metadata: any;
+};
+
 // CustomBotの定義を更新
 export interface CustomBot extends Omit<Bot, 'on' | 'once' | 'emit'> {
   on<K extends keyof CustomBotEvents>(
@@ -65,6 +74,23 @@ export interface CustomBot extends Omit<Bot, 'on' | 'once' | 'emit'> {
   utils: Utils;
   isInWater: boolean;
   cmd: CommandManager;
+  executingSkill: boolean;
+  environmentState: {
+    senderName: string;
+    senderPosition: string;
+    weather: string;
+    time: string;
+    biome: string;
+    dimension: string;
+    bossbar: string | null;
+  };
+  selfState: {
+    botPosition: Vec3 | null;
+    botHealth: string;
+    botFoodLevel: string;
+    botHeldItem: string;
+    lookingAt: Block | Entity | DroppedItem | null;
+  };
 }
 
 export abstract class Skill {
@@ -85,13 +111,13 @@ export abstract class Skill {
 export abstract class ConstantSkill extends Skill {
   priority: number;
   isLocked: boolean;
-  interval: number;
+  interval: number | null;
   args: any;
   constructor(bot: CustomBot) {
     super(bot);
     this.priority = 0;
     this.isLocked = false;
-    this.interval = 1000;
+    this.interval = null;
     this.args = {};
   }
   lock() {
@@ -117,10 +143,17 @@ export abstract class InstantSkill extends Skill {
     this.params = [];
     this.canUseByCommand = true;
   }
-  abstract run(...args: any[]): Promise<{
-    success: boolean;
-    result: string;
-  }>;
+
+  async run(...args: any[]): Promise<{ success: boolean; result: string }> {
+    this.bot.executingSkill = true;
+    try {
+      return await this.runImpl(...args);
+    } finally {
+      this.bot.executingSkill = false;
+    }
+  }
+
+  abstract runImpl(...args: any[]): Promise<{ success: boolean; result: string }>;
 }
 
 export class InstantSkills {

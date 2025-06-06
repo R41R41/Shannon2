@@ -23,18 +23,18 @@ export class MinecraftClient extends BaseClient {
     '1.21.1-play',
   ];
   private readonly SERVER_BASE_PATH = process.env.SERVER_BASE_PATH;
-  public isTest: boolean = false;
+  public isDev: boolean = false;
 
-  public static getInstance(isTest: boolean = false) {
+  public static getInstance(isDev: boolean = false) {
     const eventBus = getEventBus();
     if (!MinecraftClient.instance) {
-      MinecraftClient.instance = new MinecraftClient('minecraft', isTest);
+      MinecraftClient.instance = new MinecraftClient('minecraft', isDev);
     }
-    MinecraftClient.instance.isTest = isTest;
+    MinecraftClient.instance.isDev = isDev;
     return MinecraftClient.instance;
   }
 
-  constructor(serviceName: 'minecraft', isTest: boolean) {
+  constructor(serviceName: 'minecraft', isDev: boolean) {
     const eventBus = getEventBus();
     super(serviceName, eventBus);
     this.minecraftClients = [];

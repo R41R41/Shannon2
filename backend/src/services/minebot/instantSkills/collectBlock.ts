@@ -1,31 +1,27 @@
-import { CustomBot, InstantSkill } from '../types.js';
-import pathfinder from 'mineflayer-pathfinder';
-const { goals, Movements } = pathfinder;
 import minecraftData from 'minecraft-data';
-import { Bot } from 'mineflayer';
+import pathfinder from 'mineflayer-pathfinder';
+import { Vec3 } from 'vec3';
+import { CustomBot, InstantSkill } from '../types.js';
+import HoldItem from './holdItem.js';
+const { goals } = pathfinder;
 
 class CollectBlock extends InstantSkill {
   private mcData: any;
   private searchDistance: number;
+  private holdItem: HoldItem;
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'collect-block';
     this.description =
-      '指定したブロックを壊して指定されたアイテムを集めます。正しいブロック名とアイテム名を指定してください（例：blockName: stone, itemName: cobblestone, count: 10）';
+      'ブロックを壊して指定されたアイテムを集めます。';
     this.status = false;
     this.mcData = minecraftData(this.bot.version);
-    this.searchDistance = 256;
+    this.searchDistance = 64;
     this.params = [
-      {
-        name: 'blockName',
-        description:
-          '壊すブロックの名前を指定します。例: stone, iron_ore, など    ',
-        type: 'string',
-      },
       {
         name: 'itemName',
         description:
-          '破壊して拾うアイテムの名前を指定します。nullの場合は自動で拾うアイテムを選択します。例: cobblestone, raw_iron, など',
+          '集めたいアイテムの名前を指定します。例: cobblestone, raw_iron, dirt, など',
         type: 'string',
       },
       {
@@ -34,92 +30,98 @@ class CollectBlock extends InstantSkill {
         type: 'number',
       },
     ];
+    this.holdItem = new HoldItem(bot);
   }
 
-  // 適切なツールを選択して装備する関数
-  private async equipBestTool(block: any) {
-    try {
-      // ブロックに最適なツールを見つける
-      const tool = this.bot.pathfinder.bestHarvestTool(block);
-      if (tool) {
-        await this.bot.equip(tool, 'hand');
-        return true;
+  private getBlocksDroppingItem(itemName: string) {
+    // アイテムIDを取得
+    const item = this.mcData.itemsByName[itemName];
+    if (!item) return [];
+    const itemId = item.id;
+    // 全ブロックを走査
+    const result = [];
+    const blocks: any[] = Object.values(this.mcData.blocksByName);
+    for (const block of blocks) {
+      if (!block.drops) continue;
+      // dropsの型に両対応
+      const dropIds = block.drops.map((d: any) =>
+        typeof d === 'number'
+          ? d
+          : typeof d.drop === 'number'
+            ? d.drop
+            : d.drop.id
+      );
+      if (dropIds.includes(itemId)) {
+        result.push(block);
       }
-      // 特定のツールがない場合は、インベントリ内の任意のツールを試す
-      const possibleTools = this.bot.inventory
-        .items()
-        .filter(
-          (item) =>
-            item.name.includes('_pickaxe') ||
-            item.name.includes('_axe') ||
-            item.name.includes('_shovel') ||
-            item.name.includes('_hoe') ||
-            item.name.includes('shears')
-        );
-
-      if (possibleTools.length > 0) {
-        await this.bot.equip(possibleTools[0], 'hand');
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('ツールの装備に失敗しました:', error);
-      return false;
     }
+    return result;
   }
 
-  async run(blockName: string, itemName: string, count: number) {
-    console.log('collectBlock', blockName, count);
+  async runImpl(itemName: string, count: number) {
+    console.log('collectBlock', itemName, count);
     try {
-      const Block = this.mcData.blocksByName[blockName];
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      if (!Block) {
-        return { success: false, result: `ブロック${blockName}はありません` };
-      }
-      let dropItemName;
-      if (itemName) {
-        dropItemName = itemName;
-      } else {
-        const item = this.bot.registry.items[Block.drops[0]];
-        dropItemName = item.name;
+      const blocks = this.getBlocksDroppingItem(itemName);
+      if (blocks.length === 0) {
+        return {
+          success: false,
+          result: `アイテム${itemName}をドロップするブロックが見つかりませんでした`,
+        };
       }
       let collectItems = this.bot.inventory
         .items()
-        .filter((item) => item.name === dropItemName);
+        .filter((item) => item.name === itemName);
       let collectCount = collectItems.reduce(
         (acc, item) => acc + item.count,
         0
       );
+      let failCount = 0;
       while (collectCount < count) {
-        const Blocks = this.bot.findBlocks({
-          matching: Block.id,
-          maxDistance: this.searchDistance,
-          count: 1,
-        });
+        const Blocks: Vec3[] = [];
+        for (const block of blocks) {
+          const targetBlocks = this.bot.findBlocks({
+            matching: block.id,
+            maxDistance: this.searchDistance,
+            count: 1,
+          });
+          Blocks.push(...targetBlocks);
+        }
         if (Blocks.length === 0) {
           return {
             success: false,
-            result: `ブロック ${blockName} が見つかりませんでした`,
+            result: `ブロック ${blocks.map((block) => block.name).join(', ')} が見つかりませんでした`,
           };
         }
+        Blocks.sort((a, b) => {
+          const distanceA = this.bot.entity.position.distanceTo(a);
+          const distanceB = this.bot.entity.position.distanceTo(b);
+          return distanceA - distanceB;
+        });
         const block = this.bot.blockAt(Blocks[0]);
         if (!block) {
           return {
             success: false,
-            result: `ブロック ${blockName} が見つかりませんでした`,
+            result: `ブロック ${blocks.map((block) => block.name).join(', ')} が見つかりませんでした`,
           };
         }
         await this.bot.pathfinder.goto(
-          new goals.GoalNear(Blocks[0].x, Blocks[0].y, Blocks[0].z, 3)
+          new goals.GoalNear(Blocks[0].x, Blocks[0].y, Blocks[0].z, 1)
         );
 
-        // ブロックを掘る前に最適なツールを装備
-        await this.equipBestTool(block);
+        const toolIds = block.harvestTools ? Object.keys(block.harvestTools).map(Number) : [];
+        const hasTool = this.bot.inventory.items().some(item => toolIds.includes(item.type));
+        if (!hasTool && block.harvestTools !== undefined) {
+          return { success: false, result: `掘るためのツールがインベントリにありません。` };
+        }
+        const bestTool = this.bot.pathfinder.bestHarvestTool(block);
+        if (bestTool) {
+          await this.holdItem.run(bestTool.name);
+        }
 
         await this.bot.dig(block);
         await new Promise((resolve) => setTimeout(resolve, 1000)); // ブロックがドロップするのを待つ
         const items = this.bot.nearestEntity(
-          (entity) => entity.name === dropItemName
+          (entity) => entity.name === itemName
         );
         if (items) {
           // タイムアウト処理
@@ -139,12 +141,24 @@ class CollectBlock extends InstantSkill {
 
           await Promise.race([movePromise, timeoutPromise]);
         }
+        const prevCount = collectCount;
         collectItems = this.bot.inventory
           .items()
-          .filter((item) => item.name === dropItemName);
+          .filter((item) => item.name === itemName);
         collectCount = collectItems.reduce((acc, item) => acc + item.count, 0);
+        if (collectCount === prevCount) {
+          failCount++;
+        } else {
+          failCount = 0;
+        }
+        if (failCount >= 10) {
+          return {
+            success: false,
+            result: `10回連続でアイテムが得られなかったため停止します。`,
+          };
+        }
       }
-      return { success: true, result: `${blockName}を${count}個集めました。` };
+      return { success: true, result: `${itemName}を${count}個集めました。` };
     } catch (error: any) {
       return { success: false, result: `${error.message} in ${error.stack}` };
     }

@@ -34,7 +34,11 @@ class PlaceBlock extends InstantSkill {
     ];
   }
 
-  async run(blockName: string, placePosition: any, placedBlockPosition: any) {
+  async runImpl(
+    blockName: string,
+    placePosition: any,
+    placedBlockPosition: any
+  ) {
     console.log('placeBlock', blockName, placePosition, placedBlockPosition);
     try {
       // Vec3オブジェクトに変換

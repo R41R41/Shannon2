@@ -19,7 +19,7 @@ class SearchTradingVillager extends InstantSkill {
     ];
   }
 
-  async run(outputItemName: string) {
+  async runImpl(outputItemName: string) {
     try {
       const villagers = Object.values(this.bot.entities).filter(
         (e: any) => e.name === 'villager'

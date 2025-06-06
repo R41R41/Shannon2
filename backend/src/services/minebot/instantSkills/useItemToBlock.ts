@@ -38,7 +38,7 @@ class UseItemToBlock extends InstantSkill {
     ];
   }
 
-  async run(
+  async runImpl(
     itemName: string,
     targetBlockName: string,
     blockCount: number,

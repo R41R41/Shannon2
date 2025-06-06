@@ -1,22 +1,24 @@
 {
   "equipment": {
-    "helmet": {
-      "name": "carved_pumpkin",
-      "count": 1
-    },
+    "helmet": null,
     "chestplate": null,
     "leggings": null,
-    "boots": {
-      "name": "golden_boots",
-      "count": 1
-    },
+    "boots": null,
     "mainHand": {
-      "name": "bow",
+      "name": "grass_block",
       "count": 1
     },
     "offHand": null
   },
   "inventory": [
+    {
+      "name": "grass_block",
+      "count": 1
+    },
+    {
+      "name": "oak_log",
+      "count": 1
+    },
     {
       "name": "arrow",
       "count": 63
@@ -26,12 +28,16 @@
       "count": 1
     },
     {
-      "name": "arrow",
-      "count": 28
+      "name": "wheat_seeds",
+      "count": 1
     },
     {
-      "name": "bread",
-      "count": 62
+      "name": "dirt",
+      "count": 5
+    },
+    {
+      "name": "gravel",
+      "count": 3
     }
   ]
 }

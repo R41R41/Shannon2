@@ -64,16 +64,16 @@ export class DiscordBot extends BaseClient {
   private colabGuildId: string | null = null;
   private colabChannelId: string | null = null;
   private static instance: DiscordBot;
-  public isTest: boolean = false;
-  public static getInstance(isTest: boolean = false) {
+  public isDev: boolean = false;
+  public static getInstance(isDev: boolean = false) {
     if (!DiscordBot.instance) {
-      DiscordBot.instance = new DiscordBot('discord', isTest);
+      DiscordBot.instance = new DiscordBot('discord', isDev);
     }
-    DiscordBot.instance.isTest = isTest;
+    DiscordBot.instance.isDev = isDev;
     return DiscordBot.instance;
   }
 
-  private constructor(serviceName: 'discord', isTest: boolean = false) {
+  private constructor(serviceName: 'discord', isDev: boolean = false) {
     const eventBus = getEventBus();
     super(serviceName, eventBus);
     this.client = new Client({
@@ -464,8 +464,8 @@ export class DiscordBot extends BaseClient {
     });
     this.client.on('messageCreate', async (message) => {
       if (this.status !== 'running') return;
-      const isTestGuild = message.guildId === process.env.TEST_GUILD_ID;
-      if (this.isTest !== isTestGuild) return;
+      const isDevGuild = message.guildId === process.env.TEST_GUILD_ID;
+      if (this.isDev !== isDevGuild) return;
       console.log(message.content);
 
       if (message.author.bot) return;
@@ -559,8 +559,8 @@ export class DiscordBot extends BaseClient {
       const channel = this.client.channels.cache.get(speech.channelId);
       if (!channel || !('guild' in channel)) return;
 
-      const isTestGuild = channel.guild.id === process.env.TEST_GUILD_ID;
-      if (this.isTest !== isTestGuild) return;
+      const isDevGuild = channel.guild.id === process.env.TEST_GUILD_ID;
+      if (this.isDev !== isDevGuild) return;
 
       const memoryZone = await getDiscordMemoryZone(channel.guildId);
 
@@ -622,7 +622,7 @@ export class DiscordBot extends BaseClient {
         command === 'about_today' ||
         command === 'news_today'
       ) {
-        if (this.isTest) {
+        if (this.isDev) {
           const xChannelId = this.testXChannelId ?? '';
           const channel = this.client.channels.cache.get(xChannelId);
           if (channel?.isTextBased() && 'send' in channel) {

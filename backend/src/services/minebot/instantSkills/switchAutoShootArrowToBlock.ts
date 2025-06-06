@@ -22,7 +22,7 @@ export class SwitchAutoShootArrowToBlock extends InstantSkill {
         ];
     }
 
-    async run(enable: boolean, blockName: string) {
+    async runImpl(enable: boolean, blockName: string) {
         console.log('switchAutoShootArrowToBlock', enable, blockName);
         try {
             const skill = this.bot.constantSkills.getSkill('auto-shoot-arrow-to-block');

@@ -24,7 +24,7 @@ class EquipArmor extends InstantSkill {
     ];
   }
 
-  async run(armorName: string, armorSlot: string) {
+  async runImpl(armorName: string, armorSlot: string) {
     console.log(`equipArmor ${armorName} ${armorSlot}`);
     try {
       const armorSlots = ['head', 'torso', 'legs', 'feet'];

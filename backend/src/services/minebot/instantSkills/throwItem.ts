@@ -16,7 +16,7 @@ class ThrowItem extends InstantSkill {
     ];
   }
 
-  async run(itemName: string) {
+  async runImpl(itemName: string) {
     try {
       console.log('throwItem', itemName);
       const item = this.bot.inventory

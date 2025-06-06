@@ -15,7 +15,7 @@ export class FaceToEntity extends InstantSkill {
       },
     ];
   }
-  async run(entityName: string) {
+  async runImpl(entityName: string) {
     try {
       const entity = this.bot.utils.getNearestEntitiesByName(
         this.bot,

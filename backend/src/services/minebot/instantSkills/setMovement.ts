@@ -56,7 +56,7 @@ class SetMovement extends InstantSkill {
         ];
     }
 
-    async run(canDig: boolean, digCost: number, allowSprinting: boolean, allow1by1towers: boolean, allowParkour: boolean, canOpenDoors: boolean, dontMineUnderFallingBlock: boolean) {
+    async runImpl(canDig: boolean, digCost: number, allowSprinting: boolean, allow1by1towers: boolean, allowParkour: boolean, canOpenDoors: boolean, dontMineUnderFallingBlock: boolean) {
         const defaultMove = new Movements(this.bot as unknown as Bot);
         defaultMove.canDig = canDig;
         defaultMove.digCost = digCost;

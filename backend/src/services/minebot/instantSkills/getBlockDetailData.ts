@@ -18,7 +18,7 @@ export class GetBlockDetailData extends InstantSkill {
     ];
   }
 
-  async run(blockPosition: Vec3) {
+  async runImpl(blockPosition: Vec3) {
     try {
       const block = this.bot.blockAt(blockPosition);
 
@@ -50,21 +50,21 @@ export class GetBlockDetailData extends InstantSkill {
           blockDetailData.furnaceData = {
             fuel: furnace.fuelItem()
               ? {
-                  name: furnace.fuelItem().name,
-                  count: furnace.fuelItem().count,
-                }
+                name: furnace.fuelItem().name,
+                count: furnace.fuelItem().count,
+              }
               : null,
             inputItem: furnace.inputItem()
               ? {
-                  name: furnace.inputItem().name,
-                  count: furnace.inputItem().count,
-                }
+                name: furnace.inputItem().name,
+                count: furnace.inputItem().count,
+              }
               : null,
             outputItem: furnace.outputItem()
               ? {
-                  name: furnace.outputItem().name,
-                  count: furnace.outputItem().count,
-                }
+                name: furnace.outputItem().name,
+                count: furnace.outputItem().count,
+              }
               : null,
             fuelProgress: furnace.fuel,
             cookProgress: furnace.progress,
@@ -138,10 +138,10 @@ export class GetBlockDetailData extends InstantSkill {
             block.name === 'nether_wart'
               ? blockDetailData.properties.age === '3'
               : block.name === 'beetroots'
-              ? blockDetailData.properties.age === '3'
-              : block.name === 'cocoa'
-              ? blockDetailData.properties.age === '2'
-              : blockDetailData.properties.age === '7',
+                ? blockDetailData.properties.age === '3'
+                : block.name === 'cocoa'
+                  ? blockDetailData.properties.age === '2'
+                  : blockDetailData.properties.age === '7',
         };
       }
 

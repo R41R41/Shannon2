@@ -27,7 +27,7 @@ class CraftItem extends InstantSkill {
     ];
   }
 
-  async run(itemName: string, amount: number) {
+  async runImpl(itemName: string, amount: number) {
     console.log('craftItem', itemName);
     try {
       const item = this.mcData.itemsByName[itemName];
