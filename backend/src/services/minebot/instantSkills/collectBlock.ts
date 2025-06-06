@@ -1,12 +1,14 @@
-import { CustomBot, InstantSkill } from '../types.js';
-import pathfinder from 'mineflayer-pathfinder';
-const { goals } = pathfinder;
 import minecraftData from 'minecraft-data';
+import pathfinder from 'mineflayer-pathfinder';
 import { Vec3 } from 'vec3';
+import { CustomBot, InstantSkill } from '../types.js';
+import HoldItem from './holdItem.js';
+const { goals } = pathfinder;
 
 class CollectBlock extends InstantSkill {
   private mcData: any;
   private searchDistance: number;
+  private holdItem: HoldItem;
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'collect-block';
@@ -28,6 +30,7 @@ class CollectBlock extends InstantSkill {
         type: 'number',
       },
     ];
+    this.holdItem = new HoldItem(bot);
   }
 
   private getBlocksDroppingItem(itemName: string) {
@@ -105,7 +108,15 @@ class CollectBlock extends InstantSkill {
           new goals.GoalNear(Blocks[0].x, Blocks[0].y, Blocks[0].z, 1)
         );
 
-        await this.bot.tool.equipForBlock(block);
+        const toolIds = block.harvestTools ? Object.keys(block.harvestTools).map(Number) : [];
+        const hasTool = this.bot.inventory.items().some(item => toolIds.includes(item.type));
+        if (!hasTool && block.harvestTools !== undefined) {
+          return { success: false, result: `掘るためのツールがインベントリにありません。` };
+        }
+        const bestTool = this.bot.pathfinder.bestHarvestTool(block);
+        if (bestTool) {
+          await this.holdItem.run(bestTool.name);
+        }
 
         await this.bot.dig(block);
         await new Promise((resolve) => setTimeout(resolve, 1000)); // ブロックがドロップするのを待つ

@@ -16,6 +16,8 @@ import { BadRequestError } from 'openai';
 import { CustomBot } from '../../types.js';
 import { StructuredTool } from '@langchain/core/tools';
 import { Vec3 } from 'vec3';
+import fetch from 'node-fetch';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -136,6 +138,26 @@ function waitForStop(state: any) {
       }
     }, 100);
   });
+}
+
+// taskTreeをPOST送信する関数
+async function sendTaskTreeToServer(taskTree: any) {
+  try {
+    const response = await fetch('http://localhost:8081/task', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: JSON.stringify(taskTree),
+    });
+    if (!response.ok) {
+      console.error('taskTree送信失敗:', response.status, await response.text());
+    } else {
+      console.log('taskTree送信成功');
+    }
+  } catch (error) {
+    console.error('taskTree送信エラー:', error);
+  }
 }
 
 export class TaskGraph {
@@ -355,6 +377,13 @@ export class TaskGraph {
     try {
       const response = await structuredLLM.invoke(messages);
       console.log('planning response:', response);
+      // ここでtaskTreeを送信
+      await sendTaskTreeToServer({
+        status: response.status,
+        goal: response.goal,
+        strategy: response.strategy,
+        subTasks: response.subTasks,
+      });
       return {
         taskTree: {
           status: response.status,

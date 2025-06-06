@@ -79,6 +79,7 @@ class ShootItemToEntityOrBlockOrCoordinate extends InstantSkill {
   // hawkEyeを使用して弓を発射する
   private async shootWithHawkEye(target: any, itemName: string | null): Promise<void> {
     console.log('hawkEyeでの射撃を開始します...');
+    console.log('target', target);
 
     // hawkEyeでターゲットを狙って発射
     if (itemName === null) {
@@ -105,14 +106,25 @@ class ShootItemToEntityOrBlockOrCoordinate extends InstantSkill {
     console.log('射撃完了');
   }
 
-  public async shootToCoordinate(coordinate: Vec3, itemName: string | null): Promise<void> {
-    const entityName = await this.summonInvisibleMarkerEntity(coordinate);
-    const entities = await this.bot.utils.getNearestEntitiesByName(this.bot, 'armor_stand');
-    const target = entities.find(e => e.name === "armor_stand");
+  public async shootToCoordinate(coordinate: Vec3, itemName: string | null): Promise<{ success: boolean, result: string }> {
+    const targetPos = new Vec3(coordinate.x, coordinate.y, coordinate.z);
+    const faceCenter = this.getFaceCenter(targetPos);
+    const entityName = await this.summonInvisibleMarkerEntity(faceCenter);
+    const entities = await this.bot.utils.getNearestEntitiesByName(this.bot, 'area_effect_cloud');
+    const target = entities.find(e => e.name === "area_effect_cloud");
     if (target) {
       await this.shootWithHawkEye(target, itemName);
       await new Promise(resolve => setTimeout(resolve, 2000));
       await this.killEntityByName(entityName);
+      return {
+        success: true,
+        result: `座標${coordinate}に射撃しました`,
+      }
+    } else {
+      return {
+        success: false,
+        result: `ターゲット座標は見つかりませんでした`,
+      };
     }
   }
 
@@ -121,6 +133,7 @@ class ShootItemToEntityOrBlockOrCoordinate extends InstantSkill {
     const blockCenter = blockPosition.plus(new Vec3(0.5, 0.5, 0.5));
     const toBlock = blockCenter.minus(botPos);
     const abs = { x: Math.abs(toBlock.x), y: Math.abs(toBlock.y), z: Math.abs(toBlock.z) };
+    console.log('abs', abs);
     let face: 'x' | 'y' | 'z';
     let sign: number;
     if (abs.x >= abs.y && abs.x >= abs.z) {
@@ -133,15 +146,18 @@ class ShootItemToEntityOrBlockOrCoordinate extends InstantSkill {
       face = 'z';
       sign = toBlock.z > 0 ? -1 : 1;
     }
-    const faceCenter = blockPosition.clone();
-    if (face === 'x') faceCenter.x += 0.5 * sign;
-    if (face === 'y') faceCenter.y += 0.5 * sign;
-    if (face === 'z') faceCenter.z += 0.5 * sign;
+    const faceCenter = blockCenter.clone();
+    console.log('blockCenter', blockCenter);
+    console.log('face', face);
+    if (face === 'x') faceCenter.x += 0.6 * sign;
+    if (face === 'y') faceCenter.y += 0.6 * sign;
+    if (face === 'z') faceCenter.z += 0.6 * sign;
     return faceCenter;
   }
 
   private async summonInvisibleMarkerEntity(pos: Vec3): Promise<string> {
     // 一意な名前をつける
+    console.log('summonInvisibleMarkerEntity', pos);
     const name = `shoot_target_${Date.now()}`;
     const cmd = `/summon area_effect_cloud ${pos.x} ${pos.y} ${pos.z} {Radius:0.1,Duration:600,Invisible:1b,NoGravity:1b,Marker:1b,Tags:['${name}'],Particle:{type:'block',block_state:'minecraft:air'}}`;
     await this.bot.chat(cmd);
@@ -256,12 +272,12 @@ class ShootItemToEntityOrBlockOrCoordinate extends InstantSkill {
           await this.killEntityByName(entityName);
           return {
             success: true,
-            result: `ブロック${blockName}に射撃しました`,
+            result: `座標${coordinate}に射撃しました`,
           }
         } else {
           return {
             success: false,
-            result: `エンティティ${entityName}は見つかりませんでした`,
+            result: `ターゲット座標は見つかりませんでした`,
           };
         }
       } else {

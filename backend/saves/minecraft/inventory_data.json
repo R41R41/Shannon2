@@ -5,31 +5,39 @@
     "leggings": null,
     "boots": null,
     "mainHand": {
-      "name": "minecart",
+      "name": "grass_block",
       "count": 1
     },
     "offHand": null
   },
   "inventory": [
     {
-      "name": "bow",
+      "name": "grass_block",
+      "count": 1
+    },
+    {
+      "name": "oak_log",
       "count": 1
     },
     {
       "name": "arrow",
-      "count": 3
+      "count": 63
+    },
+    {
+      "name": "bow",
+      "count": 1
     },
     {
       "name": "wheat_seeds",
       "count": 1
     },
     {
-      "name": "oak_boat",
-      "count": 1
+      "name": "dirt",
+      "count": 5
     },
     {
-      "name": "minecart",
-      "count": 1
+      "name": "gravel",
+      "count": 3
     }
   ]
 }

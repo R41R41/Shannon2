@@ -79,6 +79,9 @@ export class PostNewsAgent {
         const today = this.getTodayDate();
         const infoMessage = `今日の日付:${today}\nジャンル:AI`;
         const result = await this.llm(this.systemPrompt + '\n' + infoMessage);
+        if (result.includes('Agent stopped due to max iterations.')) {
+            return `【今日${format(toZonedTime(new Date(), jst), 'M月d日')}のAIニュース】\n調査回数の上限に達したため、AIニュースの生成に失敗しました。`;
+        }
         return `【今日${format(toZonedTime(new Date(), jst), 'M月d日')}のAIニュース】\n${result}`;
     }
 }
