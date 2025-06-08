@@ -6,7 +6,7 @@ class AutoFaceNearestEntity extends ConstantSkill {
         super(bot);
         this.skillName = 'auto-face-nearest-entity';
         this.description = '4ブロック以内にある最も近いエンティティに注目します';
-        this.status = true;
+        this.status = false;
         this.isLocked = false;
         this.interval = 1000;
     }

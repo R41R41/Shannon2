@@ -1,9 +1,8 @@
-import { CustomBot, InstantSkill } from '../types.js';
-import pathfinder from 'mineflayer-pathfinder';
-const { goals, Movements } = pathfinder;
-import { Vec3 } from 'vec3';
 import minecraftData from 'minecraft-data';
-import { Bot } from 'mineflayer';
+import pathfinder from 'mineflayer-pathfinder';
+import { Vec3 } from 'vec3';
+import { CustomBot, InstantSkill } from '../types.js';
+const { goals, Movements } = pathfinder;
 
 class SearchAndGotoEntity extends InstantSkill {
   private mcData: any;
@@ -21,20 +20,36 @@ class SearchAndGotoEntity extends InstantSkill {
           '探索するエンティティの名前。例: zombie, spider, creeper, R41R41(player),経験値オーブ(experience_orb)など',
         type: 'string',
       },
+      {
+        name: 'entityId',
+        description: 'エンティティID。指定時はentityNameとentityId両方で探索',
+        type: 'number',
+        required: false,
+        default: null,
+      },
     ];
   }
 
-  async runImpl(entityName: string) {
-    console.log('searchEntity', entityName);
+  async runImpl(entityName: string, entityId: number | null = null) {
+    console.log('searchEntity', entityName, entityId);
     try {
-      const Entities = this.bot.utils.getNearestEntitiesByName(
-        this.bot,
-        entityName
-      );
+      let Entities;
+      if (entityId !== null && entityId !== undefined) {
+        Entities = Object.values(this.bot.entities).filter(
+          (e: any) => e.name === entityName && e.id === entityId
+        );
+      } else {
+        Entities = this.bot.utils.getNearestEntitiesByName(
+          this.bot,
+          entityName
+        );
+      }
       if (Entities.length === 0) {
         return {
           success: false,
-          result: `周囲64ブロック以内に${entityName}は見つかりませんでした`,
+          result: `周囲64ブロック以内に${entityName}（ID: ${
+            entityId ?? '未指定'
+          }）は見つかりませんでした`,
         };
       }
 
@@ -76,10 +91,11 @@ class SearchAndGotoEntity extends InstantSkill {
           if (distance <= 3) {
             return {
               success: true,
-              result: `${entityName}は${targetPos.x} ${targetPos.y} ${targetPos.z
-                }にあります。目標変更エラーが発生しましたが、十分に近づけました（距離: ${distance.toFixed(
-                  2
-                )}ブロック）。`,
+              result: `${entityName}は${targetPos.x} ${targetPos.y} ${
+                targetPos.z
+              }にあります。目標変更エラーが発生しましたが、十分に近づけました（距離: ${distance.toFixed(
+                2
+              )}ブロック）。`,
             };
           }
 
@@ -108,10 +124,11 @@ class SearchAndGotoEntity extends InstantSkill {
           if (distance <= 3) {
             return {
               success: true,
-              result: `${entityName}は${targetPos.x} ${targetPos.y} ${targetPos.z
-                }にあります。目標変更エラーが発生しましたが、十分に近づけました（距離: ${distance.toFixed(
-                  2
-                )}ブロック）。`,
+              result: `${entityName}は${targetPos.x} ${targetPos.y} ${
+                targetPos.z
+              }にあります。目標変更エラーが発生しましたが、十分に近づけました（距離: ${distance.toFixed(
+                2
+              )}ブロック）。`,
             };
           }
 

@@ -1,11 +1,11 @@
 import HoldItem from '../instantSkills/holdItem.js';
 import { ConstantSkill, CustomBot } from '../types.js';
 
-class AutoEquipBestToolForTargetBlock extends ConstantSkill {
+class AutoEquipBestTool extends ConstantSkill {
   private holdItem: HoldItem;
   constructor(bot: CustomBot) {
     super(bot);
-    this.skillName = 'auto-equip-best-tool-for-target-block';
+    this.skillName = 'auto-equip-best-tool';
     this.description = '掘削対象ブロックに最適なツールを装備する';
     this.isLocked = false;
     this.status = true;
@@ -32,4 +32,4 @@ class AutoEquipBestToolForTargetBlock extends ConstantSkill {
   }
 }
 
-export default AutoEquipBestToolForTargetBlock;
+export default AutoEquipBestTool;

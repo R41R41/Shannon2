@@ -1,6 +1,6 @@
-import { CustomBot, ConstantSkill } from '../types.js';
-import AttackEntity from '../instantSkills/attackEntity.js';
 import { Vec3 } from 'vec3';
+import AttackEntity from '../instantSkills/attackEntity.js';
+import { ConstantSkill, CustomBot } from '../types.js';
 
 class AutoAttackHostile extends ConstantSkill {
   distance: number;
@@ -14,7 +14,7 @@ class AutoAttackHostile extends ConstantSkill {
     this.distance = 24;
     this.tool_name = null;
     this.attackEntity = new AttackEntity(this.bot);
-    this.status = false;
+    this.status = true;
   }
 
   async isOpaqueBlockBetween(start: Vec3, end: Vec3) {
@@ -43,10 +43,13 @@ class AutoAttackHostile extends ConstantSkill {
   }
 
   async getNearestHostiles(distance: number) {
+    const EXCLUDED_PASSIVE_HOSTILES = ['enderman', 'piglin', 'piglin_brute'];
+
     const entities = Object.values(this.bot.entities).filter((entity) => {
-      // 敵対的モブであり、指定された距離以内にあるかをチェック
+      // 敵対的モブであり、指定された距離以内にあり、除外リストに含まれない
       return (
         entity.type === 'hostile' &&
+        !EXCLUDED_PASSIVE_HOSTILES.includes(entity.name || '') &&
         this.bot.entity.position.distanceTo(entity.position) <= distance
       );
     });

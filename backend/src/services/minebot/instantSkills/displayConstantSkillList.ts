@@ -18,7 +18,11 @@ class DisplayConstantSkillList extends InstantSkill {
       if (this.bot.constantSkills === null) {
         return { success: false, result: 'スキルリストが指定されていません' };
       }
-      this.bot.constantSkills.getSkills().forEach(async (skill) => {
+      const skills = this.bot.constantSkills.getSkills();
+      if (skills.length === 0) {
+        return { success: false, result: 'Constant Skillが指定されていません' };
+      }
+      for (const skill of skills) {
         const message = JSON.stringify({
           text: `${skill.skillName}`,
           color: `${skill.status ? 'blue' : 'gray'}`,
@@ -34,8 +38,7 @@ class DisplayConstantSkillList extends InstantSkill {
         });
         await this.bot.chat(`/tellraw @a ${message}`);
         await new Promise((resolve) => setTimeout(resolve, 100));
-        console.log(message);
-      });
+      }
       return { success: true, result: 'Constant Skillのリストを表示しました' };
     } catch (error: any) {
       return { success: false, result: `${error.message} in ${error.stack}` };

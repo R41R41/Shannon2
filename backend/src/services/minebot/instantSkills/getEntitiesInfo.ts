@@ -1,7 +1,7 @@
-import { CustomBot, InstantSkill } from '../types.js';
 import fs from 'fs';
-import { Vec3 } from 'vec3';
 import path from 'path';
+import { Vec3 } from 'vec3';
+import { CustomBot, InstantSkill } from '../types.js';
 
 class GetEntitiesInfo extends InstantSkill {
   constructor(bot: CustomBot) {
@@ -37,6 +37,7 @@ class GetEntitiesInfo extends InstantSkill {
         type: string;
         position: Vec3;
         distance: number;
+        metadata: any;
       }[] = [];
       const filePath = path.join(
         process.cwd(),
@@ -79,6 +80,7 @@ class GetEntitiesInfo extends InstantSkill {
           type: entity.type || '',
           position: entity.position,
           distance: Math.round(entityDistance * 100) / 100, // 小数点2桁まで表示
+          metadata: entity.metadata,
         });
       });
 

@@ -1,13 +1,74 @@
 [
   {
-    "id": "15089",
-    "name": "end_crystal",
-    "type": "other",
+    "id": "24",
+    "name": "villager",
+    "type": "passive",
     "position": {
-      "x": -275.5,
-      "y": 66,
-      "z": 268.5
+      "x": -264.1204467607032,
+      "y": 83,
+      "z": 243.34576335626656
     },
-    "distance": 12.97
+    "distance": 21.48,
+    "metadata": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      8,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "villagerType": 2,
+        "villagerProfession": 14,
+        "level": 1
+      }
+    ]
+  },
+  {
+    "id": "40",
+    "name": "villager",
+    "type": "passive",
+    "position": {
+      "x": -265.69999998807907,
+      "y": 83,
+      "z": 244.30000001192093
+    },
+    "distance": 22.82,
+    "metadata": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      20,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "villagerType": 2,
+        "villagerProfession": 4,
+        "level": 1
+      }
+    ]
   }
 ]

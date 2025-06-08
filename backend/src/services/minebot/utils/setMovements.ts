@@ -1,6 +1,7 @@
 import { Bot } from 'mineflayer';
-import { Movements } from 'mineflayer-pathfinder';
+import pathfinder from 'mineflayer-pathfinder';
 import { CustomBot } from '../types.js';
+const { Movements } = pathfinder;
 
 export function setMovements(
   bot: CustomBot,
@@ -11,7 +12,7 @@ export function setMovements(
   canDig = true,
   dontMineUnderFallingBlock = true,
   digCost = 1,
-  allowFreeMotion = false,
+  allowFreeMotion = false
 ) {
   const defaultMove = new Movements(bot as Bot);
   defaultMove.allow1by1towers = allow1by1towers;

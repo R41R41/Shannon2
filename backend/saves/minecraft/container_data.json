@@ -1,40 +1,18 @@
 {
   "type": "chest",
   "position": {
-    "x": -12,
-    "y": 80,
-    "z": 161
+    "x": -227,
+    "y": 71,
+    "z": 240
   },
   "items": [
     {
-      "name": "granite",
-      "count": 3,
-      "displayName": "Granite",
-      "slot": 0
+      "name": "mossy_cobblestone",
+      "count": 1
     },
     {
-      "name": "egg",
-      "count": 8,
-      "displayName": "Egg",
-      "slot": 1
-    },
-    {
-      "name": "cobbled_deepslate",
-      "count": 1,
-      "displayName": "Cobbled Deepslate",
-      "slot": 2
-    },
-    {
-      "name": "flint",
-      "count": 62,
-      "displayName": "Flint",
-      "slot": 3
-    },
-    {
-      "name": "cake",
-      "count": 1,
-      "displayName": "Cake",
-      "slot": 4
+      "name": "grass_block",
+      "count": 64
     }
   ]
 }

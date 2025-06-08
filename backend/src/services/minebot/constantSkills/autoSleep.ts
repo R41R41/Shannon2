@@ -1,5 +1,5 @@
-import { ConstantSkill, CustomBot } from '../types.js';
 import SleepInBed from '../instantSkills/sleepInBed.js';
+import { ConstantSkill, CustomBot } from '../types.js';
 
 class AutoSleep extends ConstantSkill {
   private sleepInBed: SleepInBed;
@@ -10,7 +10,7 @@ class AutoSleep extends ConstantSkill {
     this.interval = 1000;
     this.isLocked = false;
     this.sleepInBed = new SleepInBed(this.bot);
-    this.status = false;
+    this.status = true;
   }
 
   async run() {
@@ -29,7 +29,6 @@ class AutoSleep extends ConstantSkill {
     // 既に寝ている場合で朝になったら起きる
     if (this.bot.isSleeping && isMorningTime) {
       this.lock();
-      this.bot.chat('朝になったので起きます');
       try {
         const result = await this.sleepInBed.run(true);
         console.log(result);
@@ -48,7 +47,6 @@ class AutoSleep extends ConstantSkill {
     // 夜になったら寝る
     if (isNightTime) {
       this.lock();
-      this.bot.chat('夜になったので眠ります');
       try {
         const result = await this.sleepInBed.run();
         console.log(result);

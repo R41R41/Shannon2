@@ -89,12 +89,20 @@ class BuildArchitecture extends InstantSkill {
                   console.log(
                     `異なるブロック "${existingBlock.name}" を破壊します。期待値: "${block.name}"`
                   );
-                  const toolIds = existingBlock.harvestTools ? Object.keys(existingBlock.harvestTools).map(Number) : [];
-                  const hasTool = this.bot.inventory.items().some(item => toolIds.includes(item.type));
+                  const toolIds = existingBlock.harvestTools
+                    ? Object.keys(existingBlock.harvestTools).map(Number)
+                    : [];
+                  const hasTool = this.bot.inventory
+                    .items()
+                    .some((item) => toolIds.includes(item.type));
                   if (!hasTool && existingBlock.harvestTools !== undefined) {
-                    return { success: false, result: `掘るためのツールがインベントリにありません。` };
+                    return {
+                      success: false,
+                      result: `掘るためのツールがインベントリにありません。`,
+                    };
                   }
-                  const bestTool = this.bot.pathfinder.bestHarvestTool(existingBlock);
+                  const bestTool =
+                    this.bot.pathfinder.bestHarvestTool(existingBlock);
                   if (bestTool) {
                     await this.holdItem.run(bestTool.name);
                   }
@@ -168,7 +176,8 @@ class BuildArchitecture extends InstantSkill {
               const result = await placeBlock.run(
                 block.name,
                 blockPos,
-                referenceBlock.position
+                referenceBlock.position,
+                false
               );
               if (result.success) {
                 console.log(
@@ -237,10 +246,11 @@ class BuildArchitecture extends InstantSkill {
           result: `設計図 "${architectureName}" の建築チェックに失敗しました。内部エラーです。`,
         };
       }
-      let resultMsg = `設計図 "${architectureName}" の建築を完了しましたが、${lastCheckResult.incorrect
-        } 箇所で設計図と異なるブロックがあります。\n${lastCheckResult.details
-          .slice(0, 5)
-          .join('\n')}${lastCheckResult.incorrect > 5 ? ' ...' : ''}`;
+      let resultMsg = `設計図 "${architectureName}" の建築を完了しましたが、${
+        lastCheckResult.incorrect
+      } 箇所で設計図と異なるブロックがあります。\n${lastCheckResult.details
+        .slice(0, 5)
+        .join('\n')}${lastCheckResult.incorrect > 5 ? ' ...' : ''}`;
       return {
         success: false,
         result: resultMsg,
@@ -301,7 +311,8 @@ class BuildArchitecture extends InstantSkill {
       const result = await placeBlock.run(
         scaffoldItem.name,
         scaffoldPos,
-        scaffoldRefBlock.position
+        scaffoldRefBlock.position,
+        false
       );
       if (result.success) {
         console.log(
@@ -409,7 +420,8 @@ class BuildArchitecture extends InstantSkill {
       } else {
         incorrect++;
         details.push(
-          `(${blockPos.x},${blockPos.y},${blockPos.z}): 期待=${block.name
+          `(${blockPos.x},${blockPos.y},${blockPos.z}): 期待=${
+            block.name
           }, 実際=${existingBlock ? existingBlock.name : '空気'}`
         );
       }

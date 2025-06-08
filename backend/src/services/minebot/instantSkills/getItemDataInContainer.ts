@@ -1,12 +1,12 @@
-import { CustomBot, InstantSkill } from '../types.js';
-import { Vec3 } from 'vec3';
 import fs from 'fs';
 import path from 'path';
+import { Vec3 } from 'vec3';
+import { CustomBot, InstantSkill } from '../types.js';
 
-class GetItemsInContainerData extends InstantSkill {
+class GetItemDataInContainer extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
-    this.skillName = 'get-items-in-container-data';
+    this.skillName = 'get-item-data-in-container';
     this.description = '指定した座標のチェストやコンテナの中身を確認します。';
     this.priority = 90;
     this.canUseByCommand = false;
@@ -20,9 +20,7 @@ class GetItemsInContainerData extends InstantSkill {
     ];
   }
 
-  async runImpl(
-    containerPosition: Vec3 | { x: number; y: number; z: number }
-  ) {
+  async runImpl(containerPosition: Vec3 | { x: number; y: number; z: number }) {
     try {
       // コンテナの座標を確認 (Vec3オブジェクトまたはx,y,z座標を含むオブジェクト)
       let containerPos: Vec3;
@@ -123,8 +121,6 @@ class GetItemsInContainerData extends InstantSkill {
           return {
             name: item.name,
             count: item.count,
-            displayName: item.displayName,
-            slot: item.slot,
           };
         })
         .filter((item) => item !== null);
@@ -168,4 +164,4 @@ class GetItemsInContainerData extends InstantSkill {
   }
 }
 
-export default GetItemsInContainerData;
+export default GetItemDataInContainer;

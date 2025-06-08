@@ -5,26 +5,14 @@
     "leggings": null,
     "boots": null,
     "mainHand": {
-      "name": "grass_block",
-      "count": 1
+      "name": "potato",
+      "count": 7
     },
     "offHand": null
   },
   "inventory": [
     {
-      "name": "grass_block",
-      "count": 1
-    },
-    {
-      "name": "oak_log",
-      "count": 1
-    },
-    {
-      "name": "arrow",
-      "count": 63
-    },
-    {
-      "name": "bow",
+      "name": "oak_stairs",
       "count": 1
     },
     {
@@ -32,12 +20,24 @@
       "count": 1
     },
     {
-      "name": "dirt",
-      "count": 5
+      "name": "cobblestone",
+      "count": 2
     },
     {
-      "name": "gravel",
-      "count": 3
+      "name": "oak_log",
+      "count": 4
+    },
+    {
+      "name": "potato",
+      "count": 7
+    },
+    {
+      "name": "oak_planks",
+      "count": 1
+    },
+    {
+      "name": "dandelion",
+      "count": 1
     }
   ]
 }
