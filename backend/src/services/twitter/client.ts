@@ -1,10 +1,9 @@
 import { TwitterClientInput, TwitterClientOutput } from '@shannon/common';
-import dotenv from 'dotenv';
-import { BaseClient } from '../common/BaseClient.js';
-import { TwitterApi } from 'twitter-api-v2';
-import { getEventBus } from '../eventBus/index.js';
 import axios from "axios";
-import WebSocket from 'ws';
+import dotenv from 'dotenv';
+import { TwitterApi } from 'twitter-api-v2';
+import { BaseClient } from '../common/BaseClient.js';
+import { getEventBus } from '../eventBus/index.js';
 
 dotenv.config();
 
@@ -300,7 +299,7 @@ export class TwitterClient extends BaseClient {
       // await this.login1Step();
       // await this.login2Step();
       if (!this.isTest) {
-        setInterval(() => this.checkRepliesAndRespond(), 60 * 1000);
+        setInterval(() => this.checkRepliesAndRespond(), 10 * 60 * 1000);
       }
       this.setupEventHandlers();
     } catch (error) {

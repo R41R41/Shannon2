@@ -1,8 +1,8 @@
 import {
   YoutubeClientInput,
+  YoutubeClientOutput,
   YoutubeCommentOutput,
   YoutubeSubscriberUpdateOutput,
-  YoutubeClientOutput,
 } from '@shannon/common';
 import dotenv from 'dotenv';
 import { OAuth2Client } from 'google-auth-library';
