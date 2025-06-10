@@ -1,5 +1,10 @@
-import { ServiceInput } from "./common";
-export interface YoutubeClientInput extends ServiceInput {
+import { ServiceInput } from './common';
+export type YoutubeClientInput = YoutubeLiveChatInput | YoutubeVideoInput;
+export interface YoutubeLiveChatInput extends ServiceInput {
+    videoId: string;
+    stop: boolean;
+}
+export interface YoutubeVideoInput extends ServiceInput {
     videoId?: string | null;
     commentId?: string | null;
     reply?: string | null;
@@ -27,4 +32,4 @@ export interface YoutubeVideoInfoOutput extends ServiceInput {
 export interface YoutubeSubscriberUpdateOutput extends ServiceInput {
     subscriberCount: number;
 }
-export type YoutubeEventType = "youtube:get_stats" | "youtube:get_message" | "youtube:post_message" | "youtube:check_comments" | "youtube:check_subscribers" | "youtube:reply_comment" | "youtube:status" | "youtube:subscriber_update" | "youtube:get_video_info";
+export type YoutubeEventType = 'youtube:get_stats' | 'youtube:get_message' | 'youtube:post_message' | 'youtube:check_comments' | 'youtube:check_subscribers' | 'youtube:reply_comment' | 'youtube:status' | 'youtube:subscriber_update' | 'youtube:get_video_info' | 'youtube:live_chat:status';

@@ -1,12 +1,8 @@
 {
   "typescript.format.enable": true,
   "typescript.surveys.enabled": false,
-  "prettier.singleQuote": true,
   "javascript.preferences.quoteStyle": "single",
   "typescript.preferences.quoteStyle": "single",
-  "prettier.semi": true,
-  "prettier.tabWidth": 2,
-  "prettier.trailingComma": "es5",
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {

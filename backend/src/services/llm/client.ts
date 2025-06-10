@@ -1,22 +1,27 @@
 import { BaseMessage, HumanMessage } from '@langchain/core/messages';
 import {
-  DiscordSendTextMessageOutput,
   DiscordScheduledPostInput,
+  DiscordSendTextMessageOutput,
   MemoryZone,
-  OpenAIMessageOutput,
-  OpenAIRealTimeTextInput,
-  OpenAIRealTimeAudioInput,
   OpenAICommandInput,
+  OpenAIMessageOutput,
+  OpenAIRealTimeAudioInput,
+  OpenAIRealTimeTextInput,
   OpenAITextInput,
+  SkillInfo,
   TwitterClientInput,
   TwitterClientOutput,
   YoutubeClientInput,
-  YoutubeClientOutput,
   YoutubeCommentOutput,
-  SkillInfo,
+  YoutubeLiveChatMessageInput,
+  YoutubeLiveChatMessageOutput,
 } from '@shannon/common';
+import { readdirSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus/eventBus.js';
+import { getEventBus } from '../eventBus/index.js';
 import { PostAboutTodayAgent } from './agents/postAboutTodayAgent.js';
 import { PostFortuneAgent } from './agents/postFortuneAgent.js';
 import { PostNewsAgent } from './agents/postNewsAgent.js';
@@ -24,11 +29,8 @@ import { PostWeatherAgent } from './agents/postWeatherAgent.js';
 import { RealtimeAPIService } from './agents/realtimeApiAgent.js';
 import { ReplyTwitterCommentAgent } from './agents/replyTwitterComment.js';
 import { ReplyYoutubeCommentAgent } from './agents/replyYoutubeComment.js';
+import { ReplyYoutubeLiveCommentAgent } from './agents/replyYoutubeLiveCommentAgent.js';
 import { TaskGraph } from './graph/taskGraph.js';
-import { getEventBus } from '../eventBus/index.js';
-import { readdirSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -43,6 +45,7 @@ export class LLMService {
   private newsAgent!: PostNewsAgent;
   private replyTwitterCommentAgent!: ReplyTwitterCommentAgent;
   private replyYoutubeCommentAgent!: ReplyYoutubeCommentAgent;
+  private replyYoutubeLiveCommentAgent!: ReplyYoutubeLiveCommentAgent;
   private tools: any[] = [];
   private isDevMode: boolean;
   constructor(isDevMode: boolean) {
@@ -67,6 +70,8 @@ export class LLMService {
     this.fortuneAgent = await PostFortuneAgent.create();
     this.replyTwitterCommentAgent = await ReplyTwitterCommentAgent.create();
     this.replyYoutubeCommentAgent = await ReplyYoutubeCommentAgent.create();
+    this.replyYoutubeLiveCommentAgent =
+      await ReplyYoutubeLiveCommentAgent.create();
     this.newsAgent = await PostNewsAgent.create();
     console.log('\x1b[36mLLM Service initialized\x1b[0m');
   }
@@ -97,6 +102,10 @@ export class LLMService {
 
     this.eventBus.subscribe('llm:get_skills', (event) => {
       this.processGetSkills();
+    });
+
+    this.eventBus.subscribe('llm:get_youtube_message', (event) => {
+      this.processYoutubeMessage(event.data as YoutubeLiveChatMessageOutput);
     });
   }
 
@@ -170,6 +179,33 @@ export class LLMService {
         commentId: data.commentId,
         reply: reply + ' by シャノン',
       } as YoutubeClientInput,
+    });
+  }
+
+  private async processYoutubeMessage(data: YoutubeLiveChatMessageOutput) {
+    const message = data.message;
+    const author = data.author;
+    const jstNow = data.jstNow;
+    const minutesSinceStart = data.minutesSinceStart;
+    const history = data.history;
+    const liveTitle = data.liveTitle;
+    const liveDescription = data.liveDescription;
+
+    const response = await this.replyYoutubeLiveCommentAgent.reply(
+      message,
+      author,
+      jstNow,
+      minutesSinceStart,
+      history,
+      liveTitle,
+      liveDescription
+    );
+    this.eventBus.publish({
+      type: 'youtube:live_chat:post_message',
+      memoryZone: 'youtube',
+      data: {
+        response: response,
+      } as YoutubeLiveChatMessageInput,
     });
   }
 

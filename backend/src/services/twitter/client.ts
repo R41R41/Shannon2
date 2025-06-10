@@ -299,7 +299,7 @@ export class TwitterClient extends BaseClient {
       // await this.login1Step();
       // await this.login2Step();
       if (!this.isTest) {
-        setInterval(() => this.checkRepliesAndRespond(), 5 * 60 * 1000);
+        setInterval(() => this.checkRepliesAndRespond(), 10 * 60 * 1000);
       }
       this.setupEventHandlers();
     } catch (error) {

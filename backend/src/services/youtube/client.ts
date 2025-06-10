@@ -1,8 +1,11 @@
 import {
   YoutubeClientInput,
-  YoutubeCommentOutput,
-  YoutubeSubscriberUpdateOutput,
   YoutubeClientOutput,
+  YoutubeCommentOutput,
+  YoutubeLiveChatMessageInput,
+  YoutubeLiveChatMessageOutput,
+  YoutubeSubscriberUpdateOutput,
+  YoutubeVideoInput,
 } from '@shannon/common';
 import dotenv from 'dotenv';
 import { OAuth2Client } from 'google-auth-library';
@@ -20,6 +23,15 @@ export class YoutubeClient extends BaseClient {
   private authCode: string | null = null;
   private refreshToken: string | null = null;
   private lastSubscriberCount: number = 0;
+  private liveChatPolling: NodeJS.Timeout | null = null;
+  private liveChatId: string | null = null;
+  private lastRepliedMessageIds: Set<string> = new Set();
+  private liveChatStatus: 'running' | 'stopped' = 'stopped';
+  private liveTitle: string | null = null;
+  private liveDescription: string | null = null;
+  private liveStartTime: Date | null = null;
+  private chatHistory: { minutes: number; author: string; message: string }[] =
+    [];
 
   private constructor(serviceName: 'youtube', isTest: boolean) {
     const eventBus = getEventBus();
@@ -94,7 +106,7 @@ export class YoutubeClient extends BaseClient {
     });
 
     this.eventBus.subscribe('youtube:reply_comment', async (event) => {
-      const { videoId, commentId, reply } = event.data as YoutubeClientInput;
+      const { videoId, commentId, reply } = event.data as YoutubeVideoInput;
       if (!videoId || !commentId || !reply) {
         console.error(
           `\x1b[31mInvalid input for replyComment: ${JSON.stringify(
@@ -109,7 +121,11 @@ export class YoutubeClient extends BaseClient {
     this.eventBus.subscribe('youtube:get_video_info', async (event) => {
       const { videoId } = event.data as YoutubeClientInput;
       if (!videoId) {
-        console.error(`\x1b[31mInvalid input for getVideoInfo: ${JSON.stringify(event.data)}\x1b[0m`);
+        console.error(
+          `\x1b[31mInvalid input for getVideoInfo: ${JSON.stringify(
+            event.data
+          )}\x1b[0m`
+        );
         return;
       }
       const videoInfo = await this.getVideoInfo(videoId);
@@ -118,6 +134,34 @@ export class YoutubeClient extends BaseClient {
         memoryZone: 'youtube',
         data: videoInfo as YoutubeClientOutput,
       });
+    });
+
+    // ライブチャット監視開始/終了
+    this.eventBus.subscribe('youtube:live_chat:status', async (event) => {
+      const { serviceCommand } = event.data as YoutubeClientInput;
+      if (serviceCommand === 'start') {
+        const result = await this.startLiveChatPolling();
+        if (result.success) {
+          this.liveChatStatus = 'running';
+        }
+      } else if (serviceCommand === 'stop') {
+        await this.stopLiveChatPolling();
+        this.liveChatStatus = 'stopped';
+      } else if (serviceCommand === 'status') {
+        this.eventBus.publish({
+          type: 'web:status',
+          memoryZone: 'web',
+          data: {
+            service: 'youtube:live_chat',
+            status: this.liveChatStatus,
+          },
+        });
+      }
+    });
+
+    this.eventBus.subscribe('youtube:live_chat:post_message', async (event) => {
+      const { response } = event.data as YoutubeLiveChatMessageInput;
+      await this.sendLiveChatMessage(response);
     });
   }
 
@@ -296,13 +340,19 @@ export class YoutubeClient extends BaseClient {
         console.log('lastSubscriberCount:', this.lastSubscriberCount);
       } catch (error) {
         console.error(`\x1b[31mYouTube initialization error: ${error}\x1b[0m`);
-        console.warn('\x1b[33mYouTube initialization failed, but continuing without YouTube functionality\x1b[0m');
+        console.warn(
+          '\x1b[33mYouTube initialization failed, but continuing without YouTube functionality\x1b[0m'
+        );
         // エラーをスローせずに処理を続行
         this.status = 'stopped';
       }
     } catch (error) {
-      console.error(`\x1b[31mYouTube initialization outer error: ${error}\x1b[0m`);
-      console.warn('\x1b[33mYouTube initialization failed, but continuing without YouTube functionality\x1b[0m');
+      console.error(
+        `\x1b[31mYouTube initialization outer error: ${error}\x1b[0m`
+      );
+      console.warn(
+        '\x1b[33mYouTube initialization failed, but continuing without YouTube functionality\x1b[0m'
+      );
       // エラーをスローせずに処理を続行
       this.status = 'stopped';
     }
@@ -316,7 +366,9 @@ export class YoutubeClient extends BaseClient {
       console.log(clientId, clientSecret, this.refreshToken);
 
       if (!clientId || !clientSecret || !this.refreshToken) {
-        console.warn('\x1b[33mYouTube OAuth2認証情報が設定されていません。YouTube機能は無効化されます。\x1b[0m');
+        console.warn(
+          '\x1b[33mYouTube OAuth2認証情報が設定されていません。YouTube機能は無効化されます。\x1b[0m'
+        );
         this.status = 'stopped';
         return; // 認証情報がない場合は早期リターン
       }
@@ -337,7 +389,9 @@ export class YoutubeClient extends BaseClient {
       });
     } catch (error) {
       console.error(`\x1b[31mYouTube setUpConnection error: ${error}\x1b[0m`);
-      console.warn('\x1b[33mYouTube connection failed, but continuing without YouTube functionality\x1b[0m');
+      console.warn(
+        '\x1b[33mYouTube connection failed, but continuing without YouTube functionality\x1b[0m'
+      );
       this.status = 'stopped';
       // エラーをスローせずに処理を続行
     }
@@ -361,15 +415,25 @@ export class YoutubeClient extends BaseClient {
       }
       const title = video.snippet?.title || '';
       const author = video.snippet?.channelTitle || '';
-      const thumbnail = video.snippet?.thumbnails?.high?.url
-        || video.snippet?.thumbnails?.default?.url
-        || '';
+      const thumbnail =
+        video.snippet?.thumbnails?.high?.url ||
+        video.snippet?.thumbnails?.default?.url ||
+        '';
       const description = video.snippet?.description || '';
       const publishedAt = video.snippet?.publishedAt || '';
       const viewCount = Number(video.statistics?.viewCount || 0);
       const likeCount = Number(video.statistics?.likeCount || 0);
       const commentCount = Number(video.statistics?.commentCount || 0);
-      console.log('videoInfo:', { title, author, thumbnail, description, publishedAt, viewCount, likeCount, commentCount });
+      console.log('videoInfo:', {
+        title,
+        author,
+        thumbnail,
+        description,
+        publishedAt,
+        viewCount,
+        likeCount,
+        commentCount,
+      });
 
       return {
         title,
@@ -385,5 +449,168 @@ export class YoutubeClient extends BaseClient {
       console.error(`\x1b[31mYouTube getVideoInfo error: ${error}\x1b[0m`);
       throw error;
     }
+  }
+
+  private async startLiveChatPolling() {
+    if (!this.client) {
+      console.error('YouTube client is not initialized');
+      return { success: false, message: 'YouTube client is not initialized' };
+    }
+    const videoId = await this.getCurrentLiveVideoId();
+    if (!videoId) {
+      console.error('ライブ配信中の動画が見つかりません');
+      return { success: false, message: 'ライブ配信中の動画が見つかりません' };
+    }
+    // 既に監視中なら一度止める
+    if (this.liveChatPolling) {
+      clearInterval(this.liveChatPolling);
+      this.liveChatPolling = null;
+    }
+    // liveChatId取得 & タイトル・概要欄・開始時刻取得
+    let liveChatId: string | null = null;
+    try {
+      const videoResponse = await this.client.videos.list({
+        part: ['liveStreamingDetails', 'snippet'],
+        id: [videoId],
+      });
+      const video = videoResponse.data.items?.[0];
+      liveChatId = (video?.liveStreamingDetails as any)?.liveChatId;
+      if (!liveChatId) {
+        console.error('liveChatIdが取得できませんでした');
+        return { success: false, message: 'liveChatIdが取得できませんでした' };
+      }
+      this.liveChatId = liveChatId;
+      this.liveTitle = video?.snippet?.title || null;
+      this.liveDescription = video?.snippet?.description || null;
+      this.liveStartTime = video?.liveStreamingDetails?.actualStartTime
+        ? new Date(video.liveStreamingDetails.actualStartTime)
+        : null;
+      this.chatHistory = [];
+      // 1分ごとにコメント取得
+      this.liveChatPolling = setInterval(() => {
+        this.fetchLiveChatMessages();
+      }, 60 * 1000);
+      // 初回即時実行
+      this.fetchLiveChatMessages();
+      console.log('ライブチャット監視を開始しました');
+      return { success: true, message: 'ライブチャット監視を開始しました' };
+    } catch (error) {
+      console.error('ライブチャット監視開始エラー:', error);
+      return { success: false, message: 'ライブチャット監視開始エラー' };
+    }
+  }
+
+  private stopLiveChatPolling() {
+    if (this.liveChatPolling) {
+      clearInterval(this.liveChatPolling);
+      this.liveChatPolling = null;
+      this.liveChatId = null;
+      console.log('ライブチャット監視を停止しました');
+    }
+  }
+
+  private async fetchLiveChatMessages() {
+    if (!this.client || !this.liveChatId) return;
+    try {
+      const chatResponse = await this.client.liveChatMessages.list({
+        liveChatId: this.liveChatId,
+        part: ['snippet', 'authorDetails'],
+        maxResults: 200,
+      });
+      const messages = chatResponse.data.items || [];
+      for (const msg of messages) {
+        // 新規コメントのみ返信
+        if (msg.id && !this.lastRepliedMessageIds.has(msg.id)) {
+          this.lastRepliedMessageIds.add(msg.id);
+          // 自分以外のコメントのみ返信
+          if (
+            msg.authorDetails?.isChatOwner === false ||
+            msg.authorDetails?.isChatModerator === false ||
+            msg.authorDetails?.isChatSponsor === false
+          ) {
+            const author = msg.authorDetails?.displayName ?? '';
+            const message = msg.snippet?.displayMessage ?? '';
+            if (author && message) {
+              // JST現在時刻
+              const now = new Date();
+              const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+              // 配信開始からの分数
+              let minutesSinceStart = null;
+              if (this.liveStartTime) {
+                minutesSinceStart = Math.floor(
+                  (now.getTime() - this.liveStartTime.getTime()) / 60000
+                );
+              }
+              // 履歴に追加
+              if (minutesSinceStart !== null) {
+                this.chatHistory.push({
+                  minutes: minutesSinceStart,
+                  author,
+                  message,
+                });
+              }
+              // 履歴を「分数：名前「内容」」形式で
+              const formattedHistory = this.chatHistory.map(
+                (h) => `${h.minutes}：${h.author}「${h.message}」`
+              );
+              // publish
+              this.eventBus.publish({
+                type: 'llm:get_youtube_message',
+                memoryZone: 'youtube',
+                data: {
+                  message,
+                  author,
+                  jstNow: jstNow.toISOString(),
+                  minutesSinceStart,
+                  history: formattedHistory,
+                  liveTitle: this.liveTitle,
+                  liveDescription: this.liveDescription,
+                } as YoutubeLiveChatMessageOutput,
+              });
+              // 返信
+              const reply = `${author}さんコメントありがとう！`;
+              await this.sendLiveChatMessage(reply);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('ライブチャット取得エラー:', error);
+    }
+  }
+
+  // 任意の文字列をライブチャットに投稿する
+  public async sendLiveChatMessage(message: string) {
+    if (!this.client || !this.liveChatId) return;
+    try {
+      await this.client.liveChatMessages.insert({
+        part: ['snippet'],
+        requestBody: {
+          snippet: {
+            liveChatId: this.liveChatId,
+            type: 'textMessageEvent',
+            textMessageDetails: {
+              messageText: message,
+            },
+          },
+        },
+      });
+      console.log('ライブチャットにコメントを投稿:', message);
+    } catch (error) {
+      console.error('ライブチャットコメント投稿エラー:', error);
+    }
+  }
+
+  async getCurrentLiveVideoId(): Promise<string | null> {
+    if (!this.client || !this.channelId) return null;
+    const res = await this.client.search.list({
+      part: ['id'],
+      channelId: this.channelId,
+      eventType: 'live',
+      type: ['video'],
+      maxResults: 1,
+    });
+    const videoId = res.data.items?.[0]?.id?.videoId;
+    return videoId || null;
   }
 }
