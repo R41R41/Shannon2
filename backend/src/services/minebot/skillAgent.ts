@@ -1,16 +1,18 @@
-import { MinebotSkillInput } from '@shannon/common';
 import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
+import { MinebotSkillInput } from '@shannon/common';
+import express from 'express';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
+import fetch from 'node-fetch';
 import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import { EventBus } from '../eventBus/eventBus.js';
+import { CentralAgent } from './llm/graph/centralAgent.js';
 import {
   ConstantSkills,
   CustomBot,
   InstantSkills,
   ResponseType,
 } from './types.js';
-import { CentralAgent } from './llm/graph/centralAgent.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -21,6 +23,7 @@ export class SkillAgent {
   private eventBus: EventBus;
   private centralAgent: CentralAgent;
   private recentMessages: BaseMessage[] = [];
+  public server: any = null;
   constructor(bot: CustomBot, eventBus: EventBus) {
     this.bot = bot;
     this.eventBus = eventBus;
@@ -28,6 +31,56 @@ export class SkillAgent {
     this.constantSkillDir = join(__dirname, 'constantSkills');
     this.centralAgent = CentralAgent.getInstance(this.bot);
     this.recentMessages = [];
+    this.setupExpressServer();
+  }
+
+  async setupExpressServer() {
+    this.server = express();
+    this.server.use(express.json());
+    this.server.post('/throw_item', (req: any, res: any) => {
+      const { itemName } = req.body;
+      const throwItem = this.bot.instantSkills.getSkill('throw-item');
+      if (!throwItem) {
+        return res.status(404).json({ success: false, result: 'throw-item not found' });
+      }
+      throwItem.run(itemName.split(':')[1]);
+      res.status(200).json({ success: true, result: 'throw-item executed' });
+    });
+    this.server.post('/constant_skill_switch', async (req: any, res: any) => {
+      try {
+        const { skillName, status } = req.body;
+        const constantSkill = this.bot.constantSkills.getSkill(skillName);
+        if (!constantSkill) {
+          return res.status(404).json({ success: false, result: 'constant skill not found' });
+        }
+        constantSkill.status = status === "true";
+        if (skillName === 'auto-follow') {
+          if (constantSkill.status) {
+            const followEntity = this.bot.instantSkills.getSkill('follow-entity');
+            if (followEntity) {
+              const players = Object.values(this.bot.entities).filter((entity) => entity.name === 'player' && entity.username !== this.bot.username);
+              const nearestPlayer = players.sort((a, b) => a.position.distanceTo(this.bot.entity.position) - b.position.distanceTo(this.bot.entity.position))[0];
+              if (nearestPlayer) {
+                followEntity.run(nearestPlayer.username);
+              }
+            }
+          } else {
+            const followEntity = this.bot.instantSkills.getSkill('follow-entity');
+            if (followEntity) {
+              followEntity.status = false;
+            }
+          }
+        }
+        res.status(200).json({ success: true, result: 'constant skill status updated' });
+      } catch (error) {
+        res.status(500).json({ success: false, result: `error: ${error}` });
+      } finally {
+        await this.sendConstantSkills();
+      }
+    });
+    this.server.listen(8082, () => {
+      console.log('Express server listening on port 8082');
+    });
   }
 
   async loadInstantSkills(): Promise<ResponseType> {
@@ -258,6 +311,23 @@ export class SkillAgent {
     });
   }
 
+  async sendConstantSkills() {
+    try {
+      const skills = this.bot.constantSkills.getSkills().map(skill => ({
+        skillName: skill.skillName,
+        description: skill.description,
+        status: skill.status
+      }));
+      await fetch('http://localhost:8081/constant_skills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+        body: JSON.stringify(skills)
+      });
+    } catch (e) {
+      console.error('constantSkills送信エラー:', e);
+    }
+  }
+
   async initSkills() {
     this.bot.instantSkills = new InstantSkills();
     this.bot.constantSkills = new ConstantSkills();
@@ -388,6 +458,7 @@ export class SkillAgent {
           `常時スキル${skillName}のステータスを${ConstantSkill.status ? 'オン' : 'オフ'
           }にしました`
         );
+        await this.sendConstantSkills();
         return;
       }
       if (!message.startsWith('シャノン、')) {
@@ -541,6 +612,7 @@ export class SkillAgent {
     try {
       const initSkillsResponse = await this.initSkills();
       if (!initSkillsResponse.success) {
+        console.log(`error: ${initSkillsResponse.result}`);
         return { success: false, result: initSkillsResponse.result };
       }
       await this.botOnChat();
@@ -553,6 +625,7 @@ export class SkillAgent {
       await this.setInterval();
       await this.registerPost();
       await this.centralAgent.initialize();
+      await this.sendConstantSkills();
       return { success: true, result: 'agent started' };
     } catch (error) {
       console.log(`error: ${error}`);

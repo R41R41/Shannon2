@@ -1,9 +1,9 @@
-import { Vec3 } from 'vec3';
-import HoldItem from './holdItem.js';
 import pathfinder from 'mineflayer-pathfinder';
-const { goals } = pathfinder;
-import { CustomBot, InstantSkill } from '../types.js';
 import { Block } from 'prismarine-block';
+import { Vec3 } from 'vec3';
+import { CustomBot, InstantSkill } from '../types.js';
+import HoldItem from './holdItem.js';
+const { goals } = pathfinder;
 
 class PlaceBlock extends InstantSkill {
   private holdItem: HoldItem;
@@ -24,12 +24,22 @@ class PlaceBlock extends InstantSkill {
         name: 'placePosition',
         type: 'Vec3',
         description: 'ブロックを置く座標',
+        required: false,
       },
       {
         name: 'placedBlockPosition',
         type: 'Vec3',
         description:
           'ブロックを面で接するように置く先の既に置いてあるブロックの座標',
+        required: false,
+      },
+      {
+        name: 'autoPlace',
+        type: 'boolean',
+        description:
+          '座標を指定せずに自動で近くの設置可能な場所を適当に探してブロックを置く。ただし、ブロックが置ける場所が見つからない場合はfalseを返す。',
+        required: false,
+        default: false,
       },
     ];
   }
@@ -37,13 +47,32 @@ class PlaceBlock extends InstantSkill {
   async runImpl(
     blockName: string,
     placePosition: any,
-    placedBlockPosition: any
+    placedBlockPosition: any,
+    autoPlace: boolean = false
   ) {
-    console.log('placeBlock', blockName, placePosition, placedBlockPosition);
+    console.log(
+      'placeBlock',
+      blockName,
+      placePosition,
+      placedBlockPosition,
+      autoPlace
+    );
     try {
-      // Vec3オブジェクトに変換
-      const placePositionVec3 = this.parseVec3(placePosition);
-      const placedBlockPositionVec3 = this.parseVec3(placedBlockPosition);
+      let placePositionVec3 = this.parseVec3(placePosition);
+      let placedBlockPositionVec3 = this.parseVec3(placedBlockPosition);
+
+      // autoPlaceオプションが有効な場合は自動探索
+      if (autoPlace) {
+        const result = await this.autoFindPlace();
+        if (!result.success) {
+          return {
+            success: false,
+            result: '近くに設置可能な空間が見つかりませんでした。',
+          };
+        }
+        placePositionVec3 = result.result.placePositionVec3;
+        placedBlockPositionVec3 = result.result.placedBlockPositionVec3;
+      }
 
       if (!placePositionVec3 || !placedBlockPositionVec3) {
         return { success: false, result: '座標の形式が正しくありません。' };
@@ -53,7 +82,10 @@ class PlaceBlock extends InstantSkill {
       if (
         !placeblock?.name.includes('air') &&
         !placeblock?.name.includes('void') &&
-        !placeblock?.name.includes('water')
+        !placeblock?.name.includes('water') &&
+        !placeblock?.name.includes('lava') &&
+        !placeblock?.name.includes('grass') &&
+        !placeblock?.name.includes('tall_grass')
       ) {
         return {
           success: false,
@@ -68,7 +100,7 @@ class PlaceBlock extends InstantSkill {
       ) {
         return {
           success: false,
-          result: `${placedBlockPositionVec3}に設置可能なブロックがありません。get-blocks-dataツールで確認してください。`,
+          result: `${placedBlockPositionVec3}に設置するために隣接するブロックがありません。get-blocks-dataツールで確認してください。`,
         };
       }
       const response = await this.holdItem.run(blockName, false);
@@ -209,6 +241,86 @@ class PlaceBlock extends InstantSkill {
     } catch (error: any) {
       return { success: false, result: `${error.message} in ${error.stack}` };
     }
+  }
+
+  private async autoFindPlace(): Promise<{
+    success: boolean;
+    result: {
+      placePositionVec3: Vec3 | null;
+      placedBlockPositionVec3: Vec3 | null;
+    };
+  }> {
+    const IGNORE_BLOCKS = [
+      'air',
+      'cave_air',
+      'void',
+      'water',
+      'lava',
+      'grass',
+      'tall_grass',
+    ];
+    const botPos = this.bot.entity.position;
+    const candidates: {
+      placePositionVec3: Vec3;
+      placedBlockPositionVec3: Vec3;
+    }[] = [];
+    for (let dx = -4; dx <= 4; dx++) {
+      for (let dy = -2; dy <= 4; dy++) {
+        for (let dz = -4; dz <= 4; dz++) {
+          const pos = botPos.offset(dx, dy, dz).floored();
+          // 自分が占めている空間は除外
+          if (
+            Math.floor(botPos.x) === pos.x &&
+            Math.floor(botPos.y) === pos.y &&
+            Math.floor(botPos.z) === pos.z
+          )
+            continue;
+          // 他のエンティティが占めていないかチェック
+          let occupied = false;
+          for (const entity of Object.values(this.bot.entities)) {
+            if (
+              Math.floor(entity.position.x) === pos.x &&
+              Math.floor(entity.position.y) === pos.y &&
+              Math.floor(entity.position.z) === pos.z
+            ) {
+              occupied = true;
+              break;
+            }
+          }
+          if (occupied) continue;
+          const blockAtPos = this.bot.blockAt(pos);
+          if (!blockAtPos || !IGNORE_BLOCKS.includes(blockAtPos.name)) continue;
+          // その下のブロック
+          const below = pos.offset(0, -1, 0);
+          const blockBelow = this.bot.blockAt(below);
+          if (!blockBelow || IGNORE_BLOCKS.includes(blockBelow.name)) continue;
+          candidates.push({
+            placePositionVec3: pos,
+            placedBlockPositionVec3: below,
+          });
+        }
+      }
+    }
+    // 近い順にソート
+    candidates.sort(
+      (a, b) =>
+        botPos.distanceTo(a.placePositionVec3) -
+        botPos.distanceTo(b.placePositionVec3)
+    );
+    // 最も近い候補を返す
+    if (candidates.length > 0) {
+      return {
+        success: true,
+        result: {
+          placePositionVec3: candidates[0].placePositionVec3,
+          placedBlockPositionVec3: candidates[0].placedBlockPositionVec3,
+        },
+      };
+    }
+    return {
+      success: false,
+      result: { placePositionVec3: null, placedBlockPositionVec3: null },
+    };
   }
 
   // 文字列やオブジェクトからVec3オブジェクトに変換する関数

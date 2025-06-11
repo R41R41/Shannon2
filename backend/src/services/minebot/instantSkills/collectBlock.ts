@@ -12,8 +12,7 @@ class CollectBlock extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'collect-block';
-    this.description =
-      'ブロックを壊して指定されたアイテムを集めます。';
+    this.description = 'ブロックを壊して指定されたアイテムを集めます。';
     this.status = false;
     this.mcData = minecraftData(this.bot.version);
     this.searchDistance = 64;
@@ -48,8 +47,8 @@ class CollectBlock extends InstantSkill {
         typeof d === 'number'
           ? d
           : typeof d.drop === 'number'
-            ? d.drop
-            : d.drop.id
+          ? d.drop
+          : d.drop.id
       );
       if (dropIds.includes(itemId)) {
         result.push(block);
@@ -68,15 +67,9 @@ class CollectBlock extends InstantSkill {
           result: `アイテム${itemName}をドロップするブロックが見つかりませんでした`,
         };
       }
-      let collectItems = this.bot.inventory
-        .items()
-        .filter((item) => item.name === itemName);
-      let collectCount = collectItems.reduce(
-        (acc, item) => acc + item.count,
-        0
-      );
+      let collected = 0;
       let failCount = 0;
-      while (collectCount < count) {
+      while (collected < count) {
         const Blocks: Vec3[] = [];
         for (const block of blocks) {
           const targetBlocks = this.bot.findBlocks({
@@ -89,7 +82,9 @@ class CollectBlock extends InstantSkill {
         if (Blocks.length === 0) {
           return {
             success: false,
-            result: `ブロック ${blocks.map((block) => block.name).join(', ')} が見つかりませんでした`,
+            result: `ブロック ${blocks
+              .map((block) => block.name)
+              .join(', ')} が見つかりませんでした`,
           };
         }
         Blocks.sort((a, b) => {
@@ -101,17 +96,26 @@ class CollectBlock extends InstantSkill {
         if (!block) {
           return {
             success: false,
-            result: `ブロック ${blocks.map((block) => block.name).join(', ')} が見つかりませんでした`,
+            result: `ブロック ${blocks
+              .map((block) => block.name)
+              .join(', ')} が見つかりませんでした`,
           };
         }
         await this.bot.pathfinder.goto(
           new goals.GoalNear(Blocks[0].x, Blocks[0].y, Blocks[0].z, 1)
         );
 
-        const toolIds = block.harvestTools ? Object.keys(block.harvestTools).map(Number) : [];
-        const hasTool = this.bot.inventory.items().some(item => toolIds.includes(item.type));
+        const toolIds = block.harvestTools
+          ? Object.keys(block.harvestTools).map(Number)
+          : [];
+        const hasTool = this.bot.inventory
+          .items()
+          .some((item) => toolIds.includes(item.type));
         if (!hasTool && block.harvestTools !== undefined) {
-          return { success: false, result: `掘るためのツールがインベントリにありません。` };
+          return {
+            success: false,
+            result: `掘るためのツールがインベントリにありません。`,
+          };
         }
         const bestTool = this.bot.pathfinder.bestHarvestTool(block);
         if (bestTool) {
@@ -120,17 +124,17 @@ class CollectBlock extends InstantSkill {
 
         await this.bot.dig(block);
         await new Promise((resolve) => setTimeout(resolve, 1000)); // ブロックがドロップするのを待つ
+        // 新たに拾った数をカウント
+        const before = collected;
+        // 近くのドロップアイテムを拾う
         const items = this.bot.nearestEntity(
           (entity) => entity.name === itemName
         );
         if (items) {
-          // タイムアウト処理
           const timeout = 60000;
           const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => reject(new Error('移動タイムアウト')), timeout);
           });
-
-          // 目標への移動
           const goal = new goals.GoalNear(
             items.position.x,
             items.position.y,
@@ -138,15 +142,17 @@ class CollectBlock extends InstantSkill {
             0.5
           );
           const movePromise = this.bot.pathfinder.goto(goal);
-
           await Promise.race([movePromise, timeoutPromise]);
         }
-        const prevCount = collectCount;
-        collectItems = this.bot.inventory
+        // インベントリの増加分をカウント
+        const after = this.bot.inventory
           .items()
-          .filter((item) => item.name === itemName);
-        collectCount = collectItems.reduce((acc, item) => acc + item.count, 0);
-        if (collectCount === prevCount) {
+          .filter((item) => item.name === itemName)
+          .reduce((acc, item) => acc + item.count, 0);
+        // 新たに集めた数を計算
+        const gained = after - before;
+        collected += gained > 0 ? gained : 1; // 最低1個は増えたとみなす
+        if (collected === before) {
           failCount++;
         } else {
           failCount = 0;
@@ -158,7 +164,10 @@ class CollectBlock extends InstantSkill {
           };
         }
       }
-      return { success: true, result: `${itemName}を${count}個集めました。` };
+      return {
+        success: true,
+        result: `${itemName}を新たに${count}個集めました。`,
+      };
     } catch (error: any) {
       return { success: false, result: `${error.message} in ${error.stack}` };
     }

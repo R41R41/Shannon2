@@ -1,22 +1,22 @@
-import { AIMessage, BaseMessage, ToolMessage } from '@langchain/core/messages';
+import { AIMessage, BaseMessage } from '@langchain/core/messages';
+import { StructuredTool } from '@langchain/core/tools';
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { ChatOpenAI } from '@langchain/openai';
 import { TaskInput, TaskTreeState } from '@shannon/common';
-import { TaskStateInput } from './types.js';
 import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
+import fetch from 'node-fetch';
+import { BadRequestError } from 'openai';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { EventBus } from '../../../eventBus/eventBus.js';
-import { z, ZodObject } from 'zod';
-import { Prompt } from './prompt.js';
-import { getEventBus } from '../../../eventBus/index.js';
-import { BadRequestError } from 'openai';
-import { CustomBot } from '../../types.js';
-import { StructuredTool } from '@langchain/core/tools';
 import { Vec3 } from 'vec3';
-import fetch from 'node-fetch';
+import { z, ZodObject } from 'zod';
+import { EventBus } from '../../../eventBus/eventBus.js';
+import { getEventBus } from '../../../eventBus/index.js';
+import { CustomBot } from '../../types.js';
+import { Prompt } from './prompt.js';
+import { TaskStateInput } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -79,12 +79,14 @@ class InstantSkillTool extends StructuredTool {
   }
 
   async _call(data: any): Promise<string> {
-
     const skill = this.bot.instantSkills.getSkill(this.name);
     if (!skill) {
       return `${this.name}スキルが存在しません。`;
     }
-    console.log(`\x1b[32m%s\x1b[0m`, `${skill.skillName}を実行します。パラメータ：${JSON.stringify(data)}`);
+    console.log(
+      `\x1b[32m%s\x1b[0m`,
+      `${skill.skillName}を実行します。パラメータ：${JSON.stringify(data)}`
+    );
 
     try {
       // スキルのパラメータ定義を取得
@@ -151,7 +153,11 @@ async function sendTaskTreeToServer(taskTree: any) {
       body: JSON.stringify(taskTree),
     });
     if (!response.ok) {
-      console.error('taskTree送信失敗:', response.status, await response.text());
+      console.error(
+        'taskTree送信失敗:',
+        response.status,
+        await response.text()
+      );
     } else {
       console.log('taskTree送信成功');
     }
@@ -331,8 +337,16 @@ export class TaskGraph {
     this.currentState.humanFeedbackPending = false;
     state.humanFeedbackPending = false;
     state.humanFeedback = this.currentState.humanFeedback;
-    state.environmentState = JSON.stringify(this.bot.environmentState);
+    const autoUpdateSelfStateAndEnvironmentState =
+      this.bot.constantSkills.getSkill(
+        'auto-update-self-state-and-environment-state'
+      );
+    if (autoUpdateSelfStateAndEnvironmentState) {
+      await autoUpdateSelfStateAndEnvironmentState.run();
+    }
     state.selfState = JSON.stringify(this.bot.selfState);
+    state.environmentState = JSON.stringify(this.bot.environmentState);
+    console.log('selfState', state.selfState);
 
     if (!this.mediumModel) {
       throw new Error('Medium model not initialized');
@@ -558,8 +572,9 @@ export class TaskGraph {
         ...state,
         taskTree: {
           status: 'error',
-          goal: `エラーにより強制終了: ${error instanceof Error ? error.message : '不明なエラー'
-            }`,
+          goal: `エラーにより強制終了: ${
+            error instanceof Error ? error.message : '不明なエラー'
+          }`,
           strategy: '',
           subTasks: null,
         },

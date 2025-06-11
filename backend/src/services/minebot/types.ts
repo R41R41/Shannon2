@@ -1,10 +1,10 @@
 import { Bot, BotEvents } from 'mineflayer';
-import { goals } from 'mineflayer-pathfinder';
-import { Entity } from 'prismarine-entity';
-import { Utils } from './utils/index.js';
 import { CommandManager } from 'mineflayer-cmd';
+import { goals } from 'mineflayer-pathfinder';
 import { Block } from 'prismarine-block';
+import { Entity } from 'prismarine-entity';
 import { Vec3 } from 'vec3';
+import { Utils } from './utils/index.js';
 
 export type Goal = goals.Goal;
 
@@ -90,6 +90,7 @@ export interface CustomBot extends Omit<Bot, 'on' | 'once' | 'emit'> {
     botFoodLevel: string;
     botHeldItem: string;
     lookingAt: Block | Entity | DroppedItem | null;
+    inventory: { name: string; count: number }[];
   };
 }
 
@@ -153,7 +154,9 @@ export abstract class InstantSkill extends Skill {
     }
   }
 
-  abstract runImpl(...args: any[]): Promise<{ success: boolean; result: string }>;
+  abstract runImpl(
+    ...args: any[]
+  ): Promise<{ success: boolean; result: string }>;
 }
 
 export class InstantSkills {

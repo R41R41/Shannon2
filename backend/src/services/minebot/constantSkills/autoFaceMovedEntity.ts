@@ -7,7 +7,7 @@ class AutoFaceMovedEntity extends ConstantSkill {
         super(bot);
         this.skillName = 'auto-face-moved-entity';
         this.description = 'エンティティが移動した場合に注目します';
-        this.status = true;
+        this.status = false;
         this.isLocked = false;
     }
 

@@ -1,24 +1,23 @@
 import {
   MinebotInput,
-  MinebotOutput,
   MinebotStartOrStopInput,
   ServiceInput,
   ServiceOutput,
 } from '@shannon/common';
 import dotenv from 'dotenv';
+import pkg from 'minecrafthawkeye';
 import mineflayer from 'mineflayer';
-import { pathfinder } from 'mineflayer-pathfinder';
+import { plugin as cmd } from 'mineflayer-cmd';
 import { plugin as collectBlock } from 'mineflayer-collectblock';
+import { pathfinder } from 'mineflayer-pathfinder';
 import { plugin as projectile } from 'mineflayer-projectile';
 import { plugin as pvp } from 'mineflayer-pvp';
 import { plugin as toolPlugin } from 'mineflayer-tool';
-import { plugin as cmd } from 'mineflayer-cmd';
-import pkg from 'minecrafthawkeye';
+import { BaseClient } from '../common/BaseClient.js';
+import { getEventBus } from '../eventBus/index.js';
 import { SkillAgent } from './skillAgent.js';
 import { ConstantSkills, CustomBot, InstantSkills } from './types.js';
 import { Utils } from './utils/index.js';
-import { BaseClient } from '../common/BaseClient.js';
-import { getEventBus } from '../eventBus/index.js';
 dotenv.config();
 
 if (
@@ -113,6 +112,7 @@ export class MinebotClient extends BaseClient {
       botFoodLevel: '20/20',
       botHeldItem: '',
       lookingAt: null,
+      inventory: [],
     };
     this.bot.environmentState = {
       senderName: '',
@@ -124,7 +124,17 @@ export class MinebotClient extends BaseClient {
       bossbar: null,
     };
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    this.bot.utils.setMovements(this.bot);
+    this.bot.utils.setMovements(
+      this.bot,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      1,
+      true
+    );
 
     this.bot.on('respawn', () => {
       if (!this.bot) {
@@ -259,6 +269,13 @@ export class MinebotClient extends BaseClient {
     try {
       if (!this.bot) {
         throw new Error('Botが初期化されていません');
+      }
+      // port 8082を開放
+      if (this.skillAgent?.server) {
+        this.skillAgent.server.close(() => {
+          console.log('Express server on 8082 closed');
+        });
+        this.skillAgent.server = null;
       }
       this.bot.quit();
       this.bot = null;

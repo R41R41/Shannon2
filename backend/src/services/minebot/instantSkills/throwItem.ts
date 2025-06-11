@@ -1,10 +1,10 @@
-import { InstantSkill, CustomBot } from '../types.js';
+import { CustomBot, InstantSkill } from '../types.js';
 
 class ThrowItem extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'throw-item';
-    this.description = '特定のアイテムをまとめて捨てます';
+    this.description = '特定のアイテムをまとめて目の前に投げます。';
     this.priority = 50;
     this.params = [
       {

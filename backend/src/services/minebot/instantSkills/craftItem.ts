@@ -1,7 +1,7 @@
-import { InstantSkill, CustomBot } from '../types.js';
-import pathfinder from 'mineflayer-pathfinder';
-const { goals } = pathfinder;
 import minecraftData from 'minecraft-data';
+import pathfinder from 'mineflayer-pathfinder';
+import { CustomBot, InstantSkill } from '../types.js';
+const { goals } = pathfinder;
 
 class CraftItem extends InstantSkill {
   private mcData: any;
@@ -38,11 +38,14 @@ class CraftItem extends InstantSkill {
           result: `アイテム ${itemName} が見つかりませんでした`,
         };
       }
+      // 2x2レシピ
       const recipes2x2 = this.bot.recipesFor(item.id, null, null, false);
+      let recipe,
+        craftingTable = undefined;
       if (recipes2x2.length > 0) {
-        await this.bot.craft(recipes2x2[0], amount, undefined);
+        recipe = recipes2x2[0];
       } else {
-        const craftingTable = this.bot.findBlock({
+        craftingTable = this.bot.findBlock({
           matching: this.mcData.blocksByName.crafting_table.id,
           maxDistance: 64,
         });
@@ -61,35 +64,58 @@ class CraftItem extends InstantSkill {
           )
         );
         await new Promise((resolve) => setTimeout(resolve, 100));
-        const recipe = this.bot.recipesFor(
-          item.id,
-          null,
-          null,
-          craftingTable
-        )[0];
-        if (!recipe) {
+        const recipes = this.bot.recipesFor(item.id, null, null, craftingTable);
+        if (!recipes || recipes.length === 0) {
           return {
             success: false,
             result: `アイテム ${itemName} のレシピが見つかりませんでした`,
           };
         }
-        await this.bot.craft(recipe, amount, craftingTable);
+        recipe = recipes[0];
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      const items = this.bot.inventory
-        .items()
-        .filter((item) => item.name === itemName);
-      if (items && items.length >= amount) {
+      // 1回で作れる最大数
+      const maxPerCraft = recipe.result.count;
+      let remaining = amount;
+      while (remaining > 0) {
+        const craftAmount = Math.min(remaining, maxPerCraft);
+        try {
+          await this.bot.craft(recipe, 1, craftingTable);
+        } catch (err: any) {
+          return {
+            success: false,
+            result: `クラフト中にエラー: ${
+              err.message || err
+            } 現在のインベントリに${itemName}が${this.getItemCount(
+              itemName
+            )}個あります。`,
+          };
+        }
+        remaining -= craftAmount;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      const total = this.getItemCount(itemName);
+      if (total >= amount) {
         return {
           success: true,
           result: `${itemName}を${amount}個作成しました`,
         };
       }
-      return { success: false, result: `${itemName}を作成できませんでした` };
+      return {
+        success: false,
+        result: `${itemName}を作成できませんでした。現在のインベントリに${itemName}が${total}個あります。`,
+      };
     } catch (error: any) {
       return { success: false, result: `${error.message} in ${error.stack}` };
     }
+  }
+
+  getItemCount(itemName: string) {
+    const items = this.bot.inventory
+      .items()
+      .filter((item) => item.name === itemName);
+    return items.reduce((sum, i) => sum + i.count, 0);
   }
 }
 

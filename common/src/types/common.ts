@@ -1,110 +1,116 @@
 import {
-  TwitterClientInput,
-  TwitterClientOutput,
-  TwitterEventType,
-  TwitterSchedulePostEndpoint,
-} from "./twitter";
-import {
-  OpenAIMessageOutput,
-  OpenAIInput,
-  WebEventType,
-  WebSkillInput,
-} from "./web";
-import {
   DiscordClientInput,
   DiscordClientOutput,
   DiscordEventType,
   DiscordGuild,
-} from "./discord";
+} from './discord';
+import { LLMEventType, SkillInfo } from './llm';
 import {
-  MinecraftInput,
-  MinecraftOutput,
-  MinecraftEventType,
-} from "./minecraft";
-import { YoutubeClientOutput, YoutubeEventType } from "./youtube";
-import {
-  MinebotOutput,
-  MinebotInput,
   MinebotEventType,
+  MinebotInput,
+  MinebotOutput,
   SkillParameters,
   SkillResult,
-} from "./minebot";
+} from './minebot';
 import {
-  TaskInput,
-  TaskTreeState,
-  EmotionType,
-  TaskEventType,
-} from "./taskGraph";
+  MinecraftEventType,
+  MinecraftInput,
+  MinecraftOutput,
+} from './minecraft';
 import {
+  NotionClientInput,
+  NotionClientOutput,
+  NotionEventType,
+} from './notion';
+import {
+  SchedulerEventType,
   SchedulerInput,
   SchedulerOutput,
-  SchedulerEventType,
-} from "./scheduler";
-import { LLMEventType, SkillInfo } from "./llm";
-import { ToolEventType } from "./tools";
-import { NotionClientInput, NotionClientOutput, NotionEventType } from "./notion";
+} from './scheduler';
+import {
+  EmotionType,
+  TaskEventType,
+  TaskInput,
+  TaskTreeState,
+} from './taskGraph';
+import { ToolEventType } from './tools';
+import {
+  TwitterClientInput,
+  TwitterClientOutput,
+  TwitterEventType,
+  TwitterSchedulePostEndpoint,
+} from './twitter';
+import {
+  OpenAIInput,
+  OpenAIMessageOutput,
+  WebEventType,
+  WebSkillInput,
+} from './web';
+import { YoutubeClientOutput, YoutubeEventType } from './youtube';
 
 export type Platform =
-  | "web"
-  | "discord"
-  | "minecraft"
-  | "scheduler"
-  | "twitter"
-  | "youtube"
-  | "notion"
-  | "minebot";
+  | 'web'
+  | 'discord'
+  | 'minecraft'
+  | 'scheduler'
+  | 'twitter'
+  | 'youtube'
+  | 'notion'
+  | 'minebot'
+  | 'youtube:live_chat';
 
 export type ConversationType =
-  | "text"
-  | "audio"
-  | "realtime_text"
-  | "realtime_audio"
-  | "command"
-  | "log"
-  | "user_transcript";
+  | 'text'
+  | 'audio'
+  | 'realtime_text'
+  | 'realtime_audio'
+  | 'command'
+  | 'log'
+  | 'user_transcript';
 
 export const promptTypes: PromptType[] = [
-  "base_text",
-  "base_voice",
-  "about_today",
-  "news_today",
-  "weather_to_emoji",
-  "fortune",
-  "discord",
-  "forecast",
-  "forecast_for_toyama_server",
-  "reply_twitter_comment",
-  "emotion",
-  "use_tool",
+  'base_text',
+  'base_voice',
+  'about_today',
+  'news_today',
+  'weather_to_emoji',
+  'fortune',
+  'discord',
+  'forecast',
+  'forecast_for_toyama_server',
+  'reply_twitter_comment',
+  'emotion',
+  'use_tool',
 ];
 
 export type PromptType =
   | TwitterSchedulePostEndpoint
-  | "base_text"
-  | "base_voice"
-  | "discord"
-  | "minecraft"
-  | "weather_to_emoji"
-  | "forecast_for_toyama_server"
-  | "reply_youtube_comment"
-  | "planning"
-  | "reply_twitter_comment"
-  | "emotion"
-  | "use_tool";
+  | 'base_text'
+  | 'base_voice'
+  | 'discord'
+  | 'minecraft'
+  | 'weather_to_emoji'
+  | 'forecast_for_toyama_server'
+  | 'reply_youtube_comment'
+  | 'planning'
+  | 'reply_twitter_comment'
+  | 'emotion'
+  | 'use_tool'
+  | 'reply_youtube_live_comment';
 
 export type RealTimeAPIEndpoint =
-  | "realtime_text_input"
-  | "realtime_text_commit"
-  | "realtime_audio_append"
-  | "realtime_audio_commit"
-  | "realtime_vad_on"
-  | "realtime_vad_off"
-  | "text_done"
-  | "audio_done";
+  | 'realtime_text_input'
+  | 'realtime_text_commit'
+  | 'realtime_audio_append'
+  | 'realtime_audio_commit'
+  | 'realtime_vad_on'
+  | 'realtime_vad_off'
+  | 'text_done'
+  | 'audio_done';
 
-export type ServiceStatus = "running" | "stopped" | "connecting";
+export type ServiceStatus = 'running' | 'stopped' | 'connecting';
 
-export type ServiceCommand = "start" | "stop" | "status";
+export type ServiceCommand = 'start' | 'stop' | 'status';
 
 export interface ServiceInput {
   serviceCommand?: ServiceCommand | null;
@@ -121,17 +127,17 @@ export interface StatusAgentInput extends ServiceInput {
 }
 
 export type MemoryZone =
-  | "web"
+  | 'web'
   | DiscordGuild
-  | "twitter:schedule_post"
-  | "twitter:post"
-  | "twitter:get"
-  | "minecraft"
-  | "youtube"
-  | "scheduler"
-  | "minebot"
-  | "null"
-  | "notion";
+  | 'twitter:schedule_post'
+  | 'twitter:post'
+  | 'twitter:get'
+  | 'minecraft'
+  | 'youtube'
+  | 'scheduler'
+  | 'minebot'
+  | 'null'
+  | 'notion';
 
 export type EventType =
   | TaskEventType
@@ -150,32 +156,32 @@ export interface Event {
   type: EventType;
   memoryZone: MemoryZone;
   data:
-  | TwitterClientInput
-  | TwitterClientOutput
-  | OpenAIInput
-  | DiscordClientInput
-  | ILog
-  | OpenAIMessageOutput
-  | DiscordClientOutput
-  | MinecraftInput
-  | MinecraftOutput
-  | SchedulerInput
-  | SchedulerOutput
-  | StatusAgentInput
-  | ServiceInput
-  | YoutubeClientOutput
-  | MinebotOutput
-  | MinebotInput
-  | ServiceOutput
-  | TaskInput
-  | TaskTreeState
-  | EmotionType
-  | SkillInfo[]
-  | WebSkillInput
-  | SkillParameters
-  | SkillResult
-  | NotionClientInput
-  | NotionClientOutput;
+    | TwitterClientInput
+    | TwitterClientOutput
+    | OpenAIInput
+    | DiscordClientInput
+    | ILog
+    | OpenAIMessageOutput
+    | DiscordClientOutput
+    | MinecraftInput
+    | MinecraftOutput
+    | SchedulerInput
+    | SchedulerOutput
+    | StatusAgentInput
+    | ServiceInput
+    | YoutubeClientOutput
+    | MinebotOutput
+    | MinebotInput
+    | ServiceOutput
+    | TaskInput
+    | TaskTreeState
+    | EmotionType
+    | SkillInfo[]
+    | WebSkillInput
+    | SkillParameters
+    | SkillResult
+    | NotionClientInput
+    | NotionClientOutput;
   targetMemoryZones?: MemoryZone[];
 }
 
@@ -187,13 +193,13 @@ export interface ILog {
 }
 
 export type Color =
-  | "white"
-  | "red"
-  | "green"
-  | "blue"
-  | "yellow"
-  | "magenta"
-  | "cyan";
+  | 'white'
+  | 'red'
+  | 'green'
+  | 'blue'
+  | 'yellow'
+  | 'magenta'
+  | 'cyan';
 
 export interface LogEntry {
   timestamp: string;

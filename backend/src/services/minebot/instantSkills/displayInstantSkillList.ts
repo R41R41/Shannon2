@@ -18,7 +18,7 @@ class DisplayInstantSkillList extends InstantSkill {
       if (this.bot.instantSkills === null) {
         return { success: false, result: 'スキルリストが指定されていません' };
       }
-      this.bot.instantSkills.getSkills().forEach(async (skill) => {
+      for (const skill of this.bot.instantSkills.getSkills()) {
         const message = JSON.stringify({
           text: `${skill.skillName}`,
           color: `${skill.status ? 'green' : 'gray'}`,
@@ -34,7 +34,7 @@ class DisplayInstantSkillList extends InstantSkill {
         });
         await this.bot.chat(`/tellraw @a ${message}`);
         await new Promise((resolve) => setTimeout(resolve, 100));
-      });
+      }
       return { success: true, result: 'Instant Skillのリストを表示しました' };
     } catch (error: any) {
       return { success: false, result: `${error.message} in ${error.stack}` };

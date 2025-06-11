@@ -7,7 +7,7 @@ class AutoFaceUpdatedBlock extends ConstantSkill {
         super(bot);
         this.skillName = 'auto-face-updated-block';
         this.description = '4ブロック以内のブロックが更新された場合に注目します';
-        this.status = true;
+        this.status = false;
         this.isLocked = false;
     }
 
