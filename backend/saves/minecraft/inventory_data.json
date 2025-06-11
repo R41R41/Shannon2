@@ -5,27 +5,55 @@
     "leggings": null,
     "boots": null,
     "mainHand": {
-      "name": "stone_axe",
-      "count": 1
+      "name": "bread",
+      "count": 62
     },
     "offHand": null
   },
   "inventory": [
     {
-      "name": "stone_axe",
+      "name": "tall_grass",
       "count": 1
     },
     {
-      "name": "arrow",
-      "count": 2
+      "name": "iron_ingot",
+      "count": 15
     },
     {
-      "name": "bone",
-      "count": 2
+      "name": "short_grass",
+      "count": 1
+    },
+    {
+      "name": "oak_stairs",
+      "count": 1
+    },
+    {
+      "name": "bread",
+      "count": 62
     },
     {
       "name": "dirt",
+      "count": 3
+    },
+    {
+      "name": "birch_log",
       "count": 1
+    },
+    {
+      "name": "cake",
+      "count": 1
+    },
+    {
+      "name": "brown_mushroom",
+      "count": 1
+    },
+    {
+      "name": "rotten_flesh",
+      "count": 2
+    },
+    {
+      "name": "oak_planks",
+      "count": 32
     }
   ]
 }

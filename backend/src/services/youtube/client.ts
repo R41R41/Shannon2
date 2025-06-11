@@ -32,6 +32,7 @@ export class YoutubeClient extends BaseClient {
   private liveStartTime: Date | null = null;
   private chatHistory: { minutes: number; author: string; message: string }[] =
     [];
+  private liveChatWatchStartTime: Date | null = null;
 
   private constructor(serviceName: 'youtube', isTest: boolean) {
     const eventBus = getEventBus();
@@ -474,7 +475,7 @@ export class YoutubeClient extends BaseClient {
         id: [videoId],
       });
       const video = videoResponse.data.items?.[0];
-      liveChatId = (video?.liveStreamingDetails as any)?.liveChatId;
+      liveChatId = (video?.liveStreamingDetails as any)?.activeLiveChatId;
       if (!liveChatId) {
         console.error('liveChatIdが取得できませんでした');
         return { success: false, message: 'liveChatIdが取得できませんでした' };
@@ -486,6 +487,7 @@ export class YoutubeClient extends BaseClient {
         ? new Date(video.liveStreamingDetails.actualStartTime)
         : null;
       this.chatHistory = [];
+      this.liveChatWatchStartTime = new Date(); // 監視開始時刻を記録
       // 1分ごとにコメント取得
       this.liveChatPolling = setInterval(() => {
         this.fetchLiveChatMessages();
@@ -518,60 +520,50 @@ export class YoutubeClient extends BaseClient {
         maxResults: 200,
       });
       const messages = chatResponse.data.items || [];
-      for (const msg of messages) {
-        // 新規コメントのみ返信
-        if (msg.id && !this.lastRepliedMessageIds.has(msg.id)) {
-          this.lastRepliedMessageIds.add(msg.id);
-          // 自分以外のコメントのみ返信
-          if (
-            msg.authorDetails?.isChatOwner === false ||
-            msg.authorDetails?.isChatModerator === false ||
-            msg.authorDetails?.isChatSponsor === false
-          ) {
-            const author = msg.authorDetails?.displayName ?? '';
-            const message = msg.snippet?.displayMessage ?? '';
-            if (author && message) {
-              // JST現在時刻
-              const now = new Date();
-              const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-              // 配信開始からの分数
-              let minutesSinceStart = null;
-              if (this.liveStartTime) {
-                minutesSinceStart = Math.floor(
-                  (now.getTime() - this.liveStartTime.getTime()) / 60000
-                );
-              }
-              // 履歴に追加
-              if (minutesSinceStart !== null) {
-                this.chatHistory.push({
-                  minutes: minutesSinceStart,
-                  author,
-                  message,
-                });
-              }
-              // 履歴を「分数：名前「内容」」形式で
-              const formattedHistory = this.chatHistory.map(
-                (h) => `${h.minutes}：${h.author}「${h.message}」`
-              );
-              // publish
-              this.eventBus.publish({
-                type: 'llm:get_youtube_message',
-                memoryZone: 'youtube',
-                data: {
-                  message,
-                  author,
-                  jstNow: jstNow.toISOString(),
-                  minutesSinceStart,
-                  history: formattedHistory,
-                  liveTitle: this.liveTitle,
-                  liveDescription: this.liveDescription,
-                } as YoutubeLiveChatMessageOutput,
-              });
-              // 返信
-              const reply = `${author}さんコメントありがとう！`;
-              await this.sendLiveChatMessage(reply);
-            }
-          }
+      // 未返信かつ自分以外、かつ監視開始時刻以降、かつ「シャノン、」で始まるコメントのみ抽出
+      const unrepliedMessages = messages.filter(
+        (msg) =>
+          msg.id &&
+          !this.lastRepliedMessageIds.has(msg.id ?? '') &&
+          msg.authorDetails?.channelId !== this.channelId &&
+          (
+            !this.liveChatWatchStartTime ||
+            (msg.snippet?.publishedAt && new Date(msg.snippet.publishedAt) >= this.liveChatWatchStartTime)
+          ) &&
+          (msg.snippet?.displayMessage?.startsWith('シャノン、') ?? false)
+      );
+      if (unrepliedMessages.length > 0) {
+        // ランダムに1件選ぶ
+        const randomIndex = Math.floor(Math.random() * unrepliedMessages.length);
+        const msg = unrepliedMessages[randomIndex];
+        this.lastRepliedMessageIds.add(msg.id ?? '');
+        const author = msg.authorDetails?.displayName ?? '';
+        const message = msg.snippet?.displayMessage ?? '';
+        if (author !== '' && message !== '') {
+          // 履歴に追加
+          this.chatHistory.push({
+            minutes: 0, // ライブチャットの場合は0分
+            author,
+            message,
+          });
+          // 履歴を「分数：名前「内容」」形式で
+          const formattedHistory = this.chatHistory.map(
+            (h) => `${h.minutes}：${h.author}「${h.message}」`
+          );
+          // publish
+          this.eventBus.publish({
+            type: 'llm:get_youtube_message',
+            memoryZone: 'youtube',
+            data: {
+              message,
+              author,
+              jstNow: new Date().toISOString(),
+              minutesSinceStart: 0,
+              history: formattedHistory,
+              liveTitle: this.liveTitle ?? '',
+              liveDescription: this.liveDescription ?? '',
+            } as YoutubeLiveChatMessageOutput,
+          });
         }
       }
     } catch (error) {
@@ -602,6 +594,16 @@ export class YoutubeClient extends BaseClient {
   }
 
   async getCurrentLiveVideoId(): Promise<string | null> {
+    // .envからURL取得
+    const liveUrl = process.env.YOUTUBE_LIVE_URL;
+    if (liveUrl) {
+      // 正規表現で動画ID抽出（v=, /video/, /watch/, youtu.be/ など対応）
+      const match = liveUrl.match(/(?:v=|\/video\/|youtu\.be\/|watch\?v=)([a-zA-Z0-9_-]{11})/);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    // なければ従来通り
     if (!this.client || !this.channelId) return null;
     const res = await this.client.search.list({
       part: ['id'],

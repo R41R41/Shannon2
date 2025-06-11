@@ -1,5 +1,5 @@
-import { CustomBot, InstantSkill } from '../types.js';
 import { Entity } from 'prismarine-entity';
+import { CustomBot, InstantSkill } from '../types.js';
 
 export class FollowEntity extends InstantSkill {
   private followTask: Promise<void> | null = null;
@@ -35,6 +35,10 @@ export class FollowEntity extends InstantSkill {
         success: true,
         result: 'すでに追尾中です',
       };
+    }
+    const autoPickUpItem = this.bot.constantSkills.getSkill('auto-pick-up-item');
+    if (autoPickUpItem) {
+      autoPickUpItem.status = false;
     }
     this.status = true;
     // 非同期で追尾ループを開始

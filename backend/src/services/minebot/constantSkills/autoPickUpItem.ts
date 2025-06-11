@@ -1,5 +1,5 @@
-import { ConstantSkill, CustomBot } from '../types.js';
 import type { Entity } from 'prismarine-entity';
+import { ConstantSkill, CustomBot } from '../types.js';
 
 class AutoPickUpItem extends ConstantSkill {
   private pickUpItemName: string;

@@ -270,6 +270,13 @@ export class MinebotClient extends BaseClient {
       if (!this.bot) {
         throw new Error('Botが初期化されていません');
       }
+      // port 8082を開放
+      if (this.skillAgent?.server) {
+        this.skillAgent.server.close(() => {
+          console.log('Express server on 8082 closed');
+        });
+        this.skillAgent.server = null;
+      }
       this.bot.quit();
       this.bot = null;
       this.eventBus.log('minecraft', 'green', 'Minecraft bot stopped');
