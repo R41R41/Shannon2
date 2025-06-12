@@ -540,7 +540,7 @@ export class TwitterClient extends BaseClient {
           () => this.autoLikeAndRetweetOfficialTweets(),
           60 * 60 * 1000
         );
-        setInterval(() => this.autoLikeAndReplyFriendTweets(), 30 * 60 * 1000);
+        setInterval(() => this.autoLikeAndReplyFriendTweets(), 60 * 60 * 1000);
       }
       this.setupEventHandlers();
     } catch (error) {
