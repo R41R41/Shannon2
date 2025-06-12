@@ -10,7 +10,7 @@ import {
   OpenAITextInput,
   SkillInfo,
   TwitterClientInput,
-  TwitterClientOutput,
+  TwitterReplyOutput,
   YoutubeClientInput,
   YoutubeCommentOutput,
   YoutubeLiveChatMessageInput,
@@ -92,7 +92,7 @@ export class LLMService {
 
     this.eventBus.subscribe('llm:post_twitter_reply', (event) => {
       if (this.isDevMode) return;
-      this.processTwitterReply(event.data as TwitterClientOutput);
+      this.processTwitterReply(event.data as TwitterReplyOutput);
     });
 
     this.eventBus.subscribe('llm:reply_youtube_comment', (event) => {
@@ -209,13 +209,14 @@ export class LLMService {
     });
   }
 
-  private async processTwitterReply(data: TwitterClientOutput) {
+  private async processTwitterReply(data: TwitterReplyOutput) {
     const text = data.text;
     const replyId = data.replyId;
     const authorName = data.authorName;
-    const myTweet = data.myTweet;
+    const repliedTweet = data.repliedTweet;
+    const repliedTweetAuthorName = data.repliedTweetAuthorName;
 
-    if (!text || !replyId || !authorName || !myTweet) {
+    if (!text || !replyId || !authorName) {
       console.error('Twitter reply data is invalid');
       return;
     }
@@ -223,7 +224,8 @@ export class LLMService {
     const response = await this.replyTwitterCommentAgent.reply(
       text,
       authorName,
-      myTweet
+      repliedTweet,
+      repliedTweetAuthorName
     );
     this.eventBus.publish({
       type: 'twitter:post_message',
