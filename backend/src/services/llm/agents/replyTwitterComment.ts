@@ -34,14 +34,15 @@ export class ReplyTwitterCommentAgent {
   public async reply(
     text: string,
     authorName: string,
-    myTweet: string
+    repliedTweet?: string | null,
+    repliedTweetAuthorName?: string | null
   ): Promise<string> {
     if (!this.systemPrompt) {
       throw new Error('systemPrompt is not set');
     }
-    console.log("reply");
+    console.log('reply');
     const systemContent = this.systemPrompt;
-    const humanContent = `自分のツイート:${myTweet}\nコメント:${text}\nリプライ先のユーザー名:${authorName}`;
+    const humanContent = `相手のツイート:${text}\n相手のユーザー名:${authorName}\n相手が返信しているツイート（返信の場合のみ）:${repliedTweet}\n相手が返信しているツイート（返信の場合のみ）のユーザー名:${repliedTweetAuthorName}`;
     const response = await this.model.invoke([
       new SystemMessage(systemContent),
       new HumanMessage(humanContent),

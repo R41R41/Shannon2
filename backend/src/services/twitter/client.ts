@@ -1,5 +1,9 @@
-import { TwitterClientInput, TwitterClientOutput } from '@shannon/common';
-import axios from "axios";
+import {
+  TwitterClientInput,
+  TwitterClientOutput,
+  TwitterReplyOutput,
+} from '@shannon/common';
+import axios from 'axios';
 import dotenv from 'dotenv';
 import { TwitterApi } from 'twitter-api-v2';
 import { BaseClient } from '../common/BaseClient.js';
@@ -18,7 +22,18 @@ export class TwitterClient extends BaseClient {
   private login_data: string;
   private two_fa_code: string;
   private auth_session: string;
+  private proxy1: string;
+  private proxy2: string;
+  private proxy3: string;
   private lastCheckedReplyIds: Set<string> = new Set();
+  private officialAccountUserName =
+    process.env.TWITTER_AIMINELAB_USERNAME || '';
+  private friendAccountUserNames = [
+    process.env.TWITTER_YUMMY_USERNAME,
+    process.env.TWITTER_RAI_USERNAME,
+    process.env.TWITTER_GURIKO_USERNAME,
+  ].filter(Boolean) as string[];
+
   public static getInstance(isTest: boolean = false) {
     const eventBus = getEventBus();
     if (!TwitterClient.instance) {
@@ -38,6 +53,9 @@ export class TwitterClient extends BaseClient {
     this.login_data = process.env.TWITTER_LOGIN_DATA || '';
     this.two_fa_code = process.env.TWITTER_TWO_FA_CODE || '';
     this.auth_session = process.env.TWITTER_AUTH_SESSION || '';
+    this.proxy1 = process.env.TWITTER_PROXY1 || '';
+    this.proxy2 = process.env.TWITTER_PROXY2 || '';
+    this.proxy3 = process.env.TWITTER_PROXY3 || '';
     const apiKey = process.env.TWITTER_API_KEY;
     const apiKeySecret = process.env.TWITTER_API_KEY_SECRET;
     const accessToken = process.env.TWITTER_ACCESS_TOKEN;
@@ -98,11 +116,29 @@ export class TwitterClient extends BaseClient {
       const { tweetId } = event.data as TwitterClientInput;
       try {
         if (tweetId) {
-          const { text, createdAt, retweetCount, replyCount, likeCount, authorId, authorName, mediaUrl } = await this.fetchTweetContent(tweetId);
+          const {
+            text,
+            createdAt,
+            retweetCount,
+            replyCount,
+            likeCount,
+            authorId,
+            authorName,
+            mediaUrl,
+          } = await this.fetchTweetContent(tweetId);
           this.eventBus.publish({
             type: 'tool:get_tweet_content',
             memoryZone: 'twitter:get',
-            data: { text, createdAt, retweetCount, replyCount, likeCount, authorId, authorName, mediaUrl } as TwitterClientOutput,
+            data: {
+              text,
+              createdAt,
+              retweetCount,
+              replyCount,
+              likeCount,
+              authorId,
+              authorName,
+              mediaUrl,
+            } as TwitterClientOutput,
           });
         }
       } catch (error) {
@@ -112,15 +148,14 @@ export class TwitterClient extends BaseClient {
   }
 
   private async fetchTweetContent(tweetId: string) {
-    const endpoint = "https://api.twitterapi.io/twitter/tweets";
-    console.log("tweetId: ", tweetId);
+    const endpoint = 'https://api.twitterapi.io/twitter/tweets';
+    console.log('tweetId: ', tweetId);
 
     try {
-
       const options = {
         method: 'GET',
         headers: { 'X-API-Key': this.apiKey },
-        params: { tweet_ids: tweetId }
+        params: { tweet_ids: tweetId },
       };
 
       const response = await axios.get(endpoint, options);
@@ -131,8 +166,10 @@ export class TwitterClient extends BaseClient {
       const likeCount = response.data.tweets?.[0]?.likeCount;
       const authorId = response.data.tweets?.[0]?.author?.id;
       const authorName = response.data.tweets?.[0]?.author?.name;
-      const mediaUrl = response.data.tweets?.[0]?.extendedEntities?.media?.[0]?.media_url_https;
-      console.log("tweetContent: ", response.data.tweets?.[0]);
+      const mediaUrl =
+        response.data.tweets?.[0]?.extendedEntities?.media?.[0]
+          ?.media_url_https;
+      console.log('tweetContent: ', response.data.tweets?.[0]);
       return {
         text,
         createdAt,
@@ -141,27 +178,31 @@ export class TwitterClient extends BaseClient {
         likeCount,
         authorId,
         authorName,
-        mediaUrl
+        mediaUrl,
       };
     } catch (error: any) {
-      console.error("API呼び出しエラー:", error.response?.data || error.message);
+      console.error(
+        'API呼び出しエラー:',
+        error.response?.data || error.message
+      );
       throw error;
     }
   }
 
   private async login1Step() {
-    const endpoint = "https://api.twitterapi.io/twitter/login_by_email_or_username";
+    const endpoint =
+      'https://api.twitterapi.io/twitter/login_by_email_or_username';
     const data = { username_or_email: this.email, password: this.password };
     const config = {
-      headers: { 'X-API-Key': this.apiKey }
+      headers: { 'X-API-Key': this.apiKey },
     };
     try {
       const response = await axios.post(endpoint, data, config);
       console.log(response.data);
       const login_data = response.data.login_data;
       const status = response.data.status;
-      console.log("login_data: ", login_data);
-      console.log("status: ", status);
+      console.log('login_data: ', login_data);
+      console.log('status: ', status);
       return { login_data, status };
     } catch (error: any) {
       console.error(`\x1b[31mLogin error: ${error.message}\x1b[0m`);
@@ -170,14 +211,14 @@ export class TwitterClient extends BaseClient {
   }
 
   private async login2Step() {
-    const endpoint = "https://api.twitterapi.io/twitter/login_by_2fa";
+    const endpoint = 'https://api.twitterapi.io/twitter/login_by_2fa';
     const data = { login_data: this.login_data, '2fa_code': this.two_fa_code };
     const config = {
-      headers: { 'X-API-Key': this.apiKey }
+      headers: { 'X-API-Key': this.apiKey },
     };
     try {
       const response = await axios.post(endpoint, data, config);
-      console.log("response: ", response.data);
+      console.log('response: ', response.data);
       this.auth_session = response.data.auth_session;
     } catch (error: any) {
       console.error(`\x1b[31mLogin error: ${error.message}\x1b[0m`);
@@ -200,14 +241,14 @@ export class TwitterClient extends BaseClient {
 
   private async getLatestTweets() {
     try {
-      const endpoint = "https://api.twitterapi.io/twitter/user/last_tweets";
+      const endpoint = 'https://api.twitterapi.io/twitter/user/last_tweets';
       const options = {
         method: 'GET',
         headers: { 'X-API-Key': this.apiKey },
-        params: { userName: "I_am_Sh4nnon" }
+        params: { userName: 'I_am_Sh4nnon' },
       };
       const res = await axios.get(endpoint, options);
-      if (res.data.status === "success") {
+      if (res.data.status === 'success') {
         const tweets = res.data.data.tweets;
         const filteredTweets = tweets.filter((tweet: any) => !tweet.is_reply);
         return filteredTweets.slice(0, 3);
@@ -222,19 +263,22 @@ export class TwitterClient extends BaseClient {
   }
 
   private async getReplies(tweet: any) {
-    const endpoint = "https://api.twitterapi.io/twitter/tweet/replies";
+    const endpoint = 'https://api.twitterapi.io/twitter/tweet/replies';
     const options = {
       method: 'GET',
       headers: { 'X-API-Key': this.apiKey },
-      params: { tweetId: tweet.id }
+      params: { tweetId: tweet.id },
     };
     const res = await axios.get(endpoint, options);
-    if (res.data.status === "success") {
+    if (res.data.status === 'success') {
       const replies = res.data.tweets;
-      const filteredReplies = replies.filter((reply: any) => reply.replyCount === 0 && reply.author.id !== this.myUserId);
+      const filteredReplies = replies.filter(
+        (reply: any) =>
+          reply.replyCount === 0 && reply.author.id !== this.myUserId
+      );
       return {
         reply: filteredReplies[0],
-        myTweet: tweet.text
+        myTweet: tweet.text,
       };
     } else {
       console.error(`\x1b[31mTweet error: ${res.data.data.message}\x1b[0m`);
@@ -247,7 +291,7 @@ export class TwitterClient extends BaseClient {
       const tweets = await this.getLatestTweets();
       if (tweets.length === 0) return;
 
-      const replies: { reply: any, myTweet: any }[] = [];
+      const replies: { reply: any; myTweet: any }[] = [];
       for (const tweet of tweets) {
         const { reply, myTweet } = await this.getReplies(tweet);
         if (reply) {
@@ -255,7 +299,7 @@ export class TwitterClient extends BaseClient {
         }
       }
       if (replies.length === 0) return;
-      console.log("replies: ", replies[0]);
+      console.log('replies: ', replies[0]);
       this.eventBus.publish({
         type: 'llm:post_twitter_reply',
         memoryZone: 'twitter:post',
@@ -263,34 +307,226 @@ export class TwitterClient extends BaseClient {
           replyId: replies[0].reply.id,
           text: replies[0].reply.text,
           authorName: replies[0].reply.author.name,
-          myTweet: replies[0].myTweet,
-        }
+          repliedTweet: replies[0].myTweet,
+          repliedTweetAuthorName: replies[0].reply.author.name,
+        } as TwitterReplyOutput,
       });
     } catch (err: any) {
-      console.error("❌ エラー:", err.response?.data || err.message);
+      console.error('❌ エラー:', err.response?.data || err.message);
     }
   }
 
-  private async postTweet(content: string, mediaUrl: string | null, replyId: string | null) {
+  private async postTweet(
+    content: string,
+    mediaUrl: string | null,
+    replyId: string | null
+  ) {
     if (this.status !== 'running') return;
     try {
-      const endpoint = "https://api.twitterapi.io/twitter/create_tweet";
+      const endpoint = 'https://api.twitterapi.io/twitter/create_tweet';
       const data = {
         auth_session: this.auth_session,
         tweet_text: content,
         media_id: mediaUrl ?? null,
-        in_reply_to_tweet_id: replyId ?? null
+        in_reply_to_tweet_id: replyId ?? null,
+        proxy: this.proxy1,
       };
       const config = {
         headers: {
           'X-API-Key': this.apiKey,
-        }
+        },
       };
       const response = await axios.post(endpoint, data, config);
-      return response
+      return response;
     } catch (error: any) {
       console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
       return error;
+    }
+  }
+
+  /**
+   * 公式アカウントの1時間以内のツイートに自動でいいね・リツイート
+   */
+  private async autoLikeAndRetweetOfficialTweets() {
+    if (!this.officialAccountUserName) return;
+    try {
+      const endpoint = 'https://api.twitterapi.io/twitter/user/last_tweets';
+      const options = {
+        method: 'GET',
+        headers: { 'X-API-Key': this.apiKey },
+        params: { userName: this.officialAccountUserName },
+      };
+      const res = await axios.get(endpoint, options);
+      if (res.data.status !== 'success') return;
+      const tweets = res.data.data.tweets;
+      const now = Date.now();
+      for (const tweet of tweets) {
+        const createdAt = new Date(
+          tweet.created_at || tweet.createdAt
+        ).getTime();
+        if (now - createdAt > 60 * 60 * 1000) continue; // 1時間以内のみ
+        if (tweet.likeCount === 0) {
+          await this.likeTweet(tweet.id);
+        }
+        if (tweet.retweetCount === 0) {
+          await this.retweetTweet(tweet.id);
+        }
+        const replied = await this.hasRepliedToTweet(tweet.id);
+        if (replied) continue; // 自分が返信している場合はスキップ
+        this.eventBus.publish({
+          type: 'llm:post_twitter_reply',
+          memoryZone: 'twitter:post',
+          data: {
+            replyId: tweet.id,
+            text: tweet.text,
+            authorName: tweet.author.name,
+          } as TwitterReplyOutput,
+        });
+      }
+    } catch (e) {
+      console.error('公式アカウント自動いいね・リツイート失敗:', e);
+    }
+  }
+
+  /**
+   * 友達アカウントの1時間以内のツイートに自動でいいね・返信
+   */
+  private async autoLikeAndReplyFriendTweets() {
+    if (!this.friendAccountUserNames.length) return;
+    try {
+      const now = Date.now();
+      for (const friendUserName of this.friendAccountUserNames) {
+        const endpoint = 'https://api.twitterapi.io/twitter/user/last_tweets';
+        const options = {
+          method: 'GET',
+          headers: { 'X-API-Key': this.apiKey },
+          params: { userName: friendUserName },
+        };
+        const res = await axios.get(endpoint, options);
+        if (res.data.status !== 'success') continue;
+        const tweets = res.data.data.tweets;
+        // 1時間以内 & 自分が返信していないツイートを抽出
+        const notRepliedTweets = [];
+        for (const tweet of tweets) {
+          const createdAt = new Date(
+            tweet.created_at || tweet.createdAt
+          ).getTime();
+          if (now - createdAt > 60 * 60 * 1000) continue;
+          // 返信済み判定: 自分のリプライがあるか
+          const replied = await this.hasRepliedToTweet(tweet.id);
+          if (!replied && tweet.likeCount === 0) {
+            await this.likeTweet(tweet.id);
+            notRepliedTweets.push(tweet);
+          }
+        }
+        // ランダムに1件選んで返信
+        if (notRepliedTweets.length > 0) {
+          const randomTweet =
+            notRepliedTweets[
+              Math.floor(Math.random() * notRepliedTweets.length)
+            ];
+
+          let repliedTweetText = '';
+          let repliedTweetAuthorName = '';
+
+          // in_reply_to_user_idが自分のIDかどうかで分岐
+          if (randomTweet.in_reply_to_user_id) {
+            // 元ツイートIDを取得
+            const originalTweetId =
+              randomTweet.in_reply_to_status_id ||
+              randomTweet.in_reply_to_tweet_id;
+            if (originalTweetId) {
+              const original = await this.fetchTweetContent(originalTweetId);
+              repliedTweetText = original.text;
+              repliedTweetAuthorName = original.authorName;
+            }
+          }
+          this.eventBus.publish({
+            type: 'llm:post_twitter_reply',
+            memoryZone: 'twitter:post',
+            data: {
+              replyId: randomTweet.id,
+              text: randomTweet.text,
+              authorName: randomTweet.author.name,
+              repliedTweet: repliedTweetText,
+              repliedTweetAuthorName: repliedTweetAuthorName,
+            } as TwitterReplyOutput,
+          });
+        }
+      }
+    } catch (e) {
+      console.error('友達アカウント自動いいね・返信失敗:', e);
+    }
+  }
+
+  /**
+   * ツイートにいいね
+   */
+  private async likeTweet(tweetId: string) {
+    try {
+      const endpoint = 'https://api.twitterapi.io/twitter/like_tweet';
+      const data = {
+        auth_session: this.auth_session,
+        tweet_id: tweetId,
+        proxy: this.proxy2,
+      };
+      const config = { headers: { 'X-API-Key': this.apiKey } };
+      await axios.post(endpoint, data, config);
+      console.log(`ツイート ${tweetId} にいいねしました`);
+    } catch (e) {
+      console.error('いいね失敗:', e);
+    }
+  }
+
+  /**
+   * ツイートをリツイート
+   */
+  private async retweetTweet(tweetId: string) {
+    try {
+      const endpoint = 'https://api.twitterapi.io/twitter/retweet_tweet';
+      const data = {
+        auth_session: this.auth_session,
+        tweet_id: tweetId,
+        proxy: this.proxy3,
+      };
+      const config = { headers: { 'X-API-Key': this.apiKey } };
+      await axios.post(endpoint, data, config);
+      console.log(`ツイート ${tweetId} をリツイートしました`);
+    } catch (e) {
+      console.error('リツイート失敗:', e);
+    }
+  }
+
+  /**
+   * 既に自分が返信しているか判定
+   */
+  private async hasRepliedToTweet(tweetId: string): Promise<boolean> {
+    try {
+      const endpoint = 'https://api.twitterapi.io/twitter/tweet/replies';
+      const options = {
+        method: 'GET',
+        headers: { 'X-API-Key': this.apiKey },
+        params: { tweetId },
+      };
+      const res = await axios.get(endpoint, options);
+      if (res.data.status !== 'success') return false;
+      const replies = res.data.tweets;
+      return replies.some((reply: any) => reply.author?.id === this.myUserId);
+    } catch (e) {
+      console.error('返信判定失敗:', e);
+      return false;
+    }
+  }
+
+  /**
+   * ツイートに返信
+   */
+  private async replyToTweet(tweetId: string, text: string) {
+    try {
+      await this.postTweet(text, null, tweetId);
+      console.log(`ツイート ${tweetId} に返信しました`);
+    } catch (e) {
+      console.error('返信失敗:', e);
     }
   }
 
@@ -300,6 +536,11 @@ export class TwitterClient extends BaseClient {
       // await this.login2Step();
       if (!this.isTest) {
         setInterval(() => this.checkRepliesAndRespond(), 10 * 60 * 1000);
+        setInterval(
+          () => this.autoLikeAndRetweetOfficialTweets(),
+          60 * 60 * 1000
+        );
+        setInterval(() => this.autoLikeAndReplyFriendTweets(), 30 * 60 * 1000);
       }
       this.setupEventHandlers();
     } catch (error) {

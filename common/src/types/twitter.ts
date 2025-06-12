@@ -28,6 +28,14 @@ export interface TwitterClientOutput extends ServiceInput {
   mediaUrl?: string | null;
 }
 
+export interface TwitterReplyOutput extends ServiceInput {
+  replyId: string;
+  text: string;
+  authorName: string;
+  repliedTweet?: string | null;
+  repliedTweetAuthorName?: string | null;
+}
+
 export type TwitterEventType =
   | "twitter:status"
   | "twitter:start"
