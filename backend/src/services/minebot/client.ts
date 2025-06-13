@@ -116,7 +116,7 @@ export class MinebotClient extends BaseClient {
     };
     this.bot.environmentState = {
       senderName: '',
-      senderPosition: '',
+      senderPosition: null,
       weather: '',
       time: '',
       biome: '',

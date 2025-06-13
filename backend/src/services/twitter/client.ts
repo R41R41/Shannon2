@@ -384,7 +384,7 @@ export class TwitterClient extends BaseClient {
         });
       }
     } catch (e) {
-      console.error('公式アカウント自動いいね・リツイート失敗:', e);
+      console.error('公式アカウント自動いいね・リツイート・返信失敗:', e);
     }
   }
 
@@ -423,7 +423,7 @@ export class TwitterClient extends BaseClient {
         if (notRepliedTweets.length > 0) {
           const randomTweet =
             notRepliedTweets[
-              Math.floor(Math.random() * notRepliedTweets.length)
+            Math.floor(Math.random() * notRepliedTweets.length)
             ];
 
           let repliedTweetText = '';
@@ -541,6 +541,8 @@ export class TwitterClient extends BaseClient {
           60 * 60 * 1000
         );
         setInterval(() => this.autoLikeAndReplyFriendTweets(), 60 * 60 * 1000);
+        this.autoLikeAndRetweetOfficialTweets();
+        this.autoLikeAndReplyFriendTweets();
       }
       this.setupEventHandlers();
     } catch (error) {

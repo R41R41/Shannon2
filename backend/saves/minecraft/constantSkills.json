@@ -1,0 +1,14 @@
+[
+  {
+    "skillName": "auto-pick-up-item",
+    "status": true
+  },
+  {
+    "skillName": "auto-eat",
+    "status": true
+  },
+  {
+    "skillName": "auto-follow",
+    "status": false
+  }
+]

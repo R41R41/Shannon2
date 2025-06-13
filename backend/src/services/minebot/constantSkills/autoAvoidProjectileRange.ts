@@ -1,7 +1,7 @@
-import { CustomBot, ConstantSkill } from '../types.js';
 import pathfinder from 'mineflayer-pathfinder';
-const { goals } = pathfinder;
 import { Vec3 } from 'vec3';
+import { ConstantSkill, CustomBot } from '../types.js';
+const { goals } = pathfinder;
 
 class AutoAvoidProjectileRange extends ConstantSkill {
   constructor(bot: CustomBot) {
@@ -9,10 +9,12 @@ class AutoAvoidProjectileRange extends ConstantSkill {
     this.skillName = 'auto-avoid-projectile-range';
     this.description = '自動で投擲物の射撃範囲から逃げる';
     this.interval = 1000;
+    this.priority = 9;
     this.status = false;
+    this.containMovement = true;
   }
 
-  async run() {
+  async runImpl() {
     // 32ブロック以内に名前にbowがつくアイテムを持ったエンティティを検知
     const entities = Object.values(this.bot.entities).filter(
       (entity) =>

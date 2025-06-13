@@ -10,11 +10,13 @@ class AutoAttackHostile extends ConstantSkill {
     super(bot);
     this.skillName = 'auto-attack-hostile';
     this.description = '自動で敵モブを攻撃する';
+    this.priority = 5;
     this.interval = 1000;
     this.distance = 24;
     this.tool_name = null;
     this.attackEntity = new AttackEntity(this.bot);
     this.status = true;
+    this.containMovement = true;
   }
 
   async isOpaqueBlockBetween(start: Vec3, end: Vec3) {
@@ -75,7 +77,7 @@ class AutoAttackHostile extends ConstantSkill {
     return nearestEntities;
   }
 
-  async run() {
+  async runImpl() {
     const hostiles = await this.getNearestHostiles(this.distance);
     if (hostiles.length === 0) return;
     const hostile = hostiles[0];

@@ -9,11 +9,13 @@ class AutoSleep extends ConstantSkill {
     this.description = '夜になったら自動で眠り、朝になったら自動で起きます';
     this.interval = 1000;
     this.isLocked = false;
+    this.priority = 4;
     this.sleepInBed = new SleepInBed(this.bot);
     this.status = true;
+    this.containMovement = true;
   }
 
-  async run() {
+  async runImpl() {
     if (this.isLocked) {
       return;
     }

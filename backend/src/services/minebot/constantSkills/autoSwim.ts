@@ -1,6 +1,5 @@
-import { CustomBot } from '../types.js';
-import { ConstantSkill } from '../types.js';
 import { FollowEntity } from '../instantSkills/followEntity.js';
+import { ConstantSkill, CustomBot } from '../types.js';
 
 class AutoSwim extends ConstantSkill {
   private followEntity: FollowEntity;
@@ -13,9 +12,11 @@ class AutoSwim extends ConstantSkill {
     this.distance = 24;
     this.followEntity = new FollowEntity(this.bot);
     this.status = true;
+    this.priority = 8;
+    this.containMovement = true;
   }
 
-  async run() {
+  async runImpl() {
     try {
       if (this.bot.isInWater) {
         await this.followEntity.swim(null);

@@ -17,9 +17,10 @@ class AutoThrowEnderPearl extends ConstantSkill {
     this.holdItem = new HoldItem(this.bot);
     this.shootItemToEntityOrBlockOrCoordinate =
       new ShootItemToEntityOrBlockOrCoordinate(this.bot);
+    this.priority = 10;
   }
 
-  async run() {
+  async runImpl() {
     const pos = this.bot.entity.position;
     if (this.isLocked) return;
     if (this.bot.entity.velocity.y > -0.5) return;

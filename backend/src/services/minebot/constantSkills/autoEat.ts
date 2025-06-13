@@ -1,5 +1,5 @@
-import { ConstantSkill, CustomBot } from '../types.js';
 import EatFood from '../instantSkills/eatFood.js';
+import { ConstantSkill, CustomBot } from '../types.js';
 
 class AutoEat extends ConstantSkill {
   private eatFood: EatFood;
@@ -9,6 +9,7 @@ class AutoEat extends ConstantSkill {
     this.skillName = 'auto-eat';
     this.description = '自動で食べる';
     this.isLocked = false;
+    this.priority = 11;
     this.eatFood = new EatFood(this.bot);
     this.status = true;
     this.bannedFood = [
@@ -23,9 +24,8 @@ class AutoEat extends ConstantSkill {
     ];
   }
 
-  async run() {
+  async runImpl() {
     if (this.bot.food < 20) {
-      this.lock();
       console.log('food is not enough');
       const food = this.bot.registry.foodsByName;
       const bestChoices = this.bot.inventory
@@ -37,7 +37,6 @@ class AutoEat extends ConstantSkill {
         await this.eatFood.run(foodItem.name);
         await new Promise((resolve) => setTimeout(resolve, 3000));
       }
-      this.unlock();
     }
   }
 }

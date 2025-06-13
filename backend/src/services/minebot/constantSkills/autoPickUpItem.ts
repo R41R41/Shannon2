@@ -10,10 +10,12 @@ class AutoPickUpItem extends ConstantSkill {
     this.description = '自動でアイテムを拾う';
     this.status = true;
     this.interval = 0;
+    this.priority = 3;
     this.pickUpItemName = '';
+    this.containMovement = true;
   }
 
-  async run(entity: Entity) {
+  async runImpl(entity: Entity) {
     if (entity.displayName === 'Item') {
       let item = null;
       setTimeout(async () => {

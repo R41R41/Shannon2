@@ -8,12 +8,13 @@ class AutoEquipBestTool extends ConstantSkill {
     this.skillName = 'auto-equip-best-tool';
     this.description = '掘削対象ブロックに最適なツールを装備する';
     this.isLocked = false;
+    this.priority = 10;
     this.status = true;
     this.interval = 1000;
     this.holdItem = new HoldItem(bot);
   }
 
-  async run() {
+  async runImpl() {
     try {
       // 掘削対象ブロックを取得
       const targetBlock = this.bot.targetDigBlock;

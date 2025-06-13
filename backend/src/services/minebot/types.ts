@@ -77,7 +77,7 @@ export interface CustomBot extends Omit<Bot, 'on' | 'once' | 'emit'> {
   executingSkill: boolean;
   environmentState: {
     senderName: string;
-    senderPosition: string;
+    senderPosition: Vec3 | null;
     weather: string;
     time: string;
     biome: string;
@@ -114,9 +114,11 @@ export abstract class ConstantSkill extends Skill {
   isLocked: boolean;
   interval: number | null;
   args: any;
+  containMovement: boolean;
   constructor(bot: CustomBot) {
     super(bot);
     this.priority = 0;
+    this.containMovement = false;
     this.isLocked = false;
     this.interval = null;
     this.args = {};
@@ -129,7 +131,31 @@ export abstract class ConstantSkill extends Skill {
     if (!this.isLocked) return;
     this.isLocked = false;
   }
-  abstract run(...args: any[]): Promise<void>;
+
+  async run(...args: any[]): Promise<void> {
+    if (this.isLocked) return;
+
+    // containMovementがtrueの場合、優先度チェックとInstantSkill実行チェックを行う
+    if (this.containMovement) {
+      // InstantSkillが実行中の場合は実行しない
+      if (this.bot.executingSkill) return;
+
+      // 優先度の高いConstantSkillが実行中の場合は実行しない
+      const runningSkills = this.bot.constantSkills
+        .getSkills()
+        .filter((skill) => skill.isLocked && skill.priority > this.priority);
+      if (runningSkills.length > 0) return;
+    }
+
+    this.isLocked = true;
+    try {
+      await this.runImpl(...args);
+    } finally {
+      this.isLocked = false;
+    }
+  }
+
+  protected abstract runImpl(...args: any[]): Promise<void>;
 }
 
 export abstract class InstantSkill extends Skill {

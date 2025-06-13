@@ -337,16 +337,15 @@ export class TaskGraph {
     this.currentState.humanFeedbackPending = false;
     state.humanFeedbackPending = false;
     state.humanFeedback = this.currentState.humanFeedback;
-    const autoUpdateSelfStateAndEnvironmentState =
-      this.bot.constantSkills.getSkill(
-        'auto-update-self-state-and-environment-state'
-      );
-    if (autoUpdateSelfStateAndEnvironmentState) {
-      await autoUpdateSelfStateAndEnvironmentState.run();
+    const autoUpdateState =
+      this.bot.constantSkills.getSkill('auto-update-state');
+    if (autoUpdateState) {
+      await autoUpdateState.run();
     }
     state.selfState = JSON.stringify(this.bot.selfState);
     state.environmentState = JSON.stringify(this.bot.environmentState);
     console.log('selfState', state.selfState);
+    console.log('environmentState', state.environmentState);
 
     if (!this.mediumModel) {
       throw new Error('Medium model not initialized');

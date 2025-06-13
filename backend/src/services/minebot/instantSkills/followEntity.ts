@@ -36,10 +36,10 @@ export class FollowEntity extends InstantSkill {
         result: 'すでに追尾中です',
       };
     }
-    const autoPickUpItem = this.bot.constantSkills.getSkill('auto-pick-up-item');
-    if (autoPickUpItem) {
-      autoPickUpItem.status = false;
-    }
+    // const autoPickUpItem = this.bot.constantSkills.getSkill('auto-pick-up-item');
+    // if (autoPickUpItem) {
+    //   autoPickUpItem.status = false;
+    // }
     this.status = true;
     // 非同期で追尾ループを開始
     this.followTask = this.followLoop(entityName);

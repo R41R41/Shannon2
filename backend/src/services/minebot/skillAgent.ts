@@ -1,10 +1,12 @@
 import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import { MinebotSkillInput } from '@shannon/common';
-import express from 'express';
+import express, { Application } from 'express';
 import fs from 'fs';
+import { Server } from 'http';
 import fetch from 'node-fetch';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { Vec3 } from 'vec3';
 import { EventBus } from '../eventBus/eventBus.js';
 import { CentralAgent } from './llm/graph/centralAgent.js';
 import {
@@ -23,7 +25,8 @@ export class SkillAgent {
   private eventBus: EventBus;
   private centralAgent: CentralAgent;
   private recentMessages: BaseMessage[] = [];
-  public server: any = null;
+  private app: Application;
+  public server: Server | null = null;
   constructor(bot: CustomBot, eventBus: EventBus) {
     this.bot = bot;
     this.eventBus = eventBus;
@@ -31,54 +34,93 @@ export class SkillAgent {
     this.constantSkillDir = join(__dirname, 'constantSkills');
     this.centralAgent = CentralAgent.getInstance(this.bot);
     this.recentMessages = [];
+    this.app = express();
     this.setupExpressServer();
   }
 
   async setupExpressServer() {
-    this.server = express();
-    this.server.use(express.json());
-    this.server.post('/throw_item', (req: any, res: any) => {
+    this.app.use(express.json());
+    this.app.post('/throw_item', (req: any, res: any) => {
       const { itemName } = req.body;
       const throwItem = this.bot.instantSkills.getSkill('throw-item');
       if (!throwItem) {
-        return res.status(404).json({ success: false, result: 'throw-item not found' });
+        return res
+          .status(404)
+          .json({ success: false, result: 'throw-item not found' });
       }
       throwItem.run(itemName.split(':')[1]);
       res.status(200).json({ success: true, result: 'throw-item executed' });
     });
-    this.server.post('/constant_skill_switch', async (req: any, res: any) => {
+    this.app.post('/constant_skill_switch', async (req: any, res: any) => {
       try {
         const { skillName, status } = req.body;
         const constantSkill = this.bot.constantSkills.getSkill(skillName);
         if (!constantSkill) {
-          return res.status(404).json({ success: false, result: 'constant skill not found' });
+          return res
+            .status(404)
+            .json({ success: false, result: 'constant skill not found' });
         }
-        constantSkill.status = status === "true";
+        constantSkill.status = status === 'true';
+        // JSONファイルを更新
+        const jsonPath = join(__dirname, '../../../saves/minecraft/constantSkills.json');
+        let savedSkills: { skillName: string; status: boolean }[] = [];
+        try {
+          if (fs.existsSync(jsonPath)) {
+            const jsonContent = fs.readFileSync(jsonPath, 'utf-8');
+            savedSkills = JSON.parse(jsonContent);
+          }
+        } catch (e) {
+          console.error('constantSkills.json読み込みエラー:', e);
+        }
+        // 既存のスキルを更新または新規追加
+        const existingSkillIndex = savedSkills.findIndex(s => s.skillName === skillName);
+        if (existingSkillIndex !== -1) {
+          savedSkills[existingSkillIndex].status = constantSkill.status;
+        } else {
+          savedSkills.push({
+            skillName: skillName,
+            status: constantSkill.status
+          });
+        }
+        // JSONファイルに保存
+        fs.writeFileSync(jsonPath, JSON.stringify(savedSkills, null, 2));
         if (skillName === 'auto-follow') {
           if (constantSkill.status) {
-            const followEntity = this.bot.instantSkills.getSkill('follow-entity');
+            const followEntity =
+              this.bot.instantSkills.getSkill('follow-entity');
             if (followEntity) {
-              const players = Object.values(this.bot.entities).filter((entity) => entity.name === 'player' && entity.username !== this.bot.username);
-              const nearestPlayer = players.sort((a, b) => a.position.distanceTo(this.bot.entity.position) - b.position.distanceTo(this.bot.entity.position))[0];
+              const players = Object.values(this.bot.entities).filter(
+                (entity) =>
+                  entity.name === 'player' &&
+                  entity.username !== this.bot.username
+              );
+              const nearestPlayer = players.sort(
+                (a, b) =>
+                  a.position.distanceTo(this.bot.entity.position) -
+                  b.position.distanceTo(this.bot.entity.position)
+              )[0];
               if (nearestPlayer) {
                 followEntity.run(nearestPlayer.username);
               }
             }
           } else {
-            const followEntity = this.bot.instantSkills.getSkill('follow-entity');
+            const followEntity =
+              this.bot.instantSkills.getSkill('follow-entity');
             if (followEntity) {
               followEntity.status = false;
             }
           }
         }
-        res.status(200).json({ success: true, result: 'constant skill status updated' });
+        res
+          .status(200)
+          .json({ success: true, result: 'constant skill status updated' });
       } catch (error) {
         res.status(500).json({ success: false, result: `error: ${error}` });
       } finally {
         await this.sendConstantSkills();
       }
     });
-    this.server.listen(8082, () => {
+    this.server = this.app.listen(8082, () => {
       console.log('Express server listening on port 8082');
     });
   }
@@ -172,7 +214,24 @@ export class SkillAgent {
 
   async registerConstantSkills() {
     this.eventBus.log('minecraft', 'blue', 'registerConstantSkills');
+    // JSONファイルからstatusを読み込む
+    const jsonPath = join(__dirname, '../../../saves/minecraft/constantSkills.json');
+    let savedSkills: { skillName: string; status: boolean }[] = [];
+    try {
+      if (fs.existsSync(jsonPath)) {
+        const jsonContent = fs.readFileSync(jsonPath, 'utf-8');
+        savedSkills = JSON.parse(jsonContent);
+      }
+    } catch (e) {
+      console.error('constantSkills.json読み込みエラー:', e);
+    }
     this.bot.constantSkills.getSkills().forEach((skill) => {
+      // 保存されたstatusがあれば適用
+      const savedSkill = savedSkills.find((s) => s.skillName === skill.skillName);
+      console.log(savedSkill);
+      if (savedSkill) {
+        skill.status = savedSkill.status;
+      }
       if (skill.interval && skill.interval > 0) {
         this.eventBus.log(
           'minecraft',
@@ -313,15 +372,16 @@ export class SkillAgent {
 
   async sendConstantSkills() {
     try {
-      const skills = this.bot.constantSkills.getSkills().map(skill => ({
+      const skills = this.bot.constantSkills.getSkills().map((skill) => ({
         skillName: skill.skillName,
         description: skill.description,
-        status: skill.status
+        status: skill.status,
       }));
+      console.log(skills);
       await fetch('http://localhost:8081/constant_skills', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=UTF-8' },
-        body: JSON.stringify(skills)
+        body: JSON.stringify(skills),
       });
     } catch (e) {
       console.error('constantSkills送信エラー:', e);
@@ -466,7 +526,14 @@ export class SkillAgent {
       }
       const sender = this.bot.players[username]?.entity;
       this.bot.environmentState.senderName = username;
-      this.bot.environmentState.senderPosition = sender ? sender.position.toString() : 'spectator mode';
+      const position = sender.position;
+      this.bot.environmentState.senderPosition = sender
+        ? new Vec3(
+          Number(position.x.toFixed(1)),
+          Number(position.y.toFixed(1)),
+          Number(position.z.toFixed(1))
+        )
+        : null;
       const faceToEntity = this.bot.instantSkills.getSkill('face-to-entity');
       if (faceToEntity) {
         faceToEntity.run(username);
@@ -522,7 +589,6 @@ export class SkillAgent {
         return;
       }
       if (!autoEat.status) return;
-      if (autoEat.isLocked) return;
       try {
         await autoEat.run();
       } catch (error) {
@@ -537,7 +603,9 @@ export class SkillAgent {
       if (!block) return;
       const distance = this.bot.entity.position.distanceTo(block.position);
       if (distance > 4) return;
-      const autoFaceUpdatedBlock = this.bot.constantSkills.getSkill('auto-face-updated-block');
+      const autoFaceUpdatedBlock = this.bot.constantSkills.getSkill(
+        'auto-face-updated-block'
+      );
       if (!autoFaceUpdatedBlock) {
         return;
       }
@@ -556,7 +624,9 @@ export class SkillAgent {
     this.bot.on('entityMoved', async (entity) => {
       const distance = this.bot.entity.position.distanceTo(entity.position);
       if (distance > 4) return;
-      const autoFaceMovedEntity = this.bot.constantSkills.getSkill('auto-face-moved-entity');
+      const autoFaceMovedEntity = this.bot.constantSkills.getSkill(
+        'auto-face-moved-entity'
+      );
       if (!autoFaceMovedEntity) {
         return;
       }
@@ -621,7 +691,7 @@ export class SkillAgent {
       await this.health();
       await this.blockUpdate();
       await this.entityMove();
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       await this.setInterval();
       await this.registerPost();
       await this.centralAgent.initialize();
