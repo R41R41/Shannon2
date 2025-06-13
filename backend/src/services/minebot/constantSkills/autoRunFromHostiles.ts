@@ -7,8 +7,8 @@ class AutoRunFromHostiles extends ConstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'auto-run-from-hostiles';
-    this.description = '自動で敵モブから逃げる';
-    this.interval = 1000;
+    this.description = '瀕死の際に自動で敵モブから逃げる';
+    this.interval = 100;
     this.priority = 9;
     this.distance = 16;
     this.radius = 32;
@@ -25,7 +25,7 @@ class AutoRunFromHostiles extends ConstantSkill {
     );
     if (
       (!this.runIfFatal && hostiles.length > 0) ||
-      (this.runIfFatal && this.bot.health <= 2)
+      (this.runIfFatal && this.bot.health <= 5)
     ) {
       await this.bot.utils.runFromEntities(this.bot, hostiles, this.radius);
     }

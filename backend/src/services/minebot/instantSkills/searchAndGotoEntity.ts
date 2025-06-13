@@ -2,7 +2,7 @@ import minecraftData from 'minecraft-data';
 import pathfinder from 'mineflayer-pathfinder';
 import { Vec3 } from 'vec3';
 import { CustomBot, InstantSkill } from '../types.js';
-const { goals, Movements } = pathfinder;
+const { goals } = pathfinder;
 
 class SearchAndGotoEntity extends InstantSkill {
   private mcData: any;
@@ -47,9 +47,8 @@ class SearchAndGotoEntity extends InstantSkill {
       if (Entities.length === 0) {
         return {
           success: false,
-          result: `周囲64ブロック以内に${entityName}（ID: ${
-            entityId ?? '未指定'
-          }）は見つかりませんでした`,
+          result: `周囲64ブロック以内に${entityName}（ID: ${entityId ?? '未指定'
+            }）は見つかりませんでした`,
         };
       }
 
@@ -63,8 +62,8 @@ class SearchAndGotoEntity extends InstantSkill {
 
       // 到達を試行する関数
       const attemptToReachGoal = async (
-        remainingAttempts = 10,
-        timeout = 60000
+        remainingAttempts = 3,
+        timeout = 30000
       ) => {
         try {
           console.log(
@@ -91,11 +90,10 @@ class SearchAndGotoEntity extends InstantSkill {
           if (distance <= 3) {
             return {
               success: true,
-              result: `${entityName}は${targetPos.x} ${targetPos.y} ${
-                targetPos.z
-              }にあります。目標変更エラーが発生しましたが、十分に近づけました（距離: ${distance.toFixed(
-                2
-              )}ブロック）。`,
+              result: `${entityName}は${targetPos.x} ${targetPos.y} ${targetPos.z
+                }にあります。目標変更エラーが発生しましたが、十分に近づけました（距離: ${distance.toFixed(
+                  2
+                )}ブロック）。`,
             };
           }
 
@@ -124,11 +122,10 @@ class SearchAndGotoEntity extends InstantSkill {
           if (distance <= 3) {
             return {
               success: true,
-              result: `${entityName}は${targetPos.x} ${targetPos.y} ${
-                targetPos.z
-              }にあります。目標変更エラーが発生しましたが、十分に近づけました（距離: ${distance.toFixed(
-                2
-              )}ブロック）。`,
+              result: `${entityName}は${targetPos.x} ${targetPos.y} ${targetPos.z
+                }にあります。目標変更エラーが発生しましたが、十分に近づけました（距離: ${distance.toFixed(
+                  2
+                )}ブロック）。`,
             };
           }
 
@@ -151,7 +148,7 @@ class SearchAndGotoEntity extends InstantSkill {
       };
 
       // 到達試行を開始（上限10回）
-      return await attemptToReachGoal(10);
+      return await attemptToReachGoal(3);
     } catch (error: any) {
       return { success: false, result: `${error.message} in ${error.stack}` };
     }

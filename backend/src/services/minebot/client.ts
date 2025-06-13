@@ -40,6 +40,7 @@ export class MinebotClient extends BaseClient {
   public isDev: boolean = false;
   private static instance: MinebotClient;
   private skillAgent: SkillAgent | null = null;
+  private unsubscribeFunctions: (() => void)[] = [];
 
   constructor(serviceName: 'minebot', isDev: boolean) {
     const eventBus = getEventBus();
@@ -192,7 +193,12 @@ export class MinebotClient extends BaseClient {
   }
 
   private async setupEventBus() {
-    this.eventBus.subscribe('minebot:status', async (event) => {
+    // 既存のsubscribeを解除
+    this.unsubscribeFunctions.forEach(unsubscribe => unsubscribe());
+    this.unsubscribeFunctions = [];
+
+    // 新しいsubscribeを追加
+    const unsubscribe1 = this.eventBus.subscribe('minebot:status', async (event) => {
       const { serviceCommand } = event.data as ServiceInput;
       if (serviceCommand === 'start') {
         await this.start();
@@ -209,7 +215,9 @@ export class MinebotClient extends BaseClient {
         });
       }
     });
-    this.eventBus.subscribe('minebot:bot:status', async (event) => {
+    this.unsubscribeFunctions.push(unsubscribe1);
+
+    const unsubscribe2 = this.eventBus.subscribe('minebot:bot:status', async (event) => {
       if (this.status !== 'running') return;
       const { serviceCommand } = event.data as ServiceInput;
       if (serviceCommand === 'start') {
@@ -248,6 +256,7 @@ export class MinebotClient extends BaseClient {
         });
       }
     });
+    this.unsubscribeFunctions.push(unsubscribe2);
   }
 
   private async startBot(data: MinebotInput) {
@@ -278,6 +287,12 @@ export class MinebotClient extends BaseClient {
         this.skillAgent.server = null;
       }
       this.bot.quit();
+      if (this.skillAgent?.centralAgent.currentTaskGraph) {
+        this.skillAgent.centralAgent.currentTaskGraph.forceStop();
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        this.skillAgent.centralAgent.currentTaskGraph = null;
+      }
+      this.skillAgent = null;
       this.bot = null;
       this.eventBus.log('minecraft', 'green', 'Minecraft bot stopped');
       return true;

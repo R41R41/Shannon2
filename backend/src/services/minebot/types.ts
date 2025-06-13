@@ -173,10 +173,12 @@ export abstract class InstantSkill extends Skill {
 
   async run(...args: any[]): Promise<{ success: boolean; result: string }> {
     this.bot.executingSkill = true;
+    this.status = true;
     try {
       return await this.runImpl(...args);
     } finally {
       this.bot.executingSkill = false;
+      this.status = false;
     }
   }
 

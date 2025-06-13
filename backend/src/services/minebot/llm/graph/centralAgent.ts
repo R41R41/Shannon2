@@ -1,14 +1,14 @@
+import { BaseMessage, HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { ChatOpenAI } from '@langchain/openai';
 import { CustomBot } from '../../types.js';
 import { TaskGraph } from './taskGraph.js';
-import { ChatOpenAI } from '@langchain/openai';
-import { BaseMessage, AIMessage, HumanMessage, SystemMessage } from '@langchain/core/messages';
 
 type TaskAction = 'new_task' | 'feedback' | 'stop';
 
 export class CentralAgent {
   private static instance: CentralAgent;
   private bot: CustomBot;
-  private currentTaskGraph: TaskGraph | null = null;
+  public currentTaskGraph: TaskGraph | null = null;
   private openai: ChatOpenAI;
 
   private constructor(bot: CustomBot) {
@@ -17,7 +17,6 @@ export class CentralAgent {
       modelName: 'gpt-4o',
       apiKey: process.env.OPENAI_API_KEY!,
     });
-    this.currentTaskGraph = TaskGraph.getInstance(this.bot);
   }
 
   public static getInstance(bot: CustomBot) {
@@ -28,8 +27,11 @@ export class CentralAgent {
   }
 
   public async initialize() {
+    this.currentTaskGraph = TaskGraph.getInstance();
+    console.log('initialize');
     if (this.currentTaskGraph) {
-      await this.currentTaskGraph.initializeTools();
+      console.log('initializeTaskGraph');
+      await this.currentTaskGraph.initialize(this.bot);
     }
   }
 
@@ -62,7 +64,8 @@ export class CentralAgent {
       }
       // 新しいタスクを作成
       if (!this.currentTaskGraph) {
-        this.currentTaskGraph = TaskGraph.getInstance(this.bot);
+        this.currentTaskGraph = TaskGraph.getInstance();
+        await this.currentTaskGraph.initialize(this.bot);
       }
       try {
         this.currentTaskGraph.invoke({

@@ -10,5 +10,13 @@
   {
     "skillName": "auto-follow",
     "status": false
+  },
+  {
+    "skillName": "auto-attack-hostile",
+    "status": false
+  },
+  {
+    "skillName": "auto-face-moved-entity",
+    "status": true
   }
 ]

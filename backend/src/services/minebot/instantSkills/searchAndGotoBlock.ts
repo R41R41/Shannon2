@@ -1,9 +1,8 @@
-import { CustomBot, InstantSkill } from '../types.js';
-import pathfinder from 'mineflayer-pathfinder';
-const { goals, Movements } = pathfinder;
-import { Vec3 } from 'vec3';
 import minecraftData from 'minecraft-data';
-import { Bot } from 'mineflayer';
+import pathfinder from 'mineflayer-pathfinder';
+import { Vec3 } from 'vec3';
+import { CustomBot, InstantSkill } from '../types.js';
+const { goals } = pathfinder;
 
 class SearchAndGotoBlock extends InstantSkill {
   private mcData: any;
@@ -72,8 +71,8 @@ class SearchAndGotoBlock extends InstantSkill {
       const targetPos = new Vec3(block.position.x, block.position.y, block.position.z);
       // 到達を試行する関数
       const attemptToReachGoal = async (
-        remainingAttempts = 16,
-        timeout = 60000
+        remainingAttempts = 3,
+        timeout = 30000
       ) => {
         try {
           console.log(
@@ -136,7 +135,7 @@ class SearchAndGotoBlock extends InstantSkill {
       };
 
       // 到達試行を開始
-      return await attemptToReachGoal();
+      return await attemptToReachGoal(3);
     } catch (error: any) {
       return { success: false, result: `${error.message} in ${error.stack}` };
     }

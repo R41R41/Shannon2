@@ -10,6 +10,7 @@ class AutoEat extends ConstantSkill {
     this.description = '自動で食べる';
     this.isLocked = false;
     this.priority = 11;
+    this.interval = 1000;
     this.eatFood = new EatFood(this.bot);
     this.status = true;
     this.bannedFood = [

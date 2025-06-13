@@ -1,8 +1,8 @@
-import { FollowEntity } from '../instantSkills/followEntity.js';
 import { ConstantSkill, CustomBot } from '../types.js';
+import AutoFollow from './autoFollow.js';
 
 class AutoSwim extends ConstantSkill {
-  private followEntity: FollowEntity;
+  private autoFollow: AutoFollow;
   private distance: number;
   constructor(bot: CustomBot) {
     super(bot);
@@ -10,7 +10,7 @@ class AutoSwim extends ConstantSkill {
     this.description = '自動で泳ぐ';
     this.interval = 1000;
     this.distance = 24;
-    this.followEntity = new FollowEntity(this.bot);
+    this.autoFollow = new AutoFollow(this.bot);
     this.status = true;
     this.priority = 8;
     this.containMovement = true;
@@ -19,7 +19,7 @@ class AutoSwim extends ConstantSkill {
   async runImpl() {
     try {
       if (this.bot.isInWater) {
-        await this.followEntity.swim(null);
+        await this.autoFollow.swim(null);
       }
     } catch (error) {
       console.log('autoSwim error', error);

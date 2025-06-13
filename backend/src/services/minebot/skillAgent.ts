@@ -23,7 +23,7 @@ export class SkillAgent {
   private constantSkillDir: string;
   private bot: CustomBot;
   private eventBus: EventBus;
-  private centralAgent: CentralAgent;
+  public centralAgent: CentralAgent;
   private recentMessages: BaseMessage[] = [];
   private app: Application;
   public server: Server | null = null;
@@ -86,9 +86,9 @@ export class SkillAgent {
         fs.writeFileSync(jsonPath, JSON.stringify(savedSkills, null, 2));
         if (skillName === 'auto-follow') {
           if (constantSkill.status) {
-            const followEntity =
-              this.bot.instantSkills.getSkill('follow-entity');
-            if (followEntity) {
+            const autoFollow =
+              this.bot.constantSkills.getSkill('auto-follow');
+            if (autoFollow) {
               const players = Object.values(this.bot.entities).filter(
                 (entity) =>
                   entity.name === 'player' &&
@@ -100,14 +100,14 @@ export class SkillAgent {
                   b.position.distanceTo(this.bot.entity.position)
               )[0];
               if (nearestPlayer) {
-                followEntity.run(nearestPlayer.username);
+                autoFollow.run(nearestPlayer.username);
               }
             }
           } else {
-            const followEntity =
-              this.bot.instantSkills.getSkill('follow-entity');
-            if (followEntity) {
-              followEntity.status = false;
+            const autoFollow =
+              this.bot.constantSkills.getSkill('auto-follow');
+            if (autoFollow) {
+              autoFollow.status = false;
             }
           }
         }
@@ -228,7 +228,6 @@ export class SkillAgent {
     this.bot.constantSkills.getSkills().forEach((skill) => {
       // 保存されたstatusがあれば適用
       const savedSkill = savedSkills.find((s) => s.skillName === skill.skillName);
-      console.log(savedSkill);
       if (savedSkill) {
         skill.status = savedSkill.status;
       }
@@ -377,7 +376,6 @@ export class SkillAgent {
         description: skill.description,
         status: skill.status,
       }));
-      console.log(skills);
       await fetch('http://localhost:8081/constant_skills', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=UTF-8' },
@@ -693,8 +691,11 @@ export class SkillAgent {
       await this.entityMove();
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await this.setInterval();
+      console.log('setInterval done');
       await this.registerPost();
+      console.log('registerPost done');
       await this.centralAgent.initialize();
+      console.log('centralAgent initialize done');
       await this.sendConstantSkills();
       return { success: true, result: 'agent started' };
     } catch (error) {

@@ -172,32 +172,43 @@ export class TaskGraph {
   private mediumModel: ChatOpenAI | null = null;
   private smallModel: ChatOpenAI | null = null;
   private tools: any[] = [];
-  private toolNodeInstance: ToolNode;
+  private toolNodeInstance: ToolNode | null = null;
   private graph: any;
-  private eventBus: EventBus;
-  private prompt: Prompt;
+  private eventBus: EventBus | null = null;
+  private prompt: Prompt | null = null;
   private isRunning: boolean = true;
   private waitSeconds: number | null = null;
-  private bot: CustomBot;
+  private bot: CustomBot | null = null;
   public currentState: any = null;
-  constructor(bot: CustomBot) {
-    this.bot = bot;
-    this.eventBus = getEventBus();
-    this.initializeModel();
-    this.initializeTools();
-    this.toolNodeInstance = new ToolNode(this.tools);
-    this.graph = this.createGraph();
-    this.initializeEventBus();
-    this.prompt = new Prompt(this.tools);
+  constructor() {
+    this.bot = null;
+    this.eventBus = null;
+    this.toolNodeInstance = null;
+    this.prompt = null;
   }
 
-  public static getInstance(bot: CustomBot): TaskGraph {
+  public async initialize(bot: CustomBot) {
+    this.bot = bot;
+    this.eventBus = getEventBus();
+    this.prompt = new Prompt(this.tools);
+    await this.initializeModel();
+    await this.initializeTools();
+    await this.initializeEventBus();
+    this.toolNodeInstance = new ToolNode(this.tools);
+    this.graph = this.createGraph();
+    this.currentState = null;
+  }
+
+  public static getInstance(): TaskGraph {
     if (!TaskGraph.instance) {
-      TaskGraph.instance = new TaskGraph(bot);
+      TaskGraph.instance = new TaskGraph();
     }
     return TaskGraph.instance;
   }
   private async initializeEventBus() {
+    if (!this.eventBus) {
+      throw new Error('EventBus not initialized');
+    }
     this.eventBus.subscribe('task:stop', (event) => {
       console.log(`タスクを停止します`);
       this.isRunning = false;
@@ -239,7 +250,11 @@ export class TaskGraph {
     this.smallModel = SmallModel;
   }
   public async initializeTools() {
+    if (!this.bot) {
+      throw new Error('Bot not initialized');
+    }
     // instantSkillsから全スキルを取得
+    this.tools = [];
     const skills = this.bot.instantSkills.getSkills();
     for (const skill of skills) {
       if (!skill.isToolForLLM) continue;
@@ -294,6 +309,9 @@ export class TaskGraph {
 
   private toolAgentNode = async (state: typeof this.TaskState.State) => {
     console.log('toolAgentNode');
+    if (!this.prompt) {
+      throw new Error('Prompt not initialized');
+    }
     const messages = this.prompt.getMessages(state, 'use_tool', false);
     if (!this.mediumModel) {
       throw new Error('Medium model not initialized');
@@ -332,6 +350,9 @@ export class TaskGraph {
   };
 
   private planningNode = async (state: typeof this.TaskState.State) => {
+    if (!this.bot) {
+      throw new Error('Bot not initialized');
+    }
     // humanFeedbackPendingをリセット
     const hadFeedback = state.humanFeedbackPending;
     this.currentState.humanFeedbackPending = false;
@@ -385,6 +406,9 @@ export class TaskGraph {
         name: 'Planning',
       }
     );
+    if (!this.prompt) {
+      throw new Error('Prompt not initialized');
+    }
     const messages = this.prompt.getMessages(state, 'planning', true);
 
     try {
@@ -458,6 +482,9 @@ export class TaskGraph {
   });
 
   private createGraph() {
+    if (!this.toolNodeInstance) {
+      throw new Error('ToolNode not initialized');
+    }
     const workflow = new StateGraph(this.TaskState)
       .addNode('planning', this.planningNode)
       .addNode('tool_agent', this.toolAgentNode)
@@ -571,9 +598,8 @@ export class TaskGraph {
         ...state,
         taskTree: {
           status: 'error',
-          goal: `エラーにより強制終了: ${
-            error instanceof Error ? error.message : '不明なエラー'
-          }`,
+          goal: `エラーにより強制終了: ${error instanceof Error ? error.message : '不明なエラー'
+            }`,
           strategy: '',
           subTasks: null,
         },
