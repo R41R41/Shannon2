@@ -1,7 +1,7 @@
-import { InstantSkill, CustomBot } from '../types.js';
 import pathfinder from 'mineflayer-pathfinder';
-const { goals } = pathfinder;
 import { Vec3 } from 'vec3';
+import { CustomBot, InstantSkill } from '../types.js';
+const { goals } = pathfinder;
 
 class SleepInBed extends InstantSkill {
   constructor(bot: CustomBot) {
@@ -14,7 +14,14 @@ class SleepInBed extends InstantSkill {
       {
         name: 'wakeUp',
         type: 'boolean',
-        description: 'trueの場合、ベッドから起きます',
+        description: 'trueの場合、ベッドから起きます。',
+        default: false,
+      },
+      {
+        name: 'isTakeBed',
+        type: 'boolean',
+        description:
+          '既に寝ている村人がいた場合にベッドを奪うかどうか。デフォルトはfalse。',
         default: false,
       },
     ];
@@ -76,7 +83,7 @@ class SleepInBed extends InstantSkill {
     return null;
   }
 
-  async runImpl(wakeUp?: boolean) {
+  async runImpl(wakeUp?: boolean, isTakeBed?: boolean) {
     try {
       // ベッドから起きる場合
       if (wakeUp) {
@@ -88,7 +95,6 @@ class SleepInBed extends InstantSkill {
         }
       }
 
-      // ベッドで寝る場合（以降は既存のコード）
       // まず近くにベッドがあるか探す
       const bed = this.bot.findBlock({
         matching: this.bot.isABed,
@@ -106,6 +112,45 @@ class SleepInBed extends InstantSkill {
               2
             )
           );
+
+          // ベッドで寝ている村人を探す
+          const villagers = Object.values(this.bot.entities).filter(
+            entity => entity.name === 'villager'
+          );
+
+          // ベッドの近くにいる村人を探す
+          const sleepingVillagers = villagers.filter(
+            villager => {
+              const distance = villager.position.distanceTo(bed.position);
+              return distance < 2; // ベッドの2ブロック以内にいる村人
+            }
+          );
+
+          sleepingVillagers.sort((a, b) => {
+            const distanceA = a.position.distanceTo(bed.position);
+            const distanceB = b.position.distanceTo(bed.position);
+            return distanceA - distanceB;
+          });
+
+          const sleepingVillager = sleepingVillagers[0];
+
+          console.log('sleepingVillagerMetadata', sleepingVillager?.metadata);
+          console.log('sleepingVillagerMetadataKeys', Object.keys(sleepingVillager?.metadata || {}));
+          console.log('sleepingVillagerMetadataValues', Object.values(sleepingVillager?.metadata || {}));
+          console.log('sleepingVillagerFull', sleepingVillager);
+
+          if (sleepingVillager && isTakeBed) {
+            // 村人を攻撃して起こす
+            // await this.bot.attack(sleepingVillager);
+            // 村人が起きるまで少し待つ
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } else if (sleepingVillager && !isTakeBed) {
+            return {
+              success: false,
+              result: '既に村人が寝ているベッドです。isTakeBedをtrueに設定すると村人を起こしてベッドを奪うことができます。'
+            };
+          }
+
           await this.bot.sleep(bed);
           return { success: true, result: '既存のベッドで眠りました' };
         } catch (error: any) {

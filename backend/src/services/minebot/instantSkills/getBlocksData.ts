@@ -1,7 +1,7 @@
-import { InstantSkill, CustomBot } from '../types.js';
 import fs from 'fs';
 import path from 'path';
 import { Vec3 } from 'vec3';
+import { CustomBot, InstantSkill } from '../types.js';
 
 class GetBlocksData extends InstantSkill {
   constructor(bot: CustomBot) {
@@ -36,13 +36,22 @@ class GetBlocksData extends InstantSkill {
         required: false,
         default: null,
       },
+      {
+        name: 'isPartialMatch',
+        description:
+          'ブロックの名前を部分一致で検索するかどうか。デフォルトはfalse。色などの種類を含めて検索したい場合はtrueにしてください。',
+        type: 'boolean',
+        required: false,
+        default: false,
+      },
     ];
   }
 
   async runImpl(
     startPosition: Vec3 | null = null,
     endPosition: Vec3 | null = null,
-    blockName: string | null = null
+    blockName: string | null = null,
+    isPartialMatch: boolean = false
   ) {
     // ブロックデータの収集開始
     try {
@@ -84,7 +93,10 @@ class GetBlocksData extends InstantSkill {
 
             if (block && block.name !== 'air') {
               // blockNameが指定されている場合、一致するブロックのみを追加
-              if (blockName && block.name !== blockName) {
+              if (blockName && !isPartialMatch && block.name !== blockName) {
+                continue;
+              }
+              if (blockName && isPartialMatch && !block.name.includes(blockName)) {
                 continue;
               }
               // ブロックの詳細プロパティを取得

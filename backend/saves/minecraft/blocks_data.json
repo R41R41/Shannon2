@@ -1,14 +1,44 @@
 [
   {
-    "name": "cake",
+    "name": "chest",
     "position": {
-      "x": 1,
+      "x": -228,
       "y": 71,
-      "z": -1
+      "z": 240
     },
-    "stateId": 6045,
+    "stateId": 3010,
     "properties": {
-      "bites": "2"
+      "waterlogged": false,
+      "type": "single",
+      "facing": "north"
+    }
+  },
+  {
+    "name": "chest",
+    "position": {
+      "x": -225,
+      "y": 68,
+      "z": 251
+    },
+    "stateId": 3016,
+    "properties": {
+      "waterlogged": false,
+      "type": "single",
+      "facing": "south"
+    }
+  },
+  {
+    "name": "chest",
+    "position": {
+      "x": -174,
+      "y": 70,
+      "z": 254
+    },
+    "stateId": 3022,
+    "properties": {
+      "waterlogged": false,
+      "type": "single",
+      "facing": "west"
     }
   }
 ]

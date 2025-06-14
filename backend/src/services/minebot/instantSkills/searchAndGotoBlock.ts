@@ -135,7 +135,7 @@ class SearchAndGotoBlock extends InstantSkill {
       };
 
       // 到達試行を開始
-      return await attemptToReachGoal(3);
+      return await attemptToReachGoal();
     } catch (error: any) {
       return { success: false, result: `${error.message} in ${error.stack}` };
     }
