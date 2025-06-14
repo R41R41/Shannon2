@@ -1,58 +1,9 @@
 {
   "type": "chest",
   "position": {
-    "x": -228,
-    "y": 71,
-    "z": 240
+    "x": -290,
+    "y": 68,
+    "z": 253
   },
-  "items": [
-    {
-      "name": "obsidian",
-      "count": 1
-    },
-    {
-      "name": "iron_pickaxe",
-      "count": 1
-    },
-    {
-      "name": "gold_ingot",
-      "count": 1
-    },
-    {
-      "name": "iron_helmet",
-      "count": 1
-    },
-    {
-      "name": "bread",
-      "count": 2
-    },
-    {
-      "name": "obsidian",
-      "count": 4
-    },
-    {
-      "name": "bread",
-      "count": 1
-    },
-    {
-      "name": "gold_ingot",
-      "count": 1
-    },
-    {
-      "name": "bread",
-      "count": 1
-    },
-    {
-      "name": "obsidian",
-      "count": 1
-    },
-    {
-      "name": "iron_helmet",
-      "count": 1
-    },
-    {
-      "name": "iron_sword",
-      "count": 1
-    }
-  ]
+  "items": []
 }

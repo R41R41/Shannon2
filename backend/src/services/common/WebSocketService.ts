@@ -21,49 +21,18 @@ export abstract class WebSocketServiceBase {
     this.serviceName = config.serviceName;
     if (config.server) {
       this.wss = new WebSocketServer({ server: config.server });
+      console.log(`WebSocketServer created with existing server for service ${this.serviceName}`);
     } else if (config.port) {
-      this.initializeWebSocketServer(config.port);
+      this.wss = new WebSocketServer({ port: config.port });
+      console.log(`WebSocketServer created on port ${config.port} for service ${this.serviceName}`);
     } else {
       throw new Error('Invalid configuration');
     }
-    console.log(
-      `WebSocketServer created on port ${config.port} for service ${config.serviceName}`
-    );
-  }
 
-  private initializeWebSocketServer(port: number) {
-    try {
-      // ポートを使用しているプロセスを確認
-      const { stdout } = require('child_process').execSync(`lsof -i :${port} -t`);
-      if (stdout.toString().trim()) {
-        console.log(`Port ${port} is in use. Attempting to kill the process...`);
-        // プロセスを終了
-        require('child_process').execSync(`kill -9 ${stdout.toString().trim()}`);
-
-        // ポートが解放されるまで待機
-        let retries = 5;
-        while (retries > 0) {
-          try {
-            require('child_process').execSync(`lsof -i :${port} -t`);
-            // まだ使用中の場合は少し待って再試行
-            require('child_process').execSync('sleep 1');
-            retries--;
-          } catch (error) {
-            // ポートが解放された
-            break;
-          }
-        }
-        if (retries === 0) {
-          throw new Error(`Port ${port} is still in use after multiple attempts`);
-        }
-      }
-    } catch (error) {
-      // エラーが発生した場合（プロセスが見つからない場合など）は無視
-      console.log(`No process found using port ${port}`);
-    }
-
-    // 新しいWebSocketServerを起動
-    this.wss = new WebSocketServer({ port });
+    // エラーハンドリングを追加
+    this.wss.on('error', (error) => {
+      console.error(`WebSocket server error for ${this.serviceName}:`, error);
+    });
   }
 
   public start() {

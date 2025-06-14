@@ -524,14 +524,16 @@ export class SkillAgent {
       }
       const sender = this.bot.players[username]?.entity;
       this.bot.environmentState.senderName = username;
-      const position = sender.position;
-      this.bot.environmentState.senderPosition = sender
-        ? new Vec3(
+      const position = sender ? sender.position : null;
+      if (position) {
+        this.bot.environmentState.senderPosition = new Vec3(
           Number(position.x.toFixed(1)),
           Number(position.y.toFixed(1)),
           Number(position.z.toFixed(1))
-        )
-        : null;
+        );
+      } else {
+        this.bot.environmentState.senderPosition = null;
+      }
       const faceToEntity = this.bot.instantSkills.getSkill('face-to-entity');
       if (faceToEntity) {
         faceToEntity.run(username);
@@ -641,10 +643,21 @@ export class SkillAgent {
   async bossbar() {
     console.log(`\x1b[32m✓ bossbar\x1b[0m`);
     this.bot.on('bossBarCreated', async (bossbar) => {
-      this.bot.environmentState.bossbar = JSON.stringify(bossbar);
+      this.bot.environmentState.bossbar = JSON.stringify({
+        title: bossbar.title.translate,
+        health: Math.round(bossbar.health * 100),
+        color: bossbar.color,
+        isDragonBar: Number(bossbar.isDragonBar) === 2
+      });
     });
     this.bot.on('bossBarUpdated', async (bossbar) => {
-      this.bot.environmentState.bossbar = JSON.stringify(bossbar);
+      const bossbarInfo = {
+        title: bossbar.title.translate,
+        health: Math.round(bossbar.health * 100),
+        color: bossbar.color,
+        isDragonBar: Number(bossbar.isDragonBar) === 2
+      };
+      this.bot.environmentState.bossbar = JSON.stringify(bossbarInfo);
     });
     this.bot.on('bossBarDeleted', async (bossbar) => {
       this.bot.environmentState.bossbar = null;
@@ -689,6 +702,7 @@ export class SkillAgent {
       await this.health();
       await this.blockUpdate();
       await this.entityMove();
+      await this.bossbar();
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await this.setInterval();
       console.log('setInterval done');

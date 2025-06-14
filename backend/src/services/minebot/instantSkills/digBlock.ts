@@ -49,8 +49,11 @@ class DigBlock extends InstantSkill {
                     await this.holdItem.run(bestTool.name);
                 }
 
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('掘るブロックの取得に失敗しました')), 30000);
+                });
                 const digPromise = this.bot.dig(block);
-                await digPromise;
+                await Promise.race([digPromise, timeoutPromise]);
                 return { success: true, result: `座標${coordinate.x} ${coordinate.y} ${coordinate.z}のブロックを掘りました。` };
             } else {
                 return { success: false, result: `座標が指定されていません。` };

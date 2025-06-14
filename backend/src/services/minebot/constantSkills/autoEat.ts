@@ -27,7 +27,6 @@ class AutoEat extends ConstantSkill {
 
   async runImpl() {
     if (this.bot.food < 20) {
-      console.log('food is not enough');
       const food = this.bot.registry.foodsByName;
       const bestChoices = this.bot.inventory
         .items()

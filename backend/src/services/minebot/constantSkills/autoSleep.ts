@@ -9,14 +9,15 @@ class AutoSleep extends ConstantSkill {
     this.description = '夜になったら自動で眠り、朝になったら自動で起きます';
     this.interval = 1000;
     this.isLocked = false;
-    this.priority = 4;
+    this.priority = 10;
     this.sleepInBed = new SleepInBed(this.bot);
     this.status = true;
     this.containMovement = true;
   }
 
   async runImpl() {
-    if (this.isLocked) {
+    // ネザーやエンドにいる場合は何もしない
+    if (this.bot.game.dimension === 'the_nether' || this.bot.game.dimension === 'the_end') {
       return;
     }
 
@@ -30,14 +31,12 @@ class AutoSleep extends ConstantSkill {
 
     // 既に寝ている場合で朝になったら起きる
     if (this.bot.isSleeping && isMorningTime) {
-      this.lock();
       try {
-        const result = await this.sleepInBed.run(true);
+        const result = await this.sleepInBed.run(true, false);
         console.log(result);
       } catch (error: any) {
         console.error(error);
       }
-      this.unlock();
       return;
     }
 
@@ -48,14 +47,12 @@ class AutoSleep extends ConstantSkill {
 
     // 夜になったら寝る
     if (isNightTime) {
-      this.lock();
       try {
-        const result = await this.sleepInBed.run();
+        const result = await this.sleepInBed.run(false, true);
         console.log(result);
       } catch (error: any) {
         console.error(error);
       }
-      this.unlock();
     }
   }
 }

@@ -96,7 +96,7 @@ class SleepInBed extends InstantSkill {
       }
 
       // まず近くにベッドがあるか探す
-      const bed = this.bot.findBlock({
+      let bed = this.bot.findBlock({
         matching: this.bot.isABed,
         maxDistance: 16, // 近い範囲で探索
       });
@@ -115,35 +115,24 @@ class SleepInBed extends InstantSkill {
 
           // ベッドで寝ている村人を探す
           const villagers = Object.values(this.bot.entities).filter(
-            entity => entity.name === 'villager'
+            entity => entity.name === 'villager' && entity.position.distanceTo(bed!.position) < 2
           );
 
-          // ベッドの近くにいる村人を探す
-          const sleepingVillagers = villagers.filter(
-            villager => {
-              const distance = villager.position.distanceTo(bed.position);
-              return distance < 2; // ベッドの2ブロック以内にいる村人
-            }
-          );
-
-          sleepingVillagers.sort((a, b) => {
-            const distanceA = a.position.distanceTo(bed.position);
-            const distanceB = b.position.distanceTo(bed.position);
-            return distanceA - distanceB;
-          });
-
-          const sleepingVillager = sleepingVillagers[0];
-
-          console.log('sleepingVillagerMetadata', sleepingVillager?.metadata);
-          console.log('sleepingVillagerMetadataKeys', Object.keys(sleepingVillager?.metadata || {}));
-          console.log('sleepingVillagerMetadataValues', Object.values(sleepingVillager?.metadata || {}));
-          console.log('sleepingVillagerFull', sleepingVillager);
+          const sleepingVillager = villagers.find(entity => Number(entity.metadata[6]) === 2);
 
           if (sleepingVillager && isTakeBed) {
             // 村人を攻撃して起こす
-            // await this.bot.attack(sleepingVillager);
+            try {
+              await this.bot.activateBlock(bed);
+            } catch (error: any) {
+              console.log(error);
+            }
             // 村人が起きるまで少し待つ
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 500));
+            bed = this.bot.findBlock({
+              matching: this.bot.isABed,
+              maxDistance: 8,
+            });
           } else if (sleepingVillager && !isTakeBed) {
             return {
               success: false,
@@ -151,7 +140,7 @@ class SleepInBed extends InstantSkill {
             };
           }
 
-          await this.bot.sleep(bed);
+          await this.bot.sleep(bed!);
           return { success: true, result: '既存のベッドで眠りました' };
         } catch (error: any) {
           return {

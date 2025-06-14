@@ -5,6 +5,7 @@ import { GetHoldingItem } from './getHoldingItem.js';
 import { getNearestEntitiesByName } from './getNearestEntitiesByName.js';
 import { getParams } from './getParams.js';
 import { GetPathToEntity } from './getPathToEntity.js';
+import { getPlayerByName } from './getPlayerByName.js';
 import { GoalBlock } from './goalBlock.js';
 import { GoalDistanceEntity } from './goalDistanceEntity.js';
 import { GoalFollow } from './goalFollow.js';
@@ -28,6 +29,7 @@ export class Utils {
   getPathToEntity: GetPathToEntity;
   goalBlock: GoalBlock;
   getHoldingItem: GetHoldingItem;
+  getPlayerByName: typeof getPlayerByName;
   constructor(bot: CustomBot) {
     this.bot = bot;
     this.goalFollow = new GoalFollow(bot);
@@ -43,5 +45,6 @@ export class Utils {
     this.getPathToEntity = new GetPathToEntity(bot);
     this.goalBlock = new GoalBlock(bot);
     this.getHoldingItem = new GetHoldingItem(bot);
+    this.getPlayerByName = getPlayerByName;
   }
 }

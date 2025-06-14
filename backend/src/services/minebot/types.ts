@@ -1,4 +1,4 @@
-import { Bot, BotEvents } from 'mineflayer';
+import { Bot, BotEvents, Dimension } from 'mineflayer';
 import { CommandManager } from 'mineflayer-cmd';
 import { goals } from 'mineflayer-pathfinder';
 import { Block } from 'prismarine-block';
@@ -81,7 +81,7 @@ export interface CustomBot extends Omit<Bot, 'on' | 'once' | 'emit'> {
     weather: string;
     time: string;
     biome: string;
-    dimension: string;
+    dimension: Dimension | null;
     bossbar: string | null;
   };
   selfState: {
@@ -143,7 +143,7 @@ export abstract class ConstantSkill extends Skill {
       // 優先度の高いConstantSkillが実行中の場合は実行しない
       const runningSkills = this.bot.constantSkills
         .getSkills()
-        .filter((skill) => skill.isLocked && skill.priority > this.priority);
+        .filter((skill) => skill.containMovement && skill.isLocked && skill.priority > this.priority);
       if (runningSkills.length > 0) return;
     }
 

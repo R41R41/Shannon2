@@ -1,44 +1,2338 @@
 [
   {
-    "name": "chest",
+    "name": "iron_bars",
     "position": {
-      "x": -228,
-      "y": 71,
-      "z": 240
+      "x": -36,
+      "y": 79,
+      "z": 22
     },
-    "stateId": 3010,
+    "stateId": 6985,
     "properties": {
+      "west": false,
       "waterlogged": false,
-      "type": "single",
-      "facing": "north"
+      "south": true,
+      "north": false,
+      "east": true
     }
   },
   {
-    "name": "chest",
+    "name": "iron_bars",
     "position": {
-      "x": -225,
-      "y": 68,
-      "z": 251
+      "x": -36,
+      "y": 79,
+      "z": 23
     },
-    "stateId": 3016,
+    "stateId": 6993,
     "properties": {
+      "west": false,
       "waterlogged": false,
-      "type": "single",
-      "facing": "south"
+      "south": true,
+      "north": true,
+      "east": false
     }
   },
   {
-    "name": "chest",
+    "name": "iron_bars",
     "position": {
-      "x": -174,
-      "y": 70,
-      "z": 254
+      "x": -36,
+      "y": 79,
+      "z": 24
     },
-    "stateId": 3022,
+    "stateId": 6993,
     "properties": {
+      "west": false,
       "waterlogged": false,
-      "type": "single",
-      "facing": "west"
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 79,
+      "z": 25
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 79,
+      "z": 26
+    },
+    "stateId": 6981,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 80,
+      "z": 22
+    },
+    "stateId": 6985,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 80,
+      "z": 23
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 80,
+      "z": 24
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 80,
+      "z": 25
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 80,
+      "z": 26
+    },
+    "stateId": 6981,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 81,
+      "z": 22
+    },
+    "stateId": 6985,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 81,
+      "z": 23
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 81,
+      "z": 24
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 81,
+      "z": 25
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 81,
+      "z": 26
+    },
+    "stateId": 6981,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 82,
+      "z": 22
+    },
+    "stateId": 6985,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 82,
+      "z": 23
+    },
+    "stateId": 6977,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 82,
+      "z": 24
+    },
+    "stateId": 6977,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 82,
+      "z": 25
+    },
+    "stateId": 6977,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -36,
+      "y": 82,
+      "z": 26
+    },
+    "stateId": 6981,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -35,
+      "y": 79,
+      "z": 22
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -35,
+      "y": 79,
+      "z": 26
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -35,
+      "y": 80,
+      "z": 22
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -35,
+      "y": 80,
+      "z": 26
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -35,
+      "y": 81,
+      "z": 22
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -35,
+      "y": 81,
+      "z": 26
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -35,
+      "y": 82,
+      "z": 22
+    },
+    "stateId": 6984,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -35,
+      "y": 82,
+      "z": 23
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -35,
+      "y": 82,
+      "z": 24
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -35,
+      "y": 82,
+      "z": 25
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -35,
+      "y": 82,
+      "z": 26
+    },
+    "stateId": 6980,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -34,
+      "y": 79,
+      "z": 22
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -34,
+      "y": 79,
+      "z": 26
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -34,
+      "y": 80,
+      "z": 22
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -34,
+      "y": 80,
+      "z": 26
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -34,
+      "y": 81,
+      "z": 22
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -34,
+      "y": 81,
+      "z": 26
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -34,
+      "y": 82,
+      "z": 22
+    },
+    "stateId": 6984,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -34,
+      "y": 82,
+      "z": 23
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -34,
+      "y": 82,
+      "z": 24
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -34,
+      "y": 82,
+      "z": 25
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -34,
+      "y": 82,
+      "z": 26
+    },
+    "stateId": 6980,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -33,
+      "y": 79,
+      "z": 22
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -33,
+      "y": 79,
+      "z": 26
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -33,
+      "y": 80,
+      "z": 22
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -33,
+      "y": 80,
+      "z": 26
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -33,
+      "y": 81,
+      "z": 22
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -33,
+      "y": 81,
+      "z": 26
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -33,
+      "y": 82,
+      "z": 22
+    },
+    "stateId": 6984,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -33,
+      "y": 82,
+      "z": 23
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -33,
+      "y": 82,
+      "z": 24
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -33,
+      "y": 82,
+      "z": 25
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -33,
+      "y": 82,
+      "z": 26
+    },
+    "stateId": 6980,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 79,
+      "z": 22
+    },
+    "stateId": 7000,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 79,
+      "z": 23
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 79,
+      "z": 24
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 79,
+      "z": 25
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 79,
+      "z": 26
+    },
+    "stateId": 6996,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 80,
+      "z": 22
+    },
+    "stateId": 7000,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 80,
+      "z": 23
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 80,
+      "z": 24
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 80,
+      "z": 25
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 80,
+      "z": 26
+    },
+    "stateId": 6996,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 81,
+      "z": 22
+    },
+    "stateId": 7000,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 81,
+      "z": 23
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 81,
+      "z": 24
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 81,
+      "z": 25
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 81,
+      "z": 26
+    },
+    "stateId": 6996,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 82,
+      "z": 22
+    },
+    "stateId": 7000,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 82,
+      "z": 23
+    },
+    "stateId": 6992,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 82,
+      "z": 24
+    },
+    "stateId": 6992,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 82,
+      "z": 25
+    },
+    "stateId": 6992,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -32,
+      "y": 82,
+      "z": 26
+    },
+    "stateId": 6996,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 82,
+      "z": 37
+    },
+    "stateId": 6985,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 82,
+      "z": 38
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 82,
+      "z": 39
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 82,
+      "z": 40
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 82,
+      "z": 41
+    },
+    "stateId": 6981,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 83,
+      "z": 37
+    },
+    "stateId": 6985,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 83,
+      "z": 38
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 83,
+      "z": 39
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 83,
+      "z": 40
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 83,
+      "z": 41
+    },
+    "stateId": 6981,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 84,
+      "z": 37
+    },
+    "stateId": 6985,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 84,
+      "z": 38
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 84,
+      "z": 39
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 84,
+      "z": 40
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 84,
+      "z": 41
+    },
+    "stateId": 6981,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 85,
+      "z": 37
+    },
+    "stateId": 6985,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 85,
+      "z": 38
+    },
+    "stateId": 6977,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 85,
+      "z": 39
+    },
+    "stateId": 6977,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 85,
+      "z": 40
+    },
+    "stateId": 6977,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -15,
+      "y": 85,
+      "z": 41
+    },
+    "stateId": 6981,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -14,
+      "y": 82,
+      "z": 37
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -14,
+      "y": 82,
+      "z": 41
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -14,
+      "y": 83,
+      "z": 37
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -14,
+      "y": 83,
+      "z": 41
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -14,
+      "y": 84,
+      "z": 37
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -14,
+      "y": 84,
+      "z": 41
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -14,
+      "y": 85,
+      "z": 37
+    },
+    "stateId": 6984,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -14,
+      "y": 85,
+      "z": 38
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -14,
+      "y": 85,
+      "z": 39
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -14,
+      "y": 85,
+      "z": 40
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -14,
+      "y": 85,
+      "z": 41
+    },
+    "stateId": 6980,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -13,
+      "y": 82,
+      "z": 37
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -13,
+      "y": 82,
+      "z": 41
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -13,
+      "y": 83,
+      "z": 37
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -13,
+      "y": 83,
+      "z": 41
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -13,
+      "y": 84,
+      "z": 37
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -13,
+      "y": 84,
+      "z": 41
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -13,
+      "y": 85,
+      "z": 37
+    },
+    "stateId": 6984,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -13,
+      "y": 85,
+      "z": 38
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -13,
+      "y": 85,
+      "z": 39
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -13,
+      "y": 85,
+      "z": 40
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -13,
+      "y": 85,
+      "z": 41
+    },
+    "stateId": 6980,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -12,
+      "y": 82,
+      "z": 37
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -12,
+      "y": 82,
+      "z": 41
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -12,
+      "y": 83,
+      "z": 37
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -12,
+      "y": 83,
+      "z": 41
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -12,
+      "y": 84,
+      "z": 37
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -12,
+      "y": 84,
+      "z": 41
+    },
+    "stateId": 6988,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -12,
+      "y": 85,
+      "z": 37
+    },
+    "stateId": 6984,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -12,
+      "y": 85,
+      "z": 38
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -12,
+      "y": 85,
+      "z": 39
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -12,
+      "y": 85,
+      "z": 40
+    },
+    "stateId": 6976,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -12,
+      "y": 85,
+      "z": 41
+    },
+    "stateId": 6980,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": true
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 82,
+      "z": 37
+    },
+    "stateId": 7000,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 82,
+      "z": 38
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 82,
+      "z": 39
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 82,
+      "z": 40
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 82,
+      "z": 41
+    },
+    "stateId": 6996,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 83,
+      "z": 37
+    },
+    "stateId": 7000,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 83,
+      "z": 38
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 83,
+      "z": 39
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 83,
+      "z": 40
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 83,
+      "z": 41
+    },
+    "stateId": 6996,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 84,
+      "z": 37
+    },
+    "stateId": 7000,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 84,
+      "z": 38
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 84,
+      "z": 39
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 84,
+      "z": 40
+    },
+    "stateId": 6993,
+    "properties": {
+      "west": false,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 84,
+      "z": 41
+    },
+    "stateId": 6996,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 85,
+      "z": 37
+    },
+    "stateId": 7000,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": false,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 85,
+      "z": 38
+    },
+    "stateId": 6992,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 85,
+      "z": 39
+    },
+    "stateId": 6992,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 85,
+      "z": 40
+    },
+    "stateId": 6992,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": true,
+      "north": true,
+      "east": false
+    }
+  },
+  {
+    "name": "iron_bars",
+    "position": {
+      "x": -11,
+      "y": 85,
+      "z": 41
+    },
+    "stateId": 6996,
+    "properties": {
+      "west": true,
+      "waterlogged": false,
+      "south": false,
+      "north": true,
+      "east": false
     }
   }
 ]

@@ -56,18 +56,23 @@ class InstantSkillTool extends StructuredTool {
               zodType = z.boolean();
               break;
             case 'string':
+              zodType = z.string();
             default:
               zodType = z.string();
           }
 
+          // null許容を追加
+          zodType = zodType.nullable();
+
           // デフォルト値があれば設定
           if (param.default !== undefined) {
             // anyでキャストして型の互換性問題を回避
-            zodType = (zodType as any).default(param.default);
+            try {
+              zodType = (zodType as any).default(param.default);
+            } catch (error) {
+              console.error(`\x1b[31mデフォルト値の設定に失敗しました: ${error}\x1b[0m`);
+            }
           }
-
-          // null許容を追加
-          zodType = zodType.nullable();
 
           // 説明を追加
           zodType = zodType.describe(param.description || '');
@@ -83,10 +88,7 @@ class InstantSkillTool extends StructuredTool {
     if (!skill) {
       return `${this.name}スキルが存在しません。`;
     }
-    console.log(
-      `\x1b[32m%s\x1b[0m`,
-      `${skill.skillName}を実行します。パラメータ：${JSON.stringify(data)}`
-    );
+    console.log(`\x1b[32m${skill.skillName}を実行します。パラメータ：${JSON.stringify(data)}\x1b[0m`);
 
     try {
       // スキルのパラメータ定義を取得
@@ -98,6 +100,10 @@ class InstantSkillTool extends StructuredTool {
             data[param.name].y,
             data[param.name].z
           );
+        } else if (param.type === 'boolean' && data[param.name] === 'true') {
+          return true;
+        } else if (param.type === 'boolean' && data[param.name] === 'false') {
+          return false;
         } else {
           return data[param.name];
         }
@@ -190,10 +196,10 @@ export class TaskGraph {
   public async initialize(bot: CustomBot) {
     this.bot = bot;
     this.eventBus = getEventBus();
-    this.prompt = new Prompt(this.tools);
     await this.initializeModel();
     await this.initializeTools();
     await this.initializeEventBus();
+    this.prompt = new Prompt(this.tools);
     this.toolNodeInstance = new ToolNode(this.tools);
     this.graph = this.createGraph();
     this.currentState = null;
@@ -529,6 +535,8 @@ export class TaskGraph {
         if (this.currentState.forceStop) {
           return END;
         }
+        console.log(`\x1b[32m${JSON.stringify(state.messages[state.messages.length - 3])}\x1b[0m`);
+        console.log(`\x1b[32m${JSON.stringify(state.messages[state.messages.length - 1].content)}\x1b[0m`);
         if (this.currentState.humanFeedbackPending) {
           this.currentState.humanFeedbackPending = false;
           return 'planning';

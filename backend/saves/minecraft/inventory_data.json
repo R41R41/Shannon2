@@ -1,59 +1,158 @@
 {
   "equipment": {
-    "helmet": null,
+    "helmet": {
+      "name": "carved_pumpkin",
+      "count": 1
+    },
     "chestplate": null,
     "leggings": null,
     "boots": null,
     "mainHand": {
       "name": "bread",
-      "count": 62
+      "count": 20
     },
     "offHand": null
   },
   "inventory": [
     {
-      "name": "tall_grass",
+      "name": "iron_axe",
       "count": 1
     },
     {
-      "name": "iron_ingot",
-      "count": 15
-    },
-    {
-      "name": "short_grass",
+      "name": "crying_obsidian",
       "count": 1
     },
     {
-      "name": "oak_stairs",
-      "count": 1
-    },
-    {
-      "name": "bread",
-      "count": 62
-    },
-    {
-      "name": "dirt",
-      "count": 3
+      "name": "netherrack",
+      "count": 16
     },
     {
       "name": "birch_log",
+      "count": 8
+    },
+    {
+      "name": "iron_ingot",
+      "count": 5
+    },
+    {
+      "name": "golden_leggings",
       "count": 1
     },
     {
-      "name": "cake",
+      "name": "glistering_melon_slice",
+      "count": 4
+    },
+    {
+      "name": "warped_roots",
       "count": 1
     },
     {
-      "name": "brown_mushroom",
+      "name": "flint",
+      "count": 2
+    },
+    {
+      "name": "diamond_horse_armor",
+      "count": 1
+    },
+    {
+      "name": "saddle",
       "count": 1
     },
     {
       "name": "rotten_flesh",
+      "count": 5
+    },
+    {
+      "name": "gravel",
+      "count": 6
+    },
+    {
+      "name": "andesite",
+      "count": 12
+    },
+    {
+      "name": "coal",
+      "count": 3
+    },
+    {
+      "name": "magma_block",
+      "count": 1
+    },
+    {
+      "name": "stick",
       "count": 2
     },
     {
+      "name": "diorite",
+      "count": 18
+    },
+    {
+      "name": "diamond",
+      "count": 1
+    },
+    {
       "name": "oak_planks",
-      "count": 32
+      "count": 17
+    },
+    {
+      "name": "oak_log",
+      "count": 8
+    },
+    {
+      "name": "bone",
+      "count": 6
+    },
+    {
+      "name": "sandstone",
+      "count": 2
+    },
+    {
+      "name": "arrow",
+      "count": 36
+    },
+    {
+      "name": "obsidian",
+      "count": 53
+    },
+    {
+      "name": "stone_bricks",
+      "count": 3
+    },
+    {
+      "name": "bread",
+      "count": 20
+    },
+    {
+      "name": "diamond_pickaxe",
+      "count": 1
+    },
+    {
+      "name": "ender_pearl",
+      "count": 2
+    },
+    {
+      "name": "cobblestone",
+      "count": 17
+    },
+    {
+      "name": "cobblestone",
+      "count": 64
+    },
+    {
+      "name": "sand",
+      "count": 4
+    },
+    {
+      "name": "bow",
+      "count": 1
+    },
+    {
+      "name": "flint_and_steel",
+      "count": 1
+    },
+    {
+      "name": "iron_pickaxe",
+      "count": 1
     }
   ]
 }

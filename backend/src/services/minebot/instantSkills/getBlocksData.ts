@@ -8,7 +8,7 @@ class GetBlocksData extends InstantSkill {
     super(bot);
     this.skillName = 'get-blocks-data';
     this.description =
-      '周囲のブロックのデータを取得します。座標領域やブロックの名前を指定することもできます。';
+      '周囲のブロックのデータを取得します。座標領域やブロックの名前を指定することもできます。ベッドを探す際はisPartialMatchをtrueにしてください。';
     this.priority = 100;
     this.canUseByCommand = false;
     this.params = [
@@ -17,7 +17,6 @@ class GetBlocksData extends InstantSkill {
         description:
           '取得する開始座標。これを指定する際はblockNameはnullで指定してください。ブロック名を指定する場合は32ブロック四方を検索範囲とします。',
         type: 'Vec3',
-        required: false,
         default: null,
       },
       {
@@ -25,7 +24,6 @@ class GetBlocksData extends InstantSkill {
         description:
           '取得する終了座標。これを指定する際はblockNameはnullで指定してください。ブロック名を指定する場合は32ブロック四方を検索範囲とします。',
         type: 'Vec3',
-        required: false,
         default: null,
       },
       {
@@ -33,7 +31,6 @@ class GetBlocksData extends InstantSkill {
         description:
           '取得するブロックの名前。これを指定する際はstartPositionとendPositionはnullで指定してください。',
         type: 'string',
-        required: false,
         default: null,
       },
       {
@@ -41,8 +38,7 @@ class GetBlocksData extends InstantSkill {
         description:
           'ブロックの名前を部分一致で検索するかどうか。デフォルトはfalse。色などの種類を含めて検索したい場合はtrueにしてください。',
         type: 'boolean',
-        required: false,
-        default: false,
+        default: null,
       },
     ];
   }
@@ -51,7 +47,7 @@ class GetBlocksData extends InstantSkill {
     startPosition: Vec3 | null = null,
     endPosition: Vec3 | null = null,
     blockName: string | null = null,
-    isPartialMatch: boolean = false
+    isPartialMatch: boolean | null = null
   ) {
     // ブロックデータの収集開始
     try {
@@ -129,7 +125,7 @@ class GetBlocksData extends InstantSkill {
         return {
           success: true,
           result: blockName
-            ? `指定された名前「${blockName}」のブロックは周囲32ブロック四方内に見つかりませんでした。`
+            ? `指定された名前「${blockName}」のブロックは周囲32ブロック四方内に見つかりませんでした。isPartialMatchがfalseの場合はtrueにして検索すると見つかるかもしれません。`
             : '指定された範囲内にブロックが見つかりませんでした。',
         };
       }

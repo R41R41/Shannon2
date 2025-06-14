@@ -1,5 +1,5 @@
-import { CustomBot, InstantSkill } from '../types.js';
 import { Vec3 } from 'vec3';
+import { CustomBot, InstantSkill } from '../types.js';
 export class FaceToEntity extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);

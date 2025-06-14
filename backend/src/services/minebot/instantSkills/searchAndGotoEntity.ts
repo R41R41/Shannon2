@@ -1,5 +1,6 @@
 import minecraftData from 'minecraft-data';
 import pathfinder from 'mineflayer-pathfinder';
+import { Entity } from 'prismarine-entity';
 import { Vec3 } from 'vec3';
 import { CustomBot, InstantSkill } from '../types.js';
 const { goals } = pathfinder;
@@ -33,7 +34,7 @@ class SearchAndGotoEntity extends InstantSkill {
   async runImpl(entityName: string, entityId: number | null = null) {
     console.log('searchEntity', entityName, entityId);
     try {
-      let Entities;
+      let Entities: Entity[] = [];
       if (entityId !== null && entityId !== undefined) {
         Entities = Object.values(this.bot.entities).filter(
           (e: any) => e.name === entityName && e.id === entityId
@@ -52,13 +53,15 @@ class SearchAndGotoEntity extends InstantSkill {
         };
       }
 
-      const targetPos = new Vec3(
-        Entities[0].position.x,
-        Entities[0].position.y,
-        Entities[0].position.z
-      );
+      const targetEntity = Entities[0];
 
-      console.log('targetPos', targetPos);
+      console.log('targetEntity', targetEntity);
+
+      const targetPos = new Vec3(
+        targetEntity.position.x,
+        targetEntity.position.y,
+        targetEntity.position.z
+      );
 
       // 到達を試行する関数
       const attemptToReachGoal = async (

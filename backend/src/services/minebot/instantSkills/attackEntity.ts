@@ -1,8 +1,8 @@
-import HoldItem from './holdItem.js';
-import { CustomBot, InstantSkill } from '../types.js';
-import { Entity } from 'prismarine-entity';
-import pathfinder from 'mineflayer-pathfinder';
 import minecraftData from 'minecraft-data';
+import pathfinder from 'mineflayer-pathfinder';
+import { Entity } from 'prismarine-entity';
+import { CustomBot, InstantSkill } from '../types.js';
+import HoldItem from './holdItem.js';
 const { goals } = pathfinder;
 
 class AttackEntity extends InstantSkill {

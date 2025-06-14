@@ -121,7 +121,7 @@ export class MinebotClient extends BaseClient {
       weather: '',
       time: '',
       biome: '',
-      dimension: '',
+      dimension: null,
       bossbar: null,
     };
     await new Promise((resolve) => setTimeout(resolve, 1000));

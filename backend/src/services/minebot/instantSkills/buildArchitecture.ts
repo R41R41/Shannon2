@@ -129,8 +129,20 @@ class BuildArchitecture extends InstantSkill {
 
             if (!itemInInventory) {
               console.log(
-                `ブロック "${block.name}" がインベントリにありません。スキップします。`
+                `ブロック "${block.name}" がインベントリにありません。`
               );
+              // インベントリにないブロックの数をカウント
+              const missingBlocks = newRemainingBlocks.filter(
+                (b) => !this.bot.inventory.items().some((item) => item.name.includes(b.name))
+              ).length;
+
+              // すべての残りのブロックがインベントリにない場合は処理を終了
+              if (missingBlocks === newRemainingBlocks.length) {
+                return {
+                  success: placedBlocks > 0,
+                  result: `設計図 "${architectureName}" の建築を中断しました。${placedBlocks}/${totalBlocks} ブロックを設置しました。残りのブロックがインベントリにありません。`,
+                };
+              }
               newRemainingBlocks.push(block); // 後で再試行
               continue;
             }
@@ -246,11 +258,10 @@ class BuildArchitecture extends InstantSkill {
           result: `設計図 "${architectureName}" の建築チェックに失敗しました。内部エラーです。`,
         };
       }
-      let resultMsg = `設計図 "${architectureName}" の建築を完了しましたが、${
-        lastCheckResult.incorrect
-      } 箇所で設計図と異なるブロックがあります。\n${lastCheckResult.details
-        .slice(0, 5)
-        .join('\n')}${lastCheckResult.incorrect > 5 ? ' ...' : ''}`;
+      let resultMsg = `設計図 "${architectureName}" の建築を完了しましたが、${lastCheckResult.incorrect
+        } 箇所で設計図と異なるブロックがあります。\n${lastCheckResult.details
+          .slice(0, 5)
+          .join('\n')}${lastCheckResult.incorrect > 5 ? ' ...' : ''}`;
       return {
         success: false,
         result: resultMsg,
@@ -420,8 +431,7 @@ class BuildArchitecture extends InstantSkill {
       } else {
         incorrect++;
         details.push(
-          `(${blockPos.x},${blockPos.y},${blockPos.z}): 期待=${
-            block.name
+          `(${blockPos.x},${blockPos.y},${blockPos.z}): 期待=${block.name
           }, 実際=${existingBlock ? existingBlock.name : '空気'}`
         );
       }

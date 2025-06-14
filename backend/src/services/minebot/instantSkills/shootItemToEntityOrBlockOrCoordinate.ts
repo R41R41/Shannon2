@@ -1,8 +1,8 @@
-import { CustomBot, InstantSkill } from '../types.js';
-import HoldItem from './holdItem.js';
-import { Vec3 } from 'vec3';
 import minecraftData from 'minecraft-data';
 import { Block } from 'prismarine-block';
+import { Vec3 } from 'vec3';
+import { CustomBot, InstantSkill } from '../types.js';
+import HoldItem from './holdItem.js';
 
 interface BlockInTrayect extends Block {
   intersect: Vec3;

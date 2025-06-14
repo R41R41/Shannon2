@@ -22,7 +22,6 @@ class AutoThrowEnderPearl extends ConstantSkill {
 
   async runImpl() {
     const pos = this.bot.entity.position;
-    if (this.isLocked) return;
     if (this.bot.entity.velocity.y > -0.5) return;
 
     // 下方向に5ブロック以上空いているか判定
@@ -47,8 +46,6 @@ class AutoThrowEnderPearl extends ConstantSkill {
       .items()
       .find((item) => item.name === 'ender_pearl');
     if (!pearl) return;
-
-    this.lock();
     // 真下に投げる
     const targetPos = new Vec3(pos.x, groundY, pos.z);
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -57,8 +54,6 @@ class AutoThrowEnderPearl extends ConstantSkill {
       'ender_pearl'
     );
     await new Promise((resolve) => setTimeout(resolve, 500));
-
-    this.unlock();
   }
 }
 

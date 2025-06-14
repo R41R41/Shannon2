@@ -24,11 +24,11 @@ kill_port() {
 # テストモードフラグをチェック
 IS_DEV=false
 PORT=5000
-WS_PORTS=(5010 5011 5012 5013)  # OpenAI, Monitoring, Scheduler, Status
+WS_PORTS=(5010 5011 5018 5013)  # OpenAI, Monitoring, Scheduler, Status
 if [ "$1" = "--dev" ]; then
     IS_DEV=true
     PORT=15000
-    WS_PORTS=(15010 15011 15012 15013)
+    WS_PORTS=(15010 15011 15018 15013)
     echo "Starting backend in dev mode on port $PORT (WS: ${WS_PORTS[*]})..."
 else
     echo "Starting backend on port $PORT (WS: ${WS_PORTS[*]})..."

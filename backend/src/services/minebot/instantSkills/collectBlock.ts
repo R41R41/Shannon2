@@ -3,12 +3,14 @@ import pathfinder from 'mineflayer-pathfinder';
 import { Vec3 } from 'vec3';
 import { CustomBot, InstantSkill } from '../types.js';
 import HoldItem from './holdItem.js';
+import SearchAndGotoBlock from './searchAndGotoBlock.js';
 const { goals } = pathfinder;
 
 class CollectBlock extends InstantSkill {
   private mcData: any;
   private searchDistance: number;
   private holdItem: HoldItem;
+  private searchAndGotoBlock: SearchAndGotoBlock;
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'collect-block';
@@ -16,6 +18,7 @@ class CollectBlock extends InstantSkill {
     this.status = false;
     this.mcData = minecraftData(this.bot.version);
     this.searchDistance = 64;
+    this.searchAndGotoBlock = new SearchAndGotoBlock(bot);
     this.params = [
       {
         name: 'itemName',
@@ -47,8 +50,8 @@ class CollectBlock extends InstantSkill {
         typeof d === 'number'
           ? d
           : typeof d.drop === 'number'
-          ? d.drop
-          : d.drop.id
+            ? d.drop
+            : d.drop.id
       );
       if (dropIds.includes(itemId)) {
         result.push(block);
@@ -98,12 +101,10 @@ class CollectBlock extends InstantSkill {
             success: false,
             result: `ブロック ${blocks
               .map((block) => block.name)
-              .join(', ')} が見つかりませんでした`,
+              .join(', ')} が見つかりませんでした.`,
           };
         }
-        await this.bot.pathfinder.goto(
-          new goals.GoalNear(Blocks[0].x, Blocks[0].y, Blocks[0].z, 1)
-        );
+        await this.searchAndGotoBlock.run(block.name, Blocks[0]);
 
         const toolIds = block.harvestTools
           ? Object.keys(block.harvestTools).map(Number)
