@@ -79,7 +79,6 @@ class ShootItemToEntityOrBlockOrCoordinate extends InstantSkill {
   // hawkEyeを使用して弓を発射する
   private async shootWithHawkEye(target: any, itemName: string | null): Promise<void> {
     console.log('hawkEyeでの射撃を開始します...');
-    console.log('target', target);
 
     // hawkEyeでターゲットを狙って発射
     if (itemName === null) {

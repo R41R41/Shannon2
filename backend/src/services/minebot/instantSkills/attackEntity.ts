@@ -311,55 +311,48 @@ class AttackEntity extends InstantSkill {
   }
 
   async attackEntityOnce(entityId: number) {
-    if (this.isLocked) return;
-    this.isLocked = true;
-    try {
-      const entity = this.bot.entities[entityId];
-      if (entity.name === 'creeper') {
-        await this.attackCreeper(entityId);
-      } else if (
-        entity.name &&
-        [
-          'skeleton',
-          'stray',
-          'blaze',
-          'ghast',
-          'witch',
-          'wither_skelton',
-          'pillager',
-        ].includes(entity.name)
-      ) {
-        await this.attackRangedEntityOnce(entityId);
-      } else if (
-        entity.name &&
-        ['zombified_piglin', 'enderman'].includes(entity.name)
-      ) {
-        await this.attackNormalEntityOnce(entityId);
-      } else if (
-        entity.name &&
-        [
-          'cow',
-          'sheep',
-          'pig',
-          'chicken',
-          'rabbit',
-          'horse',
-          'llama',
-          'dolphin',
-          'fox',
-          'panda',
-          'wolf',
-          'cat',
-          'villager',
-        ].includes(entity.name)
-      ) {
-        await this.attackFriendlyEntityOnce(entityId);
-      } else {
-        await this.attackNormalEntityOnce(entityId);
-      }
-    } catch (error: any) {
-    } finally {
-      this.isLocked = false;
+    const entity = this.bot.entities[entityId];
+    if (entity.name === 'creeper') {
+      await this.attackCreeper(entityId);
+    } else if (
+      entity.name &&
+      [
+        'skeleton',
+        'stray',
+        'blaze',
+        'ghast',
+        'witch',
+        'wither_skelton',
+        'pillager',
+      ].includes(entity.name)
+    ) {
+      await this.attackRangedEntityOnce(entityId);
+    } else if (
+      entity.name &&
+      ['zombified_piglin', 'enderman'].includes(entity.name)
+    ) {
+      await this.attackNormalEntityOnce(entityId);
+    } else if (
+      entity.name &&
+      [
+        'cow',
+        'sheep',
+        'pig',
+        'chicken',
+        'rabbit',
+        'horse',
+        'llama',
+        'dolphin',
+        'fox',
+        'panda',
+        'wolf',
+        'cat',
+        'villager',
+      ].includes(entity.name)
+    ) {
+      await this.attackFriendlyEntityOnce(entityId);
+    } else {
+      await this.attackNormalEntityOnce(entityId);
     }
   }
 

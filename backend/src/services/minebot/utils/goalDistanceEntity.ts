@@ -1,13 +1,14 @@
 import pkg from 'mineflayer-pathfinder';
-import { Entity } from 'prismarine-entity';
 import { Vec3 } from 'vec3';
 import { CustomBot, ResponseType } from '../types.js';
 const { goals } = pkg;
 
 export class GoalDistanceEntity {
   bot: CustomBot;
+  timeout: number;
   constructor(bot: CustomBot) {
     this.bot = bot;
+    this.timeout = 10 * 1000;
   }
   async run(entityId: number, distance: number): Promise<ResponseType> {
     const entity = this.bot.entities[entityId];
@@ -40,9 +41,13 @@ export class GoalDistanceEntity {
           result: 'ゴールに到達できませんでした',
         };
       }
-      await this.bot.pathfinder.goto(
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('移動タイムアウト')), this.timeout);
+      });
+      const movePromise = this.bot.pathfinder.goto(
         new goals.GoalXZ(adjustedTarget.x, adjustedTarget.z)
       );
+      await Promise.race([movePromise, timeoutPromise]);
       return { success: true, result: 'ゴールに到達しました' };
     } catch (error) {
       console.error('Error in run:', error);

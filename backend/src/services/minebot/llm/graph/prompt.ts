@@ -1,8 +1,8 @@
 import { BaseMessage, SystemMessage } from '@langchain/core/messages';
-import { loadPrompt } from '../config/prompts.js';
-import { PromptType } from '@shannon/common';
-import { TaskStateInput } from './types.js';
 import { Tool } from '@langchain/core/tools';
+import { PromptType } from '@shannon/common';
+import { loadPrompt } from '../config/prompts.js';
+import { TaskStateInput } from './types.js';
 
 export class Prompt {
   public prompts: Map<PromptType, string>;
@@ -51,17 +51,16 @@ export class Prompt {
     });
     const environmentState = state.environmentState
       ? `environmentState: ${JSON.stringify(state.environmentState, null, 2)
-          .replace(/\\n/g, '\n')
-          .replace(/\\/g, '')
-          .replace(/"/g, "'")}`
+        .replace(/\\n/g, '\n')
+        .replace(/\\/g, '')
+        .replace(/"/g, "'")}`
       : null;
     const selfState = state.selfState
       ? `selfState: ${JSON.stringify(state.selfState, null, 2)
-          .replace(/\\n/g, '\n')
-          .replace(/\\/g, '')
-          .replace(/"/g, "'")}`
+        .replace(/\\n/g, '\n')
+        .replace(/\\/g, '')
+        .replace(/"/g, "'")}`
       : null;
-    const currentTimeMessage = `currentTime: ${currentTime}`;
     const toolInfoMessage = isToolInfo
       ? `Available Tools:\n${this.getToolsInfo()}`
       : '';
@@ -71,23 +70,22 @@ export class Prompt {
         ? new SystemMessage(`userMessage: ${state.userMessage}`)
         : null,
       new SystemMessage(
-        [environmentState, currentTimeMessage, selfState]
+        [environmentState, selfState]
           .filter(Boolean)
           .join('\n')
       ),
       state.taskTree
         ? new SystemMessage(
-            `goal: ${state.taskTree.goal}\nstrategy: ${
-              state.taskTree.strategy
-            }\nstatus: ${state.taskTree.status}\nsubTasks: ${JSON.stringify(
-              state.taskTree.subTasks
-            )}`
-          )
+          `goal: ${state.taskTree.goal}\nstrategy: ${state.taskTree.strategy
+          }\nstatus: ${state.taskTree.status}\nsubTasks: ${JSON.stringify(
+            state.taskTree.subTasks
+          )}`
+        )
         : null,
       state.humanFeedback
         ? new SystemMessage(
-            `humanFeedback: ${JSON.stringify(state.humanFeedback)}`
-          )
+          `humanFeedback: ${JSON.stringify(state.humanFeedback)}`
+        )
         : null,
       isToolInfo ? new SystemMessage(toolInfoMessage) : null,
       new SystemMessage(`the actionLog is as follows.`),

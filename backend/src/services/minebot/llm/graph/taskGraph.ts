@@ -415,6 +415,7 @@ export class TaskGraph {
     if (!this.prompt) {
       throw new Error('Prompt not initialized');
     }
+    console.log('state.messages', state.messages?.slice(-8) ?? []);
     const messages = this.prompt.getMessages(state, 'planning', true);
 
     try {

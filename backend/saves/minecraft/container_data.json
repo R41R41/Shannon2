@@ -1,9 +1,58 @@
 {
   "type": "chest",
   "position": {
-    "x": -290,
-    "y": 68,
-    "z": 253
+    "x": 330,
+    "y": 63,
+    "z": 230
   },
-  "items": []
+  "items": [
+    {
+      "name": "stick",
+      "count": 2
+    },
+    {
+      "name": "bread",
+      "count": 1
+    },
+    {
+      "name": "bread",
+      "count": 1
+    },
+    {
+      "name": "stick",
+      "count": 1
+    },
+    {
+      "name": "stick",
+      "count": 1
+    },
+    {
+      "name": "bread",
+      "count": 1
+    },
+    {
+      "name": "stick",
+      "count": 1
+    },
+    {
+      "name": "bread",
+      "count": 1
+    },
+    {
+      "name": "iron_shovel",
+      "count": 1
+    },
+    {
+      "name": "bread",
+      "count": 1
+    },
+    {
+      "name": "bread",
+      "count": 1
+    },
+    {
+      "name": "bread",
+      "count": 1
+    }
+  ]
 }

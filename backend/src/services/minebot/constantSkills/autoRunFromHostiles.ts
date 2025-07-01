@@ -8,7 +8,7 @@ class AutoRunFromHostiles extends ConstantSkill {
     super(bot);
     this.skillName = 'auto-run-from-hostiles';
     this.description = '瀕死の際に自動で敵モブから逃げる';
-    this.interval = 100;
+    this.interval = 1000;
     this.priority = 9;
     this.distance = 16;
     this.radius = 32;

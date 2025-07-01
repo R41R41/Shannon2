@@ -4,151 +4,149 @@
       "name": "carved_pumpkin",
       "count": 1
     },
-    "chestplate": null,
+    "chestplate": {
+      "name": "iron_chestplate",
+      "count": 1
+    },
     "leggings": null,
-    "boots": null,
+    "boots": {
+      "name": "iron_boots",
+      "count": 1
+    },
     "mainHand": {
-      "name": "bread",
+      "name": "obsidian",
       "count": 20
     },
     "offHand": null
   },
   "inventory": [
     {
+      "name": "shears",
+      "count": 1
+    },
+    {
+      "name": "egg",
+      "count": 3
+    },
+    {
+      "name": "iron_helmet",
+      "count": 1
+    },
+    {
+      "name": "iron_shovel",
+      "count": 1
+    },
+    {
+      "name": "pumpkin",
+      "count": 10
+    },
+    {
+      "name": "spruce_sign",
+      "count": 2
+    },
+    {
+      "name": "spruce_sapling",
+      "count": 3
+    },
+    {
+      "name": "diorite",
+      "count": 4
+    },
+    {
+      "name": "oak_sapling",
+      "count": 14
+    },
+    {
+      "name": "gravel",
+      "count": 21
+    },
+    {
+      "name": "fern",
+      "count": 1
+    },
+    {
+      "name": "pumpkin_seeds",
+      "count": 10
+    },
+    {
+      "name": "spruce_door",
+      "count": 5
+    },
+    {
       "name": "iron_axe",
       "count": 1
     },
     {
-      "name": "crying_obsidian",
+      "name": "iron_horse_armor",
       "count": 1
-    },
-    {
-      "name": "netherrack",
-      "count": 16
-    },
-    {
-      "name": "birch_log",
-      "count": 8
-    },
-    {
-      "name": "iron_ingot",
-      "count": 5
-    },
-    {
-      "name": "golden_leggings",
-      "count": 1
-    },
-    {
-      "name": "glistering_melon_slice",
-      "count": 4
-    },
-    {
-      "name": "warped_roots",
-      "count": 1
-    },
-    {
-      "name": "flint",
-      "count": 2
-    },
-    {
-      "name": "diamond_horse_armor",
-      "count": 1
-    },
-    {
-      "name": "saddle",
-      "count": 1
-    },
-    {
-      "name": "rotten_flesh",
-      "count": 5
-    },
-    {
-      "name": "gravel",
-      "count": 6
-    },
-    {
-      "name": "andesite",
-      "count": 12
-    },
-    {
-      "name": "coal",
-      "count": 3
-    },
-    {
-      "name": "magma_block",
-      "count": 1
-    },
-    {
-      "name": "stick",
-      "count": 2
-    },
-    {
-      "name": "diorite",
-      "count": 18
-    },
-    {
-      "name": "diamond",
-      "count": 1
-    },
-    {
-      "name": "oak_planks",
-      "count": 17
-    },
-    {
-      "name": "oak_log",
-      "count": 8
-    },
-    {
-      "name": "bone",
-      "count": 6
-    },
-    {
-      "name": "sandstone",
-      "count": 2
-    },
-    {
-      "name": "arrow",
-      "count": 36
-    },
-    {
-      "name": "obsidian",
-      "count": 53
-    },
-    {
-      "name": "stone_bricks",
-      "count": 3
-    },
-    {
-      "name": "bread",
-      "count": 20
-    },
-    {
-      "name": "diamond_pickaxe",
-      "count": 1
-    },
-    {
-      "name": "ender_pearl",
-      "count": 2
-    },
-    {
-      "name": "cobblestone",
-      "count": 17
-    },
-    {
-      "name": "cobblestone",
-      "count": 64
-    },
-    {
-      "name": "sand",
-      "count": 4
     },
     {
       "name": "bow",
       "count": 1
     },
     {
-      "name": "flint_and_steel",
+      "name": "blue_bed",
       "count": 1
+    },
+    {
+      "name": "stick",
+      "count": 8
+    },
+    {
+      "name": "flint",
+      "count": 1
+    },
+    {
+      "name": "grindstone",
+      "count": 3
+    },
+    {
+      "name": "arrow",
+      "count": 64
+    },
+    {
+      "name": "arrow",
+      "count": 32
+    },
+    {
+      "name": "bow",
+      "count": 1
+    },
+    {
+      "name": "emerald",
+      "count": 7
+    },
+    {
+      "name": "obsidian",
+      "count": 20
+    },
+    {
+      "name": "cobblestone",
+      "count": 7
+    },
+    {
+      "name": "bread",
+      "count": 21
+    },
+    {
+      "name": "sweet_berries",
+      "count": 13
+    },
+    {
+      "name": "potato",
+      "count": 26
+    },
+    {
+      "name": "iron_ingot",
+      "count": 4
+    },
+    {
+      "name": "spruce_trapdoor",
+      "count": 1
+    },
+    {
+      "name": "apple",
+      "count": 4
     },
     {
       "name": "iron_pickaxe",

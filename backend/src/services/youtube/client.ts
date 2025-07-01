@@ -308,7 +308,7 @@ export class YoutubeClient extends BaseClient {
   public async replyComment(videoId: string, commentId: string, reply: string) {
     if (this.status !== 'running') return;
     if (!this.client) {
-      throw new Error('YouTube client is not initialized');
+      throw new Error('YouTube client is not initialized!');
     }
     try {
       await this.client.comments.insert({
@@ -342,7 +342,7 @@ export class YoutubeClient extends BaseClient {
       } catch (error) {
         console.error(`\x1b[31mYouTube initialization error: ${error}\x1b[0m`);
         console.warn(
-          '\x1b[33mYouTube initialization failed, but continuing without YouTube functionality\x1b[0m'
+          '\x1b[33mYouTube initialization failed, but continuing without YouTube functionality!\x1b[0m'
         );
         // エラーをスローせずに処理を続行
         this.status = 'stopped';

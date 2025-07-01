@@ -55,7 +55,7 @@ class SearchAndGotoEntity extends InstantSkill {
 
       const targetEntity = Entities[0];
 
-      console.log('targetEntity', targetEntity);
+
 
       const targetPos = new Vec3(
         targetEntity.position.x,

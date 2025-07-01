@@ -240,7 +240,7 @@ export class SkillAgent {
         this.bot.on(`taskPer${skill.interval}ms`, async () => {
           if (skill.status && !skill.isLocked) {
             try {
-              await skill.run();
+              await this.bot.constantSkills.requestExecution(skill, []);
             } catch (error: any) {
               this.eventBus.log(
                 'minecraft',

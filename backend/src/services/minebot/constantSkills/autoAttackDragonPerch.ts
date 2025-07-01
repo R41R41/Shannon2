@@ -1,6 +1,9 @@
+import pathfinder from 'mineflayer-pathfinder';
+import { Vec3 } from 'vec3';
 import AttackEntity from '../instantSkills/attackEntity.js';
 import HoldItem from '../instantSkills/holdItem.js';
 import { ConstantSkill, CustomBot } from '../types.js';
+const { goals } = pathfinder;
 
 class AutoAttackDragonPerch extends ConstantSkill {
     private holdItem: HoldItem;
@@ -35,7 +38,7 @@ class AutoAttackDragonPerch extends ConstantSkill {
             // エンドラドラゴンを探す
             const dragon = this.bot.nearestEntity((entity) =>
                 entity.name === 'ender_dragon' &&
-                entity.position.distanceTo(this.bot.entity.position) <= 32
+                entity.position.distanceTo(this.bot.entity.position) <= 64
             );
 
             if (!dragon) {
@@ -43,11 +46,18 @@ class AutoAttackDragonPerch extends ConstantSkill {
             }
 
             // ドラゴンのY座標が低い（止まり木に止まっている）場合のみ攻撃
-            if (dragon.position.y < 70) {
+            if (Number(dragon.metadata[16]) >= 3) {
+                console.log('止まり木に止まっているドラゴンに近接攻撃します');
                 const now = Date.now();
                 // 1秒に1回の頻度で攻撃
                 if (now - this.lastAttackTime > 1000) {
-                    await this.attackEntity.run('ender_dragon', false, 1);
+                    // ドラゴンの前面ではなく背後に移動
+                    const dragonPos = dragon.position;
+                    const dragonYaw = dragon.yaw;
+                    const dragonTailPos = new Vec3(dragonPos.x - Math.sin(dragonYaw) * 3, dragonPos.y + 1.5, dragonPos.z - Math.cos(dragonYaw) * 3);
+                    await this.bot.pathfinder.goto(new goals.GoalNear(dragonTailPos.x, dragonTailPos.y, dragonTailPos.z, 3));
+                    await this.attackEntity.searchAndHoldWeapon(false);
+                    await this.attackEntity.attackNormalOnce(dragon.id, false);
                     this.lastAttackTime = now;
                 }
             }

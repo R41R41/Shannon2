@@ -1,5 +1,7 @@
+import pathfinder from 'mineflayer-pathfinder';
 import ShootItemToEntityOrBlockOrCoordinate from '../instantSkills/shootItemToEntityOrBlockOrCoordinate.js';
 import { ConstantSkill, CustomBot } from '../types.js';
+const { goals } = pathfinder;
 
 class AutoShootDragon extends ConstantSkill {
     private shootSkill: ShootItemToEntityOrBlockOrCoordinate;
@@ -32,15 +34,24 @@ class AutoShootDragon extends ConstantSkill {
             // エンドラドラゴンを探す
             const dragon = this.bot.nearestEntity((entity) =>
                 entity.name === 'ender_dragon' &&
-                entity.position.distanceTo(this.bot.entity.position) <= 128
+                entity.position.distanceTo(this.bot.entity.position) <= 64
             );
 
             if (!dragon) {
                 return;
             }
 
+            if (dragon.position.distanceTo(this.bot.entity.position) > 48) {
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('移動タイムアウト')), 5 * 1000);
+                });
+                const movePromise = this.bot.pathfinder.goto(new goals.GoalNear(dragon.position.x, dragon.position.y, dragon.position.z, 48));
+                await Promise.race([movePromise, timeoutPromise]);
+            }
+
             // ドラゴンのY座標が高い（飛んでいる）場合のみ攻撃
-            if (dragon.position.y > 70) {
+            if (Number(dragon.metadata[16]) < 3) {
+                console.log('飛んでいるドラゴンに弓で攻撃します');
                 const now = Date.now();
                 // 3秒に1回の頻度で攻撃
                 if (now - this.lastShootTime > 3000) {

@@ -1,7 +1,7 @@
 [
   {
     "skillName": "auto-pick-up-item",
-    "status": true
+    "status": false
   },
   {
     "skillName": "auto-eat",
@@ -13,7 +13,7 @@
   },
   {
     "skillName": "auto-attack-hostile",
-    "status": true
+    "status": false
   },
   {
     "skillName": "auto-face-moved-entity",
@@ -21,7 +21,7 @@
   },
   {
     "skillName": "auto-sleep",
-    "status": false
+    "status": true
   },
   {
     "skillName": "auto-run-from-hostiles",
@@ -61,6 +61,10 @@
   },
   {
     "skillName": "auto-attack-dragon-perch",
+    "status": false
+  },
+  {
+    "skillName": "auto-break-spawner",
     "status": false
   }
 ]
