@@ -46,13 +46,16 @@ class AutoThrowEnderPearl extends ConstantSkill {
       .items()
       .find((item) => item.name === 'ender_pearl');
     if (!pearl) return;
-    // 真下に投げる
-    const targetPos = new Vec3(pos.x, groundY, pos.z);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    this.shootItemToEntityOrBlockOrCoordinate.shootToCoordinate(
-      targetPos,
-      'ender_pearl'
-    );
+
+    // 真下に向いてエンダーパールを直接投げる
+    await this.holdItem.run('ender_pearl', false);
+    // bot.lookAt は中心を向くので、自分の足元よりさらに下(3ブロック)を向かせる
+    await this.bot.lookAt(new Vec3(pos.x, pos.y - 3, pos.z));
+
+    // activateItem で右クリック（投擲）
+    this.bot.deactivateItem(); // 念のため解除
+    this.bot.activateItem();
+    // 投げ終わるまで少し待機
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
 }
