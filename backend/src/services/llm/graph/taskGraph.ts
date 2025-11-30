@@ -1,29 +1,25 @@
 import {
-  AIMessage,
-  BaseMessage,
-  HumanMessage,
-  SystemMessage,
-  ToolMessage,
+  BaseMessage
 } from '@langchain/core/messages';
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { ChatOpenAI } from '@langchain/openai';
 import {
-  MemoryZone,
   EmotionType,
+  MemoryZone,
   TaskInput,
   TaskTreeState,
 } from '@shannon/common';
-import { TaskStateInput } from './types.js';
 import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
+import { BadRequestError } from 'openai';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { EventBus } from '../../eventBus/eventBus.js';
 import { z } from 'zod';
-import { Prompt } from './prompt.js';
+import { EventBus } from '../../eventBus/eventBus.js';
 import { getEventBus } from '../../eventBus/index.js';
-import { BadRequestError } from 'openai';
+import { Prompt } from './prompt.js';
+import { TaskStateInput } from './types.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -85,12 +81,12 @@ export class TaskGraph {
       apiKey: OPENAI_API_KEY,
     });
     const MediumModel = new ChatOpenAI({
-      modelName: 'gpt-4o',
+      modelName: 'gpt-5',
       temperature: 0.8,
       apiKey: OPENAI_API_KEY,
     });
     const LargeModel = new ChatOpenAI({
-      modelName: 'o4-mini',
+      modelName: 'gpt-5',
       temperature: 0.8,
       apiKey: OPENAI_API_KEY,
     });
@@ -160,7 +156,7 @@ export class TaskGraph {
       tool_choice: 'any',
     });
     try {
-      // console.log('messages', JSON.stringify(messages, null, 2));
+      // console.log('messages', JSON.stringify(messages, null, 2));f
       const response = await forcedToolLLM.invoke(messages);
       // console.log('\x1b[35muse_tool', response, '\x1b[0m');
       return {
