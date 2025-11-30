@@ -8,6 +8,11 @@ export interface TaskTreeState {
     strategy: string;
     status: TaskStatus;
     error?: string | null;
+    actionSequence?: {
+        toolName: string;
+        args: Record<string, any>;
+        expectedResult: string;
+    }[] | null;
     subTasks?: {
         subTaskGoal: string;
         subTaskStrategy: string;
