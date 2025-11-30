@@ -1,272 +1,206 @@
 [
   {
-    "name": "cave_air",
+    "name": "dirt",
     "position": {
-      "x": 270,
-      "y": 54,
-      "z": 289
+      "x": 278,
+      "y": 69,
+      "z": 265
     },
-    "stateId": 13972,
+    "stateId": 10,
     "properties": {}
   },
   {
-    "name": "cave_air",
+    "name": "grass_block",
     "position": {
-      "x": 270,
-      "y": 54,
-      "z": 290
+      "x": 278,
+      "y": 69,
+      "z": 267
     },
-    "stateId": 13972,
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
+  },
+  {
+    "name": "crafting_table",
+    "position": {
+      "x": 278,
+      "y": 70,
+      "z": 265
+    },
+    "stateId": 4332,
     "properties": {}
   },
   {
-    "name": "cave_air",
+    "name": "grass_block",
     "position": {
-      "x": 270,
-      "y": 54,
-      "z": 291
+      "x": 279,
+      "y": 69,
+      "z": 264
     },
-    "stateId": 13972,
-    "properties": {}
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
   },
   {
-    "name": "cave_air",
+    "name": "grass_block",
     "position": {
-      "x": 270,
-      "y": 55,
-      "z": 289
+      "x": 279,
+      "y": 69,
+      "z": 265
     },
-    "stateId": 13972,
-    "properties": {}
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
   },
   {
-    "name": "cave_air",
+    "name": "grass_block",
     "position": {
-      "x": 270,
-      "y": 55,
-      "z": 290
+      "x": 279,
+      "y": 69,
+      "z": 267
     },
-    "stateId": 13972,
-    "properties": {}
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
   },
   {
-    "name": "cave_air",
+    "name": "spruce_leaves",
     "position": {
-      "x": 270,
-      "y": 55,
-      "z": 291
+      "x": 279,
+      "y": 71,
+      "z": 264
     },
-    "stateId": 13972,
-    "properties": {}
+    "stateId": 283,
+    "properties": {
+      "waterlogged": false,
+      "persistent": false,
+      "distance": "1"
+    }
   },
   {
-    "name": "cave_air",
+    "name": "grass_block",
     "position": {
-      "x": 270,
-      "y": 56,
-      "z": 289
+      "x": 280,
+      "y": 69,
+      "z": 264
     },
-    "stateId": 13972,
-    "properties": {}
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
   },
   {
-    "name": "cave_air",
+    "name": "grass_block",
     "position": {
-      "x": 270,
-      "y": 56,
-      "z": 290
+      "x": 280,
+      "y": 69,
+      "z": 265
     },
-    "stateId": 13972,
-    "properties": {}
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
   },
   {
-    "name": "cave_air",
+    "name": "grass_block",
     "position": {
-      "x": 270,
-      "y": 56,
-      "z": 291
+      "x": 280,
+      "y": 69,
+      "z": 266
     },
-    "stateId": 13972,
-    "properties": {}
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
   },
   {
-    "name": "cave_air",
+    "name": "grass_block",
     "position": {
-      "x": 271,
-      "y": 54,
-      "z": 289
+      "x": 280,
+      "y": 69,
+      "z": 267
     },
-    "stateId": 13972,
-    "properties": {}
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
   },
   {
-    "name": "obsidian",
+    "name": "spruce_log",
     "position": {
-      "x": 271,
-      "y": 54,
-      "z": 290
+      "x": 280,
+      "y": 71,
+      "z": 264
     },
-    "stateId": 2397,
-    "properties": {}
+    "stateId": 140,
+    "properties": {
+      "axis": "y"
+    }
   },
   {
-    "name": "cave_air",
+    "name": "grass_block",
     "position": {
-      "x": 271,
-      "y": 54,
-      "z": 291
+      "x": 281,
+      "y": 69,
+      "z": 264
     },
-    "stateId": 13972,
-    "properties": {}
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
   },
   {
-    "name": "cave_air",
+    "name": "grass_block",
     "position": {
-      "x": 271,
-      "y": 55,
-      "z": 289
+      "x": 281,
+      "y": 69,
+      "z": 265
     },
-    "stateId": 13972,
-    "properties": {}
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
   },
   {
-    "name": "cave_air",
+    "name": "grass_block",
     "position": {
-      "x": 271,
-      "y": 55,
-      "z": 290
+      "x": 281,
+      "y": 69,
+      "z": 266
     },
-    "stateId": 13972,
-    "properties": {}
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
   },
   {
-    "name": "cave_air",
+    "name": "grass_block",
     "position": {
-      "x": 271,
-      "y": 55,
-      "z": 291
+      "x": 281,
+      "y": 69,
+      "z": 267
     },
-    "stateId": 13972,
-    "properties": {}
+    "stateId": 9,
+    "properties": {
+      "snowy": false
+    }
   },
   {
-    "name": "cave_air",
+    "name": "spruce_leaves",
     "position": {
-      "x": 271,
-      "y": 56,
-      "z": 289
+      "x": 281,
+      "y": 71,
+      "z": 264
     },
-    "stateId": 13972,
-    "properties": {}
-  },
-  {
-    "name": "cave_air",
-    "position": {
-      "x": 271,
-      "y": 56,
-      "z": 290
-    },
-    "stateId": 13972,
-    "properties": {}
-  },
-  {
-    "name": "cave_air",
-    "position": {
-      "x": 271,
-      "y": 56,
-      "z": 291
-    },
-    "stateId": 13972,
-    "properties": {}
-  },
-  {
-    "name": "cave_air",
-    "position": {
-      "x": 272,
-      "y": 54,
-      "z": 289
-    },
-    "stateId": 13972,
-    "properties": {}
-  },
-  {
-    "name": "cave_air",
-    "position": {
-      "x": 272,
-      "y": 54,
-      "z": 290
-    },
-    "stateId": 13972,
-    "properties": {}
-  },
-  {
-    "name": "cave_air",
-    "position": {
-      "x": 272,
-      "y": 54,
-      "z": 291
-    },
-    "stateId": 13972,
-    "properties": {}
-  },
-  {
-    "name": "cave_air",
-    "position": {
-      "x": 272,
-      "y": 55,
-      "z": 289
-    },
-    "stateId": 13972,
-    "properties": {}
-  },
-  {
-    "name": "cave_air",
-    "position": {
-      "x": 272,
-      "y": 55,
-      "z": 290
-    },
-    "stateId": 13972,
-    "properties": {}
-  },
-  {
-    "name": "cave_air",
-    "position": {
-      "x": 272,
-      "y": 55,
-      "z": 291
-    },
-    "stateId": 13972,
-    "properties": {}
-  },
-  {
-    "name": "cave_air",
-    "position": {
-      "x": 272,
-      "y": 56,
-      "z": 289
-    },
-    "stateId": 13972,
-    "properties": {}
-  },
-  {
-    "name": "cave_air",
-    "position": {
-      "x": 272,
-      "y": 56,
-      "z": 290
-    },
-    "stateId": 13972,
-    "properties": {}
-  },
-  {
-    "name": "cave_air",
-    "position": {
-      "x": 272,
-      "y": 56,
-      "z": 291
-    },
-    "stateId": 13972,
-    "properties": {}
+    "stateId": 283,
+    "properties": {
+      "waterlogged": false,
+      "persistent": false,
+      "distance": "1"
+    }
   }
 ]

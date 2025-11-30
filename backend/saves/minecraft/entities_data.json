@@ -1,14 +1,14 @@
 [
   {
-    "id": "7",
-    "name": "villager",
-    "type": "passive",
+    "id": "3719",
+    "name": "chicken",
+    "type": "animal",
     "position": {
-      "x": 270.82817776822264,
-      "y": 71,
-      "z": 279.11628726716054
+      "x": 10.991277475239142,
+      "y": 61,
+      "z": 2.1863886586163397
     },
-    "distance": 1.25,
+    "distance": 9.78,
     "metadata": [
       null,
       null,
@@ -16,35 +16,22 @@
       null,
       null,
       null,
-      0,
-      null,
-      null,
-      20,
-      [],
       null,
       null,
       null,
-      null,
-      null,
-      null,
-      null,
-      {
-        "villagerType": 6,
-        "villagerProfession": 7,
-        "level": 2
-      }
+      4
     ]
   },
   {
-    "id": "34",
-    "name": "villager",
-    "type": "passive",
+    "id": "3718",
+    "name": "chicken",
+    "type": "animal",
     "position": {
-      "x": 290.0808064844205,
-      "y": 71,
-      "z": 289.26674213544254
+      "x": 10.613866774005018,
+      "y": 61,
+      "z": 2.6324338151891977
     },
-    "distance": 22.35,
+    "distance": 10.02,
     "metadata": [
       null,
       null,
@@ -52,35 +39,22 @@
       null,
       null,
       null,
-      0,
-      null,
-      null,
-      20,
       null,
       null,
       null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      {
-        "villagerType": 6,
-        "villagerProfession": 14,
-        "level": 1
-      }
+      4
     ]
   },
   {
-    "id": "33",
-    "name": "villager",
-    "type": "passive",
+    "id": "3727",
+    "name": "chicken",
+    "type": "animal",
     "position": {
-      "x": 295.5499101046187,
-      "y": 71,
-      "z": 284.08436667664745
+      "x": 10.95457746334903,
+      "y": 61,
+      "z": 2.7181079648706645
     },
-    "distance": 25.68,
+    "distance": 10.24,
     "metadata": [
       null,
       null,
@@ -88,35 +62,29 @@
       null,
       null,
       null,
-      0,
       null,
       null,
-      20,
       null,
-      null,
+      4,
       null,
       null,
       null,
       null,
       null,
       null,
-      {
-        "villagerType": 6,
-        "villagerProfession": 14,
-        "level": 1
-      }
+      true
     ]
   },
   {
-    "id": "39",
-    "name": "villager",
-    "type": "passive",
+    "id": "4051",
+    "name": "chicken",
+    "type": "animal",
     "position": {
-      "x": 294.85858297746773,
-      "y": 71,
-      "z": 297.4828854763543
+      "x": 10.94636020010132,
+      "y": 61,
+      "z": 2.9797219462386995
     },
-    "distance": 30.88,
+    "distance": 10.47,
     "metadata": [
       null,
       null,
@@ -124,203 +92,17 @@
       null,
       null,
       null,
-      0,
       null,
       null,
-      20,
       null,
+      4,
       null,
       null,
       null,
       null,
       null,
       null,
-      null,
-      {
-        "villagerType": 6,
-        "villagerProfession": 14,
-        "level": 1
-      }
-    ]
-  },
-  {
-    "id": "38",
-    "name": "villager",
-    "type": "passive",
-    "position": {
-      "x": 239.77475472391114,
-      "y": 72,
-      "z": 258.46186524629593
-    },
-    "distance": 36.76,
-    "metadata": [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      0,
-      null,
-      null,
-      20,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      {
-        "villagerType": 6,
-        "villagerProfession": 0,
-        "level": 1
-      }
-    ]
-  },
-  {
-    "id": "10",
-    "name": "villager",
-    "type": "passive",
-    "position": {
-      "x": 294.4962131514524,
-      "y": 73,
-      "z": 308.69999998807907
-    },
-    "distance": 38.66,
-    "metadata": [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      0,
-      null,
-      null,
-      2,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      {
-        "villagerType": 6,
-        "villagerProfession": 0,
-        "level": 1
-      }
-    ]
-  },
-  {
-    "id": "66",
-    "name": "villager",
-    "type": "passive",
-    "position": {
-      "x": 312.428422650139,
-      "y": 74.75325194001198,
-      "z": 284.30000001192093
-    },
-    "distance": 42.6,
-    "metadata": [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      0,
-      null,
-      null,
-      20,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      {
-        "villagerType": 6,
-        "villagerProfession": 5,
-        "level": 1
-      }
-    ]
-  },
-  {
-    "id": "9",
-    "name": "villager",
-    "type": "passive",
-    "position": {
-      "x": 271.5518752063064,
-      "y": 71,
-      "z": 325.2361685566957
-    },
-    "distance": 46.72,
-    "metadata": [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      0,
-      null,
-      null,
-      20,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      {
-        "villagerType": 6,
-        "villagerProfession": 0,
-        "level": 1
-      }
-    ]
-  },
-  {
-    "id": "67",
-    "name": "villager",
-    "type": "passive",
-    "position": {
-      "x": 330.4722850887441,
-      "y": 75,
-      "z": 282.81991311911577
-    },
-    "distance": 60.34,
-    "metadata": [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      0,
-      null,
-      null,
-      20,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      {
-        "villagerType": 6,
-        "villagerProfession": 4,
-        "level": 1
-      }
+      true
     ]
   }
 ]

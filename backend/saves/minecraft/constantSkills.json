@@ -66,5 +66,13 @@
   {
     "skillName": "auto-break-spawner",
     "status": false
+  },
+  {
+    "skillName": "auto-update-looking-at",
+    "status": false
+  },
+  {
+    "skillName": "auto-detect-block-or-entity",
+    "status": false
   }
 ]
