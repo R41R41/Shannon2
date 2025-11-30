@@ -362,9 +362,9 @@ export class ConstantSkills {
       tasks.slice(0, this.MAX_QUEUE_SIZE).forEach(task => this.taskQueue.push(task));
     }
 
-    console.log("taskQueue", this.taskQueue.toArray().map(task =>
-      `${task.skill.skillName}:${task.skill.priority}`
-    ));
+    // console.log("taskQueue", this.taskQueue.toArray().map(task =>
+    //   `${task.skill.skillName}:${task.skill.priority}`
+    // ));
   }
 
   // 次のタスクを処理
