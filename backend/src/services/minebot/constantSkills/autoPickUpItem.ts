@@ -1,4 +1,7 @@
+import pathfinderPkg from 'mineflayer-pathfinder';
 import { ConstantSkill, CustomBot } from '../types.js';
+
+const { goals } = pathfinderPkg;
 
 /**
  * 自動アイテム拾得スキル
@@ -36,7 +39,6 @@ class AutoPickUpItem extends ConstantSkill {
       // アイテムに近づく（既に近い場合は何もしない）
       if (distance > 2) {
         try {
-          const { goals } = require('mineflayer-pathfinder');
           await this.bot.pathfinder.goto(
             new goals.GoalNear(
               entity.position.x,
@@ -57,7 +59,7 @@ class AutoPickUpItem extends ConstantSkill {
         (entity: any) =>
           entity.name === 'item' &&
           entity.position.distanceTo(this.bot.entity.position) <=
-            this.pickupRadius
+          this.pickupRadius
       );
 
       if (items.length === 0) return;
@@ -81,7 +83,6 @@ class AutoPickUpItem extends ConstantSkill {
       );
       if (distance > 2) {
         try {
-          const { goals } = require('mineflayer-pathfinder');
           await this.bot.pathfinder.goto(
             new goals.GoalNear(
               closestItem.position.x,

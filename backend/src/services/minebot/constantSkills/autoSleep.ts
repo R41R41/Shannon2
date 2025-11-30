@@ -1,5 +1,7 @@
-import { goals } from 'mineflayer-pathfinder';
+import pathfinderPkg from 'mineflayer-pathfinder';
 import { ConstantSkill, CustomBot } from '../types.js';
+
+const { goals } = pathfinderPkg;
 
 /**
  * 自動睡眠スキル
@@ -65,8 +67,7 @@ class AutoSleep extends ConstantSkill {
     } catch (error) {
       this.isSleeping = false;
       console.log(
-        `\x1b[33m⚠ 睡眠に失敗: ${
-          error instanceof Error ? error.message : '不明なエラー'
+        `\x1b[33m⚠ 睡眠に失敗: ${error instanceof Error ? error.message : '不明なエラー'
         }\x1b[0m`
       );
     }

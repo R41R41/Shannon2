@@ -81,7 +81,7 @@ export class PlanningNode {
         .array(
           z.object({
             toolName: z.string().describe('実行するツール名'),
-            args: z.record(z.any()).describe('ツールの引数'),
+            args: z.record(z.string(), z.unknown()).describe('ツールの引数'),
             expectedResult: z
               .string()
               .describe('このアクションで期待される結果'),
@@ -145,9 +145,8 @@ export class PlanningNode {
       return {
         taskTree: {
           status: 'error',
-          goal: `エラー: ${
-            error instanceof Error ? error.message : '不明なエラー'
-          }`,
+          goal: `エラー: ${error instanceof Error ? error.message : '不明なエラー'
+            }`,
           strategy: '',
           actionSequence: null,
           subTasks: null,

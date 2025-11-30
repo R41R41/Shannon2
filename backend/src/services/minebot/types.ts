@@ -1,12 +1,14 @@
 import { Bot, BotEvents, Dimension } from 'mineflayer';
 import { CommandManager } from 'mineflayer-cmd';
-import { goals } from 'mineflayer-pathfinder';
+import pathfinderPkg from 'mineflayer-pathfinder';
 import { Block } from 'prismarine-block';
 import { Entity } from 'prismarine-entity';
 import { Vec3 } from 'vec3';
 import { Utils } from './utils/index.js';
 
-export type Goal = goals.Goal;
+const { goals } = pathfinderPkg;
+
+export type Goal = pathfinderPkg.goals.Goal;
 
 export type Hand = 'hand' | 'off-hand';
 
