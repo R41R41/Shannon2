@@ -245,7 +245,7 @@ export class TwitterClient extends BaseClient {
       const options = {
         method: 'GET',
         headers: { 'X-API-Key': this.apiKey },
-        params: { userName: 'I_am_Sh4nnon' },
+        params: { userName: 'I_am_Shannon' },
       };
       const res = await axios.get(endpoint, options);
       if (res.data.status === 'success') {

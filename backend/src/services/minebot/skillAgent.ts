@@ -407,7 +407,7 @@ export class SkillAgent {
       if (!this.bot.chatMode) {
         return;
       }
-      if (username === 'I_am_Sh4nnon') {
+      if (username === 'I_am_Shannon') {
         const currentTime = new Date().toLocaleString('ja-JP', {
           timeZone: 'Asia/Tokyo',
         });
