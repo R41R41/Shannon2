@@ -1,213 +1,166 @@
-import pathfinder from 'mineflayer-pathfinder';
 import { CustomBot, InstantSkill } from '../types.js';
-const { goals } = pathfinder;
 
+/**
+ * 原子的スキル: 村人と取引する
+ */
 class TradeWithVillager extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'trade-with-villager';
-    this.description = '指定された村人を探して条件に合う取引を行います。';
+    this.description = '最も近い村人と取引します。';
     this.params = [
       {
-        name: 'inputItemName',
-        description: '取引で渡すアイテム名',
-        type: 'string',
-        required: true,
-      },
-      {
-        name: 'inputItemCount',
-        description:
-          '取引で渡すアイテムの個数（省略時はもらうアイテムの個数優先）',
+        name: 'tradeIndex',
         type: 'number',
-        required: false,
-      },
-      {
-        name: 'outputItemName',
-        description: '取引でもらうアイテム名',
-        type: 'string',
+        description: '取引のインデックス（0から始まる）',
         required: true,
       },
       {
-        name: 'outputItemCount',
-        description: 'もらうアイテムの個数（省略時は渡すアイテムの個数優先）',
+        name: 'times',
         type: 'number',
-        required: false,
-      },
-      {
-        name: 'profession',
-        description:
-          '村人の職業（例: farmer, weaponsmith, butcher, fletcher, armorer, mason, nitwit, librarian, cartographer, shepherd, toolsmith, cleric など）',
-        type: 'string',
-        required: true,
+        description: '取引回数（デフォルト: 1）',
+        default: 1,
       },
     ];
   }
 
-  async runImpl(
-    inputItemName: string,
-    inputItemCount: number | undefined,
-    outputItemName: string,
-    outputItemCount: number | undefined,
-    profession: string
-  ) {
+  async runImpl(tradeIndex: number, times: number = 1) {
     try {
-      // バリデーション
-      if (
-        (inputItemCount === undefined || inputItemCount === null) &&
-        (outputItemCount === undefined || outputItemCount === null)
-      ) {
+      // パラメータチェック
+      if (!Number.isInteger(tradeIndex) || tradeIndex < 0) {
+        return {
+          success: false,
+          result: '取引インデックスは0以上の整数である必要があります',
+        };
+      }
+
+      if (!Number.isInteger(times) || times < 1 || times > 64) {
+        return {
+          success: false,
+          result: '取引回数は1〜64の整数である必要があります',
+        };
+      }
+
+      // 最も近い村人を探す
+      const villager = this.bot.nearestEntity((entity) => {
+        if (!entity || !entity.name) return false;
+        return entity.name.toLowerCase().includes('villager');
+      });
+
+      if (!villager) {
+        return {
+          success: false,
+          result: '近くに村人が見つかりません',
+        };
+      }
+
+      const distance = villager.position.distanceTo(this.bot.entity.position);
+
+      if (distance > 4.5) {
+        return {
+          success: false,
+          result: `村人が遠すぎます（距離: ${distance.toFixed(
+            1
+          )}m、4.5m以内に近づいてください）`,
+        };
+      }
+
+      // 村人を右クリックして取引UIを開く
+      await this.bot.activateEntity(villager);
+
+      // 少し待つ（取引UIが開くまで）
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // 取引情報を取得（mineflayer-tradeプラグインが必要）
+      const tradeWindow = (this.bot as any).trade;
+
+      if (!tradeWindow) {
         return {
           success: false,
           result:
-            '渡すアイテムの個数またはもらうアイテムの個数のいずれかを指定してください。',
+            '取引ウィンドウを開けませんでした（mineflayer-tradeプラグインが必要です）',
         };
       }
-      // 1. 周囲64ブロック以内で指定職業の村人を探す
-      const myPos = this.bot.entity.position;
-      const professionMap = [
-        'none',
-        'armorer',
-        'butcher',
-        'cartographer',
-        'cleric',
-        'farmer',
-        'fisherman',
-        'fletcher',
-        'leatherworker',
-        'librarian',
-        'mason',
-        'nitwit',
-        'shepherd',
-        'toolsmith',
-        'weaponsmith',
-      ];
-      const villagers = Object.values(this.bot.entities).filter((e: any) => {
-        if (e.name !== 'villager') return false;
-        if (myPos.distanceTo(e.position) > 64) return false;
-        const professionId = e.metadata?.[18]?.villagerProfession ?? 0;
-        console.log(professionId);
-        console.log(professionMap[professionId]);
-        const professionName = professionMap[professionId] || 'none';
-        console.log(professionName);
-        return professionName === profession;
-      });
-      if (villagers.length === 0) {
+
+      const trades = tradeWindow.trades;
+      if (!trades || trades.length === 0) {
+        tradeWindow.close();
         return {
           success: false,
-          result: '指定職業の村人が周囲64ブロック以内にいません。',
+          result: 'この村人は取引を提供していません',
         };
       }
-      // 近い順にソート
-      villagers.sort(
-        (a: any, b: any) =>
-          myPos.distanceTo(a.position) - myPos.distanceTo(b.position)
-      );
 
-      for (const villager of villagers) {
+      if (tradeIndex >= trades.length) {
+        tradeWindow.close();
+        return {
+          success: false,
+          result: `取引インデックス${tradeIndex}は範囲外です（0〜${
+            trades.length - 1
+          }が有効）`,
+        };
+      }
+
+      const trade = trades[tradeIndex];
+
+      // 必要なアイテムを持っているかチェック
+      const hasInput1 = this.bot.inventory
+        .items()
+        .find((item) => item.type === trade.inputItem1.type);
+      const hasInput2 = trade.hasItem2
+        ? this.bot.inventory
+            .items()
+            .find((item) => item.type === trade.inputItem2.type)
+        : true;
+
+      if (!hasInput1) {
+        tradeWindow.close();
+        return {
+          success: false,
+          result: `取引に必要なアイテムを持っていません（${trade.inputItem1.name} x${trade.inputItem1.count}が必要）`,
+        };
+      }
+
+      if (trade.hasItem2 && !hasInput2) {
+        tradeWindow.close();
+        return {
+          success: false,
+          result: `取引に必要なアイテムを持っていません（${trade.inputItem2.name} x${trade.inputItem2.count}が必要）`,
+        };
+      }
+
+      // 取引を実行
+      for (let i = 0; i < times; i++) {
         try {
-          // 近づく
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('移動タイムアウト')), 10000)
-          );
-          const goal = new goals.GoalNear(
-            villager.position.x,
-            villager.position.y,
-            villager.position.z,
-            1
-          );
-          const movePromise = this.bot.pathfinder.goto(goal);
-          await Promise.race([movePromise, timeoutPromise]);
-
-          // 取引UIを開く
-          const window = (await this.bot.openVillager(villager)) as any;
-          if (!window || !window.trades) {
-            window.close && window.close();
-            continue;
+          await tradeWindow.trade(tradeIndex, 1);
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        } catch (error: any) {
+          tradeWindow.close();
+          if (i === 0) {
+            return {
+              success: false,
+              result: `取引エラー: ${error.message}`,
+            };
+          } else {
+            return {
+              success: true,
+              result: `${i}回取引しました（${times}回中）`,
+            };
           }
-          // 2. 取引条件に合うスロットを探す
-          for (let i = 0; i < window.trades.length; i++) {
-            const trade = window.trades[i];
-            if (
-              trade.outputItem &&
-              trade.outputItem.name.includes(outputItemName) &&
-              trade.inputItem1 &&
-              trade.inputItem1.name.includes(inputItemName)
-            ) {
-              // 取引レート取得
-              const rateInput1 = trade.inputItem1.count;
-              const rateInput2 = trade.inputItem2 ? trade.inputItem2.count : 0;
-              const rateOutput = trade.outputItem.count;
-              // インベントリ所持数
-              const invCount1 = this.bot.inventory
-                .items()
-                .filter((item) => item.name === trade.inputItem1.name)
-                .reduce((acc, item) => acc + item.count, 0);
-              const invCount2 = trade.inputItem2
-                ? this.bot.inventory
-                    .items()
-                    .filter((item) => item.name === trade.inputItem2.name)
-                    .reduce((acc, item) => acc + item.count, 0)
-                : 0;
-              // 取引回数計算
-              let maxByInput = Infinity;
-              let maxByOutput = Infinity;
-              if (inputItemCount !== undefined && inputItemCount !== null) {
-                maxByInput = Math.floor(inputItemCount / rateInput1);
-              } else {
-                maxByInput = Math.floor(invCount1 / rateInput1);
-              }
-              if (outputItemCount !== undefined && outputItemCount !== null) {
-                maxByOutput = Math.floor(outputItemCount / rateOutput);
-              }
-              // 取引回数は両方指定時は少ない方、どちらかのみ指定時はそちら
-              let tradeTimes = Math.min(maxByInput, maxByOutput);
-              if (inputItemCount !== undefined && outputItemCount === undefined)
-                tradeTimes = maxByInput;
-              if (outputItemCount !== undefined && inputItemCount === undefined)
-                tradeTimes = maxByOutput;
-              // インベントリ実際所持数で制限
-              tradeTimes = Math.min(
-                tradeTimes,
-                Math.floor(invCount1 / rateInput1)
-              );
-              if (trade.inputItem2) {
-                tradeTimes = Math.min(
-                  tradeTimes,
-                  Math.floor(invCount2 / rateInput2)
-                );
-              }
-              if (tradeTimes <= 0) {
-                window.close && window.close();
-                return {
-                  success: false,
-                  result: '取引に必要なアイテムが足りません。',
-                };
-              }
-              // 取引実行
-              for (let t = 0; t < tradeTimes; t++) {
-                await window.trade(i, 1);
-                await this.bot.waitForTicks(10);
-              }
-              window.close && window.close();
-              return {
-                success: true,
-                result: `取引成功: ${outputItemName}を${
-                  tradeTimes * rateOutput
-                }個入手しました。`,
-              };
-            }
-          }
-          window.close && window.close();
-        } catch (e) {
-          // 次の村人へ
         }
       }
+
+      tradeWindow.close();
+
       return {
-        success: false,
-        result: '条件に合う取引が見つかりませんでした。',
+        success: true,
+        result: `村人と${times}回取引しました（取引: ${trade.outputItem.name} x${trade.outputItem.count}を入手）`,
       };
     } catch (error: any) {
-      return { success: false, result: `取引中にエラー: ${error.message}` };
+      return {
+        success: false,
+        result: `取引エラー: ${error.message}`,
+      };
     }
   }
 }
