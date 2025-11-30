@@ -10,6 +10,14 @@ export interface TaskTreeState {
   strategy: string;
   status: TaskStatus;
   error?: string | null;
+  // 原子的アクションのシーケンス（新機能）
+  actionSequence?:
+    | {
+        toolName: string;
+        args: Record<string, any>;
+        expectedResult: string;
+      }[]
+    | null;
   subTasks?:
     | {
         subTaskGoal: string;

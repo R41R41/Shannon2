@@ -1,13 +1,9 @@
 import { AIMessage, BaseMessage } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
-import { ToolNode } from '@langchain/langgraph/prebuilt';
-import { ChatOpenAI } from '@langchain/openai';
 import { TaskInput, TaskTreeState } from '@shannon/common';
 import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
-import fetch from 'node-fetch';
-import { BadRequestError } from 'openai';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { Vec3 } from 'vec3';
@@ -15,8 +11,12 @@ import { z, ZodObject } from 'zod';
 import { EventBus } from '../../../eventBus/eventBus.js';
 import { getEventBus } from '../../../eventBus/index.js';
 import { CustomBot } from '../../types.js';
+import { CustomToolNode } from './customToolNode.js';
+import { PlanningNode } from './planningNode.js';
 import { Prompt } from './prompt.js';
+import { ToolAgentNode } from './toolAgentNode.js';
 import { TaskStateInput } from './types.js';
+import { UseToolNode } from './useToolNode.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -70,7 +70,9 @@ class InstantSkillTool extends StructuredTool {
             try {
               zodType = (zodType as any).default(param.default);
             } catch (error) {
-              console.error(`\x1b[31mデフォルト値の設定に失敗しました: ${error}\x1b[0m`);
+              console.error(
+                `\x1b[31mデフォルト値の設定に失敗しました: ${error}\x1b[0m`
+              );
             }
           }
 
@@ -88,7 +90,11 @@ class InstantSkillTool extends StructuredTool {
     if (!skill) {
       return `${this.name}スキルが存在しません。`;
     }
-    console.log(`\x1b[32m${skill.skillName}を実行します。パラメータ：${JSON.stringify(data)}\x1b[0m`);
+    console.log(
+      `\x1b[32m${skill.skillName}を実行します。パラメータ：${JSON.stringify(
+        data
+      )}\x1b[0m`
+    );
 
     try {
       // スキルのパラメータ定義を取得
@@ -174,11 +180,11 @@ async function sendTaskTreeToServer(taskTree: any) {
 
 export class TaskGraph {
   private static instance: TaskGraph;
-  private largeModel: ChatOpenAI | null = null;
-  private mediumModel: ChatOpenAI | null = null;
-  private smallModel: ChatOpenAI | null = null;
   private tools: any[] = [];
-  private toolNodeInstance: ToolNode | null = null;
+  private customToolNode: CustomToolNode | null = null;
+  private planningNode: PlanningNode | null = null;
+  private toolAgentNode: ToolAgentNode | null = null;
+  private useToolNode: UseToolNode | null = null;
   private graph: any;
   private eventBus: EventBus | null = null;
   private prompt: Prompt | null = null;
@@ -186,21 +192,30 @@ export class TaskGraph {
   private waitSeconds: number | null = null;
   private bot: CustomBot | null = null;
   public currentState: any = null;
+
   constructor() {
     this.bot = null;
     this.eventBus = null;
-    this.toolNodeInstance = null;
+    this.customToolNode = null;
+    this.planningNode = null;
+    this.toolAgentNode = null;
+    this.useToolNode = null;
     this.prompt = null;
   }
 
   public async initialize(bot: CustomBot) {
     this.bot = bot;
     this.eventBus = getEventBus();
-    await this.initializeModel();
     await this.initializeTools();
     await this.initializeEventBus();
     this.prompt = new Prompt(this.tools);
-    this.toolNodeInstance = new ToolNode(this.tools);
+
+    // 各Nodeを初期化
+    this.customToolNode = new CustomToolNode(this.tools);
+    this.planningNode = new PlanningNode(this.bot, this.prompt);
+    this.toolAgentNode = new ToolAgentNode(this.prompt, this.tools);
+    this.useToolNode = new UseToolNode(this.customToolNode);
+
     this.graph = this.createGraph();
     this.currentState = null;
   }
@@ -228,32 +243,6 @@ export class TaskGraph {
       this.isRunning = true;
       this.waitSeconds = null;
     });
-  }
-  private async initializeModel() {
-    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not set');
-    }
-
-    const SmallModel = new ChatOpenAI({
-      modelName: 'gpt-4o-mini',
-      temperature: 1,
-      apiKey: OPENAI_API_KEY,
-    });
-    const MediumModel = new ChatOpenAI({
-      modelName: 'gpt-4o',
-      temperature: 0.8,
-      apiKey: OPENAI_API_KEY,
-    });
-    const LargeModel = new ChatOpenAI({
-      modelName: 'o4-mini',
-      apiKey: OPENAI_API_KEY,
-      useResponsesApi: true,
-    });
-
-    this.largeModel = LargeModel;
-    this.mediumModel = MediumModel;
-    this.smallModel = SmallModel;
   }
   public async initializeTools() {
     if (!this.bot) {
@@ -290,157 +279,6 @@ export class TaskGraph {
     }
     console.log('tools', this.tools.length);
   }
-  private errorHandler = async (
-    state: typeof this.TaskState.State,
-    error: Error
-  ) => {
-    if (error instanceof BadRequestError) {
-      console.log(
-        '\x1b[31mAn assistant message with "tool_calls" must be followed by tool messages responding to each "tool_call_id".\x1b[0m'
-      );
-      return {
-        taskTree: {
-          status: 'error',
-          ...state.taskTree,
-        } as TaskTreeState,
-      };
-    }
-    return {
-      taskTree: {
-        status: 'error',
-        ...state.taskTree,
-      } as TaskTreeState,
-    };
-  };
-
-  private toolAgentNode = async (state: typeof this.TaskState.State) => {
-    console.log('toolAgentNode');
-    if (!this.prompt) {
-      throw new Error('Prompt not initialized');
-    }
-    const messages = this.prompt.getMessages(state, 'use_tool', false);
-    if (!this.mediumModel) {
-      throw new Error('Medium model not initialized');
-    }
-    const llmWithTools = this.mediumModel.bindTools(this.tools);
-    const forcedToolLLM = llmWithTools.bind({
-      tool_choice: 'any',
-    });
-    try {
-      // 中断条件をチェックしてから処理を開始
-      if (state.forceStop || state.humanFeedbackPending) {
-        console.log('toolAgentNode: 既に中断条件が満たされています');
-        throw new Error('強制終了または人間フィードバック要求で中断');
-      }
-
-      const result = await Promise.race([
-        forcedToolLLM.invoke(messages),
-        waitForStop(state),
-      ]);
-      if (state.forceStop) {
-        // 強制終了フラグが立っていたら何も返さず終了
-        return {
-          taskTree: {
-            status: 'error',
-            goal: '強制終了されました',
-            strategy: '',
-            subTasks: null,
-          },
-        };
-      }
-      return { messages: [result] };
-    } catch (error) {
-      console.error('toolAgentNode error:', error);
-      return this.errorHandler(state, error as Error);
-    }
-  };
-
-  private planningNode = async (state: typeof this.TaskState.State) => {
-    if (!this.bot) {
-      throw new Error('Bot not initialized');
-    }
-    // humanFeedbackPendingをリセット
-    const hadFeedback = state.humanFeedbackPending;
-    this.currentState.humanFeedbackPending = false;
-    state.humanFeedbackPending = false;
-    state.humanFeedback = this.currentState.humanFeedback;
-    const autoUpdateState =
-      this.bot.constantSkills.getSkill('auto-update-state');
-    if (autoUpdateState) {
-      await autoUpdateState.run();
-    }
-    state.selfState = JSON.stringify(this.bot.selfState);
-    state.environmentState = JSON.stringify(this.bot.environmentState);
-    console.log('selfState', state.selfState);
-    console.log('environmentState', state.environmentState);
-
-    if (!this.mediumModel) {
-      throw new Error('Medium model not initialized');
-    }
-
-    // 人間フィードバックがあった場合はメッセージに追加
-    if (hadFeedback && state.humanFeedback) {
-      console.log(
-        'planningNode: 人間フィードバックを処理します:',
-        state.humanFeedback
-      );
-    }
-
-    const PlanningSchema = z.object({
-      status: z.enum(['pending', 'in_progress', 'completed', 'error']),
-      goal: z.string(),
-      strategy: z.string(),
-      subTasks: z
-        .array(
-          z.object({
-            subTaskStatus: z.enum([
-              'pending',
-              'in_progress',
-              'completed',
-              'error',
-            ]),
-            subTaskGoal: z.string(),
-            subTaskStrategy: z.string(),
-            subTaskResult: z.string().nullable(),
-          })
-        )
-        .nullable(),
-    });
-    const structuredLLM = this.mediumModel.withStructuredOutput(
-      PlanningSchema,
-      {
-        name: 'Planning',
-      }
-    );
-    if (!this.prompt) {
-      throw new Error('Prompt not initialized');
-    }
-    console.log('state.messages', state.messages?.slice(-8) ?? []);
-    const messages = this.prompt.getMessages(state, 'planning', true);
-
-    try {
-      const response = await structuredLLM.invoke(messages);
-      console.log('planning response:', response);
-      // ここでtaskTreeを送信
-      await sendTaskTreeToServer({
-        status: response.status,
-        goal: response.goal,
-        strategy: response.strategy,
-        subTasks: response.subTasks,
-      });
-      return {
-        taskTree: {
-          status: response.status,
-          goal: response.goal,
-          strategy: response.strategy,
-          subTasks: response.subTasks,
-        } as TaskTreeState,
-      };
-    } catch (error) {
-      console.error('planningNode error:', error);
-      return this.errorHandler(state, error as Error);
-    }
-  };
 
   private TaskState = Annotation.Root({
     taskId: Annotation<string>({
@@ -489,13 +327,23 @@ export class TaskGraph {
   });
 
   private createGraph() {
-    if (!this.toolNodeInstance) {
-      throw new Error('ToolNode not initialized');
+    if (!this.planningNode || !this.toolAgentNode || !this.useToolNode) {
+      throw new Error('Nodes not initialized');
     }
+
     const workflow = new StateGraph(this.TaskState)
-      .addNode('planning', this.planningNode)
-      .addNode('tool_agent', this.toolAgentNode)
-      .addNode('use_tool', this.toolNodeInstance)
+      .addNode('planning', async (state) => {
+        // humanFeedbackを現在の状態から取得
+        state.humanFeedback =
+          this.currentState?.humanFeedback || state.humanFeedback;
+        return await this.planningNode!.invoke(state);
+      })
+      .addNode('tool_agent', async (state) => {
+        return await this.toolAgentNode!.invoke(state);
+      })
+      .addNode('use_tool', async (state) => {
+        return await this.useToolNode!.invoke(state);
+      })
       .addEdge(START, 'planning')
       .addConditionalEdges('planning', (state) => {
         if (this.currentState.forceStop) {
@@ -536,8 +384,16 @@ export class TaskGraph {
         if (this.currentState.forceStop) {
           return END;
         }
-        console.log(`\x1b[32m${JSON.stringify(state.messages[state.messages.length - 3])}\x1b[0m`);
-        console.log(`\x1b[32m${JSON.stringify(state.messages[state.messages.length - 1].content)}\x1b[0m`);
+        console.log(
+          `\x1b[32m${JSON.stringify(
+            state.messages[state.messages.length - 3]
+          )}\x1b[0m`
+        );
+        console.log(
+          `\x1b[32m${JSON.stringify(
+            state.messages[state.messages.length - 1].content
+          )}\x1b[0m`
+        );
         if (this.currentState.humanFeedbackPending) {
           this.currentState.humanFeedbackPending = false;
           return 'planning';
@@ -607,8 +463,9 @@ export class TaskGraph {
         ...state,
         taskTree: {
           status: 'error',
-          goal: `エラーにより強制終了: ${error instanceof Error ? error.message : '不明なエラー'
-            }`,
+          goal: `エラーにより強制終了: ${
+            error instanceof Error ? error.message : '不明なエラー'
+          }`,
           strategy: '',
           subTasks: null,
         },
