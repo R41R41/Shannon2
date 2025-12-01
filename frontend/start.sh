@@ -1,10 +1,21 @@
 #!/bin/bash
 
-# スクリーンセッション名を定義
+# テストモードフラグをチェック
+IS_DEV=false
+PORT=3000
 FRONTEND_SESSION="shannon-frontend"
 
+if [ "$1" = "--dev" ]; then
+    IS_DEV=true
+    PORT=13000
+    FRONTEND_SESSION="shannon-frontend-dev"
+    echo "Starting frontend in dev mode on port $PORT..."
+else
+    echo "Starting frontend on port $PORT..."
+fi
+
 # 既存のセッションを確認・終了
-screen -X -S $FRONTEND_SESSION quit > /dev/null 2>&1
+tmux kill-session -t $FRONTEND_SESSION 2>/dev/null
 
 # 既存のNode.jsプロセスを終了
 echo "Killing existing Node.js processes..."
@@ -21,17 +32,6 @@ kill_port() {
     fi
 }
 
-# テストモードフラグをチェック
-IS_DEV=false
-PORT=3000
-if [ "$1" = "--dev" ]; then
-    IS_DEV=true
-    PORT=13000
-    echo "Starting frontend in dev mode on port $PORT..."
-else
-    echo "Starting frontend on port $PORT..."
-fi
-
 # ポートを解放
 echo "Cleaning up port ${PORT}..."
 kill_port $PORT
@@ -41,15 +41,15 @@ sleep 2
 
 # フロントエンドを起動
 if [ "$IS_DEV" = true ]; then
-    screen -dmS $FRONTEND_SESSION bash -c "PORT=$PORT npm run dev:dev"
+    tmux new-session -d -s $FRONTEND_SESSION "cd /home/azureuser/Shannon-dev/frontend && PORT=$PORT npm run dev:dev"
 else
-    screen -dmS $FRONTEND_SESSION bash -c "PORT=$PORT npm run dev"
+    tmux new-session -d -s $FRONTEND_SESSION "cd /home/azureuser/Shannon-dev/frontend && PORT=$PORT npm run dev"
 fi
-echo "Frontend started in screen session: $FRONTEND_SESSION"
+echo "Frontend started in tmux session: $FRONTEND_SESSION"
 
 # セッション情報を表示
-echo -e "\nActive screen sessions:"
-screen -ls
+echo -e "\nActive tmux sessions:"
+tmux list-sessions
 
 echo -e "\nTo attach to the session:"
-echo "  screen -r $FRONTEND_SESSION" 
+echo "  tmux attach -t $FRONTEND_SESSION" 
