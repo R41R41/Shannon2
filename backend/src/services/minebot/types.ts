@@ -4,6 +4,7 @@ import pathfinderPkg from 'mineflayer-pathfinder';
 import { Block } from 'prismarine-block';
 import { Entity } from 'prismarine-entity';
 import { Vec3 } from 'vec3';
+import { CONFIG } from './config/MinebotConfig.js';
 import { Utils } from './utils/index.js';
 
 const { goals } = pathfinderPkg;
@@ -163,7 +164,7 @@ export abstract class ConstantSkill extends Skill {
 export abstract class InstantSkill extends Skill {
   priority: number;
   status: boolean;
-  params: any[];
+  params: import('./types/skillParams.js').SkillParam[];
   canUseByCommand: boolean;
   constructor(bot: CustomBot) {
     super(bot);
@@ -173,11 +174,22 @@ export abstract class InstantSkill extends Skill {
     this.canUseByCommand = true;
   }
 
-  async run(...args: any[]): Promise<{ success: boolean; result: string }> {
+  async run(...args: any[]): Promise<import('./types/skillParams.js').SkillResult> {
     this.bot.executingSkill = true;
     this.status = true;
+    const startTime = Date.now();
     try {
-      return await this.runImpl(...args);
+      const result = await this.runImpl(...args);
+      const duration = Date.now() - startTime;
+      return { ...result, duration };
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      return {
+        success: false,
+        result: 'Skill execution failed',
+        error: error.message,
+        duration,
+      };
     } finally {
       this.bot.executingSkill = false;
       this.status = false;
@@ -186,7 +198,7 @@ export abstract class InstantSkill extends Skill {
 
   abstract runImpl(
     ...args: any[]
-  ): Promise<{ success: boolean; result: string }>;
+  ): Promise<import('./types/skillParams.js').SkillResult>;
 }
 
 export class InstantSkills {
@@ -313,8 +325,8 @@ export class ConstantSkills {
   private taskQueue: PriorityQueue;
   private isProcessing: boolean;
   private currentTask: TaskQueueEntry | null;
-  private readonly MAX_QUEUE_SIZE = 10;
-  private readonly TASK_TIMEOUT = 10000; // 10秒
+  private readonly MAX_QUEUE_SIZE = CONFIG.MAX_QUEUE_SIZE;
+  private readonly TASK_TIMEOUT = CONFIG.TASK_TIMEOUT;
   private processInterval: NodeJS.Timeout | null;
 
   constructor() {
@@ -441,9 +453,11 @@ export type ResponseType = {
   result: string;
 };
 
+// 旧Param型（後方互換性のため保持）
 export type Param = {
   name: string;
   description: string;
   type: string;
-  default: string;
+  default?: string | number | boolean | null;
+  required?: boolean;
 };

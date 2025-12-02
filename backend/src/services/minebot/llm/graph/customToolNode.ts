@@ -69,10 +69,16 @@ export class CustomToolNode {
         }),
       };
     } catch (error) {
-      const errorMsg = `${action.toolName} 実行エラー: ${
-        error instanceof Error ? error.message : '不明なエラー'
-      }`;
+      const errorMsg = `${action.toolName} 実行エラー: ${error instanceof Error ? error.message : '不明なエラー'
+        }`;
       console.error(`\x1b[31m✗ ${errorMsg}\x1b[0m`);
+
+      // エラーの詳細をログ出力
+      if (error instanceof Error) {
+        console.error(`\x1b[31m  エラー詳細: ${error.stack}\x1b[0m`);
+      }
+      console.error(`\x1b[31m  受信した引数: ${JSON.stringify(action.args, null, 2)}\x1b[0m`);
+      console.error(`\x1b[31m  ツールスキーマ: ${JSON.stringify(tool.schema, null, 2)}\x1b[0m`);
 
       return {
         success: false,
@@ -130,8 +136,7 @@ export class CustomToolNode {
           continue;
         } else if (onErrorAction === 'retry' && (action.retryCount || 0) < 3) {
           console.log(
-            `\x1b[33m⚠ リトライします（${
-              (action.retryCount || 0) + 1
+            `\x1b[33m⚠ リトライします（${(action.retryCount || 0) + 1
             }/3回目）\x1b[0m`
           );
           action.retryCount = (action.retryCount || 0) + 1;
