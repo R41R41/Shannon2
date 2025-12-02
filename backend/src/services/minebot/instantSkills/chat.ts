@@ -1,14 +1,15 @@
 import { CustomBot, InstantSkill } from '../types.js';
+import { SkillParam } from '../types/skillParams.js';
 
 class Chat extends InstantSkill {
     skillName = 'chat';
     description = 'Minecraftのチャットにメッセージを送信します';
-    params = [
+    params: SkillParam[] = [
         {
             name: 'message',
-            type: 'string',
+            type: 'string' as const,
             description: '送信するメッセージ',
-            default: null,
+            required: true,
         },
     ];
     isToolForLLM = true;
