@@ -1,7 +1,7 @@
 import { AIMessage, BaseMessage } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
-import { TaskInput, TaskTreeState } from '@shannon/common';
+import { TaskTreeState } from '@shannon/common';
 import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
@@ -10,13 +10,16 @@ import { Vec3 } from 'vec3';
 import { z, ZodObject } from 'zod';
 import { EventBus } from '../../../eventBus/eventBus.js';
 import { getEventBus } from '../../../eventBus/index.js';
+import { CONFIG } from '../../config/MinebotConfig.js';
 import { CustomBot } from '../../types.js';
 import { CustomToolNode } from './customToolNode.js';
-import { PlanningNode } from './planningNode.js';
+import { CentralLogManager, LogSender } from './logging/index.js';
+import { ExecutionNode } from './nodes/ExecutionNode.js';
+import { PlanningNode } from './nodes/PlanningNode.js';
+import { ReflectionNode } from './nodes/ReflectionNode.js';
+import { UnderstandingNode } from './nodes/UnderstandingNode.js';
 import { Prompt } from './prompt.js';
-import { ToolAgentNode } from './toolAgentNode.js';
 import { TaskStateInput } from './types.js';
-import { UseToolNode } from './useToolNode.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -57,6 +60,7 @@ class InstantSkillTool extends StructuredTool {
               break;
             case 'string':
               zodType = z.string();
+              break;
             default:
               zodType = z.string();
           }
@@ -126,80 +130,41 @@ class InstantSkillTool extends StructuredTool {
   }
 }
 
-// forceStop/humanFeedbackPending監視用Promise
-function waitForStop(state: any) {
-  return new Promise((_, reject) => {
-    // 最大待機時間（ミリ秒）
-    const maxWaitTime = 10000; // 10秒
-    let elapsedTime = 0;
-
-    const interval = setInterval(() => {
-      // 強制停止または人間フィードバック要求の場合
-      if (state.forceStop || state.humanFeedbackPending) {
-        clearInterval(interval);
-        console.log('waitForStop', state.forceStop, state.humanFeedbackPending);
-        reject(new Error('強制終了または人間フィードバック要求で中断'));
-        return;
-      }
-
-      // 経過時間を増加
-      elapsedTime += 100;
-
-      // 最大待機時間を超えた場合
-      if (elapsedTime >= maxWaitTime) {
-        clearInterval(interval);
-        reject(new Error('waitForStop関数がタイムアウトしました'));
-      }
-    }, 100);
-  });
-}
-
-// taskTreeをPOST送信する関数
-async function sendTaskTreeToServer(taskTree: any) {
-  try {
-    const response = await fetch('http://localhost:8081/task', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=UTF-8',
-      },
-      body: JSON.stringify(taskTree),
-    });
-    if (!response.ok) {
-      console.error(
-        'taskTree送信失敗:',
-        response.status,
-        await response.text()
-      );
-    } else {
-      console.log('taskTree送信成功');
-    }
-  } catch (error) {
-    console.error('taskTree送信エラー:', error);
-  }
-}
-
 export class TaskGraph {
   private static instance: TaskGraph;
   private tools: any[] = [];
   private customToolNode: CustomToolNode | null = null;
   private planningNode: PlanningNode | null = null;
-  private toolAgentNode: ToolAgentNode | null = null;
-  private useToolNode: UseToolNode | null = null;
+  private executionNode: ExecutionNode | null = null;
+  private understandingNode: UnderstandingNode | null = null;
+  private reflectionNode: ReflectionNode | null = null;
+  private centralLogManager: CentralLogManager;
+  private logSender: LogSender;
   private graph: any;
   private eventBus: EventBus | null = null;
   private prompt: Prompt | null = null;
-  private isRunning: boolean = true;
-  private waitSeconds: number | null = null;
   private bot: CustomBot | null = null;
   public currentState: any = null;
+
+  // タスクスタック（緊急中断時に使用）
+  private taskStack: Array<{
+    taskTree: any;
+    state: any;
+    timestamp: number;
+    reason: string;
+  }> = [];
+  private isEmergencyMode = false;
 
   constructor() {
     this.bot = null;
     this.eventBus = null;
     this.customToolNode = null;
     this.planningNode = null;
-    this.toolAgentNode = null;
-    this.useToolNode = null;
+    this.executionNode = null;
+    this.understandingNode = null;
+    this.reflectionNode = null;
+    this.centralLogManager = CentralLogManager.getInstance();
+    this.logSender = LogSender.getInstance();
     this.prompt = null;
   }
 
@@ -207,17 +172,26 @@ export class TaskGraph {
     this.bot = bot;
     this.eventBus = getEventBus();
     await this.initializeTools();
-    await this.initializeEventBus();
     this.prompt = new Prompt(this.tools);
 
-    // 各Nodeを初期化
+    // 各Nodeを初期化（CentralLogManagerを渡す）
     this.customToolNode = new CustomToolNode(this.tools);
-    this.planningNode = new PlanningNode(this.bot, this.prompt);
-    this.toolAgentNode = new ToolAgentNode(this.prompt, this.tools);
-    this.useToolNode = new UseToolNode(this.customToolNode);
+    this.planningNode = new PlanningNode(this.bot, this.prompt, this.centralLogManager);
+    this.executionNode = new ExecutionNode(this.bot, this.centralLogManager);
+    this.understandingNode = new UnderstandingNode(this.bot, this.centralLogManager);
+    this.reflectionNode = new ReflectionNode(this.bot, this.centralLogManager);
 
     this.graph = this.createGraph();
     this.currentState = null;
+  }
+
+  /**
+   * 緊急状態解除ハンドラーを設定（TaskCoordinatorから呼ばれる）
+   */
+  public setEmergencyResolvedHandler(handler: () => Promise<void>): void {
+    if (this.planningNode) {
+      this.planningNode.setEmergencyResolvedHandler(handler);
+    }
   }
 
   public static getInstance(): TaskGraph {
@@ -226,24 +200,7 @@ export class TaskGraph {
     }
     return TaskGraph.instance;
   }
-  private async initializeEventBus() {
-    if (!this.eventBus) {
-      throw new Error('EventBus not initialized');
-    }
-    this.eventBus.subscribe('task:stop', (event) => {
-      console.log(`タスクを停止します`);
-      this.isRunning = false;
-      const { waitSeconds } = event.data as TaskInput;
-      if (waitSeconds) {
-        this.waitSeconds = waitSeconds;
-      }
-    });
-    this.eventBus.subscribe('task:start', () => {
-      console.log(`タスクを再開します`);
-      this.isRunning = true;
-      this.waitSeconds = null;
-    });
-  }
+
   public async initializeTools() {
     if (!this.bot) {
       throw new Error('Bot not initialized');
@@ -254,7 +211,6 @@ export class TaskGraph {
     for (const skill of skills) {
       if (!skill.isToolForLLM) continue;
       const skillTool = new InstantSkillTool(skill, this.bot);
-      console.log('skillToolName', skillTool.name);
       this.tools.push(skillTool);
     }
     const toolsDir = join(__dirname, '../tools');
@@ -331,7 +287,7 @@ export class TaskGraph {
   });
 
   private createGraph() {
-    if (!this.planningNode || !this.toolAgentNode || !this.useToolNode) {
+    if (!this.planningNode || !this.customToolNode) {
       throw new Error('Nodes not initialized');
     }
 
@@ -341,35 +297,96 @@ export class TaskGraph {
         state.humanFeedback =
           this.currentState?.humanFeedback || state.humanFeedback;
         state.retryCount = this.currentState?.retryCount || state.retryCount || 0;
-        return await this.planningNode!.invoke(state);
-      })
-      .addNode('tool_agent', async (state) => {
-        return await this.toolAgentNode!.invoke(state);
-      })
-      .addNode('use_tool', async (state) => {
-        const result = await this.useToolNode!.invoke(state);
 
-        // ツール実行結果からエラーを判定
-        const messages = result.messages || [];
-        const lastMessage = messages[messages.length - 1];
-        let hasError = false;
-        if (lastMessage && 'content' in lastMessage) {
-          const content = String(lastMessage.content);
-          hasError = content.includes('エラー') || content.includes('失敗') || content.includes('スキップ');
+        // ゴールを設定
+        if (state.userMessage) {
+          this.centralLogManager.setCurrentGoal(state.userMessage);
         }
 
-        // retryCountを更新
-        let newRetryCount = state.retryCount || 0;
-        if (hasError) {
-          newRetryCount = newRetryCount + 1;
-          this.currentState.retryCount = newRetryCount;
-          console.log(`\x1b[33m⚠ エラー発生（再試行回数: ${newRetryCount}/8）\x1b[0m`);
-        } else {
-          newRetryCount = 0;
-          this.currentState.retryCount = 0;
+        const result = await this.planningNode!.invoke(state);
+
+        // ログを送信
+        await this.centralLogManager.sendNewLogsToUI();
+
+        return result;
+      })
+      .addNode('execution', async (state) => {
+        // actionSequenceがある場合は、CustomToolNodeで実行
+        if (
+          state.taskTree?.actionSequence &&
+          state.taskTree.actionSequence.length > 0
+        ) {
+          // actionSequence を AIMessage の tool_calls 形式に変換
+          const toolCalls = state.taskTree.actionSequence.map((action: any, index: number) => {
+            // args が JSON 文字列の場合はパース、オブジェクトの場合はそのまま
+            let parsedArgs = action.args;
+            if (typeof action.args === 'string') {
+              try {
+                // 標準の JSON パース
+                parsedArgs = JSON.parse(action.args);
+              } catch (error) {
+                // Python 辞書形式（シングルクォート）を試す
+                try {
+                  const fixedJson = action.args
+                    .replace(/'/g, '"')  // シングルクォートをダブルクォートに
+                    .replace(/True/g, 'true')  // Python の True を JSON の true に
+                    .replace(/False/g, 'false')  // Python の False を JSON の false に
+                    .replace(/None/g, 'null');  // Python の None を JSON の null に
+                  parsedArgs = JSON.parse(fixedJson);
+                  console.log(`\x1b[33m⚠ Python形式をJSON形式に変換しました: ${action.toolName}\x1b[0m`);
+                } catch (error2) {
+                  console.error(`\x1b[31m引数のJSONパースに失敗: ${action.args}\x1b[0m`);
+                  console.error(`\x1b[31m  エラー: ${error2}\x1b[0m`);
+                  parsedArgs = {};
+                }
+              }
+            }
+
+            return {
+              name: action.toolName,
+              args: parsedArgs,
+              id: `call_${Date.now()}_${index}`,
+            };
+          });
+
+          // AIMessage を作成して state.messages に追加
+          const aiMessage = new AIMessage({
+            content: '',
+            tool_calls: toolCalls,
+          });
+
+          const updatedState = {
+            ...state,
+            messages: [...(state.messages || []), aiMessage],
+          };
+
+          const result = await this.customToolNode!.invoke(updatedState);
+
+          // ツール実行結果からエラーを判定
+          const messages = result.messages || [];
+          const lastMessage = messages[messages.length - 1];
+          let hasError = false;
+          if (lastMessage && 'content' in lastMessage) {
+            const content = String(lastMessage.content);
+            hasError = content.includes('エラー') || content.includes('失敗') || content.includes('スキップ');
+          }
+
+          // retryCountを更新
+          let newRetryCount = state.retryCount || 0;
+          if (hasError) {
+            newRetryCount = newRetryCount + 1;
+            this.currentState.retryCount = newRetryCount;
+            console.log(`\x1b[33m⚠ エラー発生（再試行回数: ${newRetryCount}/${CONFIG.MAX_RETRY_COUNT}）\x1b[0m`);
+          } else {
+            newRetryCount = 0;
+            this.currentState.retryCount = 0;
+          }
+
+          return { ...result, retryCount: newRetryCount };
         }
 
-        return { ...result, retryCount: newRetryCount };
+        // actionSequenceがない場合はそのまま返す
+        return state;
       })
       .addEdge(START, 'planning')
       .addConditionalEdges('planning', (state) => {
@@ -381,12 +398,12 @@ export class TaskGraph {
           return 'planning';
         }
 
-        // actionSequenceがある場合は、statusに関係なくtool_agentに進む
+        // actionSequenceがある場合は、statusに関係なくexecutionに進む
         if (
           state.taskTree?.actionSequence &&
           state.taskTree.actionSequence.length > 0
         ) {
-          return 'tool_agent';
+          return 'execution';
         }
 
         if (
@@ -396,35 +413,20 @@ export class TaskGraph {
           console.log('\x1b[31mtaskTree completed\x1b[0m');
           return END;
         } else {
-          return 'tool_agent';
-        }
-      })
-      .addConditionalEdges('tool_agent', (state) => {
-        // humanFeedbackPendingがtrueならplanningに強制遷移
-        if (this.currentState.forceStop) {
-          return END;
-        }
-        const lastMessage = state.messages[state.messages.length - 1];
-        if (
-          lastMessage instanceof AIMessage &&
-          Array.isArray(lastMessage.tool_calls) &&
-          lastMessage.tool_calls.length > 0
-        ) {
-          return 'use_tool';
-        } else {
+          // actionSequenceもなく、statusも未完了の場合は終了
           return END;
         }
       })
-      .addConditionalEdges('use_tool', (state) => {
+      .addConditionalEdges('execution', (state) => {
         if (this.currentState.forceStop) {
           return END;
         }
 
-        // retryCountをチェック（8回以上失敗したら終了）
+        // retryCountをチェック（最大回数以上失敗したら終了）
         const retryCount = state.retryCount || 0;
-        if (retryCount >= 8) {
+        if (retryCount >= CONFIG.MAX_RETRY_COUNT) {
           console.log(
-            `\x1b[31m✗ 最大再試行回数に達しました。タスクを終了します。\x1b[0m`
+            `\x1b[31m✗ 最大再試行回数（${CONFIG.MAX_RETRY_COUNT}回）に達しました。タスクを終了します。\x1b[0m`
           );
           return END;
         }
@@ -463,7 +465,7 @@ export class TaskGraph {
 
     try {
       console.log('タスクグラフ実行開始 ID:', state.taskId);
-      const result = await this.graph.invoke(state, { recursionLimit: 64 });
+      const result = await this.graph.invoke(state, { recursionLimit: CONFIG.LANGGRAPH_RECURSION_LIMIT });
       if (result.taskTree?.status === 'in_progress') {
         result.taskTree.status = 'error';
       }
@@ -527,5 +529,117 @@ export class TaskGraph {
     if (this.currentState) {
       this.currentState.forceStop = true;
     }
+  }
+
+  /**
+   * 現在のタスクをスタックに保存（緊急中断時）
+   */
+  private pushCurrentTask(reason: string): void {
+    if (this.currentState?.taskTree) {
+      console.log(`\x1b[33m📚 タスクをスタックに保存: ${this.currentState.taskTree.goal}\x1b[0m`);
+
+      this.taskStack.push({
+        taskTree: { ...this.currentState.taskTree },
+        state: {
+          retryCount: this.currentState.retryCount || 0,
+          humanFeedback: this.currentState.humanFeedback,
+          userMessage: this.currentState.userMessage,
+        },
+        timestamp: Date.now(),
+        reason,
+      });
+    }
+  }
+
+  /**
+   * スタックから前のタスクを復元
+   */
+  private popPreviousTask(): any | null {
+    if (this.taskStack.length === 0) {
+      return null;
+    }
+
+    const previousTask = this.taskStack.pop()!;
+    const elapsed = ((Date.now() - previousTask.timestamp) / 1000).toFixed(1);
+    console.log(`\x1b[32m📖 タスクを復元: "${previousTask.taskTree.goal}" (中断時間: ${elapsed}秒)\x1b[0m`);
+
+    return {
+      taskTree: previousTask.taskTree,
+      retryCount: previousTask.state.retryCount,
+      userMessage: previousTask.state.userMessage,
+      humanFeedback: `緊急対応が完了しました。元のタスク「${previousTask.taskTree.goal}」の続きを実行してください。`,
+      resuming: true,
+    };
+  }
+
+  /**
+   * ボットの制御をクリア
+   */
+  private clearBotControls(): void {
+    if (!this.bot) return;
+
+    try {
+      this.bot.clearControlStates();
+      const pathfinder = (this.bot as any).pathfinder;
+      if (pathfinder) {
+        pathfinder.setGoal(null);
+      }
+    } catch (error) {
+      console.error('制御クリアエラー:', error);
+    }
+  }
+
+  /**
+   * 緊急事態で現在のタスクを中断
+   */
+  public interruptForEmergency(emergencyMessage: string): void {
+    if (this.currentState?.taskTree && !this.isEmergencyMode) {
+      // 現在のタスクをスタックに保存
+      this.pushCurrentTask('emergency');
+      this.isEmergencyMode = true;
+
+      console.log('\x1b[31m⚠️ タスクを緊急中断しました\x1b[0m');
+
+      // 実行中の pathfinder や制御をクリア
+      this.clearBotControls();
+    }
+  }
+
+  /**
+   * 緊急タスク完了後、元のタスクに復帰
+   */
+  public async resumePreviousTask(): Promise<void> {
+    const previousTask = this.popPreviousTask();
+
+    if (!previousTask) {
+      console.log('\x1b[33m復帰するタスクがありません\x1b[0m');
+      this.isEmergencyMode = false;
+      return;
+    }
+
+    this.isEmergencyMode = false;
+
+    // 元のタスクを再開
+    console.log(`\x1b[32m🔄 タスク復帰を開始...\x1b[0m`);
+
+    this.invoke(previousTask);
+  }
+
+  /**
+   * タスクスタックをクリア
+   */
+  public clearTaskStack(): void {
+    if (this.taskStack.length > 0) {
+      console.log(`\x1b[33mタスクスタックをクリア (${this.taskStack.length}個のタスク)\x1b[0m`);
+      this.taskStack = [];
+    }
+    this.isEmergencyMode = false;
+  }
+
+  /**
+   * 緊急モードかどうか
+   */
+  public isInEmergencyMode(): boolean {
+    return this.isEmergencyMode;
   }
 }

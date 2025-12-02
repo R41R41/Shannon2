@@ -96,7 +96,8 @@ export type PromptType =
   | 'reply_twitter_comment'
   | 'emotion'
   | 'use_tool'
-  | 'reply_youtube_live_comment';
+  | 'reply_youtube_live_comment'
+  | 'emergency';
 
 export type RealTimeAPIEndpoint =
   | 'realtime_text_input'
@@ -156,32 +157,32 @@ export interface Event {
   type: EventType;
   memoryZone: MemoryZone;
   data:
-    | TwitterClientInput
-    | TwitterClientOutput
-    | OpenAIInput
-    | DiscordClientInput
-    | ILog
-    | OpenAIMessageOutput
-    | DiscordClientOutput
-    | MinecraftInput
-    | MinecraftOutput
-    | SchedulerInput
-    | SchedulerOutput
-    | StatusAgentInput
-    | ServiceInput
-    | YoutubeClientOutput
-    | MinebotOutput
-    | MinebotInput
-    | ServiceOutput
-    | TaskInput
-    | TaskTreeState
-    | EmotionType
-    | SkillInfo[]
-    | WebSkillInput
-    | SkillParameters
-    | SkillResult
-    | NotionClientInput
-    | NotionClientOutput;
+  | TwitterClientInput
+  | TwitterClientOutput
+  | OpenAIInput
+  | DiscordClientInput
+  | ILog
+  | OpenAIMessageOutput
+  | DiscordClientOutput
+  | MinecraftInput
+  | MinecraftOutput
+  | SchedulerInput
+  | SchedulerOutput
+  | StatusAgentInput
+  | ServiceInput
+  | YoutubeClientOutput
+  | MinebotOutput
+  | MinebotInput
+  | ServiceOutput
+  | TaskInput
+  | TaskTreeState
+  | EmotionType
+  | SkillInfo[]
+  | WebSkillInput
+  | SkillParameters
+  | SkillResult
+  | NotionClientInput
+  | NotionClientOutput;
   targetMemoryZones?: MemoryZone[];
 }
 

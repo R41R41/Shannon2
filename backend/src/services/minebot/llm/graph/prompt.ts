@@ -1,12 +1,14 @@
 import { AIMessage, BaseMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import { Tool } from '@langchain/core/tools';
 import { PromptType } from '@shannon/common';
+import { CONFIG } from '../../config/MinebotConfig.js';
 import { loadPrompt } from '../config/prompts.js';
 import { TaskStateInput } from './types.js';
 
 export class Prompt {
   public prompts: Map<PromptType, string>;
   private tools: Tool[];
+  private emergencyPrompt: string = '';
 
   constructor(tools: Tool[]) {
     this.prompts = new Map();
@@ -19,6 +21,8 @@ export class Prompt {
     for (const name of promptsName) {
       this.prompts.set(name, await loadPrompt(name, 'minebot'));
     }
+    // 緊急時用プロンプトを別途読み込み
+    this.emergencyPrompt = await loadPrompt('emergency' as PromptType, 'minebot');
   }
 
   private getPrompt = (promptName: PromptType): string => {
@@ -55,8 +59,8 @@ export class Prompt {
         .replace(/\\/g, '')
         .replace(/"/g, "'")}`
       : null;
-    const selfState = state.selfState
-      ? `selfState: ${JSON.stringify(state.selfState, null, 2)
+    const botStatus = state.botStatus
+      ? `botStatus: ${JSON.stringify(state.botStatus, null, 2)
         .replace(/\\n/g, '\n')
         .replace(/\\/g, '')
         .replace(/"/g, "'")}`
@@ -82,17 +86,24 @@ export class Prompt {
       }
 
       if (errors.length > 0) {
-        errorMessage = `Previous Errors (Attempt ${retryCount + 1}/8):\n${errors.join('\n')}\n\n**IMPORTANT: This is attempt ${retryCount + 1} of 8. ${retryCount >= 6 ? 'Only 2 attempts left! Use ONLY what you can see in Tool Results. NO placeholders like "specific_x"!' : 'Try a completely different approach. READ Tool Results carefully and use EXACT values.'}**`;
+        errorMessage = `Previous Errors (Attempt ${retryCount + 1}/${CONFIG.MAX_RETRY_COUNT}):\n${errors.join('\n')}\n\n**IMPORTANT: This is attempt ${retryCount + 1} of ${CONFIG.MAX_RETRY_COUNT}. ${retryCount >= CONFIG.MAX_RETRY_COUNT - 2 ? 'Only 2 attempts left! Use ONLY what you can see in Tool Results. NO placeholders like "specific_x"!' : 'Try a completely different approach. READ Tool Results carefully and use EXACT values.'}**`;
       }
     }
 
+    // 緊急時のみ緊急ルールを注入
+    const emergencyRules = state.isEmergency && this.emergencyPrompt
+      ? this.emergencyPrompt.replace(/\\n/g, '\n').replace(/\\/g, '').replace(/"/g, "'")
+      : null;
+
     const messages = [
       new SystemMessage(prompt),
+      // 緊急時のみ緊急ルールを追加
+      emergencyRules ? new SystemMessage(emergencyRules) : null,
       state.userMessage
         ? new SystemMessage(`userMessage: ${state.userMessage}`)
         : null,
       new SystemMessage(
-        [environmentState, selfState]
+        [environmentState, botStatus]
           .filter(Boolean)
           .join('\n')
       ),
@@ -113,7 +124,7 @@ export class Prompt {
       isToolInfo ? new SystemMessage(toolInfoMessage) : null,
       new SystemMessage(`the actionLog is as follows.`),
       // メッセージを変換して追加
-      ...(state.messages?.slice(-8).flatMap((msg) => {
+      ...(state.messages?.slice(-CONFIG.MAX_RECENT_MESSAGES).flatMap((msg) => {
         // AIMessage(tool_calls付き)は除外
         if (msg instanceof AIMessage && msg.tool_calls && msg.tool_calls.length > 0) {
           return [];
