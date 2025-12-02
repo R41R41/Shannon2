@@ -1,7 +1,7 @@
 import pathfinder from 'mineflayer-pathfinder';
 import { CustomBot, InstantSkill } from '../types.js';
+import { setMovements } from '../utils/setMovements.js';
 const { goals } = pathfinder;
-
 /**
  * 原子的スキル: 指定座標に移動するだけ
  */
@@ -60,8 +60,8 @@ class MoveTo extends InstantSkill {
       const currentPos = this.bot.entity.position;
       const distance = Math.sqrt(
         Math.pow(x - currentPos.x, 2) +
-          Math.pow(y - currentPos.y, 2) +
-          Math.pow(z - currentPos.z, 2)
+        Math.pow(y - currentPos.y, 2) +
+        Math.pow(z - currentPos.z, 2)
       );
 
       if (distance > 1000) {
@@ -73,8 +73,21 @@ class MoveTo extends InstantSkill {
         };
       }
 
+      // pathfinderの移動設定を最適化
+      setMovements(
+        this.bot,
+        false, // allow1by1towers: ブロックを積み上げない
+        true,  // allowSprinting: ダッシュを許可
+        true,  // allowParkour: ジャンプを許可
+        true,  // canOpenDoors: ドアを開ける
+        true,  // canDig: ブロックを掘る（障害物を除去）
+        true,  // dontMineUnderFallingBlock: 落下ブロックの下は掘らない
+        1,     // digCost: 掘るコスト（低いほど積極的に掘る）
+        false  // allowFreeMotion: 自由移動（水中など）
+      );
+
       const goal = new goals.GoalNear(x, y, z, range);
-      const timeout = 60000;
+      const timeout = 30000; // 30秒
 
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('移動タイムアウト')), timeout);
@@ -96,7 +109,7 @@ class MoveTo extends InstantSkill {
           'パスが見つかりません（障害物、高低差が大きい、チャンク未ロードなど）';
       } else if (error.message.includes('timeout')) {
         errorDetail =
-          '移動がタイムアウトしました（60秒以内に到達できませんでした）';
+          '移動がタイムアウトしました（30秒以内に到達できませんでした）';
       }
 
       return {
