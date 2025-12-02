@@ -61,11 +61,31 @@ export class ToolAgentNode {
 
       // 複数のtool_callsを含むAIMessageを構築
       const toolCalls = state.taskTree.actionSequence.map(
-        (action: any, index: number) => ({
-          name: action.toolName,
-          args: action.args,
-          id: `call_${Date.now()}_${index}`,
-        })
+        (action: any, index: number) => {
+          // argsが文字列の場合はパース、オブジェクトの場合はそのまま
+          let parsedArgs = action.args;
+          if (typeof action.args === 'string') {
+            try {
+              parsedArgs = JSON.parse(action.args);
+            } catch (error) {
+              const errorMsg = `${action.toolName}のargsのJSONパースに失敗: ${action.args}`;
+              console.error(`Failed to parse args for ${action.toolName}:`, error);
+              console.error(`Invalid JSON string: ${action.args}`);
+              // エラーメッセージをAIMessageとして返す
+              return {
+                name: action.toolName,
+                args: { error: errorMsg },
+                id: `call_${Date.now()}_${index}`,
+              };
+            }
+          }
+
+          return {
+            name: action.toolName,
+            args: parsedArgs,
+            id: `call_${Date.now()}_${index}`,
+          };
+        }
       );
 
       const aiMessage = new AIMessage({
@@ -114,9 +134,8 @@ export class ToolAgentNode {
       return {
         taskTree: {
           status: 'error',
-          goal: `エラー: ${
-            error instanceof Error ? error.message : '不明なエラー'
-          }`,
+          goal: `エラー: ${error instanceof Error ? error.message : '不明なエラー'
+            }`,
           strategy: '',
           subTasks: null,
         },

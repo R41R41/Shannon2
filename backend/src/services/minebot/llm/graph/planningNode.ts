@@ -41,10 +41,9 @@ export class PlanningNode {
     this.bot = bot;
     this.prompt = prompt;
 
-    // o3-miniを使用（最新の推論特化モデル、2025-11-30更新）
-    // o1-miniより推論品質向上、コスト削減（$1.10/$4.40 per 1M tokens）
+    // gpt-4oを使用（Structured Outputs完全サポート）
     this.model = new ChatOpenAI({
-      modelName: 'o3-mini',
+      modelName: 'gpt-4o',
       apiKey: process.env.OPENAI_API_KEY!,
       temperature: 1,
     });
@@ -81,7 +80,7 @@ export class PlanningNode {
         .array(
           z.object({
             toolName: z.string().describe('実行するツール名'),
-            args: z.record(z.string(), z.unknown()).describe('ツールの引数'),
+            args: z.string().describe('ツールの引数（JSON文字列形式）例: \'{"x": 100, "y": 64, "z": 200}\''),
             expectedResult: z
               .string()
               .describe('このアクションで期待される結果'),
@@ -122,12 +121,11 @@ export class PlanningNode {
         subTaskCount: response.subTasks?.length || 0,
       });
 
-      // taskTreeを送信
+      // taskTreeを送信（actionSequenceは除外）
       await sendTaskTreeToServer({
         status: response.status,
         goal: response.goal,
         strategy: response.strategy,
-        actionSequence: response.actionSequence,
         subTasks: response.subTasks,
       });
 
@@ -142,6 +140,15 @@ export class PlanningNode {
       };
     } catch (error) {
       console.error('❌ PlanningNode error:', error);
+
+      // エラー時もtaskTreeを送信（actionSequenceは除外）
+      await sendTaskTreeToServer({
+        status: 'error',
+        goal: `エラー: ${error instanceof Error ? error.message : '不明なエラー'}`,
+        strategy: '',
+        subTasks: null,
+      });
+
       return {
         taskTree: {
           status: 'error',

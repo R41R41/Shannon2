@@ -1,5 +1,5 @@
-import { TaskTreeState } from '@shannon/common';
 import { BaseMessage } from '@langchain/core/messages';
+import { TaskTreeState } from '@shannon/common';
 
 export interface TaskStateInput {
   taskId?: string | null;
@@ -12,4 +12,5 @@ export interface TaskStateInput {
   userMessage?: string | null;
   humanFeedbackPending?: boolean;
   forceStop?: boolean;
+  retryCount?: number;
 }

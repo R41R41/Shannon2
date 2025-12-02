@@ -22,7 +22,7 @@ If there is a new humanFeedback, refer to it when making a plan.
 "actionSequence": [
 {
 "toolName": "tool-name",
-"args": {"param1": "value1", "param2": "value2"},
+"args": "{\"param1\": \"value1\", \"param2\": \"value2\"}",
 "expectedResult": "expected result of this action"
 },
 ...
@@ -38,6 +38,36 @@ If there is a new humanFeedback, refer to it when making a plan.
 ...
 ] | null
 }
+
+**EXAMPLE (Correct args format):**
+
+```json
+{
+  "goal": "木を3ブロック集める",
+  "actionSequence": [
+    {
+      "toolName": "find-blocks",
+      "args": "{\"blockName\": \"oak_log\", \"maxDistance\": 50, \"count\": 3}",
+      "expectedResult": "oak_logの位置を発見"
+    },
+    {
+      "toolName": "move-to",
+      "args": "{\"x\": 23, \"y\": 76, \"z\": -92, \"range\": 2}",
+      "expectedResult": "木の近くに移動"
+    }
+  ]
+}
+```
+
+**WRONG (DO NOT USE):**
+
+```json
+{
+  "args": "{\"x\": specific_x, \"y\": specific_y}"  // ❌ NO variables!
+  "args": "{'x': 23}"  // ❌ Use double quotes!
+  "args": "{\"blockName\": \"log\"}"  // ❌ Use specific names like "oak_log"!
+}
+```
 
 # Output Rules
 
@@ -62,6 +92,11 @@ If there is a new humanFeedback, refer to it when making a plan.
 - According to the actionLog, update status.
 - When you are trying to achieve your goal, top level status must be in_progress.
 - When your goal is achieved, status must be completed.
+- **If "Previous Error (Retry X/8)" is mentioned:**
+  - **CRITICAL: You have 8 attempts total. If this is Retry 6/8 or higher, you MUST try a completely different approach.**
+  - **Analyze the error carefully and change your strategy (different tool, different parameters, different approach).**
+  - **DO NOT repeat the same action that failed before.**
+  - **If this is Retry 8/8, you should report the failure to the user via chat tool before the task ends.**
 - If you try multiple times and fail to achieve your goal, report the reason to the user and then set top level status to error and end.
 - However, even if you decide to abandon the completion of a task, keep the status as in_progress until you communicate that intention in chat.
 
@@ -80,6 +115,19 @@ If there is a new humanFeedback, refer to it when making a plan.
 
 - **actionSequence is a powerful feature to execute multiple atomic actions sequentially in one planning cycle.**
 - **Use actionSequence when you need to perform several simple operations in a row (e.g., move-to -> look-at -> dig-block-at -> pickup-nearest-item).**
+
+**CRITICAL RULES for args (JSON format):**
+
+1. **ALWAYS use REAL NUMBERS ONLY**: `{"x": 23}` ✅, `{"x": specific_x}` ❌
+2. **NO variables or placeholders**: `{"x": 100, "y": 64}` ✅, `{"x": x_coord, "y": y_coord}` ❌
+3. **Use DOUBLE quotes ONLY**: `{"key": "value"}` ✅, `{'key': 'value'}` ❌
+4. **Extract exact coordinates from Tool Results**: If find-blocks returns "(23, 76, -92)", use exactly `{"x": 23, "y": 76, "z": -92}`
+
+**CRITICAL RULES for block names:**
+
+1. **NEVER use generic names**: `"log"` ❌, `"wood"` ❌
+2. **ALWAYS use specific names**: `"oak_log"` ✅, `"birch_log"` ✅, `"jungle_log"` ✅
+3. **Check Tool Results for exact names**: If get-bot-status shows "oak_log x1", use exactly `"oak_log"`
 
 ### Benefits of actionSequence:
 
@@ -115,6 +163,14 @@ Q4: Do I need to check状態 between steps?
 - ✅ When each step is straightforward (e.g., move, dig, pick up)
 - ✅ When you need fine-grained control and quick error detection
 - ✅ For information gathering (e.g., get-position -> check-inventory-item -> get-health)
+
+**CRITICAL: Using Coordinates from find-blocks**
+
+- **ALWAYS use the EXACT coordinates returned by find-blocks**
+- Example: If find-blocks returns "(23, 76, -92)", use `{"x": 23, "y": 76, "z": -92}` for move-to and dig-block-at
+- **DO NOT approximate or modify coordinates**
+- **DO NOT use placeholder values like "specific_x" or variables**
+- **USE REAL NUMBERS ONLY** in JSON: `{"x": 23}` ✅, `{"x": specific_x}` ❌
 
 ### When NOT to use actionSequence:
 

@@ -320,6 +320,10 @@ export class TaskGraph {
       reducer: (_, next) => next,
       default: () => false,
     }),
+    retryCount: Annotation<number>({
+      reducer: (prev, next) => (next === undefined ? prev : next),
+      default: () => 0,
+    }),
     forceStop: Annotation<boolean>({
       reducer: (_, next) => next,
       default: () => false,
@@ -333,16 +337,39 @@ export class TaskGraph {
 
     const workflow = new StateGraph(this.TaskState)
       .addNode('planning', async (state) => {
-        // humanFeedbackを現在の状態から取得
+        // humanFeedbackとretryCountを現在の状態から取得
         state.humanFeedback =
           this.currentState?.humanFeedback || state.humanFeedback;
+        state.retryCount = this.currentState?.retryCount || state.retryCount || 0;
         return await this.planningNode!.invoke(state);
       })
       .addNode('tool_agent', async (state) => {
         return await this.toolAgentNode!.invoke(state);
       })
       .addNode('use_tool', async (state) => {
-        return await this.useToolNode!.invoke(state);
+        const result = await this.useToolNode!.invoke(state);
+
+        // ツール実行結果からエラーを判定
+        const messages = result.messages || [];
+        const lastMessage = messages[messages.length - 1];
+        let hasError = false;
+        if (lastMessage && 'content' in lastMessage) {
+          const content = String(lastMessage.content);
+          hasError = content.includes('エラー') || content.includes('失敗') || content.includes('スキップ');
+        }
+
+        // retryCountを更新
+        let newRetryCount = state.retryCount || 0;
+        if (hasError) {
+          newRetryCount = newRetryCount + 1;
+          this.currentState.retryCount = newRetryCount;
+          console.log(`\x1b[33m⚠ エラー発生（再試行回数: ${newRetryCount}/8）\x1b[0m`);
+        } else {
+          newRetryCount = 0;
+          this.currentState.retryCount = 0;
+        }
+
+        return { ...result, retryCount: newRetryCount };
       })
       .addEdge(START, 'planning')
       .addConditionalEdges('planning', (state) => {
@@ -353,6 +380,15 @@ export class TaskGraph {
           this.currentState.humanFeedbackPending = false;
           return 'planning';
         }
+
+        // actionSequenceがある場合は、statusに関係なくtool_agentに進む
+        if (
+          state.taskTree?.actionSequence &&
+          state.taskTree.actionSequence.length > 0
+        ) {
+          return 'tool_agent';
+        }
+
         if (
           state.taskTree?.status === 'completed' ||
           state.taskTree?.status === 'error'
@@ -380,24 +416,26 @@ export class TaskGraph {
         }
       })
       .addConditionalEdges('use_tool', (state) => {
-        // humanFeedbackPendingがtrueならplanningに強制遷移
         if (this.currentState.forceStop) {
           return END;
         }
-        console.log(
-          `\x1b[32m${JSON.stringify(
-            state.messages[state.messages.length - 3]
-          )}\x1b[0m`
-        );
-        console.log(
-          `\x1b[32m${JSON.stringify(
-            state.messages[state.messages.length - 1].content
-          )}\x1b[0m`
-        );
+
+        // retryCountをチェック（8回以上失敗したら終了）
+        const retryCount = state.retryCount || 0;
+        if (retryCount >= 8) {
+          console.log(
+            `\x1b[31m✗ 最大再試行回数に達しました。タスクを終了します。\x1b[0m`
+          );
+          return END;
+        }
+
         if (this.currentState.humanFeedbackPending) {
           this.currentState.humanFeedbackPending = false;
           return 'planning';
         }
+
+        // エラーがある場合は必ずplanningに戻る
+        // 成功の場合もplanningに戻って最終判定を行う
         return 'planning';
       });
     return workflow.compile();
@@ -419,6 +457,7 @@ export class TaskGraph {
       },
       humanFeedbackPending: false,
       forceStop: false,
+      retryCount: 0,
     };
     this.currentState = state;
 
@@ -463,9 +502,8 @@ export class TaskGraph {
         ...state,
         taskTree: {
           status: 'error',
-          goal: `エラーにより強制終了: ${
-            error instanceof Error ? error.message : '不明なエラー'
-          }`,
+          goal: `エラーにより強制終了: ${error instanceof Error ? error.message : '不明なエラー'
+            }`,
           strategy: '',
           subTasks: null,
         },
