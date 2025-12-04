@@ -316,6 +316,21 @@ export class TaskGraph {
           state.taskTree?.actionSequence &&
           state.taskTree.actionSequence.length > 0
         ) {
+          // 実行開始ログ
+          this.centralLogManager.getLogManager('execution').addLog({
+            phase: 'execution',
+            level: 'info',
+            source: 'custom_tool_node',
+            content: `Executing ${state.taskTree.actionSequence.length} actions...`,
+            metadata: {
+              status: 'loading',
+              actionCount: state.taskTree.actionSequence.length,
+            } as any,
+          });
+
+          // ログを送信
+          await this.centralLogManager.sendNewLogsToUI();
+
           // actionSequence を AIMessage の tool_calls 形式に変換
           const toolCalls = state.taskTree.actionSequence.map((action: any, index: number) => {
             // args が JSON 文字列の場合はパース、オブジェクトの場合はそのまま
@@ -377,10 +392,33 @@ export class TaskGraph {
             newRetryCount = newRetryCount + 1;
             this.currentState.retryCount = newRetryCount;
             console.log(`\x1b[33m⚠ エラー発生（再試行回数: ${newRetryCount}/${CONFIG.MAX_RETRY_COUNT}）\x1b[0m`);
+
+            // エラーログ
+            this.centralLogManager.getLogManager('execution').addLog({
+              phase: 'execution',
+              level: 'error',
+              source: 'custom_tool_node',
+              content: `Action failed (Retry ${newRetryCount}/${CONFIG.MAX_RETRY_COUNT})`,
+              metadata: {
+                error: 'Action sequence failed',
+              } as any,
+            });
           } else {
             newRetryCount = 0;
             this.currentState.retryCount = 0;
+
+            // 成功ログ
+            this.centralLogManager.getLogManager('execution').addLog({
+              phase: 'execution',
+              level: 'success',
+              source: 'custom_tool_node',
+              content: `✅ All ${state.taskTree.actionSequence.length} actions completed successfully`,
+              metadata: {} as any,
+            });
           }
+
+          // ログを送信
+          await this.centralLogManager.sendNewLogsToUI();
 
           return { ...result, retryCount: newRetryCount };
         }

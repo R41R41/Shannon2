@@ -1,6 +1,6 @@
 // 詳細ログシステムの型定義
 
-export type LogPhase = 'thinking' | 'tool_call' | 'tool_result' | 'reflection' | 'planning' | 'understanding';
+export type LogPhase = 'thinking' | 'tool_call' | 'tool_result' | 'reflection' | 'planning' | 'understanding' | 'execution';
 
 export type LogLevel = 'info' | 'success' | 'warning' | 'error';
 
