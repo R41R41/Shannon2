@@ -80,7 +80,7 @@ export class MinebotConfig {
     readonly MAX_LOGS = 200;
 
     /** プロンプトに含める最新メッセージ数 */
-    readonly MAX_RECENT_MESSAGES = 8;
+    readonly MAX_RECENT_MESSAGES = 5; // 8→5に削減（最新の結果だけで十分）
 
     /** エラーメッセージの最大保持数 */
     readonly MAX_ERROR_MESSAGES = 5;

@@ -5,13 +5,11 @@ interface ActionItem {
   toolName: string;
   args: Record<string, any>;
   expectedResult: string;
-  onErrorAction?: 'abort' | 'retry' | 'skip' | 'fallback';
-  fallbackSequence?: ActionItem[];
-  retryCount?: number;
 }
 
 /**
- * カスタムToolNode: 複数ツールの順次実行とエラー時の即時中断、フォールバック機構をサポート
+ * カスタムToolNode: 複数ツールの順次実行
+ * 動的解決は行わない（PlanningNodeが完全に引数を指定する）
  */
 export class CustomToolNode {
   private tools: Map<string, StructuredTool>;
@@ -20,11 +18,39 @@ export class CustomToolNode {
     this.tools = new Map(tools.map((tool) => [tool.name, tool]));
   }
 
+  /**
+   * ツールのスキーマ情報を取得（エラーメッセージ用）
+   */
+  private getToolSchemaInfo(tool: StructuredTool): string {
+    try {
+      const schema = tool.schema;
+      if (schema && typeof schema === 'object' && '_def' in schema) {
+        const def = (schema as any)._def;
+        if (def.typeName === 'ZodObject' && def.shape) {
+          const params = Object.keys(def.shape()).map(key => {
+            const field = def.shape()[key];
+            const desc = field?._def?.description || '';
+            const isNullable = field?._def?.typeName === 'ZodNullable';
+            const required = !isNullable && desc.includes('必須') ? '(必須)' : '(省略可)';
+            return `${key}${required}: ${desc}`;
+          });
+          return params.join(' | ');
+        }
+      }
+      return 'パラメータ情報なし';
+    } catch {
+      return 'パラメータ情報なし';
+    }
+  }
+
+  /**
+   * アクションを実行
+   */
   private async executeAction(
     action: ActionItem,
     index: number,
     total: number
-  ): Promise<{ success: boolean; message: ToolMessage }> {
+  ): Promise<{ success: boolean; message: ToolMessage; result: string }> {
     console.log(
       `\x1b[36m[${index + 1}/${total}] ${action.toolName}を実行中...\x1b[0m`
     );
@@ -35,6 +61,7 @@ export class CustomToolNode {
       console.error(`\x1b[31m${errorMsg}\x1b[0m`);
       return {
         success: false,
+        result: errorMsg,
         message: new ToolMessage({
           content: errorMsg,
           tool_call_id: `call_${Date.now()}_${index}`,
@@ -44,7 +71,14 @@ export class CustomToolNode {
     }
 
     try {
-      const result = await tool.invoke(action.args);
+      // _expectedResult などの内部フィールドを除去
+      const cleanArgs = { ...action.args };
+      delete cleanArgs._expectedResult;
+      delete cleanArgs._dynamicResolve;
+
+      console.log(`${action.toolName}を実行します。パラメータ：${JSON.stringify(cleanArgs)}`);
+
+      const result = await tool.invoke(cleanArgs);
       console.log(`\x1b[32m✓ ${action.toolName} 成功: ${result}\x1b[0m`);
 
       // 結果が失敗を示している場合もエラーとして扱う
@@ -62,6 +96,7 @@ export class CustomToolNode {
 
       return {
         success: !isError,
+        result: typeof result === 'string' ? result : JSON.stringify(result),
         message: new ToolMessage({
           content: result,
           tool_call_id: `call_${Date.now()}_${index}`,
@@ -69,19 +104,24 @@ export class CustomToolNode {
         }),
       };
     } catch (error) {
-      const errorMsg = `${action.toolName} 実行エラー: ${error instanceof Error ? error.message : '不明なエラー'
-        }`;
-      console.error(`\x1b[31m✗ ${errorMsg}\x1b[0m`);
+      // スキーマエラーの場合、スキルの引数情報を表示
+      let errorMsg = `${action.toolName} 実行エラー`;
 
-      // エラーの詳細をログ出力
-      if (error instanceof Error) {
-        console.error(`\x1b[31m  エラー詳細: ${error.stack}\x1b[0m`);
+      if (error instanceof Error && error.message.includes('did not match expected schema')) {
+        const paramsInfo = this.getToolSchemaInfo(tool);
+
+        errorMsg = `${action.toolName}の引数が間違っています。` +
+          `提供された引数: ${JSON.stringify(action.args)}。` +
+          `このスキルの引数: ${paramsInfo}`;
+      } else {
+        errorMsg += `: ${error instanceof Error ? error.message : '不明なエラー'}`;
       }
-      console.error(`\x1b[31m  受信した引数: ${JSON.stringify(action.args, null, 2)}\x1b[0m`);
-      console.error(`\x1b[31m  ツールスキーマ: ${JSON.stringify(tool.schema, null, 2)}\x1b[0m`);
+
+      console.error(`\x1b[31m✗ ${errorMsg}\x1b[0m`);
 
       return {
         success: false,
+        result: errorMsg,
         message: new ToolMessage({
           content: errorMsg,
           tool_call_id: `call_${Date.now()}_${index}`,
@@ -106,96 +146,40 @@ export class CustomToolNode {
 
     const toolMessages: ToolMessage[] = [];
     let hasError = false;
-    let errorIndex = -1;
+    let lastResult = '';
 
-    // 複数のツールコールを順次実行
+    // アクションを順番に実行
     for (let i = 0; i < toolCalls.length; i++) {
       const toolCall = toolCalls[i];
       const action: ActionItem = {
         toolName: toolCall.name,
         args: toolCall.args,
-        expectedResult: '',
-        onErrorAction: (toolCall.args as any).onErrorAction || 'abort',
-        fallbackSequence: (toolCall.args as any).fallbackSequence,
-        retryCount: (toolCall.args as any).retryCount || 0,
+        expectedResult: toolCall.args?._expectedResult || '',
       };
 
-      const result = await this.executeAction(action, i, toolCalls.length);
-      toolMessages.push(result.message);
+      const { success, message, result } = await this.executeAction(
+        action,
+        i,
+        toolCalls.length
+      );
 
-      if (!result.success) {
+      toolMessages.push(message);
+      lastResult = result;
+
+      if (!success) {
         hasError = true;
-        errorIndex = i;
-
-        // エラーアクションの処理
-        const onErrorAction = action.onErrorAction || 'abort';
-
-        if (onErrorAction === 'skip') {
-          console.log(`\x1b[33m⚠ エラーをスキップして続行します\x1b[0m`);
-          hasError = false; // スキップの場合はエラーフラグをクリア
-          continue;
-        } else if (onErrorAction === 'retry' && (action.retryCount || 0) < 3) {
-          console.log(
-            `\x1b[33m⚠ リトライします（${(action.retryCount || 0) + 1
-            }/3回目）\x1b[0m`
-          );
-          action.retryCount = (action.retryCount || 0) + 1;
-          i--; // インデックスを戻してリトライ
-          continue;
-        } else if (
-          onErrorAction === 'fallback' &&
-          action.fallbackSequence &&
-          action.fallbackSequence.length > 0
-        ) {
-          console.log(`\x1b[33m⚠ フォールバックシーケンスを実行します\x1b[0m`);
-
-          // フォールバックシーケンスを実行
-          for (let j = 0; j < action.fallbackSequence.length; j++) {
-            const fallbackAction = action.fallbackSequence[j];
-            const fallbackResult = await this.executeAction(
-              fallbackAction,
-              j,
-              action.fallbackSequence.length
-            );
-            toolMessages.push(fallbackResult.message);
-
-            if (!fallbackResult.success) {
-              console.error(`\x1b[31m✗ フォールバックも失敗しました\x1b[0m`);
-              break; // フォールバックも失敗したら中断
-            }
-          }
-
-          // フォールバックが成功したらエラーフラグをクリア
-          hasError = false;
-          continue;
-        } else {
-          // abort または他のエラーアクションは即座に中断
-          break;
+        // 残りのアクションをスキップ
+        if (i < toolCalls.length - 1) {
+          console.log(`\x1b[33m残り${toolCalls.length - i - 1}個のアクションをスキップしました\x1b[0m`);
         }
+        break;
       }
     }
 
-    // エラーが発生した場合、残りのツールコールをスキップしたことを記録
-    if (hasError && errorIndex < toolCalls.length - 1) {
-      const skippedCount = toolCalls.length - errorIndex - 1;
-      console.log(
-        `\x1b[33m残り${skippedCount}個のアクションをスキップしました\x1b[0m`
-      );
-
-      // スキップされたツールの情報を追加
-      const skippedTools = toolCalls
-        .slice(errorIndex + 1)
-        .map((tc) => tc.name)
-        .join(', ');
-      toolMessages.push(
-        new ToolMessage({
-          content: `エラーのため以下のアクションをスキップしました: ${skippedTools}`,
-          tool_call_id: `skip_${Date.now()}`,
-          name: 'system',
-        })
-      );
-    }
-
-    return { messages: toolMessages };
+    return {
+      messages: toolMessages,
+      lastToolResult: lastResult,
+      hasError,
+    };
   }
 }

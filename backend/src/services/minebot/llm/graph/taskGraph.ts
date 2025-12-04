@@ -311,20 +311,38 @@ export class TaskGraph {
         return result;
       })
       .addNode('execution', async (state) => {
-        // actionSequenceがある場合は、CustomToolNodeで実行
-        if (
-          state.taskTree?.actionSequence &&
-          state.taskTree.actionSequence.length > 0
-        ) {
+        // === 新設計: nextActionSequence を直接実行 ===
+        // nextActionSequence = 引数が完全に指定されたスキルのリスト
+        const activeActionSequence = state.taskTree?.nextActionSequence || state.taskTree?.actionSequence;
+
+        // 現在のサブタスク情報（表示用）
+        let currentSubTaskInfo: { id: string; goal: string } | null = null;
+        if (state.taskTree?.currentSubTaskId && state.taskTree?.hierarchicalSubTasks) {
+          const currentSubTask = this.findSubTaskById(
+            state.taskTree.hierarchicalSubTasks,
+            state.taskTree.currentSubTaskId
+          );
+          if (currentSubTask) {
+            currentSubTaskInfo = { id: currentSubTask.id, goal: currentSubTask.goal };
+            console.log(`\x1b[36m📌 サブタスク実行中: ${currentSubTask.goal}\x1b[0m`);
+          }
+        }
+
+        // nextActionSequenceがある場合は、CustomToolNodeで実行
+        if (activeActionSequence && activeActionSequence.length > 0) {
           // 実行開始ログ
           this.centralLogManager.getLogManager('execution').addLog({
             phase: 'execution',
             level: 'info',
             source: 'custom_tool_node',
-            content: `Executing ${state.taskTree.actionSequence.length} actions...`,
+            content: currentSubTaskInfo
+              ? `Executing subtask: ${currentSubTaskInfo.goal} (${activeActionSequence.length} actions)`
+              : `Executing ${activeActionSequence.length} actions...`,
             metadata: {
               status: 'loading',
-              actionCount: state.taskTree.actionSequence.length,
+              actionCount: activeActionSequence.length,
+              subTaskId: currentSubTaskInfo?.id,
+              subTaskGoal: currentSubTaskInfo?.goal,
             } as any,
           });
 
@@ -332,29 +350,65 @@ export class TaskGraph {
           await this.centralLogManager.sendNewLogsToUI();
 
           // actionSequence を AIMessage の tool_calls 形式に変換
-          const toolCalls = state.taskTree.actionSequence.map((action: any, index: number) => {
-            // args が JSON 文字列の場合はパース、オブジェクトの場合はそのまま
-            let parsedArgs = action.args;
-            if (typeof action.args === 'string') {
-              try {
-                // 標準の JSON パース
-                parsedArgs = JSON.parse(action.args);
-              } catch (error) {
-                // Python 辞書形式（シングルクォート）を試す
+          const toolCalls = activeActionSequence.map((action: any, index: number) => {
+            // args が null の場合は空オブジェクト + 動的解決フラグ
+            let parsedArgs: Record<string, any> = {};
+
+            if (action.args === null || action.args === undefined) {
+              // args が null の場合は、CustomToolNode が動的に解決する
+              console.log(`\x1b[35m📍 ${action.toolName}: args=null → 実行時に動的解決\x1b[0m`);
+              parsedArgs = { _dynamicResolve: true, _expectedResult: action.expectedResult };
+            } else if (typeof action.args === 'string') {
+              // 空文字列、null、": null" などの場合は動的解決
+              const trimmedArgs = action.args.trim();
+              if (trimmedArgs === '' || trimmedArgs === 'null' || trimmedArgs === ': null' || trimmedArgs.startsWith(': ')) {
+                console.log(`\x1b[35m📍 ${action.toolName}: args="${trimmedArgs}" → 実行時に動的解決\x1b[0m`);
+                parsedArgs = { _dynamicResolve: true, _expectedResult: action.expectedResult };
+              } else {
                 try {
-                  const fixedJson = action.args
-                    .replace(/'/g, '"')  // シングルクォートをダブルクォートに
-                    .replace(/True/g, 'true')  // Python の True を JSON の true に
-                    .replace(/False/g, 'false')  // Python の False を JSON の false に
-                    .replace(/None/g, 'null');  // Python の None を JSON の null に
-                  parsedArgs = JSON.parse(fixedJson);
-                  console.log(`\x1b[33m⚠ Python形式をJSON形式に変換しました: ${action.toolName}\x1b[0m`);
-                } catch (error2) {
-                  console.error(`\x1b[31m引数のJSONパースに失敗: ${action.args}\x1b[0m`);
-                  console.error(`\x1b[31m  エラー: ${error2}\x1b[0m`);
-                  parsedArgs = {};
+                  // 標準の JSON パース
+                  const parsed = JSON.parse(action.args);
+                  // JSON.parse("null") は null を返すので、その場合は動的解決
+                  if (parsed === null) {
+                    console.log(`\x1b[35m📍 ${action.toolName}: args="null" → 実行時に動的解決\x1b[0m`);
+                    parsedArgs = { _dynamicResolve: true, _expectedResult: action.expectedResult };
+                  } else {
+                    parsedArgs = parsed;
+                  }
+                } catch (error) {
+                  // Python 辞書形式（シングルクォート）を試す
+                  try {
+                    const fixedJson = action.args
+                      .replace(/'/g, '"')  // シングルクォートをダブルクォートに
+                      .replace(/True/g, 'true')  // Python の True を JSON の true に
+                      .replace(/False/g, 'false')  // Python の False を JSON の false に
+                      .replace(/None/g, 'null');  // Python の None を JSON の null に
+                    const parsed = JSON.parse(fixedJson);
+                    if (parsed === null) {
+                      parsedArgs = { _dynamicResolve: true, _expectedResult: action.expectedResult };
+                    } else {
+                      parsedArgs = parsed;
+                    }
+                    console.log(`\x1b[33m⚠ Python形式をJSON形式に変換しました: ${action.toolName}\x1b[0m`);
+                  } catch (error2) {
+                    console.error(`\x1b[31m引数のJSONパースに失敗: ${action.args}\x1b[0m`);
+                    console.error(`\x1b[31m  エラー: ${error2}\x1b[0m`);
+                    parsedArgs = { _dynamicResolve: true };
+                  }
                 }
               }
+            } else if (typeof action.args === 'object') {
+              // オブジェクトが null の場合も動的解決
+              if (action.args === null) {
+                parsedArgs = { _dynamicResolve: true, _expectedResult: action.expectedResult };
+              } else {
+                parsedArgs = { ...action.args };
+              }
+            }
+
+            // expectedResult を常に渡す（動的解決時に使用）
+            if (parsedArgs && typeof parsedArgs === 'object') {
+              parsedArgs._expectedResult = action.expectedResult;
             }
 
             return {
@@ -388,39 +442,81 @@ export class TaskGraph {
 
           // retryCountを更新
           let newRetryCount = state.retryCount || 0;
+          let updatedTaskTree = { ...state.taskTree };
+
           if (hasError) {
             newRetryCount = newRetryCount + 1;
             this.currentState.retryCount = newRetryCount;
+
+            // サブタスクのステータスを更新（失敗）
+            if (currentSubTaskInfo && updatedTaskTree.hierarchicalSubTasks) {
+              updatedTaskTree.hierarchicalSubTasks = updatedTaskTree.hierarchicalSubTasks.map((st: any) => {
+                if (st.id === currentSubTaskInfo!.id) {
+                  return {
+                    ...st,
+                    status: 'error',
+                    failureReason: String(lastMessage?.content || 'Unknown error'),
+                    needsDecomposition: true,  // 分解が必要フラグ
+                  };
+                }
+                return st;
+              });
+            }
+
             console.log(`\x1b[33m⚠ エラー発生（再試行回数: ${newRetryCount}/${CONFIG.MAX_RETRY_COUNT}）\x1b[0m`);
+            if (currentSubTaskInfo) {
+              console.log(`\x1b[33m   サブタスク「${currentSubTaskInfo.goal}」が失敗しました\x1b[0m`);
+            }
 
             // エラーログ
             this.centralLogManager.getLogManager('execution').addLog({
               phase: 'execution',
               level: 'error',
               source: 'custom_tool_node',
-              content: `Action failed (Retry ${newRetryCount}/${CONFIG.MAX_RETRY_COUNT})`,
+              content: currentSubTaskInfo
+                ? `Subtask failed: ${currentSubTaskInfo.goal} (Retry ${newRetryCount}/${CONFIG.MAX_RETRY_COUNT})`
+                : `Action failed (Retry ${newRetryCount}/${CONFIG.MAX_RETRY_COUNT})`,
               metadata: {
                 error: 'Action sequence failed',
+                subTaskId: currentSubTaskInfo?.id,
+                subTaskGoal: currentSubTaskInfo?.goal,
               } as any,
             });
           } else {
             newRetryCount = 0;
             this.currentState.retryCount = 0;
 
+            // === 問題4修正: サブタスクのステータス更新はLLMに任せる ===
+            // Executionノードでは「次のサブタスク」を決定しない（LLMがhierarchicalSubTasksを管理）
+            // currentSubTaskInfoがある場合は、そのサブタスクが完了したことだけをログ
+            if (currentSubTaskInfo) {
+              console.log(`\x1b[32m✓ サブタスク完了: ${currentSubTaskInfo.goal}\x1b[0m`);
+            }
+            // hierarchicalSubTasksの更新はPlanningNodeに任せる（引き継ぎのため）
+
             // 成功ログ
             this.centralLogManager.getLogManager('execution').addLog({
               phase: 'execution',
               level: 'success',
               source: 'custom_tool_node',
-              content: `✅ All ${state.taskTree.actionSequence.length} actions completed successfully`,
-              metadata: {} as any,
+              content: currentSubTaskInfo
+                ? `✅ Subtask completed: ${currentSubTaskInfo.goal}`
+                : `✅ All ${activeActionSequence.length} actions completed successfully`,
+              metadata: {
+                subTaskId: currentSubTaskInfo?.id,
+                subTaskGoal: currentSubTaskInfo?.goal,
+              } as any,
             });
           }
 
           // ログを送信
           await this.centralLogManager.sendNewLogsToUI();
 
-          return { ...result, retryCount: newRetryCount };
+          return {
+            ...result,
+            retryCount: newRetryCount,
+            taskTree: updatedTaskTree,
+          };
         }
 
         // actionSequenceがない場合はそのまま返す
@@ -436,24 +532,28 @@ export class TaskGraph {
           return 'planning';
         }
 
-        // actionSequenceがある場合は、statusに関係なくexecutionに進む
-        if (
-          state.taskTree?.actionSequence &&
-          state.taskTree.actionSequence.length > 0
-        ) {
+        // === 問題3修正: status: completedの場合は即座に終了 ===
+        if (state.taskTree?.status === 'completed') {
+          console.log('\x1b[32m✅ タスク完了\x1b[0m');
+          return END;
+        }
+        if (state.taskTree?.status === 'error') {
+          console.log('\x1b[31m❌ タスクエラー\x1b[0m');
+          return END;
+        }
+
+        // nextActionSequence または actionSequenceがある場合は実行
+        const hasActions =
+          (state.taskTree?.nextActionSequence && state.taskTree.nextActionSequence.length > 0) ||
+          (state.taskTree?.actionSequence && state.taskTree.actionSequence.length > 0);
+
+        if (hasActions) {
           return 'execution';
         }
 
-        if (
-          state.taskTree?.status === 'completed' ||
-          state.taskTree?.status === 'error'
-        ) {
-          console.log('\x1b[31mtaskTree completed\x1b[0m');
-          return END;
-        } else {
-          // actionSequenceもなく、statusも未完了の場合は終了
-          return END;
-        }
+        // actionSequenceもなく、statusも未完了の場合は終了
+        console.log('\x1b[33m⚠ アクションなし、終了\x1b[0m');
+        return END;
       })
       .addConditionalEdges('execution', (state) => {
         if (this.currentState.forceStop) {
@@ -608,6 +708,22 @@ export class TaskGraph {
       humanFeedback: `緊急対応が完了しました。元のタスク「${previousTask.taskTree.goal}」の続きを実行してください。`,
       resuming: true,
     };
+  }
+
+  /**
+   * 階層的サブタスクからIDで検索（再帰的）
+   */
+  private findSubTaskById(tasks: any[], id: string): any | null {
+    for (const task of tasks) {
+      if (task.id === id) {
+        return task;
+      }
+      if (task.children && task.children.length > 0) {
+        const found = this.findSubTaskById(task.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
   }
 
   /**

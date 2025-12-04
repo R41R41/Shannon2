@@ -22,6 +22,58 @@ class CheckRecipe extends InstantSkill {
     ];
   }
 
+  /**
+   * 材料IDを名前に変換（配列の場合は全選択肢を表示、木材系は任意表記）
+   */
+  private getIngredientName(ingredientId: any): string | null {
+    if (ingredientId === null || ingredientId === -1) {
+      return null;
+    }
+
+    // 配列の場合は全ての選択肢を表示
+    if (Array.isArray(ingredientId)) {
+      const names = ingredientId
+        .filter((id: any) => id !== null && id !== -1)
+        .map((id: any) => this.mcData.items[id]?.name)
+        .filter((name: string | undefined) => name);
+
+      if (names.length === 0) return null;
+      if (names.length === 1) {
+        // 単一でも木材系なら注釈追加
+        return this.addWoodNote(names[0]);
+      }
+      // 複数選択肢がある場合は最初の3つ + "等"
+      if (names.length > 3) {
+        return `${names.slice(0, 3).join('/')}等`;
+      }
+      return names.join('/');
+    }
+
+    // 単一の場合
+    const item = this.mcData.items[ingredientId];
+    if (!item) return null;
+    return this.addWoodNote(item.name);
+  }
+
+  /**
+   * 木材系アイテムに注釈を追加（pale_oak_planks → pale_oak_planks(任意のplanks可)）
+   */
+  private addWoodNote(name: string): string {
+    const woodTypes = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove', 'cherry', 'bamboo', 'crimson', 'warped', 'pale_oak'];
+    const woodSuffixes = ['_planks', '_log', '_wood', '_slab', '_stairs'];
+
+    for (const suffix of woodSuffixes) {
+      if (name.endsWith(suffix)) {
+        for (const woodType of woodTypes) {
+          if (name.startsWith(woodType)) {
+            return `${name}(任意の${suffix.slice(1)}可)`;
+          }
+        }
+      }
+    }
+    return name;
+  }
+
   async runImpl(itemName: string) {
     try {
       const item = this.mcData.itemsByName[itemName];
@@ -32,10 +84,10 @@ class CheckRecipe extends InstantSkill {
         };
       }
 
-      // レシピを検索
-      const recipes = this.bot.recipesFor(item.id, null, 1, null);
+      // minecraft-dataから直接レシピを取得
+      const allRecipes = this.mcData.recipes[item.id];
 
-      if (recipes.length === 0) {
+      if (!allRecipes || allRecipes.length === 0) {
         return {
           success: true,
           result: `${itemName}のクラフトレシピは存在しません（入手方法: 採掘、モブドロップなど）`,
@@ -43,32 +95,47 @@ class CheckRecipe extends InstantSkill {
       }
 
       // 最初のレシピを取得
-      const recipe = recipes[0];
-      const ingredients: string[] = [];
+      const recipe = allRecipes[0];
+      const ingredientCounts: { [key: string]: number } = {};
+      let requiresCraftingTable = false;
 
-      // 必要な材料をリスト化
-      if (recipe.delta) {
-        for (const [itemId, count] of Object.entries(recipe.delta)) {
-          if (Number(count) < 0) {
-            const ingredientItem = this.mcData.items[itemId];
-            if (ingredientItem) {
-              ingredients.push(
-                `${ingredientItem.name} x${Math.abs(Number(count))}`
-              );
-            }
+      // レシピの形式に応じて材料を抽出
+      if (recipe.inShape) {
+        // 形あり（shaped）レシピ
+        const flatShape = recipe.inShape.flat();
+
+        for (const ingredientId of flatShape) {
+          const name = this.getIngredientName(ingredientId);
+          if (name) {
+            ingredientCounts[name] = (ingredientCounts[name] || 0) + 1;
           }
+        }
+
+        // 3x3以上のレシピはクラフトテーブルが必要
+        if (recipe.inShape.length > 2 || (recipe.inShape[0] && recipe.inShape[0].length > 2)) {
+          requiresCraftingTable = true;
+        }
+      } else if (recipe.ingredients) {
+        // 形なし（shapeless）レシピ
+        for (const ingredientId of recipe.ingredients) {
+          const name = this.getIngredientName(ingredientId);
+          if (name) {
+            ingredientCounts[name] = (ingredientCounts[name] || 0) + 1;
+          }
+        }
+
+        // 4個以上の材料はクラフトテーブルが必要
+        if (recipe.ingredients.length > 4) {
+          requiresCraftingTable = true;
         }
       }
 
-      // クラフトテーブルが必要かチェック
-      const requiresCraftingTable =
-        recipe.requiresTable || ingredients.length > 4;
+      const ingredients = Object.entries(ingredientCounts)
+        .map(([name, count]) => `${name} x${count}`);
 
       return {
         success: true,
-        result: `${itemName}のレシピ: ${ingredients.join(', ')}${
-          requiresCraftingTable ? ' (クラフトテーブル必要)' : ''
-        }`,
+        result: `${itemName}のレシピ: ${ingredients.join(', ')}${requiresCraftingTable ? ' (クラフトテーブル必要)' : ''}`,
       };
     } catch (error: any) {
       return {

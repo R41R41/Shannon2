@@ -22,14 +22,87 @@ class CraftOne extends InstantSkill {
     ];
   }
 
+  /**
+   * 材料IDを名前に変換（配列の場合は全選択肢を表示、木材系は任意表記）
+   */
+  private getIngredientName(ingredientId: any): string | null {
+    if (ingredientId === null || ingredientId === -1) {
+      return null;
+    }
+
+    if (Array.isArray(ingredientId)) {
+      const names = ingredientId
+        .filter((id: any) => id !== null && id !== -1)
+        .map((id: any) => this.mcData.items[id]?.name)
+        .filter((name: string | undefined) => name);
+
+      if (names.length === 0) return null;
+      if (names.length === 1) {
+        return this.addWoodNote(names[0]);
+      }
+      if (names.length > 3) {
+        return `${names.slice(0, 3).join('/')}等`;
+      }
+      return names.join('/');
+    }
+
+    const item = this.mcData.items[ingredientId];
+    if (!item) return null;
+    return this.addWoodNote(item.name);
+  }
+
+  /**
+   * 木材系アイテムに注釈を追加
+   */
+  private addWoodNote(name: string): string {
+    const woodTypes = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove', 'cherry', 'bamboo', 'crimson', 'warped', 'pale_oak'];
+    const woodSuffixes = ['_planks', '_log', '_wood', '_slab', '_stairs'];
+
+    for (const suffix of woodSuffixes) {
+      if (name.endsWith(suffix)) {
+        for (const woodType of woodTypes) {
+          if (name.startsWith(woodType)) {
+            return `${name}(任意の${suffix.slice(1)}可)`;
+          }
+        }
+      }
+    }
+    return name;
+  }
+
   async runImpl(itemName: string) {
     try {
       const item = this.mcData.itemsByName[itemName];
       if (!item) {
+        const allItems = Object.keys(this.mcData.itemsByName);
+        const suggestions = allItems
+          .filter((name: string) => name.includes(itemName.replace('wooden_', '').replace('_planks', '')))
+          .slice(0, 5);
+
+        let hint = '';
+        if (itemName.includes('plank')) {
+          hint = ' ヒント: planksは木の種類を指定する必要があります（例: oak_planks, birch_planks, spruce_planks）';
+        }
+
         return {
           success: false,
-          result: `アイテム${itemName}が見つかりません`,
+          result: `アイテム${itemName}が見つかりません。${suggestions.length > 0 ? `類似: ${suggestions.join(', ')}` : ''}${hint}`,
         };
+      }
+
+      // minecraft-dataからレシピを確認
+      const allRecipes = this.mcData.recipes[item.id];
+      let requiresCraftingTable = false;
+
+      if (allRecipes && allRecipes.length > 0) {
+        const recipe = allRecipes[0];
+        if (recipe.inShape) {
+          if (recipe.inShape.length > 2 || (recipe.inShape[0] && recipe.inShape[0].length > 2)) {
+            requiresCraftingTable = true;
+          }
+        } else if (recipe.ingredients && recipe.ingredients.length > 4) {
+          requiresCraftingTable = true;
+        }
       }
 
       // クラフトテーブルを探す
@@ -38,35 +111,91 @@ class CraftOne extends InstantSkill {
         maxDistance: 4,
       });
 
-      // レシピを取得
-      const recipes = this.bot.recipesFor(item.id, null, 1, craftingTable);
-
-      if (recipes.length === 0) {
+      if (requiresCraftingTable && !craftingTable) {
         return {
           success: false,
-          result: `${itemName}のレシピがありません。必要な材料が不足しているか、クラフトできないアイテムです`,
+          result: `${itemName}のクラフトにはクラフトテーブルが必要です。activate-blockでクラフトテーブルを使用するか、place-block-atで設置してください`,
+        };
+      }
+
+      // レシピを取得
+      let recipes = this.bot.recipesFor(item.id, null, 1, craftingTable);
+
+      if (recipes.length === 0) {
+        if (allRecipes && allRecipes.length > 0) {
+          const inventory = this.bot.inventory.items()
+            .map((i: any) => `${i.name}x${i.count}`)
+            .join(', ') || 'なし';
+
+          // 必要な材料を取得（全選択肢を表示）
+          const recipe = allRecipes[0];
+          const ingredientCounts: { [key: string]: number } = {};
+
+          if (recipe.inShape) {
+            for (const row of recipe.inShape) {
+              for (const id of row) {
+                const name = this.getIngredientName(id);
+                if (name) {
+                  ingredientCounts[name] = (ingredientCounts[name] || 0) + 1;
+                }
+              }
+            }
+          } else if (recipe.ingredients) {
+            for (const id of recipe.ingredients) {
+              const name = this.getIngredientName(id);
+              if (name) {
+                ingredientCounts[name] = (ingredientCounts[name] || 0) + 1;
+              }
+            }
+          }
+
+          const requiredMaterials = Object.entries(ingredientCounts)
+            .map(([n, c]) => `${n}x${c}`)
+            .join(', ');
+
+          return {
+            success: false,
+            result: `${itemName}のクラフトに必要な材料が不足。` +
+              `必要: ${requiredMaterials || '不明'}。` +
+              `現在のインベントリ: ${inventory}。`,
+          };
+        }
+        return {
+          success: false,
+          result: `${itemName}のクラフトレシピが存在しません`,
         };
       }
 
       const recipe = recipes[0];
 
-      // クラフトテーブルが必要だが見つからない場合
-      if (recipe.requiresTable && !craftingTable) {
-        return {
-          success: false,
-          result: `${itemName}のクラフトにはクラフトテーブルが必要ですが、近くに見つかりません`,
-        };
-      }
+      // クラフト前のアイテム数を記録
+      const beforeCount = this.bot.inventory.items()
+        .filter((i: any) => i.name === itemName)
+        .reduce((sum: number, i: any) => sum + i.count, 0);
 
       // クラフト実行
-      await this.bot.craft(recipe, 1, craftingTable ?? undefined);
+      await this.bot.craft(recipe, 1, craftingTable || undefined);
 
-      return {
-        success: true,
-        result: `${itemName}を1個クラフトしました`,
-      };
+      // 少し待ってからインベントリを確認
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // クラフト後のアイテム数を確認
+      const afterCount = this.bot.inventory.items()
+        .filter((i: any) => i.name === itemName)
+        .reduce((sum: number, i: any) => sum + i.count, 0);
+
+      if (afterCount > beforeCount) {
+        return {
+          success: true,
+          result: `${itemName}を1個クラフトしました（${beforeCount}→${afterCount}個）`,
+        };
+      } else {
+        return {
+          success: false,
+          result: `${itemName}のクラフトに失敗しました（インベントリに追加されていません）`,
+        };
+      }
     } catch (error: any) {
-      // エラーメッセージを詳細化
       let errorDetail = error.message;
       if (error.message.includes('missing')) {
         errorDetail = '必要な材料が不足しています';

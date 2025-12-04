@@ -71,26 +71,57 @@ class DigBlockAt extends InstantSkill {
         };
       }
 
-      // 適切なツールを持っているかチェック
+      // 適切なツールを持っているかチェックし、装備する
       if (block.harvestTools) {
         const toolIds = Object.keys(block.harvestTools).map(Number);
-        const hasTool = this.bot.inventory
+        const tool = this.bot.inventory
           .items()
-          .some((item) => toolIds.includes(item.type));
+          .find((item) => toolIds.includes(item.type));
 
-        if (!hasTool) {
+        if (!tool) {
           return {
             success: false,
             result: `${block.name}を掘るための適切なツールがありません`,
           };
         }
+
+        // ツールを装備
+        try {
+          await this.bot.equip(tool, 'hand');
+          console.log(`\x1b[33m🔧 ${tool.name}を装備しました\x1b[0m`);
+        } catch (equipError: any) {
+          console.error(`ツール装備エラー: ${equipError.message}`);
+        }
+      } else {
+        // harvestToolsがない場合でも、最適なツールを探して装備
+        const bestTool = this.findBestToolForBlock(block);
+        if (bestTool) {
+          try {
+            await this.bot.equip(bestTool, 'hand');
+            console.log(`\x1b[33m🔧 ${bestTool.name}を装備しました（効率化）\x1b[0m`);
+          } catch (equipError: any) {
+            // 装備失敗しても続行（素手で掘れるブロックの場合）
+          }
+        }
       }
 
+      const blockName = block.name;
       await this.bot.dig(block);
+
+      // 掘れたかどうかを確認（同じ座標のブロックがなくなっているか）
+      await new Promise(resolve => setTimeout(resolve, 100)); // 少し待つ
+      const afterBlock = this.bot.blockAt(pos);
+
+      if (afterBlock && afterBlock.name !== 'air' && afterBlock.name !== 'cave_air' && afterBlock.name === blockName) {
+        return {
+          success: false,
+          result: `${blockName}を掘れませんでした（まだ存在しています）。適切なツールが必要かもしれません`,
+        };
+      }
 
       return {
         success: true,
-        result: `${block.name}を掘りました`,
+        result: `${blockName}を掘りました。ドロップしたアイテムを拾うにはpickup-nearest-item {}を実行してください`,
       };
     } catch (error: any) {
       // エラーメッセージを詳細化
@@ -108,6 +139,63 @@ class DigBlockAt extends InstantSkill {
         result: `掘削エラー: ${errorDetail}`,
       };
     }
+  }
+
+  /**
+   * ブロックに最適なツールを探す
+   */
+  private findBestToolForBlock(block: any): any {
+    const items = this.bot.inventory.items();
+
+    // ブロックのマテリアルに基づいて最適なツールを選択
+    const material = block.material;
+
+    // ツールの優先順位（高い方が優先）
+    const toolPriority: { [key: string]: string[] } = {
+      'mineable/pickaxe': ['netherite_pickaxe', 'diamond_pickaxe', 'iron_pickaxe', 'golden_pickaxe', 'stone_pickaxe', 'wooden_pickaxe'],
+      'mineable/axe': ['netherite_axe', 'diamond_axe', 'iron_axe', 'golden_axe', 'stone_axe', 'wooden_axe'],
+      'mineable/shovel': ['netherite_shovel', 'diamond_shovel', 'iron_shovel', 'golden_shovel', 'stone_shovel', 'wooden_shovel'],
+      'mineable/hoe': ['netherite_hoe', 'diamond_hoe', 'iron_hoe', 'golden_hoe', 'stone_hoe', 'wooden_hoe'],
+    };
+
+    // ブロック名から適切なツールタイプを推測
+    const blockName = block.name.toLowerCase();
+    let toolType: string | null = null;
+
+    if (blockName.includes('stone') || blockName.includes('ore') || blockName.includes('cobble') ||
+      blockName.includes('brick') || blockName.includes('deepslate') || blockName.includes('obsidian') ||
+      blockName.includes('concrete') || blockName.includes('terracotta')) {
+      toolType = 'mineable/pickaxe';
+    } else if (blockName.includes('log') || blockName.includes('wood') || blockName.includes('plank') ||
+      blockName.includes('fence') || blockName.includes('door') || blockName.includes('chest')) {
+      toolType = 'mineable/axe';
+    } else if (blockName.includes('dirt') || blockName.includes('sand') || blockName.includes('gravel') ||
+      blockName.includes('clay') || blockName.includes('snow') || blockName.includes('soul')) {
+      toolType = 'mineable/shovel';
+    } else if (blockName.includes('leaves') || blockName.includes('hay') || blockName.includes('sponge')) {
+      toolType = 'mineable/hoe';
+    }
+
+    // materialがある場合はそれを優先
+    if (material && toolPriority[material]) {
+      toolType = material;
+    }
+
+    if (!toolType) {
+      return null;
+    }
+
+    const preferredTools = toolPriority[toolType] || [];
+
+    // 優先順位の高いツールから探す
+    for (const toolName of preferredTools) {
+      const tool = items.find(item => item.name === toolName);
+      if (tool) {
+        return tool;
+      }
+    }
+
+    return null;
   }
 }
 

@@ -11,25 +11,41 @@ class ActivateBlock extends InstantSkill {
     this.mcData = minecraftData(this.bot.version);
     this.skillName = 'activate-block';
     this.description =
-      '指定したブロックを右クリック（activate）します。ケーキを食べる、レバーやボタンを押すなどの用途に使用します。';
+      '指定したブロックを右クリック（activate）します。クラフトテーブルを使う、ケーキを食べる、レバーやボタンを押すなどの用途に使用します。';
     this.params = [
       {
         name: 'blockName',
-        description: '対象ブロック名（例: cake, crafting_table など）',
+        description: '対象ブロック名（例: crafting_table, cake など）。座標を指定しない場合は最も近いものを探します',
         type: 'string',
         required: true,
       },
       {
-        name: 'blockPosition',
-        description: '対象ブロックの座標（Vec3, 省略時は最も近いもの）',
-        type: 'Vec3',
+        name: 'x',
+        description: 'X座標（省略可能）',
+        type: 'number',
+        required: false,
+        default: null,
+      },
+      {
+        name: 'y',
+        description: 'Y座標（省略可能）',
+        type: 'number',
+        required: false,
+        default: null,
+      },
+      {
+        name: 'z',
+        description: 'Z座標（省略可能）',
+        type: 'number',
         required: false,
         default: null,
       },
     ];
   }
 
-  async runImpl(blockName: string, blockPosition: Vec3 | null = null) {
+  async runImpl(blockName: string, x: number | null = null, y: number | null = null, z: number | null = null) {
+    // 座標が指定されている場合はVec3に変換
+    const blockPosition = (x !== null && y !== null && z !== null) ? new Vec3(x, y, z) : null;
     try {
       let targetBlock;
       if (blockPosition) {

@@ -109,10 +109,22 @@ export class Prompt {
       ),
       state.taskTree
         ? new SystemMessage(
-          `goal: ${state.taskTree.goal}\nstrategy: ${state.taskTree.strategy
-          }\nstatus: ${state.taskTree.status}\nsubTasks: ${JSON.stringify(
-            state.taskTree.subTasks
-          )}`
+          `=== Current Task State ===
+goal: ${state.taskTree.goal}
+strategy: ${state.taskTree.strategy}
+status: ${state.taskTree.status}
+
+=== 前回のhierarchicalSubTasks (必ず引き継いで更新すること！) ===
+${state.taskTree.hierarchicalSubTasks ? JSON.stringify(state.taskTree.hierarchicalSubTasks, null, 2) : 'null (新規タスク)'}
+
+currentSubTaskId: ${state.taskTree.currentSubTaskId || 'null'}
+
+=== 重要: hierarchicalSubTasksの更新ルール ===
+- completed/error → 絶対に変更しない（結果確定済み）
+- in_progress → 基本引き継ぎ、子タスク追加はOK
+- pending → 修正・削除OK（まだ実行していないので計画変更可能）
+- 目標達成に問題なければ基本は引き継ぐ（一貫性のため）
+`
         )
         : null,
       errorMessage ? new SystemMessage(errorMessage) : null,

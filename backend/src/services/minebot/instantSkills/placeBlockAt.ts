@@ -17,25 +17,25 @@ class PlaceBlockAt extends InstantSkill {
       {
         name: 'blockName',
         type: 'string',
-        description: '設置するブロック名',
+        description: '設置するブロック名（例: crafting_table, stone, cobblestone）※必須',
         required: true,
       },
       {
         name: 'x',
         type: 'number',
-        description: 'X座標',
+        description: 'X座標（整数）',
         required: true,
       },
       {
         name: 'y',
         type: 'number',
-        description: 'Y座標',
+        description: 'Y座標（整数）',
         required: true,
       },
       {
         name: 'z',
         type: 'number',
-        description: 'Z座標',
+        description: 'Z座標（整数）',
         required: true,
       },
     ];

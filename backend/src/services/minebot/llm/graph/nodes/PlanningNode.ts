@@ -1,8 +1,16 @@
 import { ChatOpenAI } from '@langchain/openai';
-import { TaskTreeState } from '@shannon/common';
+import { HierarchicalSubTask, TaskTreeState } from '@shannon/common';
 import { z } from 'zod';
 import { CentralLogManager, LogManager } from '../logging/index.js';
 import { Prompt } from '../prompt.js';
+
+// 失敗したサブタスクの情報
+interface FailedSubTaskInfo {
+  subTaskId: string;
+  goal: string;
+  failureReason: string;
+  executedActions?: string[];
+}
 
 // taskTreeをPOST送信する関数
 async function sendTaskTreeToServer(taskTree: any) {
@@ -41,18 +49,106 @@ export class PlanningNode {
   private centralLogManager: CentralLogManager;
   private onEmergencyResolved: (() => Promise<void>) | null = null;
 
+  // 階層的サブタスクの状態
+  private hierarchicalSubTasks: HierarchicalSubTask[] = [];
+  private currentSubTaskId: string | null = null;
+  private subTaskIdCounter: number = 0;
+
   constructor(bot: any, prompt: Prompt, centralLogManager?: CentralLogManager) {
     this.bot = bot;
     this.prompt = prompt;
     this.centralLogManager = centralLogManager || CentralLogManager.getInstance();
     this.logManager = this.centralLogManager.getLogManager('planning_node');
 
-    // gpt-4o-miniを使用（高速 & Structured Outputs対応）
+    // gpt-4oを使用（高速 & Structured Outputs対応）
     this.model = new ChatOpenAI({
       modelName: 'gpt-4o',
       apiKey: process.env.OPENAI_API_KEY!,
       temperature: 0.7,
     });
+  }
+
+  /**
+   * ユニークなサブタスクIDを生成
+   */
+  private generateSubTaskId(): string {
+    return `st_${++this.subTaskIdCounter}`;
+  }
+
+  /**
+   * 失敗したサブタスクを分解する
+   */
+  async decomposeFailedSubTask(failedInfo: FailedSubTaskInfo): Promise<HierarchicalSubTask[]> {
+    console.log(`\x1b[33m🔧 サブタスク「${failedInfo.goal}」を分解中...\x1b[0m`);
+    console.log(`   失敗理由: ${failedInfo.failureReason}`);
+
+    const DecomposeSchema = z.object({
+      newSubTasks: z.array(
+        z.object({
+          goal: z.string().describe('サブタスクの目標'),
+          strategy: z.string().describe('達成するための戦略'),
+          actionSequence: z.array(
+            z.object({
+              toolName: z.string(),
+              args: z.string().nullable(),
+              expectedResult: z.string(),
+            })
+          ).nullable().describe('このサブタスクで実行するアクション（シンプルな場合のみ）'),
+        })
+      ).describe('分解された新しいサブタスク'),
+      decompositionReason: z.string().describe('なぜこのように分解したか'),
+    });
+
+    const structuredLLM = this.model.withStructuredOutput(DecomposeSchema, {
+      name: 'DecomposeSubTask',
+    });
+
+    const response = await structuredLLM.invoke([
+      {
+        role: 'system',
+        content: `あなたはMinecraftタスク分解アシスタントです。
+失敗したサブタスクを、より小さく具体的なサブタスクに分解してください。
+
+失敗理由を分析し、その問題を解決するために必要な前提タスクを追加してください。
+
+例：
+- 「石を掘る」が「適切なツールがない」で失敗した場合
+  → 「木のツルハシを作る」を前に追加し、「ツルハシで石を掘る」に変更
+
+- 「アイテムをクラフト」が「材料不足」で失敗した場合
+  → 「材料Aを集める」「材料Bを集める」を前に追加`
+      },
+      {
+        role: 'user',
+        content: `失敗したサブタスク:
+目標: ${failedInfo.goal}
+失敗理由: ${failedInfo.failureReason}
+実行されたアクション: ${failedInfo.executedActions?.join(', ') || 'なし'}
+
+このサブタスクを、成功するために必要な小さなサブタスクに分解してください。`
+      }
+    ]);
+
+    console.log(`\x1b[32m✓ 分解完了: ${response.newSubTasks.length}個のサブタスクに分解\x1b[0m`);
+    console.log(`   理由: ${response.decompositionReason}`);
+
+    // HierarchicalSubTask形式に変換
+    const parentId = failedInfo.subTaskId;
+    const newSubTasks: HierarchicalSubTask[] = response.newSubTasks.map((st, index) => ({
+      id: this.generateSubTaskId(),
+      goal: st.goal,
+      strategy: st.strategy,
+      status: 'pending' as const,
+      parentId,
+      depth: 1,
+      actionSequence: st.actionSequence?.map(a => ({
+        toolName: a.toolName,
+        args: a.args ? JSON.parse(a.args) : null,
+        expectedResult: a.expectedResult,
+      })) || null,
+    }));
+
+    return newSubTasks;
   }
 
   /**
@@ -119,48 +215,60 @@ export class PlanningNode {
       console.log('📝 人間フィードバックを処理:', state.humanFeedback);
     }
 
+    // === 1. 階層的サブタスク（表示用・自然言語） ===
+    // 再帰的な構造（子タスクが子タスクを持てる）
+    const HierarchicalSubTaskSchema: z.ZodType<any> = z.lazy(() => z.object({
+      id: z.string().describe('サブタスクID'),
+      goal: z.string().describe('やること（自然言語）'),
+      status: z.enum(['pending', 'in_progress', 'completed', 'error']).describe('ステータス'),
+      result: z.string().nullable().optional().describe('結果（完了時）'),
+      failureReason: z.string().nullable().optional().describe('エラー理由（失敗時）'),
+      children: z.array(HierarchicalSubTaskSchema).nullable().optional().describe('子タスク（階層的）'),
+    }));
+
+    // === 2. 次に実行するアクション（実行用・引数完全指定） ===
+    const ActionItemSchema = z.object({
+      toolName: z.string().describe('実行するツール名'),
+      args: z.string().describe(
+        '引数のJSON文字列。全ての引数を完全に指定すること。' +
+        '例: \'{"blockName": "cobblestone", "maxDistance": 50}\''
+      ),
+      expectedResult: z.string().describe('期待される結果'),
+    });
+
     // Planning用のスキーマ定義
     const PlanningSchema = z.object({
       status: z.enum(['pending', 'in_progress', 'completed', 'error']),
       goal: z.string(),
       strategy: z.string(),
       emergencyResolved: z.boolean().nullable().describe(
-        '緊急事態が解決された場合はtrueを返す。HPが回復した、安全な場所に移動した、窒息から脱出したなど。緊急事態でない場合はnull。'
+        '緊急時(isEmergency=true)のみ使用。緊急解決=true、緊急未解決=false。通常時は必ずnull。'
       ),
-      // 原子的アクションのシーケンス
-      actionSequence: z
-        .array(
-          z.object({
-            toolName: z.string().describe('実行するツール名'),
-            args: z.string().describe(
-              'MUST BE VALID JSON STRING with DOUBLE QUOTES ONLY. ' +
-              'NEVER use single quotes or Python syntax (True/False/None). ' +
-              'Example: \'{"blockName": "oak_log", "maxDistance": 50, "count": 3}\''
-            ),
-            expectedResult: z
-              .string()
-              .describe('このアクションで期待される結果'),
-          })
-        )
-        .nullable()
-        .describe(
-          '一度に実行する原子的アクションのシーケンス。順番に実行され、エラーが発生したら即座に中断してplanningに戻ります。'
-        ),
-      subTasks: z
-        .array(
-          z.object({
-            subTaskStatus: z.enum([
-              'pending',
-              'in_progress',
-              'completed',
-              'error',
-            ]),
-            subTaskGoal: z.string(),
-            subTaskStrategy: z.string(),
-            subTaskResult: z.string().nullable(),
-          })
-        )
-        .nullable(),
+
+      // === 表示用: タスクの全体像（階層的・自然言語） ===
+      hierarchicalSubTasks: z.array(HierarchicalSubTaskSchema).nullable().describe(
+        'タスクの全体像を階層的に表現。各サブタスクは自然言語で「やること」を記述。' +
+        '子タスクを持つことで階層構造を表現できる。' +
+        '例: [{id:"1", goal:"丸石を集める", status:"in_progress", children:[{id:"1-1", goal:"丸石を探す", status:"completed"}]}]'
+      ),
+
+      // 現在実行中のサブタスクID
+      currentSubTaskId: z.string().nullable().describe('現在実行中のサブタスクのID'),
+
+      // === 実行用: 次に実行するスキル（引数完全指定） ===
+      nextActionSequence: z.array(ActionItemSchema).nullable().describe(
+        '次に実行するスキルのリスト。引数は全て完全に指定すること。' +
+        '前のステップの結果に依存するスキルは含めない（結果を見てから次のPlanningで指定）。' +
+        '例: [{toolName:"find-blocks", args:\'{"blockName":"cobblestone"}\', expectedResult:"丸石を発見"}]'
+      ),
+
+      // === 後方互換性 ===
+      subTasks: z.array(z.object({
+        subTaskStatus: z.enum(['pending', 'in_progress', 'completed', 'error']),
+        subTaskGoal: z.string(),
+        subTaskStrategy: z.string(),
+        subTaskResult: z.string().nullable(),
+      })).nullable(),
     });
 
     const structuredLLM = this.model.withStructuredOutput(PlanningSchema, {
@@ -194,19 +302,31 @@ export class PlanningNode {
         console.log(`\x1b[33m🚨 EmergencyResolved:\x1b[0m ${response.emergencyResolved}`);
       }
 
-      if (response.actionSequence && response.actionSequence.length > 0) {
-        console.log(`\x1b[32m⚡ ActionSequence (${response.actionSequence.length}個):\x1b[0m`);
-        response.actionSequence.forEach((action, i) => {
+      // === 1. 階層的サブタスク（表示用）を表示 ===
+      if (response.hierarchicalSubTasks && response.hierarchicalSubTasks.length > 0) {
+        console.log(`\x1b[32m📌 HierarchicalSubTasks (タスク全体像):\x1b[0m`);
+        this.printHierarchicalSubTasks(response.hierarchicalSubTasks, 0);
+
+        // 保存（そのまま使用）
+        this.hierarchicalSubTasks = response.hierarchicalSubTasks;
+        this.currentSubTaskId = response.currentSubTaskId || null;
+      }
+
+      // === 2. 次に実行するアクション（実行用）を表示 ===
+      if (response.nextActionSequence && response.nextActionSequence.length > 0) {
+        console.log(`\x1b[32m⚡ NextActionSequence (${response.nextActionSequence.length}個):\x1b[0m`);
+        response.nextActionSequence.forEach((action, i) => {
           console.log(`   ${i + 1}. \x1b[35m${action.toolName}\x1b[0m`);
           console.log(`      args: ${action.args}`);
           console.log(`      期待: ${action.expectedResult}`);
         });
       } else {
-        console.log('\x1b[33m⚡ ActionSequence: なし\x1b[0m');
+        console.log('\x1b[33m⚡ NextActionSequence: なし（Planningのみ）\x1b[0m');
       }
 
+      // 旧形式のsubTasksも表示（後方互換性）
       if (response.subTasks && response.subTasks.length > 0) {
-        console.log(`\x1b[32m📌 SubTasks (${response.subTasks.length}個):\x1b[0m`);
+        console.log(`\x1b[32m📌 SubTasks (旧形式: ${response.subTasks.length}個):\x1b[0m`);
         response.subTasks.forEach((task, i) => {
           console.log(`   ${i + 1}. [${task.subTaskStatus}] ${task.subTaskGoal}`);
         });
@@ -214,7 +334,6 @@ export class PlanningNode {
       console.log('\x1b[36m═══════════════════════════════════════════════════════════════\x1b[0m');
 
       // ログに記録（詳細なTaskTree情報を含める）
-      // フロントエンドで専用表示するため、全情報をmetadataに含める
       this.logManager.addLog({
         phase: 'planning',
         level: 'success',
@@ -225,10 +344,11 @@ export class PlanningNode {
           strategy: response.strategy,
           status: response.status,
           emergencyResolved: response.emergencyResolved,
-          actionSequence: response.actionSequence,
+          hierarchicalSubTasks: response.hierarchicalSubTasks,
+          nextActionSequence: response.nextActionSequence,
           subTasks: response.subTasks,
-          actionCount: response.actionSequence?.length || 0,
-          subTaskCount: response.subTasks?.length || 0,
+          actionCount: response.nextActionSequence?.length || 0,
+          subTaskCount: response.hierarchicalSubTasks?.length || 0,
         },
       });
 
@@ -240,11 +360,48 @@ export class PlanningNode {
         }
       }
 
+      // nextActionSequenceをパース（無効なargsはスキップ）
+      const parsedNextActionSequence = response.nextActionSequence?.map(a => {
+        // argsが無効な形式（:null, 空文字, null文字列など）かチェック
+        let argsStr = a.args?.trim() || '';
+
+        // 完全に無効なケース
+        if (!argsStr || argsStr === 'null' || argsStr.startsWith(':')) {
+          console.log(`\x1b[33m⚠ ${a.toolName}: 無効なargs "${a.args}" → スキップ\x1b[0m`);
+          return null;
+        }
+
+        // シングルクォートをダブルクォートに変換（Python辞書形式対応）
+        if (argsStr.includes("'")) {
+          argsStr = argsStr.replace(/'/g, '"');
+          console.log(`\x1b[33m⚠ ${a.toolName}: シングルクォートをダブルクォートに変換\x1b[0m`);
+        }
+
+        try {
+          const parsed = JSON.parse(argsStr);
+          return {
+            toolName: a.toolName,
+            args: parsed,
+            expectedResult: a.expectedResult,
+          };
+        } catch (e) {
+          console.log(`\x1b[33m⚠ ${a.toolName}: argsのパースに失敗 "${a.args}" → スキップ\x1b[0m`);
+          return null;
+        }
+      }).filter(a => a !== null) || null;
+
+      // 全てスキップされた場合は警告
+      if (response.nextActionSequence?.length && parsedNextActionSequence?.length === 0) {
+        console.log(`\x1b[31m❌ 全てのアクションが無効でした。\x1b[0m`);
+      }
+
       // taskTreeをUIに送信（「取り組み中のタスク」タブ用）
       const taskTreeForUI = {
         status: response.status,
         goal: response.goal,
         strategy: response.strategy,
+        hierarchicalSubTasks: response.hierarchicalSubTasks,
+        currentSubTaskId: response.currentSubTaskId,
         subTasks: response.subTasks,
       };
       await sendTaskTreeToServer(taskTreeForUI);
@@ -254,7 +411,13 @@ export class PlanningNode {
           status: response.status,
           goal: response.goal,
           strategy: response.strategy,
-          actionSequence: response.actionSequence,
+          // 表示用
+          hierarchicalSubTasks: response.hierarchicalSubTasks || null,
+          currentSubTaskId: response.currentSubTaskId || null,
+          // 実行用
+          nextActionSequence: parsedNextActionSequence,
+          actionSequence: parsedNextActionSequence, // 後方互換性
+          // 旧形式
           subTasks: response.subTasks,
         } as TaskTreeState,
         isEmergency: state.isEmergency, // 緊急フラグを保持
@@ -295,6 +458,35 @@ export class PlanningNode {
         } as TaskTreeState,
       };
     }
+  }
+
+  /**
+   * 階層的サブタスクを再帰的に表示
+   */
+  private printHierarchicalSubTasks(tasks: any[], depth: number): void {
+    const indent = '   '.repeat(depth);
+    const statusIcon = (status: string) => {
+      switch (status) {
+        case 'completed': return '✓';
+        case 'in_progress': return '↻';
+        case 'error': return '✗';
+        default: return '□';
+      }
+    };
+
+    tasks.forEach((task, i) => {
+      const icon = statusIcon(task.status);
+      console.log(`${indent}${icon} \x1b[35m${task.goal}\x1b[0m [${task.status}]`);
+      if (task.result) {
+        console.log(`${indent}  => ${task.result}`);
+      }
+      if (task.failureReason) {
+        console.log(`${indent}  \x1b[31m✗ ${task.failureReason}\x1b[0m`);
+      }
+      if (task.children && task.children.length > 0) {
+        this.printHierarchicalSubTasks(task.children, depth + 1);
+      }
+    });
   }
 
   getLogs() {
