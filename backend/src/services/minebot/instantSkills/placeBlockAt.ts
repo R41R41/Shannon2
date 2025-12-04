@@ -92,19 +92,57 @@ class PlaceBlockAt extends InstantSkill {
         };
       }
 
-      // 参照ブロックを探す（設置する場所の隣接ブロック）
-      const referenceBlock = this.bot.blockAt(targetPos.offset(0, -1, 0));
+      // ボット自身がいる位置に設置しようとしていないかチェック
+      // ボットは2ブロックの高さを持つ（足元と頭）
+      const botPos = this.bot.entity.position;
+      const botBlockX = Math.floor(botPos.x);
+      const botBlockY = Math.floor(botPos.y);
+      const botBlockZ = Math.floor(botPos.z);
 
-      if (!referenceBlock || referenceBlock.name === 'air') {
+      if (
+        x === botBlockX &&
+        z === botBlockZ &&
+        (y === botBlockY || y === botBlockY + 1)
+      ) {
+        return {
+          success: false,
+          result: `座標(${x}, ${y}, ${z})はボット自身がいる位置です。別の場所に設置してください`,
+        };
+      }
+
+      // 参照ブロックを探す（設置する場所の隣接ブロック）
+      // 下→側面（東西南北）→上の順で探す
+      const offsets: [number, number, number, number, number, number][] = [
+        [0, -1, 0, 0, 1, 0],   // 下のブロック → 上向きに設置
+        [1, 0, 0, -1, 0, 0],   // 東のブロック → 西向きに設置
+        [-1, 0, 0, 1, 0, 0],   // 西のブロック → 東向きに設置
+        [0, 0, 1, 0, 0, -1],   // 南のブロック → 北向きに設置
+        [0, 0, -1, 0, 0, 1],   // 北のブロック → 南向きに設置
+        [0, 1, 0, 0, -1, 0],   // 上のブロック → 下向きに設置
+      ];
+
+      let referenceBlock = null;
+      let faceVector = new Vec3(0, 1, 0);
+
+      for (const [ox, oy, oz, fx, fy, fz] of offsets) {
+        const candidate = this.bot.blockAt(targetPos.offset(ox, oy, oz));
+        if (candidate && candidate.name !== 'air') {
+          referenceBlock = candidate;
+          faceVector = new Vec3(fx, fy, fz);
+          break;
+        }
+      }
+
+      if (!referenceBlock) {
         return {
           success: false,
           result:
-            '設置場所の下に参照ブロックがありません（空中には設置できません）',
+            '設置場所の周囲に参照ブロックがありません（空中には設置できません）',
         };
       }
 
       await this.bot.equip(item, 'hand');
-      await this.bot.placeBlock(referenceBlock, new Vec3(0, 1, 0));
+      await this.bot.placeBlock(referenceBlock, faceVector);
 
       return {
         success: true,

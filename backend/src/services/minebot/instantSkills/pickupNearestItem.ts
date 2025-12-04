@@ -109,15 +109,8 @@ class PickupNearestItem extends InstantSkill {
 
       const distance = itemEntity.position.distanceTo(this.bot.entity.position);
 
-      // アイテムに近づく
-      if (distance > 1.5) {
-        const goal = new goals.GoalNear(
-          itemEntity.position.x,
-          itemEntity.position.y,
-          itemEntity.position.z,
-          1
-        );
-
+      // アイテムに近づく（アイテムの真上に移動してピックアップ）
+      if (distance > 0.5) {
         // 移動設定（障害物を壊す、ブロックを積んで登る）
         setMovements(
           this.bot,
@@ -129,6 +122,14 @@ class PickupNearestItem extends InstantSkill {
           true,  // dontMineUnderFallingBlock
           1,     // digCost
           false  // allowFreeMotion
+        );
+
+        // まずアイテムの近くに移動
+        const goal = new goals.GoalNear(
+          itemEntity.position.x,
+          itemEntity.position.y,
+          itemEntity.position.z,
+          0.5  // より近くに移動（ピックアップ範囲内）
         );
 
         // タイムアウト付きで移動
@@ -146,12 +147,27 @@ class PickupNearestItem extends InstantSkill {
               result: 'アイテムに近づけませんでした（タイムアウト）',
             };
           }
-          throw error;
+          // パスファインダーエラーは無視してアイテムが拾えたかチェック
         }
       }
 
-      // アイテムが自動的に拾われるまで少し待つ
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // アイテムが自動的に拾われるまで待つ（少し長めに）
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      // まだアイテムが存在する場合、直接その位置に歩いてみる
+      const stillExists = this.bot.nearestEntity((e) => e === itemEntity);
+      if (stillExists) {
+        try {
+          // アイテムの位置に向かって直接歩く
+          await this.bot.lookAt(stillExists.position);
+          this.bot.setControlState('forward', true);
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          this.bot.setControlState('forward', false);
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        } catch {
+          // エラーは無視
+        }
+      }
 
       // 拾った後のインベントリを確認
       const afterInventory = new Map<string, number>();

@@ -130,8 +130,8 @@ class DigBlockAt extends InstantSkill {
         errorDetail = 'ブロックが遠すぎます';
       } else if (error.message.includes("can't dig")) {
         errorDetail = 'このブロックは掘れません';
-      } else if (error.message.includes('interrupted')) {
-        errorDetail = '採掘が中断されました';
+      } else if (error.message.includes('interrupted') || error.message.includes('aborted')) {
+        errorDetail = '採掘が中断されました（パスファインダーとの競合の可能性）';
       }
 
       return {
