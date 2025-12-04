@@ -170,6 +170,17 @@ export class PlanningNode {
     const messages = this.prompt.getMessages(state, 'planning', true);
 
     try {
+      // Planning開始ログ
+      this.logManager.addLog({
+        phase: 'planning',
+        level: 'info',
+        source: 'planning_node',
+        content: '🤔 Thinking... (Planning in progress)',
+        metadata: {
+          status: 'loading',
+        },
+      });
+
       const response = await structuredLLM.invoke(messages);
 
       // 詳細なプランニング結果をログ出力
@@ -202,15 +213,19 @@ export class PlanningNode {
       }
       console.log('\x1b[36m═══════════════════════════════════════════════════════════════\x1b[0m');
 
-      // ログに記録
+      // ログに記録（詳細なTaskTree情報を含める）
       this.logManager.addLog({
         phase: 'planning',
         level: 'success',
         source: 'planning_node',
-        content: `Plan created: ${response.goal.substring(0, 100)}`,
+        content: `Plan created: ${response.goal}`,
         metadata: {
           goal: response.goal,
           strategy: response.strategy,
+          status: response.status,
+          emergencyResolved: response.emergencyResolved,
+          actionSequence: response.actionSequence,
+          subTasks: response.subTasks,
           actionCount: response.actionSequence?.length || 0,
           subTaskCount: response.subTasks?.length || 0,
         },
