@@ -214,6 +214,7 @@ export class PlanningNode {
       console.log('\x1b[36m═══════════════════════════════════════════════════════════════\x1b[0m');
 
       // ログに記録（詳細なTaskTree情報を含める）
+      // フロントエンドで専用表示するため、全情報をmetadataに含める
       this.logManager.addLog({
         phase: 'planning',
         level: 'success',
@@ -229,14 +230,6 @@ export class PlanningNode {
           actionCount: response.actionSequence?.length || 0,
           subTaskCount: response.subTasks?.length || 0,
         },
-      });
-
-      // taskTreeを送信（actionSequenceは除外）
-      await sendTaskTreeToServer({
-        status: response.status,
-        goal: response.goal,
-        strategy: response.strategy,
-        subTasks: response.subTasks,
       });
 
       // 緊急状態が解決されたかチェック
@@ -269,15 +262,8 @@ export class PlanningNode {
         metadata: {
           error: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined,
+          status: 'error',
         },
-      });
-
-      // エラー時もtaskTreeを送信（actionSequenceは除外）
-      await sendTaskTreeToServer({
-        status: 'error',
-        goal: `エラー: ${error instanceof Error ? error.message : '不明なエラー'}`,
-        strategy: '',
-        subTasks: null,
       });
 
       return {
