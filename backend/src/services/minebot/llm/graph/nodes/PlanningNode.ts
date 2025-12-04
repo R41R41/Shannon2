@@ -240,6 +240,15 @@ export class PlanningNode {
         }
       }
 
+      // taskTreeをUIに送信（「取り組み中のタスク」タブ用）
+      const taskTreeForUI = {
+        status: response.status,
+        goal: response.goal,
+        strategy: response.strategy,
+        subTasks: response.subTasks,
+      };
+      await sendTaskTreeToServer(taskTreeForUI);
+
       return {
         taskTree: {
           status: response.status,
@@ -265,6 +274,15 @@ export class PlanningNode {
           status: 'error',
         },
       });
+
+      // エラー時もtaskTreeをUIに送信
+      const errorTaskTree = {
+        status: 'error',
+        goal: `エラー: ${error instanceof Error ? error.message : '不明なエラー'}`,
+        strategy: '',
+        subTasks: null,
+      };
+      await sendTaskTreeToServer(errorTaskTree);
 
       return {
         taskTree: {
