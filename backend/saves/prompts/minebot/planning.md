@@ -126,9 +126,32 @@
 ✅ {"blockName": "crafting_table"}  ← 座標省略可（最寄りを探す）
 ```
 
-### craft-one: itemName 必須！
+
+---
+
+## 会話への対応
+
+ユーザーが**会話**（挨拶、質問、雑談など）をしてきた場合は、**chatスキルで直接応答**してください。
 
 ```
-❌ {"blockName": "oak_planks"}
-✅ {"itemName": "oak_planks"}
+例1: ユーザー「こんにちは」
+→ goal: "ユーザーに挨拶を返す"
+→ status: "in_progress"  ← スキル実行前はin_progress！
+→ nextActionSequence: [{"toolName": "chat", "args": "{\"message\": \"こんにちは！何かお手伝いできることはありますか？\"}"}]
+→ hierarchicalSubTasks: [{"id": "1", "goal": "挨拶を返す", "status": "in_progress"}]
+
+例2: ユーザー「元気？」
+→ goal: "ユーザーの質問に答える"
+→ status: "in_progress"
+→ nextActionSequence: [{"toolName": "chat", "args": "{\"message\": \"元気です！今日は何をしましょうか？\"}"}]
+
+例3: ユーザー「ありがとう」
+→ goal: "感謝に応える"
+→ status: "in_progress"
+→ nextActionSequence: [{"toolName": "chat", "args": "{\"message\": \"どういたしまして！また何かあれば言ってくださいね\"}"}]
 ```
+
+**重要ルール:**
+- nextActionSequence がある場合は必ず `status: "in_progress"`
+- `status: "completed"` にできるのは nextActionSequence が空の時だけ！
+- 会話の場合も探索や安全確認などの余計なタスクを追加しない

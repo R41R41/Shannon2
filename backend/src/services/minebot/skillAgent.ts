@@ -97,8 +97,13 @@ export class SkillAgent {
       // チャットメッセージコールバックを設定
       this.httpServer.setOnChatMessageCallback(async (sender: string, message: string) => {
         console.log(`💬 Processing chat from ${sender}: ${message}`);
-        // TaskGraphに渡してAIに応答させる
-        await this.centralAgent.handlePlayerMessage(sender, message);
+        // マイクラチャットと同様に処理（環境情報も渡す）
+        await this.processMessage(
+          sender,
+          message,
+          JSON.stringify(this.bot.environmentState),
+          JSON.stringify(this.bot.selfState)
+        );
       });
 
       // HTTPサーバー起動

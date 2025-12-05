@@ -36,7 +36,7 @@ export class CentralAgent {
     return this.taskCoordinator.getTaskGraph();
   }
 
-  // プレイヤー発言を処理 (TaskCoordinatorに委譲)
+  // プレイヤー発言を処理 (TaskCoordinatorに委譲）
   public async handlePlayerMessage(
     userName: string,
     message: string,
@@ -53,7 +53,7 @@ export class CentralAgent {
     );
   }
 
-  // TaskCoordinatorを取得
+  // TaskCoordinatorを取得!
   public getTaskCoordinator(): TaskCoordinator {
     return this.taskCoordinator;
   }
