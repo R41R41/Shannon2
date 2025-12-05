@@ -18,6 +18,12 @@ interface ReactionSettingUpdateRequest {
     probability?: number;
 }
 
+// チャットメッセージリクエスト型
+interface ChatMessageRequest {
+    sender: string;
+    message: string;
+}
+
 /**
  * MinebotHttpServer
  * Express APIサーバーの管理を担当
@@ -29,6 +35,7 @@ export class MinebotHttpServer {
     private skillLoader: SkillLoader;
     private sendConstantSkillsCallback: () => Promise<void>;
     private sendReactionSettingsCallback: () => Promise<void>;
+    private onChatMessageCallback: ((sender: string, message: string) => Promise<void>) | null = null;
     private eventReactionSystem: EventReactionSystem | null = null;
 
     constructor(
@@ -43,6 +50,13 @@ export class MinebotHttpServer {
         this.app = express();
         this.setupMiddleware();
         this.registerEndpoints();
+    }
+
+    /**
+     * チャットメッセージコールバックを設定
+     */
+    setOnChatMessageCallback(callback: (sender: string, message: string) => Promise<void>): void {
+        this.onChatMessageCallback = callback;
     }
 
     /**
@@ -265,6 +279,31 @@ export class MinebotHttpServer {
                 }
             } catch (error) {
                 const httpError = new HttpServerError('/reaction_settings', 500, error as Error);
+                console.error(httpError.toJSON());
+                res.status(500).json({
+                    success: false,
+                    result: httpError.message,
+                });
+            }
+        });
+
+        // チャットメッセージエンドポイント
+        this.app.post('/chat_message', async (req: any, res: any) => {
+            try {
+                const { sender, message } = req.body as ChatMessageRequest;
+                console.log(`💬 Chat from ${sender}: ${message}`);
+
+                if (this.onChatMessageCallback) {
+                    await this.onChatMessageCallback(sender, message);
+                }
+
+                const response: ApiResponse = {
+                    success: true,
+                    result: 'Message received'
+                };
+                res.status(200).json(response);
+            } catch (error) {
+                const httpError = new HttpServerError('/chat_message', 500, error as Error);
                 console.error(httpError.toJSON());
                 res.status(500).json({
                     success: false,

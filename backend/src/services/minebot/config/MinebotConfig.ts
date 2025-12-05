@@ -43,6 +43,14 @@ export class MinebotConfig {
     /** UI Modのサーバーポート */
     readonly UI_MOD_PORT = 8081;
 
+    /** UI Modのサーバーホスト */
+    readonly UI_MOD_HOST = process.env.UI_MOD_HOST || 'localhost';
+
+    /** UI ModサーバーのベースURL */
+    get UI_MOD_BASE_URL(): string {
+        return `http://${this.UI_MOD_HOST}:${this.UI_MOD_PORT}`;
+    }
+
     // ===== パス設定 =====
 
     /** プロンプトディレクトリ */

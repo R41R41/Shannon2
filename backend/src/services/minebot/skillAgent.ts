@@ -94,6 +94,13 @@ export class SkillAgent {
       // HTTPサーバーにEventReactionSystemを設定
       this.httpServer.setEventReactionSystem(this.eventReactionSystem);
 
+      // チャットメッセージコールバックを設定
+      this.httpServer.setOnChatMessageCallback(async (sender: string, message: string) => {
+        console.log(`💬 Processing chat from ${sender}: ${message}`);
+        // TaskGraphに渡してAIに応答させる
+        await this.centralAgent.handlePlayerMessage(sender, message);
+      });
+
       // HTTPサーバー起動
       this.httpServer.start();
 

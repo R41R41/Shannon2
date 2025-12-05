@@ -1,7 +1,7 @@
 [
   {
     "skillName": "auto-pick-up-item",
-    "status": true
+    "status": false
   },
   {
     "skillName": "auto-eat",
