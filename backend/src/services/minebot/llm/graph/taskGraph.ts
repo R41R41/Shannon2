@@ -1,147 +1,32 @@
 import { AIMessage, BaseMessage } from '@langchain/core/messages';
-import { StructuredTool } from '@langchain/core/tools';
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { TaskTreeState } from '@shannon/common';
 import dotenv from 'dotenv';
 import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { Vec3 } from 'vec3';
-import { z, ZodObject } from 'zod';
-import { EventBus } from '../../../eventBus/eventBus.js';
-import { getEventBus } from '../../../eventBus/index.js';
 import { CONFIG } from '../../config/MinebotConfig.js';
 import { CustomBot } from '../../types.js';
-import { CustomToolNode } from './customToolNode.js';
-import { CentralLogManager, LogSender } from './logging/index.js';
+import { CentralLogManager } from './logging/index.js';
 import { ExecutionNode } from './nodes/ExecutionNode.js';
 import { PlanningNode } from './nodes/PlanningNode.js';
-import { ReflectionNode } from './nodes/ReflectionNode.js';
-import { UnderstandingNode } from './nodes/UnderstandingNode.js';
 import { Prompt } from './prompt.js';
+import { InstantSkillTool } from './tools/InstantSkillTool.js';
 import { TaskStateInput } from './types.js';
+import { convertToToolCalls } from './utils/argsParser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 dotenv.config();
 
-// 汎用的なInstantSkillToolクラス
-class InstantSkillTool extends StructuredTool {
-  name: string;
-  description: string;
-  schema: ZodObject<any>;
-  private bot: CustomBot;
-
-  constructor(skill: any, bot: CustomBot) {
-    super();
-    this.bot = bot;
-    this.name = skill.skillName;
-    this.description = skill.description;
-    // paramsからzodスキーマを動的生成
-    this.schema = z.object(
-      Object.fromEntries(
-        (skill.params || []).map((param: any) => {
-          // 型に応じたzodスキーマを生成
-          let zodType;
-          switch (param.type) {
-            case 'number':
-              zodType = z.number();
-              break;
-            case 'Vec3':
-              zodType = z.object({
-                x: z.number(),
-                y: z.number(),
-                z: z.number(),
-              });
-              break;
-            case 'boolean':
-              zodType = z.boolean();
-              break;
-            case 'string':
-              zodType = z.string();
-              break;
-            default:
-              zodType = z.string();
-          }
-
-          // null許容を追加
-          zodType = zodType.nullable();
-
-          // デフォルト値があれば設定
-          if (param.default !== undefined) {
-            // anyでキャストして型の互換性問題を回避
-            try {
-              zodType = (zodType as any).default(param.default);
-            } catch (error) {
-              console.error(
-                `\x1b[31mデフォルト値の設定に失敗しました: ${error}\x1b[0m`
-              );
-            }
-          }
-
-          // 説明を追加
-          zodType = zodType.describe(param.description || '');
-
-          return [param.name, zodType];
-        })
-      )
-    );
-  }
-
-  async _call(data: any): Promise<string> {
-    const skill = this.bot.instantSkills.getSkill(this.name);
-    if (!skill) {
-      return `${this.name}スキルが存在しません。`;
-    }
-    console.log(
-      `\x1b[32m${skill.skillName}を実行します。パラメータ：${JSON.stringify(
-        data
-      )}\x1b[0m`
-    );
-
-    try {
-      // スキルのパラメータ定義を取得
-      const params = skill.params || [];
-      const args = params.map((param) => {
-        if (param.type === 'Vec3' && data[param.name]) {
-          return new Vec3(
-            data[param.name].x,
-            data[param.name].y,
-            data[param.name].z
-          );
-        } else if (param.type === 'boolean' && data[param.name] === 'true') {
-          return true;
-        } else if (param.type === 'boolean' && data[param.name] === 'false') {
-          return false;
-        } else {
-          return data[param.name];
-        }
-      });
-      // スキルを実行
-      const result = await skill.run(...args);
-      return typeof result === 'string'
-        ? result
-        : `結果: ${result.success ? '成功' : '失敗'} 詳細: ${result.result}`;
-    } catch (error) {
-      console.error(`${this.name}スキル実行エラー:`, error);
-      return `スキル実行エラー: ${error}`;
-    }
-  }
-}
-
 export class TaskGraph {
   private static instance: TaskGraph;
   private tools: any[] = [];
-  private customToolNode: CustomToolNode | null = null;
   private planningNode: PlanningNode | null = null;
   private executionNode: ExecutionNode | null = null;
-  private understandingNode: UnderstandingNode | null = null;
-  private reflectionNode: ReflectionNode | null = null;
   private centralLogManager: CentralLogManager;
-  private logSender: LogSender;
   private graph: any;
-  private eventBus: EventBus | null = null;
   private prompt: Prompt | null = null;
   private bot: CustomBot | null = null;
   public currentState: any = null;
@@ -154,32 +39,27 @@ export class TaskGraph {
     reason: string;
   }> = [];
   private isEmergencyMode = false;
+  private isExecuting = false; // タスク実行中フラグ（排他制御用）
+
+  // 直近の成功アクション履歴（同じアクションの繰り返し検出用）
+  private recentSuccessfulActions: string[] = [];
 
   constructor() {
     this.bot = null;
-    this.eventBus = null;
-    this.customToolNode = null;
     this.planningNode = null;
     this.executionNode = null;
-    this.understandingNode = null;
-    this.reflectionNode = null;
     this.centralLogManager = CentralLogManager.getInstance();
-    this.logSender = LogSender.getInstance();
     this.prompt = null;
   }
 
   public async initialize(bot: CustomBot) {
     this.bot = bot;
-    this.eventBus = getEventBus();
     await this.initializeTools();
     this.prompt = new Prompt(this.tools);
 
-    // 各Nodeを初期化（CentralLogManagerを渡す）
-    this.customToolNode = new CustomToolNode(this.tools);
+    // ノードを初期化（2ノード構成: Planning + Execution）
     this.planningNode = new PlanningNode(this.bot, this.prompt, this.centralLogManager);
-    this.executionNode = new ExecutionNode(this.bot, this.centralLogManager);
-    this.understandingNode = new UnderstandingNode(this.bot, this.centralLogManager);
-    this.reflectionNode = new ReflectionNode(this.bot, this.centralLogManager);
+    this.executionNode = new ExecutionNode(this.tools, this.centralLogManager);
 
     this.graph = this.createGraph();
     this.currentState = null;
@@ -284,10 +164,15 @@ export class TaskGraph {
       reducer: (_, next) => next,
       default: () => false,
     }),
+    // 実行結果（ExecutionNodeからPlanningNodeに渡す）
+    executionResults: Annotation<any[] | null>({
+      reducer: (_, next) => next,
+      default: () => null,
+    }),
   });
 
   private createGraph() {
-    if (!this.planningNode || !this.customToolNode) {
+    if (!this.planningNode || !this.executionNode) {
       throw new Error('Nodes not initialized');
     }
 
@@ -297,6 +182,11 @@ export class TaskGraph {
         state.humanFeedback =
           this.currentState?.humanFeedback || state.humanFeedback;
         state.retryCount = this.currentState?.retryCount || state.retryCount || 0;
+
+        // 前回の実行結果を引き継ぎ（あれば）
+        if (this.currentState?.executionResults) {
+          state.executionResults = this.currentState.executionResults;
+        }
 
         // ゴールを設定
         if (state.userMessage) {
@@ -311,8 +201,7 @@ export class TaskGraph {
         return result;
       })
       .addNode('execution', async (state) => {
-        // === 新設計: nextActionSequence を直接実行 ===
-        // nextActionSequence = 引数が完全に指定されたスキルのリスト
+        // nextActionSequence を取得
         const activeActionSequence = state.taskTree?.nextActionSequence || state.taskTree?.actionSequence;
 
         // 現在のサブタスク情報（表示用）
@@ -328,199 +217,72 @@ export class TaskGraph {
           }
         }
 
-        // nextActionSequenceがある場合は、CustomToolNodeで実行
-        if (activeActionSequence && activeActionSequence.length > 0) {
-          // 実行開始ログ
-          this.centralLogManager.getLogManager('execution').addLog({
-            phase: 'execution',
-            level: 'info',
-            source: 'custom_tool_node',
-            content: currentSubTaskInfo
-              ? `Executing subtask: ${currentSubTaskInfo.goal} (${activeActionSequence.length} actions)`
-              : `Executing ${activeActionSequence.length} actions...`,
-            metadata: {
-              status: 'loading',
-              actionCount: activeActionSequence.length,
-              subTaskId: currentSubTaskInfo?.id,
-              subTaskGoal: currentSubTaskInfo?.goal,
-            } as any,
-          });
-
-          // ログを送信
-          await this.centralLogManager.sendNewLogsToUI();
-
-          // actionSequence を AIMessage の tool_calls 形式に変換
-          const toolCalls = activeActionSequence.map((action: any, index: number) => {
-            // args が null の場合は空オブジェクト + 動的解決フラグ
-            let parsedArgs: Record<string, any> = {};
-
-            if (action.args === null || action.args === undefined) {
-              // args が null の場合は、CustomToolNode が動的に解決する
-              console.log(`\x1b[35m📍 ${action.toolName}: args=null → 実行時に動的解決\x1b[0m`);
-              parsedArgs = { _dynamicResolve: true, _expectedResult: action.expectedResult };
-            } else if (typeof action.args === 'string') {
-              // 空文字列、null、": null" などの場合は動的解決
-              const trimmedArgs = action.args.trim();
-              if (trimmedArgs === '' || trimmedArgs === 'null' || trimmedArgs === ': null' || trimmedArgs.startsWith(': ')) {
-                console.log(`\x1b[35m📍 ${action.toolName}: args="${trimmedArgs}" → 実行時に動的解決\x1b[0m`);
-                parsedArgs = { _dynamicResolve: true, _expectedResult: action.expectedResult };
-              } else {
-                try {
-                  // 標準の JSON パース
-                  const parsed = JSON.parse(action.args);
-                  // JSON.parse("null") は null を返すので、その場合は動的解決
-                  if (parsed === null) {
-                    console.log(`\x1b[35m📍 ${action.toolName}: args="null" → 実行時に動的解決\x1b[0m`);
-                    parsedArgs = { _dynamicResolve: true, _expectedResult: action.expectedResult };
-                  } else {
-                    parsedArgs = parsed;
-                  }
-                } catch (error) {
-                  // Python 辞書形式（シングルクォート）を試す
-                  try {
-                    const fixedJson = action.args
-                      .replace(/'/g, '"')  // シングルクォートをダブルクォートに
-                      .replace(/True/g, 'true')  // Python の True を JSON の true に
-                      .replace(/False/g, 'false')  // Python の False を JSON の false に
-                      .replace(/None/g, 'null');  // Python の None を JSON の null に
-                    const parsed = JSON.parse(fixedJson);
-                    if (parsed === null) {
-                      parsedArgs = { _dynamicResolve: true, _expectedResult: action.expectedResult };
-                    } else {
-                      parsedArgs = parsed;
-                    }
-                    console.log(`\x1b[33m⚠ Python形式をJSON形式に変換しました: ${action.toolName}\x1b[0m`);
-                  } catch (error2) {
-                    console.error(`\x1b[31m引数のJSONパースに失敗: ${action.args}\x1b[0m`);
-                    console.error(`\x1b[31m  エラー: ${error2}\x1b[0m`);
-                    parsedArgs = { _dynamicResolve: true };
-                  }
-                }
-              }
-            } else if (typeof action.args === 'object') {
-              // オブジェクトが null の場合も動的解決
-              if (action.args === null) {
-                parsedArgs = { _dynamicResolve: true, _expectedResult: action.expectedResult };
-              } else {
-                parsedArgs = { ...action.args };
-              }
-            }
-
-            // expectedResult を常に渡す（動的解決時に使用）
-            if (parsedArgs && typeof parsedArgs === 'object') {
-              parsedArgs._expectedResult = action.expectedResult;
-            }
-
-            return {
-              name: action.toolName,
-              args: parsedArgs,
-              id: `call_${Date.now()}_${index}`,
-            };
-          });
-
-          // AIMessage を作成して state.messages に追加
-          const aiMessage = new AIMessage({
-            content: '',
-            tool_calls: toolCalls,
-          });
-
-          const updatedState = {
-            ...state,
-            messages: [...(state.messages || []), aiMessage],
-          };
-
-          const result = await this.customToolNode!.invoke(updatedState);
-
-          // ツール実行結果からエラーを判定
-          const messages = result.messages || [];
-          const lastMessage = messages[messages.length - 1];
-          let hasError = false;
-          if (lastMessage && 'content' in lastMessage) {
-            const content = String(lastMessage.content);
-            hasError = content.includes('エラー') || content.includes('失敗') || content.includes('スキップ');
-          }
-
-          // retryCountを更新
-          let newRetryCount = state.retryCount || 0;
-          let updatedTaskTree = { ...state.taskTree };
-
-          if (hasError) {
-            newRetryCount = newRetryCount + 1;
-            this.currentState.retryCount = newRetryCount;
-
-            // サブタスクのステータスを更新（失敗）
-            if (currentSubTaskInfo && updatedTaskTree.hierarchicalSubTasks) {
-              updatedTaskTree.hierarchicalSubTasks = updatedTaskTree.hierarchicalSubTasks.map((st: any) => {
-                if (st.id === currentSubTaskInfo!.id) {
-                  return {
-                    ...st,
-                    status: 'error',
-                    failureReason: String(lastMessage?.content || 'Unknown error'),
-                    needsDecomposition: true,  // 分解が必要フラグ
-                  };
-                }
-                return st;
-              });
-            }
-
-            console.log(`\x1b[33m⚠ エラー発生（再試行回数: ${newRetryCount}/${CONFIG.MAX_RETRY_COUNT}）\x1b[0m`);
-            if (currentSubTaskInfo) {
-              console.log(`\x1b[33m   サブタスク「${currentSubTaskInfo.goal}」が失敗しました\x1b[0m`);
-            }
-
-            // エラーログ
-            this.centralLogManager.getLogManager('execution').addLog({
-              phase: 'execution',
-              level: 'error',
-              source: 'custom_tool_node',
-              content: currentSubTaskInfo
-                ? `Subtask failed: ${currentSubTaskInfo.goal} (Retry ${newRetryCount}/${CONFIG.MAX_RETRY_COUNT})`
-                : `Action failed (Retry ${newRetryCount}/${CONFIG.MAX_RETRY_COUNT})`,
-              metadata: {
-                error: 'Action sequence failed',
-                subTaskId: currentSubTaskInfo?.id,
-                subTaskGoal: currentSubTaskInfo?.goal,
-              } as any,
-            });
-          } else {
-            newRetryCount = 0;
-            this.currentState.retryCount = 0;
-
-            // === 問題4修正: サブタスクのステータス更新はLLMに任せる ===
-            // Executionノードでは「次のサブタスク」を決定しない（LLMがhierarchicalSubTasksを管理）
-            // currentSubTaskInfoがある場合は、そのサブタスクが完了したことだけをログ
-            if (currentSubTaskInfo) {
-              console.log(`\x1b[32m✓ サブタスク完了: ${currentSubTaskInfo.goal}\x1b[0m`);
-            }
-            // hierarchicalSubTasksの更新はPlanningNodeに任せる（引き継ぎのため）
-
-            // 成功ログ
-            this.centralLogManager.getLogManager('execution').addLog({
-              phase: 'execution',
-              level: 'success',
-              source: 'custom_tool_node',
-              content: currentSubTaskInfo
-                ? `✅ Subtask completed: ${currentSubTaskInfo.goal}`
-                : `✅ All ${activeActionSequence.length} actions completed successfully`,
-              metadata: {
-                subTaskId: currentSubTaskInfo?.id,
-                subTaskGoal: currentSubTaskInfo?.goal,
-              } as any,
-            });
-          }
-
-          // ログを送信
-          await this.centralLogManager.sendNewLogsToUI();
-
-          return {
-            ...result,
-            retryCount: newRetryCount,
-            taskTree: updatedTaskTree,
-          };
+        // アクションがない場合はそのまま返す
+        if (!activeActionSequence || activeActionSequence.length === 0) {
+          return state;
         }
 
-        // actionSequenceがない場合はそのまま返す
-        return state;
+        // actionSequence を AIMessage の tool_calls 形式に変換
+        const toolCalls = convertToToolCalls(activeActionSequence);
+
+        // AIMessage を作成して state.messages に追加
+        const aiMessage = new AIMessage({
+          content: '',
+          tool_calls: toolCalls,
+        });
+
+        const updatedState = {
+          ...state,
+          messages: [...(state.messages || []), aiMessage],
+        };
+
+        // ExecutionNode で実行
+        const result = await this.executionNode!.invoke(updatedState);
+
+        // 実行結果を処理
+        const hasError = result.hasError || false;
+        let newRetryCount = state.retryCount || 0;
+        let updatedTaskTree = { ...state.taskTree };
+
+        if (hasError) {
+          newRetryCount = newRetryCount + 1;
+          this.currentState.retryCount = newRetryCount;
+
+          // サブタスクのステータスを更新（失敗）
+          if (currentSubTaskInfo && updatedTaskTree.hierarchicalSubTasks) {
+            const errorMessage = result.executionResults?.find((r: any) => !r.success)?.message || 'Unknown error';
+            updatedTaskTree.hierarchicalSubTasks = updatedTaskTree.hierarchicalSubTasks.map((st: any) => {
+              if (st.id === currentSubTaskInfo!.id) {
+                return {
+                  ...st,
+                  status: 'error',
+                  failureReason: errorMessage,
+                  needsDecomposition: true,
+                };
+              }
+              return st;
+            });
+          }
+
+          console.log(`\x1b[33m⚠ エラー発生（再試行回数: ${newRetryCount}/${CONFIG.MAX_RETRY_COUNT}）\x1b[0m`);
+        } else {
+          newRetryCount = 0;
+          this.currentState.retryCount = 0;
+
+          if (currentSubTaskInfo) {
+            console.log(`\x1b[32m✓ サブタスク完了: ${currentSubTaskInfo.goal}\x1b[0m`);
+          }
+        }
+
+        // 実行結果をcurrentStateに保存（次のPlanningで参照）
+        this.currentState.executionResults = result.executionResults;
+
+        return {
+          ...result,
+          retryCount: newRetryCount,
+          taskTree: updatedTaskTree,
+          executionResults: result.executionResults,
+        };
       })
       .addEdge(START, 'planning')
       .addConditionalEdges('planning', (state) => {
@@ -569,6 +331,29 @@ export class TaskGraph {
           return END;
         }
 
+        // 同じアクションの繰り返しを検出（無限ループ防止）
+        const execResults = state.executionResults || [];
+        const recentActions = this.recentSuccessfulActions || [];
+
+        // 今回成功したアクションを履歴に追加
+        const successfulActions = execResults.filter((r: any) => r.success).map((r: any) => r.toolName);
+        if (successfulActions.length > 0) {
+          this.recentSuccessfulActions = [...recentActions, ...successfulActions].slice(-10); // 直近10件保持
+        }
+
+        // 同じアクションが連続3回以上成功している場合は終了
+        const actionHistory = this.recentSuccessfulActions || [];
+        if (actionHistory.length >= 3) {
+          const lastAction = actionHistory[actionHistory.length - 1];
+          const repeatCount = actionHistory.slice(-5).filter((a: string) => a === lastAction).length;
+          if (repeatCount >= 3) {
+            console.log(
+              `\x1b[33m⚠ 同じアクション（${lastAction}）が${repeatCount}回連続で成功。進展がないため終了します。\x1b[0m`
+            );
+            return END;
+          }
+        }
+
         if (this.currentState.humanFeedbackPending) {
           this.currentState.humanFeedbackPending = false;
           return 'planning';
@@ -582,6 +367,17 @@ export class TaskGraph {
   }
 
   public async invoke(partialState: TaskStateInput) {
+    // 排他制御: 既に実行中なら新しいタスクを開始しない
+    if (this.isExecuting) {
+      console.log('\x1b[33m⚠️ タスク実行中のため、新しいタスクをスキップします\x1b[0m');
+      return null;
+    }
+
+    this.isExecuting = true;
+
+    // 新しいタスク開始時にアクション履歴をリセット
+    this.recentSuccessfulActions = [];
+
     let state: typeof this.TaskState.State = {
       taskId: crypto.randomUUID(),
       environmentState: partialState.environmentState ?? null,
@@ -598,6 +394,7 @@ export class TaskGraph {
       humanFeedbackPending: false,
       forceStop: false,
       retryCount: 0,
+      executionResults: null,
     };
     this.currentState = state;
 
@@ -648,6 +445,9 @@ export class TaskGraph {
           subTasks: null,
         },
       };
+    } finally {
+      // 排他制御を解除
+      this.isExecuting = false;
     }
   }
 
@@ -667,6 +467,13 @@ export class TaskGraph {
     if (this.currentState) {
       this.currentState.forceStop = true;
     }
+  }
+
+  /**
+   * タスクが実行中かどうかを返す
+   */
+  public isRunning(): boolean {
+    return this.isExecuting;
   }
 
   /**

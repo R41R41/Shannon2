@@ -1,6 +1,7 @@
 // 詳細ログシステムの型定義
 
-export type LogPhase = 'thinking' | 'tool_call' | 'tool_result' | 'reflection' | 'planning' | 'understanding' | 'execution';
+// 2ノード構成に対応したログフェーズ
+export type LogPhase = 'planning' | 'execution';
 
 export type LogLevel = 'info' | 'success' | 'warning' | 'error';
 

@@ -1,11 +1,11 @@
 [
   {
     "skillName": "auto-pick-up-item",
-    "status": false
+    "status": true
   },
   {
     "skillName": "auto-eat",
-    "status": true
+    "status": false
   },
   {
     "skillName": "auto-follow",
@@ -21,7 +21,7 @@
   },
   {
     "skillName": "auto-sleep",
-    "status": true
+    "status": false
   },
   {
     "skillName": "auto-run-from-hostiles",
@@ -73,6 +73,10 @@
   },
   {
     "skillName": "auto-detect-block-or-entity",
+    "status": false
+  },
+  {
+    "skillName": "auto-face-speaker",
     "status": false
   }
 ]

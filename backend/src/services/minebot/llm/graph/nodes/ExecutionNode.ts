@@ -1,401 +1,374 @@
-import { AIMessage, SystemMessage } from '@langchain/core/messages';
-import { ChatOpenAI } from '@langchain/openai';
-import { CustomBot, InstantSkill } from '../../../types.js';
-import { CentralLogManager, DetailedLog, LogManager } from '../logging/index.js';
+import { AIMessage, ToolMessage } from '@langchain/core/messages';
+import { StructuredTool } from '@langchain/core/tools';
+import { CentralLogManager, LogManager } from '../logging/index.js';
+
+/**
+ * アクション項目の型定義
+ */
+interface ActionItem {
+    toolName: string;
+    args: Record<string, any>;
+    expectedResult: string;
+}
+
+/**
+ * 実行結果の型定義
+ */
+export interface ExecutionResult {
+    toolName: string;
+    args: Record<string, any>;
+    success: boolean;
+    message: string;
+    duration: number;
+    error?: string;
+}
 
 /**
  * Execution Node
- * 方法1（Tool Calling）+ 方法3（Thinking）のハイブリッド実装
- * 旧名: EnhancedExecutionNode
+ * スキル（ツール）を実行する
+ * 
+ * 特徴:
+ * - 並列実行対応 (Promise.allSettled)
+ * - 実行時間計測
+ * - 詳細なログ記録
  */
 export class ExecutionNode {
-    private bot: CustomBot;
-    private llm: ChatOpenAI;
+    private tools: Map<string, StructuredTool>;
     private logManager: LogManager;
     private centralLogManager: CentralLogManager;
 
-    constructor(bot: CustomBot, centralLogManager?: CentralLogManager) {
-        this.bot = bot;
-        this.llm = new ChatOpenAI({
-            modelName: 'gpt-4o',
-            temperature: 0.1,
-            streaming: false,
-        });
+    constructor(tools: StructuredTool[], centralLogManager?: CentralLogManager) {
+        this.tools = new Map(tools.map((tool) => [tool.name, tool]));
         this.centralLogManager = centralLogManager || CentralLogManager.getInstance();
         this.logManager = this.centralLogManager.getLogManager('execution_node');
     }
 
-    async invoke(state: any): Promise<any> {
-        console.log('🔧 EnhancedExecutionNode: 実行開始...');
+    /**
+     * ツールのスキーマ情報を取得（エラーメッセージ用）
+     */
+    private getToolSchemaInfo(tool: StructuredTool): string {
+        try {
+            const schema = tool.schema;
+            if (schema && typeof schema === 'object' && '_def' in schema) {
+                const def = (schema as any)._def;
+                if (def.typeName === 'ZodObject' && def.shape) {
+                    const params = Object.keys(def.shape()).map(key => {
+                        const field = def.shape()[key];
+                        const desc = field?._def?.description || '';
+                        const isNullable = field?._def?.typeName === 'ZodNullable';
+                        const required = !isNullable && desc.includes('必須') ? '(必須)' : '(省略可)';
+                        return `${key}${required}: ${desc}`;
+                    });
+                    return params.join(' | ');
+                }
+            }
+            return 'パラメータ情報なし';
+        } catch {
+            return 'パラメータ情報なし';
+        }
+    }
 
-        // 現在実行中のサブタスクを取得
-        const currentSubTask = state.subTasks.find(
-            (task: any) => task.subTaskStatus === 'in_progress'
+    /**
+     * 単一アクションを実行（実行時間計測付き）
+     */
+    private async executeAction(
+        action: ActionItem,
+        index: number,
+        total: number
+    ): Promise<{ success: boolean; message: ToolMessage; result: ExecutionResult }> {
+        const startTime = Date.now();
+
+        console.log(
+            `\x1b[36m[${index + 1}/${total}] ${action.toolName}を実行中...\x1b[0m`
         );
 
-        if (!currentSubTask) {
-            console.log('⚠️ 実行中のサブタスクがありません');
-            return state;
+        const tool = this.tools.get(action.toolName);
+        if (!tool) {
+            const duration = Date.now() - startTime;
+            const errorMsg = `ツール ${action.toolName} が見つかりません`;
+            console.error(`\x1b[31m${errorMsg}\x1b[0m`);
+
+            return {
+                success: false,
+                result: {
+                    toolName: action.toolName,
+                    args: action.args,
+                    success: false,
+                    message: errorMsg,
+                    duration,
+                    error: errorMsg,
+                },
+                message: new ToolMessage({
+                    content: errorMsg,
+                    tool_call_id: `call_${Date.now()}_${index}`,
+                    name: action.toolName,
+                }),
+            };
         }
 
         try {
-            // === Phase 1: Thinking（思考フェーズ）===
-            const thinking = await this.thinkAboutExecution(currentSubTask, state);
+            // _expectedResult などの内部フィールドを除去
+            const cleanArgs = { ...action.args };
+            delete cleanArgs._expectedResult;
+            delete cleanArgs._dynamicResolve;
 
-            this.logManager.addLog({
-                phase: 'thinking',
-                level: 'info',
-                source: 'execution_node',
-                content: thinking,
-            });
+            console.log(`${action.toolName}を実行します。パラメータ：${JSON.stringify(cleanArgs)}`);
 
-            // === Phase 2: Tool Selection（ツール選択）===
-            const tools = this.buildToolDefinitions();
-            const toolSelectionResult = await this.selectTools(
-                currentSubTask,
-                thinking,
-                state,
-                tools
-            );
+            const result = await tool.invoke(cleanArgs);
+            const duration = Date.now() - startTime;
 
-            // ツール呼び出しをログに記録
-            for (const call of toolSelectionResult.toolCalls) {
-                this.logManager.addLog({
-                    phase: 'tool_call',
-                    level: 'info',
-                    source: call.name,
-                    content: `Executing ${call.name}`,
-                    metadata: {
-                        toolName: call.name,
-                        parameters: call.args,
-                    },
-                });
+            console.log(`\x1b[32m✓ ${action.toolName} 完了 (${duration}ms): ${result}\x1b[0m`);
+
+            // 結果が失敗を示している場合もエラーとして扱う
+            const isError =
+                typeof result === 'string' &&
+                (result.includes('失敗') ||
+                    result.includes('エラー') ||
+                    result.includes('error') ||
+                    result.includes('見つかりません'));
+
+            if (isError) {
+                console.warn(
+                    `\x1b[33m⚠ ${action.toolName} の結果が失敗を示しています\x1b[0m`
+                );
             }
 
-            // === Phase 3: Parallel Execution（並列実行）===
-            const results = await this.executeToolsInParallel(toolSelectionResult.toolCalls);
-
-            // 結果をログに記録
-            results.forEach((result, i) => {
-                this.logManager.addLog({
-                    phase: 'tool_result',
-                    level: result.success ? 'success' : 'error',
-                    source: toolSelectionResult.toolCalls[i].name,
-                    content: result.message,
-                    metadata: {
-                        toolName: toolSelectionResult.toolCalls[i].name,
-                        result: result.data,
-                        duration: result.duration,
-                        error: result.error,
-                    },
-                });
-            });
-
-            // === Phase 4: Quick Reflection（簡易反省）===
-            const reflection = await this.quickReflect(currentSubTask, results);
-
-            this.logManager.addLog({
-                phase: 'reflection',
-                level: reflection.hasErrors ? 'warning' : 'success',
-                source: 'execution_node',
-                content: reflection.summary,
-                metadata: {
-                    shouldContinue: reflection.shouldContinue,
-                    hasErrors: reflection.hasErrors,
-                },
-            });
-
-            // === UIにログを送信 ===
-            await this.centralLogManager.sendNewLogsToUI();
-
-            // サブタスクの結果を更新
-            const updatedSubTasks = state.subTasks.map((task: any) => {
-                if (task === currentSubTask) {
-                    return {
-                        ...task,
-                        subTaskResult: reflection.summary,
-                        subTaskStatus: reflection.hasErrors ? 'error' : 'completed',
-                    };
-                }
-                return task;
-            });
+            const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
 
             return {
-                ...state,
-                subTasks: updatedSubTasks,
-                messages: [
-                    ...state.messages,
-                    new AIMessage(`Execution result: ${reflection.summary}`),
-                ],
+                success: !isError,
+                result: {
+                    toolName: action.toolName,
+                    args: cleanArgs,
+                    success: !isError,
+                    message: resultStr,
+                    duration,
+                    error: isError ? resultStr : undefined,
+                },
+                message: new ToolMessage({
+                    content: result,
+                    tool_call_id: `call_${Date.now()}_${index}`,
+                    name: action.toolName,
+                }),
             };
-        } catch (error: any) {
-            console.error('❌ EnhancedExecutionNode エラー:', error);
+        } catch (error) {
+            const duration = Date.now() - startTime;
 
-            this.logManager.addLog({
-                phase: 'tool_result',
-                level: 'error',
-                source: 'execution_node',
-                content: `Execution failed: ${error.message}`,
-                metadata: {
-                    error: error.message,
-                    stack: error.stack,
-                },
-            });
+            // スキーマエラーの場合、スキルの引数情報を表示
+            let errorMsg = `${action.toolName} 実行エラー`;
 
-            await this.centralLogManager.sendNewLogsToUI();
+            if (error instanceof Error && error.message.includes('did not match expected schema')) {
+                const paramsInfo = this.getToolSchemaInfo(tool);
+                errorMsg = `${action.toolName}の引数が間違っています。` +
+                    `提供された引数: ${JSON.stringify(action.args)}。` +
+                    `このスキルの引数: ${paramsInfo}`;
+            } else {
+                errorMsg += `: ${error instanceof Error ? error.message : '不明なエラー'}`;
+            }
+
+            console.error(`\x1b[31m✗ ${errorMsg} (${duration}ms)\x1b[0m`);
 
             return {
-                ...state,
-                error: `Execution failed: ${error.message}`,
-                subTasks: state.subTasks.map((task: any) => {
-                    if (task === currentSubTask) {
-                        return {
-                            ...task,
-                            subTaskStatus: 'error',
-                            subTaskResult: `Error: ${error.message}`,
-                        };
-                    }
-                    return task;
+                success: false,
+                result: {
+                    toolName: action.toolName,
+                    args: action.args,
+                    success: false,
+                    message: errorMsg,
+                    duration,
+                    error: errorMsg,
+                },
+                message: new ToolMessage({
+                    content: errorMsg,
+                    tool_call_id: `call_${Date.now()}_${index}`,
+                    name: action.toolName,
                 }),
             };
         }
     }
 
     /**
-     * Phase 1: 思考フェーズ
+     * 複数アクションを並列実行
      */
-    private async thinkAboutExecution(
-        subTask: any,
-        state: any
-    ): Promise<string> {
-        const prompt = `あなたはMinecraftボットです。
-
-現在のサブタスク: ${subTask.subTaskGoal}
-サブタスク戦略: ${subTask.subTaskStrategy}
-
-現在の状況:
-- 位置: ${JSON.stringify(this.bot.entity?.position)}
-- HP: ${this.bot.health}/20
-- 満腹度: ${this.bot.food}/20
-- インベントリ: ${JSON.stringify(this.bot.inventory.items().slice(0, 5))}
-- 周辺環境: ${JSON.stringify(state.environmentContext || 'unknown')}
-
-このサブタスクを達成するための実行戦略を考えてください:
-1. 何を目指すか？
-2. どんな順序で実行するか？
-3. 並列実行できるアクションは何か？
-4. 注意すべきポイントは？
-
-簡潔に（3-5行で）答えてください。`;
-
-        const response = await this.llm.invoke([new SystemMessage(prompt)]);
-        return response.content as string;
-    }
-
-    /**
-     * Phase 2: ツール選択（Tool Calling）
-     */
-    private async selectTools(
-        subTask: any,
-        thinking: string,
-        state: any,
-        tools: any[]
-    ): Promise<{ toolCalls: any[] }> {
-        const prompt = `戦略: ${thinking}
-
-現在のサブタスク: ${subTask.subTaskGoal}
-
-以下のツールを使って実行してください。
-並列実行できるものは全て列挙してください。
-
-実行後は簡単に結果を報告してください。`;
-
-        const response = await this.llm.invoke([new SystemMessage(prompt)], {
-            tools,
-            tool_choice: 'auto',
-        });
-
-        const toolCalls = response.tool_calls || [];
-        return { toolCalls };
-    }
-
-    /**
-     * Phase 3: 並列実行
-     */
-    private async executeToolsInParallel(
-        toolCalls: any[]
-    ): Promise<Array<{
-        success: boolean;
-        message: string;
-        data?: any;
-        duration?: number;
-        error?: string;
-    }>> {
-        const results = await Promise.allSettled(
-            toolCalls.map(call => this.executeToolCall(call))
-        );
-
-        return results.map(result => {
-            if (result.status === 'fulfilled') {
-                return result.value;
-            } else {
-                return {
-                    success: false,
-                    message: `Error: ${result.reason}`,
-                    error: result.reason,
-                };
-            }
-        });
-    }
-
-    /**
-     * 個別のツール（スキル）実行
-     */
-    private async executeToolCall(call: any): Promise<{
-        success: boolean;
-        message: string;
-        data?: any;
-        duration?: number;
-        error?: string;
-    }> {
+    private async executeActionsInParallel(
+        actions: ActionItem[]
+    ): Promise<{ results: ExecutionResult[]; messages: ToolMessage[]; hasError: boolean }> {
         const startTime = Date.now();
 
-        const skill = this.bot.instantSkills.getSkill(call.name);
-        if (!skill) {
-            throw new Error(`Skill ${call.name} not found`);
-        }
-
-        console.log(
-            `\x1b[32m🔧 Executing: ${call.name} with params: ${JSON.stringify(call.args)}\x1b[0m`
+        const promises = actions.map((action, index) =>
+            this.executeAction(action, index, actions.length)
         );
 
-        try {
-            // スキル実行
-            const result = await skill.run(...Object.values(call.args));
-            const duration = Date.now() - startTime;
+        const settledResults = await Promise.allSettled(promises);
 
-            console.log(
-                `\x1b[32m✅ ${call.name} completed in ${duration}ms: ${result.result}\x1b[0m`
-            );
+        const results: ExecutionResult[] = [];
+        const messages: ToolMessage[] = [];
+        let hasError = false;
 
-            return {
-                success: result.success,
-                message: result.result,
-                data: result,
-                duration,
-            };
-        } catch (error: any) {
-            const duration = Date.now() - startTime;
-            console.error(`\x1b[31m❌ ${call.name} failed: ${error.message}\x1b[0m`);
+        for (let i = 0; i < settledResults.length; i++) {
+            const settled = settledResults[i];
 
-            return {
-                success: false,
-                message: `Error: ${error.message}`,
-                error: error.message,
-                duration,
-            };
-        }
-    }
+            if (settled.status === 'fulfilled') {
+                results.push(settled.value.result);
+                messages.push(settled.value.message);
+                if (!settled.value.success) {
+                    hasError = true;
+                }
+            } else {
+                // Promise自体が失敗した場合
+                const duration = Date.now() - startTime;
+                const errorMsg = `${actions[i].toolName} 実行中に例外が発生: ${settled.reason}`;
 
-    /**
-     * Phase 4: 簡易反省
-     */
-    private async quickReflect(
-        subTask: any,
-        results: any[]
-    ): Promise<{
-        summary: string;
-        shouldContinue: boolean;
-        hasErrors: boolean;
-    }> {
-        const hasErrors = results.some(r => !r.success);
-        const successCount = results.filter(r => r.success).length;
-        const totalCount = results.length;
-
-        const summary = hasErrors
-            ? `${successCount}/${totalCount} actions succeeded. Some errors occurred.`
-            : `All ${totalCount} actions completed successfully.`;
-
-        return {
-            summary,
-            shouldContinue: !hasErrors,
-            hasErrors,
-        };
-    }
-
-    /**
-     * ツール定義を構築（既存のスキルから）
-     */
-    private buildToolDefinitions(): any[] {
-        return this.bot.instantSkills
-            .getSkills()
-            .filter((skill: InstantSkill) => skill.isToolForLLM)
-            .map((skill: InstantSkill) => {
-                // パラメータ定義を構築
-                const properties: any = {};
-                const required: string[] = [];
-
-                skill.params.forEach((param: any) => {
-                    let type = 'string';
-                    switch (param.type) {
-                        case 'number':
-                            type = 'number';
-                            break;
-                        case 'boolean':
-                            type = 'boolean';
-                            break;
-                        case 'Vec3':
-                            properties[param.name] = {
-                                type: 'object',
-                                description: param.description,
-                                properties: {
-                                    x: { type: 'number' },
-                                    y: { type: 'number' },
-                                    z: { type: 'number' },
-                                },
-                                required: ['x', 'y', 'z'],
-                            };
-                            required.push(param.name);
-                            return;
-                    }
-
-                    properties[param.name] = {
-                        type,
-                        description: param.description,
-                    };
-
-                    if (!param.default) {
-                        required.push(param.name);
-                    }
+                results.push({
+                    toolName: actions[i].toolName,
+                    args: actions[i].args,
+                    success: false,
+                    message: errorMsg,
+                    duration,
+                    error: errorMsg,
                 });
 
-                return {
-                    type: 'function',
-                    function: {
-                        name: skill.skillName,
-                        description: skill.description,
-                        parameters: {
-                            type: 'object',
-                            properties,
-                            required,
-                        },
-                    },
-                };
-            });
+                messages.push(new ToolMessage({
+                    content: errorMsg,
+                    tool_call_id: `call_${Date.now()}_${i}`,
+                    name: actions[i].toolName,
+                }));
+
+                hasError = true;
+            }
+        }
+
+        return { results, messages, hasError };
     }
 
     /**
-     * ログをクリア
+     * メインの実行メソッド
      */
-    clearLogs(): void {
-        this.logManager.clearLogs();
+    async invoke(state: any): Promise<any> {
+        const messages = state.messages;
+        const lastMessage = messages[messages.length - 1];
+
+        if (!(lastMessage instanceof AIMessage)) {
+            throw new Error('Last message must be an AIMessage');
+        }
+
+        const toolCalls = lastMessage.tool_calls || [];
+        if (toolCalls.length === 0) {
+            throw new Error('No tool calls found in AIMessage');
+        }
+
+        // アクションリストを構築
+        const actions: ActionItem[] = toolCalls.map((toolCall: any) => ({
+            toolName: toolCall.name,
+            args: toolCall.args,
+            expectedResult: toolCall.args?._expectedResult || '',
+        }));
+
+        // 実行開始ログ
+        this.logManager.addLog({
+            phase: 'execution',
+            level: 'info',
+            source: 'execution_node',
+            content: `Executing ${actions.length} action(s)...`,
+            metadata: {
+                actions: actions.map(a => a.toolName),
+            },
+        });
+
+        // 並列実行判定（現時点では全て順次実行、将来的に並列化可能）
+        // 依存関係のないアクションは並列実行可能だが、
+        // Minecraftでは順序が重要なことが多いため順次実行をデフォルトに
+        const useParallel = false; // 将来的にフラグ化
+
+        let executionResults: ExecutionResult[] = [];
+        let toolMessages: ToolMessage[] = [];
+        let hasError = false;
+
+        if (useParallel && actions.length > 1) {
+            // 並列実行
+            const parallelResult = await this.executeActionsInParallel(actions);
+            executionResults = parallelResult.results;
+            toolMessages = parallelResult.messages;
+            hasError = parallelResult.hasError;
+        } else {
+            // 順次実行（エラーで中断）
+            for (let i = 0; i < actions.length; i++) {
+                const { success, message, result } = await this.executeAction(
+                    actions[i],
+                    i,
+                    actions.length
+                );
+
+                executionResults.push(result);
+                toolMessages.push(message);
+
+                // ログに記録
+                this.logManager.addLog({
+                    phase: 'execution',
+                    level: success ? 'success' : 'error',
+                    source: actions[i].toolName,
+                    content: result.message,
+                    metadata: {
+                        toolName: actions[i].toolName,
+                        parameters: result.args,
+                        duration: result.duration,
+                        error: result.error,
+                    },
+                });
+
+                if (!success) {
+                    hasError = true;
+                    // 残りのアクションをスキップ
+                    if (i < actions.length - 1) {
+                        console.log(`\x1b[33m残り${actions.length - i - 1}個のアクションをスキップしました\x1b[0m`);
+                    }
+                    break;
+                }
+            }
+        }
+
+        // 実行サマリーログ
+        const successCount = executionResults.filter(r => r.success).length;
+        const totalDuration = executionResults.reduce((sum, r) => sum + r.duration, 0);
+
+        this.logManager.addLog({
+            phase: 'execution',
+            level: hasError ? 'warning' : 'success',
+            source: 'execution_node',
+            content: `Execution ${hasError ? 'completed with errors' : 'completed'}: ${successCount}/${executionResults.length} succeeded (${totalDuration}ms total)`,
+            metadata: {
+                successCount,
+                totalCount: executionResults.length,
+                totalDuration,
+                hasError,
+            },
+        });
+
+        // ログをUIに送信
+        await this.centralLogManager.sendNewLogsToUI();
+
+        return {
+            messages: toolMessages,
+            lastToolResult: executionResults.length > 0
+                ? executionResults[executionResults.length - 1].message
+                : '',
+            hasError,
+            // PlanningNodeに渡す実行結果
+            executionResults,
+        };
     }
 
     /**
      * ログを取得
      */
-    getLogs(): DetailedLog[] {
+    getLogs() {
         return this.logManager.getLogs();
     }
-}
 
+    /**
+     * ログをクリア
+     */
+    clearLogs() {
+        this.logManager.clearLogs();
+    }
+}

@@ -1,6 +1,7 @@
 import express, { Application } from 'express';
 import { Server } from 'http';
 import { CONFIG } from '../config/MinebotConfig.js';
+import { EventReactionSystem } from '../eventReaction/EventReactionSystem.js';
 import { SkillLoader } from '../skills/SkillLoader.js';
 import { CustomBot } from '../types.js';
 import {
@@ -9,6 +10,13 @@ import {
     HttpServerError,
     ThrowItemRequest,
 } from '../types/index.js';
+
+// 反応設定の更新リクエスト型
+interface ReactionSettingUpdateRequest {
+    eventType: string;
+    enabled?: boolean;
+    probability?: number;
+}
 
 /**
  * MinebotHttpServer
@@ -20,14 +28,28 @@ export class MinebotHttpServer {
     private bot: CustomBot;
     private skillLoader: SkillLoader;
     private sendConstantSkillsCallback: () => Promise<void>;
+    private sendReactionSettingsCallback: () => Promise<void>;
+    private eventReactionSystem: EventReactionSystem | null = null;
 
-    constructor(bot: CustomBot, sendConstantSkillsCallback: () => Promise<void>) {
+    constructor(
+        bot: CustomBot,
+        sendConstantSkillsCallback: () => Promise<void>,
+        sendReactionSettingsCallback?: () => Promise<void>
+    ) {
         this.bot = bot;
         this.skillLoader = new SkillLoader();
         this.sendConstantSkillsCallback = sendConstantSkillsCallback;
+        this.sendReactionSettingsCallback = sendReactionSettingsCallback || (async () => { });
         this.app = express();
         this.setupMiddleware();
         this.registerEndpoints();
+    }
+
+    /**
+     * EventReactionSystemを設定
+     */
+    setEventReactionSystem(system: EventReactionSystem): void {
+        this.eventReactionSystem = system;
     }
 
     /**
@@ -42,16 +64,21 @@ export class MinebotHttpServer {
      */
     private registerEndpoints(): void {
         // アイテム投げ捨てエンドポイント
-        this.app.post('/throw_item', (req: any, res: any) => {
+        this.app.post('/throw_item', async (req: any, res: any) => {
             try {
                 const { itemName } = req.body as ThrowItemRequest;
-                const throwItem = this.bot.instantSkills.getSkill('throw-item');
-                if (!throwItem) {
-                    const response: ApiResponse = { success: false, result: 'throw-item not found' };
+                const dropItem = this.bot.instantSkills.getSkill('drop-item');
+                if (!dropItem) {
+                    const response: ApiResponse = { success: false, result: 'drop-item skill not found' };
                     return res.status(404).json(response);
                 }
-                throwItem.run(itemName.split(':')[1]);
-                const response: ApiResponse = { success: true, result: 'throw-item executed' };
+
+                // minecraft:oak_log -> oak_log の形式変換
+                const cleanItemName = itemName.includes(':') ? itemName.split(':')[1] : itemName;
+                const result = await dropItem.run(cleanItemName, 1);
+
+                console.log(`📦 アイテムドロップ: ${cleanItemName} -> ${result.result}`);
+                const response: ApiResponse = { success: result.success, result: result.result };
                 res.status(200).json(response);
             } catch (error) {
                 const httpError = new HttpServerError('/throw_item', 500, error as Error);
@@ -142,6 +169,107 @@ export class MinebotHttpServer {
                 res.status(500).json(response);
             } finally {
                 await this.sendConstantSkillsCallback();
+            }
+        });
+
+        // 反応設定更新エンドポイント
+        this.app.post('/reaction_setting_update', async (req: any, res: any) => {
+            try {
+                const { eventType, enabled, probability } = req.body as ReactionSettingUpdateRequest;
+
+                // EventReactionSystemで設定を更新
+                if (this.eventReactionSystem) {
+                    this.eventReactionSystem.updateConfig(eventType as any, {
+                        enabled,
+                        probability,
+                    });
+                    console.log(`📝 反応設定更新: ${eventType} -> enabled=${enabled}, probability=${probability}`);
+                }
+
+                const response: ApiResponse = {
+                    success: true,
+                    result: `reaction setting for ${eventType} updated`,
+                    data: { eventType, enabled, probability }
+                };
+                res.status(200).json(response);
+            } catch (error) {
+                const httpError = new HttpServerError('/reaction_setting_update', 500, error as Error);
+                console.error(httpError.toJSON());
+                const response: ApiResponse = {
+                    success: false,
+                    result: httpError.message,
+                    error: httpError.code
+                };
+                res.status(500).json(response);
+            } finally {
+                await this.sendReactionSettingsCallback();
+            }
+        });
+
+        // 反応設定リセットエンドポイント
+        this.app.post('/reaction_settings_reset', async (req: any, res: any) => {
+            try {
+                // EventReactionSystemで設定をリセット
+                if (this.eventReactionSystem) {
+                    this.eventReactionSystem.resetConfigs();
+                    console.log('📝 反応設定をリセットしました');
+                }
+
+                const response: ApiResponse = {
+                    success: true,
+                    result: 'reaction settings reset'
+                };
+                res.status(200).json(response);
+            } catch (error) {
+                const httpError = new HttpServerError('/reaction_settings_reset', 500, error as Error);
+                console.error(httpError.toJSON());
+                const response: ApiResponse = {
+                    success: false,
+                    result: httpError.message,
+                    error: httpError.code
+                };
+                res.status(500).json(response);
+            } finally {
+                await this.sendReactionSettingsCallback();
+            }
+        });
+
+        // 反応設定取得エンドポイント（GET）
+        this.app.get('/reaction_settings', async (req: any, res: any) => {
+            try {
+                // EventReactionSystemから設定を取得
+                if (this.eventReactionSystem) {
+                    const settings = this.eventReactionSystem.getSettingsState();
+                    res.status(200).json({
+                        reactions: settings.reactions,
+                        constantSkills: [], // 常時スキルは常時スキルタブで管理
+                    });
+                } else {
+                    // EventReactionSystemがまだ設定されていない場合はデフォルト設定
+                    const reactions = [
+                        { eventType: 'player_facing', enabled: true, probability: 30, idleOnly: true, reactionType: 'task' },
+                        { eventType: 'player_speak', enabled: true, probability: 100, idleOnly: false, reactionType: 'task' },
+                        { eventType: 'hostile_approach', enabled: true, probability: 100, idleOnly: false, reactionType: 'task' },
+                        { eventType: 'item_obtained', enabled: true, probability: 30, idleOnly: true, reactionType: 'task' },
+                        { eventType: 'time_change', enabled: true, probability: 30, idleOnly: false, reactionType: 'task' },
+                        { eventType: 'weather_change', enabled: true, probability: 30, idleOnly: false, reactionType: 'task' },
+                        { eventType: 'biome_change', enabled: true, probability: 50, idleOnly: false, reactionType: 'task' },
+                        { eventType: 'teleported', enabled: true, probability: 100, idleOnly: false, reactionType: 'task' },
+                        { eventType: 'damage', enabled: true, probability: 100, idleOnly: false, reactionType: 'task' },
+                        { eventType: 'suffocation', enabled: true, probability: 100, idleOnly: false, reactionType: 'emergency' },
+                    ];
+                    res.status(200).json({
+                        reactions,
+                        constantSkills: [],
+                    });
+                }
+            } catch (error) {
+                const httpError = new HttpServerError('/reaction_settings', 500, error as Error);
+                console.error(httpError.toJSON());
+                res.status(500).json({
+                    success: false,
+                    result: httpError.message,
+                });
             }
         });
 

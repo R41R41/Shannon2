@@ -9,6 +9,7 @@ export interface ApiResponse<T = any> {
     success: boolean;
     result: string | T;
     error?: string;
+    data?: T;
 }
 
 /**

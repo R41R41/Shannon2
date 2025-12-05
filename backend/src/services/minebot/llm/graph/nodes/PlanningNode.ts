@@ -64,7 +64,7 @@ export class PlanningNode {
     this.model = new ChatOpenAI({
       modelName: 'gpt-4o',
       apiKey: process.env.OPENAI_API_KEY!,
-      temperature: 0.7,
+      temperature: 0,
     });
   }
 
@@ -173,6 +173,9 @@ export class PlanningNode {
     }
     state.environmentState = JSON.stringify(this.bot.environmentState);
 
+    // === Understanding Phase: 環境情報を収集 ===
+    const environmentContext = this.gatherEnvironmentContext();
+
     // 詳細なボット状態を botStatus に統一（selfState は廃止）
     const entity = this.bot.entity as any;
     const health = this.bot.health || 0;
@@ -208,7 +211,24 @@ export class PlanningNode {
         isOnGround: entity?.onGround || false,
         isCollidedVertically: entity?.isCollidedVertically || false,
       },
+      // === Understanding統合: 環境情報を追加 ===
+      environment: environmentContext.environment,
+      nearbyEntities: environmentContext.nearbyEntities,
     };
+
+    // 前回の実行結果があればログに表示
+    if (state.executionResults) {
+      const results = state.executionResults;
+      const successCount = results.filter((r: any) => r.success).length;
+      const totalCount = results.length;
+      console.log(`\x1b[36m📊 前回の実行結果: ${successCount}/${totalCount} 成功\x1b[0m`);
+      if (results.some((r: any) => !r.success)) {
+        const errors = results.filter((r: any) => !r.success);
+        errors.forEach((e: any) => {
+          console.log(`\x1b[31m   ✗ ${e.toolName}: ${e.message}\x1b[0m`);
+        });
+      }
+    }
 
     // 人間フィードバックがあった場合はメッセージに追加
     if (hadFeedback && state.humanFeedback) {
@@ -495,5 +515,68 @@ export class PlanningNode {
 
   clearLogs() {
     this.logManager.clearLogs();
+  }
+
+  /**
+   * Understanding Phase: 環境情報を収集
+   * UnderstandingNodeから統合した機能
+   */
+  private gatherEnvironmentContext(): {
+    environment: {
+      dimension: string;
+      weather: string;
+      timeOfDay: string;
+      biome?: string;
+    };
+    nearbyEntities: Array<{
+      name: string;
+      type: string;
+      distance: number;
+    }>;
+  } {
+    // 1. 周辺エンティティを収集
+    const botPosition = this.bot.entity?.position;
+    const nearbyEntities: Array<{ name: string; type: string; distance: number }> = [];
+
+    if (botPosition) {
+      const entities = Object.values(this.bot.entities) as any[];
+      for (const entity of entities) {
+        if (!entity.position || entity === this.bot.entity) continue;
+
+        const distance = entity.position.distanceTo(botPosition);
+        if (distance < 20) {
+          nearbyEntities.push({
+            name: entity.name || entity.username || 'unknown',
+            type: entity.type || 'unknown',
+            distance: Math.round(distance * 10) / 10,
+          });
+        }
+      }
+      // 距離でソートして最大10件
+      nearbyEntities.sort((a, b) => a.distance - b.distance);
+      nearbyEntities.splice(10);
+    }
+
+    // 2. 環境情報
+    const timeOfDay = this.bot.time?.timeOfDay || 0;
+    let timeString: string;
+    if (timeOfDay < 6000) {
+      timeString = 'morning';
+    } else if (timeOfDay < 12000) {
+      timeString = 'noon';
+    } else if (timeOfDay < 18000) {
+      timeString = 'evening';
+    } else {
+      timeString = 'night';
+    }
+
+    const environment = {
+      dimension: this.bot.game?.dimension || 'overworld',
+      weather: this.bot.isRaining ? 'raining' : 'clear',
+      timeOfDay: timeString,
+      biome: this.bot.environmentState?.biome || undefined,
+    };
+
+    return { environment, nearbyEntities };
   }
 }

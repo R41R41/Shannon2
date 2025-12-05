@@ -1,4 +1,5 @@
 import { BaseMessage } from '@langchain/core/messages';
+import { EventReactionSystem } from '../eventReaction/EventReactionSystem.js';
 import { CentralAgent } from '../llm/graph/centralAgent.js';
 import { CustomBot } from '../types.js';
 
@@ -14,7 +15,7 @@ export class BotEventHandler {
     private lastOxygen: number = 300;
     private consecutiveDamageCount: number = 0;
     private lastDamageTime: number = 0;
-    private onEmergency: ((type: string, data: any) => Promise<void>) | null = null;
+    private eventReactionSystem: EventReactionSystem | null = null;
 
     constructor(bot: CustomBot, centralAgent: CentralAgent, recentMessages: BaseMessage[]) {
         this.bot = bot;
@@ -24,10 +25,10 @@ export class BotEventHandler {
     }
 
     /**
-     * 緊急イベントハンドラーを設定
+     * EventReactionSystemを設定
      */
-    public setEmergencyHandler(handler: (type: string, data: any) => Promise<void>): void {
-        this.onEmergency = handler;
+    public setEventReactionSystem(system: EventReactionSystem): void {
+        this.eventReactionSystem = system;
     }
 
     /**
@@ -86,22 +87,23 @@ export class BotEventHandler {
                 const damage = this.lastHealth - currentHealth;
                 const damagePercent = (damage / 20) * 100;
 
-                // 大きなダメージ（20%以上）または連続ダメージを検知
-                if (damagePercent >= 20 || (currentTime - this.lastDamageTime < 3000)) {
-                    this.consecutiveDamageCount++;
-                    console.log(`\x1b[31m⚠️ 緊急: ダメージ検知 (-${damage.toFixed(1)} HP, ${damagePercent.toFixed(1)}%) 連続: ${this.consecutiveDamageCount}\x1b[0m`);
-
-                    // 緊急ハンドラーを呼び出し
-                    if (this.onEmergency) {
-                        await this.onEmergency('damage', {
-                            damage,
-                            damagePercent,
-                            currentHealth,
-                            consecutiveCount: this.consecutiveDamageCount,
-                        });
+                // ダメージを検知したらEventReactionSystemに通知
+                if (this.eventReactionSystem) {
+                    // 大きなダメージ（20%以上）または連続ダメージを検知
+                    if (damagePercent >= 20 || (currentTime - this.lastDamageTime < 3000)) {
+                        this.consecutiveDamageCount++;
+                    } else {
+                        this.consecutiveDamageCount = 0;
                     }
-                } else {
-                    this.consecutiveDamageCount = 0;
+
+                    console.log(`\x1b[33m⚠️ ダメージ検知 (-${damage.toFixed(1)} HP, ${damagePercent.toFixed(1)}%) 連続: ${this.consecutiveDamageCount}\x1b[0m`);
+
+                    await this.eventReactionSystem.handleDamage({
+                        damage,
+                        damagePercent,
+                        currentHealth,
+                        consecutiveCount: this.consecutiveDamageCount,
+                    });
                 }
 
                 this.lastDamageTime = currentTime;
@@ -117,9 +119,8 @@ export class BotEventHandler {
                 if (oxygen < this.lastOxygen - 30 || (oxygen < 100 && currentHealth < this.lastHealth)) {
                     console.log(`\x1b[31m⚠️ 緊急: 窒息検知 (酸素: ${oxygen}/300, HP: ${currentHealth}/20)\x1b[0m`);
 
-                    // 緊急ハンドラーを呼び出し
-                    if (this.onEmergency) {
-                        await this.onEmergency('suffocation', {
+                    if (this.eventReactionSystem) {
+                        await this.eventReactionSystem.handleSuffocation({
                             oxygen,
                             health: currentHealth,
                             isInWater: entity?.isInWater || false,

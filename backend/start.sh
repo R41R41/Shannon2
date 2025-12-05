@@ -50,14 +50,8 @@ if [ "$IS_DEV" = true ]; then
     echo "Building backend..."
     cd /home/azureuser/Shannon-dev/backend && npm run build > /dev/null 2>&1
     
-    # tmuxでセッションを作成（ウィンドウ0: サーバー）
-    tmux new-session -d -s $BACKEND_SESSION -n "server" "cd /home/azureuser/Shannon-dev/backend && PORT=$PORT WS_OPENAI_PORT=${WS_PORTS[0]} WS_MONITORING_PORT=${WS_PORTS[1]} WS_STATUS_PORT=${WS_PORTS[2]} WS_SCHEDULE_PORT=${WS_PORTS[3]} WS_PLANNING_PORT=${WS_PORTS[4]} WS_EMOTION_PORT=${WS_PORTS[5]} WS_SKILL_PORT=${WS_PORTS[6]} WS_AUTH_PORT=${WS_PORTS[7]} exec node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js --dev"
-    
-    # ウィンドウを追加: tsc watch
-    tmux new-window -t $BACKEND_SESSION -n "tsc-watch" "cd /home/azureuser/Shannon-dev/backend && exec tsc --watch"
-    
-    # ウィンドウ1（サーバー）をアクティブに
-    tmux select-window -t $BACKEND_SESSION:1
+    # tmuxでセッションを作成（tsc-watchでコンパイル＋サーバー自動再起動）
+    tmux new-session -d -s $BACKEND_SESSION -n "server" "cd /home/azureuser/Shannon-dev/backend && PORT=$PORT WS_OPENAI_PORT=${WS_PORTS[0]} WS_MONITORING_PORT=${WS_PORTS[1]} WS_STATUS_PORT=${WS_PORTS[2]} WS_SCHEDULE_PORT=${WS_PORTS[3]} WS_PLANNING_PORT=${WS_PORTS[4]} WS_EMOTION_PORT=${WS_PORTS[5]} WS_SKILL_PORT=${WS_PORTS[6]} WS_AUTH_PORT=${WS_PORTS[7]} exec npx tsc-watch --onSuccess 'node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js --dev'"
 else
     # 事前にビルド
     echo "Building backend..."
@@ -67,10 +61,8 @@ else
     tmux new-session -d -s $BACKEND_SESSION "cd /home/azureuser/Shannon-dev/backend && PORT=$PORT WS_OPENAI_PORT=${WS_PORTS[0]} WS_MONITORING_PORT=${WS_PORTS[1]} WS_STATUS_PORT=${WS_PORTS[2]} WS_SCHEDULE_PORT=${WS_PORTS[3]} WS_PLANNING_PORT=${WS_PORTS[4]} WS_EMOTION_PORT=${WS_PORTS[5]} WS_SKILL_PORT=${WS_PORTS[6]} WS_AUTH_PORT=${WS_PORTS[7]} exec node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js"
 fi
 echo "Backend started in tmux session: $BACKEND_SESSION"
-echo "  Window 0: Node.js server"
-echo "  Window 1: tsc --watch (dev mode only)"
-echo ""
-echo "Switch windows: Ctrl+b then 0/1"
+echo "  dev mode: tsc-watch with auto-restart on changes"
+echo "  prod mode: Node.js server only"
 
 # セッション情報を表示
 echo -e "\nActive tmux sessions:"

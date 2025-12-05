@@ -4,6 +4,8 @@ import fetch from 'node-fetch';
 import { Vec3 } from 'vec3';
 import { EventBus } from '../eventBus/eventBus.js';
 import { CONFIG } from './config/MinebotConfig.js';
+import AutoFaceSpeaker from './constantSkills/autoFaceSpeaker.js';
+import { EventReactionSystem } from './eventReaction/EventReactionSystem.js';
 import { BotEventHandler } from './events/BotEventHandler.js';
 import { MinebotHttpServer } from './http/MinebotHttpServer.js';
 import { CentralAgent } from './llm/graph/centralAgent.js';
@@ -29,6 +31,7 @@ export class SkillAgent {
   private skillLoader: SkillLoader;
   private skillRegistrar: SkillRegistrar;
   private eventHandler: BotEventHandler;
+  private eventReactionSystem: EventReactionSystem;
   private httpServer: MinebotHttpServer;
   public centralAgent: CentralAgent;
 
@@ -44,7 +47,8 @@ export class SkillAgent {
     this.skillRegistrar = new SkillRegistrar(eventBus);
     this.centralAgent = CentralAgent.getInstance(this.bot);
     this.eventHandler = new BotEventHandler(this.bot, this.centralAgent, this.recentMessages);
-    this.httpServer = new MinebotHttpServer(this.bot, () => this.sendConstantSkills());
+    this.eventReactionSystem = new EventReactionSystem(this.bot);
+    this.httpServer = new MinebotHttpServer(this.bot, () => this.sendConstantSkills(), () => this.sendReactionSettings());
   }
 
   /**
@@ -79,16 +83,23 @@ export class SkillAgent {
       await this.centralAgent.initialize();
       console.log('✅ centralAgent initialized');
 
-      // 緊急イベントハンドラーを設定
-      const taskCoordinator = this.centralAgent.getTaskCoordinator();
-      this.eventHandler.setEmergencyHandler(taskCoordinator.getEmergencyHandler());
-      console.log('✅ Emergency event handler registered');
+      // EventReactionSystem初期化
+      await this.eventReactionSystem.initialize();
+      console.log('✅ EventReactionSystem initialized');
+
+      // 緊急イベントハンドラーを設定（EventReactionSystemを使用）
+      this.eventHandler.setEventReactionSystem(this.eventReactionSystem);
+      console.log('✅ Event reaction system registered');
+
+      // HTTPサーバーにEventReactionSystemを設定
+      this.httpServer.setEventReactionSystem(this.eventReactionSystem);
 
       // HTTPサーバー起動
       this.httpServer.start();
 
       // UI Modにスキル情報を送信
       await this.sendConstantSkills();
+      await this.sendReactionSettings();
 
       console.log('🎉 SkillAgent started successfully');
       return { success: true, result: 'agent started' };
@@ -147,6 +158,12 @@ export class SkillAgent {
       console.log(`[${username}] ${message}`);
       if (!message) {
         return;
+      }
+
+      // 話しかけられたら向く（常時スキル）
+      const autoFaceSpeaker = this.bot.constantSkills.getSkill('auto-face-speaker') as AutoFaceSpeaker | undefined;
+      if (autoFaceSpeaker?.status) {
+        await autoFaceSpeaker.onPlayerSpeak(username);
       }
 
       // コマンド処理
@@ -402,6 +419,32 @@ export class SkillAgent {
     } catch (error) {
       console.error('❌ Failed to send constant skills:', error);
     }
+  }
+
+  /**
+   * 反応設定をUI Modに送信
+   */
+  async sendReactionSettings() {
+    try {
+      const settings = this.eventReactionSystem.getSettingsState();
+
+      await fetch(`http://localhost:${CONFIG.UI_MOD_PORT}/reaction_settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+        body: JSON.stringify(settings),
+      });
+
+      console.log('📤 Reaction settings sent to UI Mod');
+    } catch (error) {
+      console.error('❌ Failed to send reaction settings:', error);
+    }
+  }
+
+  /**
+   * EventReactionSystemを取得
+   */
+  getEventReactionSystem(): EventReactionSystem {
+    return this.eventReactionSystem;
   }
 
   /**

@@ -9,7 +9,6 @@ export interface TaskStateInput {
   humanFeedback?: string | null;
   taskTree?: TaskTreeState | null;
   messages?: BaseMessage[];
-  responseMessage?: string | null;
   userMessage?: string | null;
   humanFeedbackPending?: boolean;
   forceStop?: boolean;

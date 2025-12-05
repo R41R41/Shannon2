@@ -15,8 +15,6 @@ class AutoFaceMovedEntity extends ConstantSkill {
   async runImpl(entity: Entity) {
     if (entity.name === 'item' && entity.onGround) return;
     if (this.bot.executingSkill) return;
-    if (this.isLocked) return;
-    this.isLocked = true;
     // エンティティの頭の位置を計算
     const headPos = new Vec3(
       entity.position.x,
@@ -24,8 +22,8 @@ class AutoFaceMovedEntity extends ConstantSkill {
       entity.position.z
     );
     await this.bot.lookAt(headPos);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    this.isLocked = false;
+    // ロックは親クラスのrun()が管理するため、ここでは待機のみ
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 }
 
