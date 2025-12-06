@@ -4,12 +4,14 @@ import { setMovements } from '../utils/setMovements.js';
 const { goals } = pathfinder;
 /**
  * 原子的スキル: 指定座標に移動するだけ
+ * goalType: 'near' (デフォルト) または 'xz' (XZ座標のみ、Y座標は自動調整)
  */
 class MoveTo extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'move-to';
-    this.description = '指定された座標に移動します。';
+    this.description =
+      '指定された座標に移動します。goalTypeで移動方式を選択できます。';
     this.params = [
       {
         name: 'x',
@@ -20,7 +22,7 @@ class MoveTo extends InstantSkill {
       {
         name: 'y',
         type: 'number',
-        description: 'Y座標',
+        description: 'Y座標（goalType="xz"の場合は無視されます）',
         required: true,
       },
       {
@@ -35,34 +37,77 @@ class MoveTo extends InstantSkill {
         description: '目標地点からの許容距離（デフォルト: 2）',
         default: 2,
       },
+      {
+        name: 'goalType',
+        type: 'string',
+        description:
+          '移動方式: "near"=XYZ座標の近く, "xz"=XZ座標のみ, "nearxz"=XZ座標の近く（範囲指定）, "y"=指定高さに移動。デフォルト: "near"',
+        default: 'near',
+      },
     ];
   }
 
-  async runImpl(x: number, y: number, z: number, range: number = 2) {
+  async runImpl(
+    x: number,
+    y: number,
+    z: number,
+    range: number = 2,
+    goalType: string = 'near'
+  ) {
     try {
       // パラメータの妥当性チェック
-      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+      if (!Number.isFinite(x) || !Number.isFinite(z)) {
         return {
           success: false,
-          result: '座標は有効な数値である必要があります',
+          result: 'X/Z座標は有効な数値である必要があります',
         };
       }
 
-      // Y座標の範囲チェック（-64～320）
-      if (y < -64 || y > 320) {
-        return {
-          success: false,
-          result: `Y座標が範囲外です（${y}）。-64～320の範囲で指定してください`,
-        };
+      // Y座標が必要なgoalTypeの場合のみチェック
+      const needsY = goalType === 'near' || goalType === 'y';
+      if (needsY) {
+        if (!Number.isFinite(y)) {
+          return {
+            success: false,
+            result: 'Y座標は有効な数値である必要があります',
+          };
+        }
+
+        // Y座標の範囲チェック（-64～320）
+        if (y < -64 || y > 320) {
+          return {
+            success: false,
+            result: `Y座標が範囲外です（${y}）。-64～320の範囲で指定してください`,
+          };
+        }
       }
 
       // 現在位置からの距離チェック
       const currentPos = this.bot.entity.position;
-      const distance = Math.sqrt(
-        Math.pow(x - currentPos.x, 2) +
-        Math.pow(y - currentPos.y, 2) +
-        Math.pow(z - currentPos.z, 2)
-      );
+      let distance: number;
+
+      switch (goalType) {
+        case 'xz':
+        case 'nearxz':
+          // XZ平面での距離
+          distance = Math.sqrt(
+            Math.pow(x - currentPos.x, 2) + Math.pow(z - currentPos.z, 2)
+          );
+          break;
+        case 'y':
+          // 高さの差
+          distance = Math.abs(y - currentPos.y);
+          break;
+        case 'near':
+        default:
+          // 3D距離
+          distance = Math.sqrt(
+            Math.pow(x - currentPos.x, 2) +
+              Math.pow(y - currentPos.y, 2) +
+              Math.pow(z - currentPos.z, 2)
+          );
+          break;
+      }
 
       if (distance > 1000) {
         return {
@@ -77,16 +122,46 @@ class MoveTo extends InstantSkill {
       setMovements(
         this.bot,
         false, // allow1by1towers: ブロックを積み上げない
-        true,  // allowSprinting: ダッシュを許可
-        true,  // allowParkour: ジャンプを許可
-        true,  // canOpenDoors: ドアを開ける
-        true,  // canDig: ブロックを掘る（障害物を除去）
-        true,  // dontMineUnderFallingBlock: 落下ブロックの下は掘らない
-        1,     // digCost: 掘るコスト（低いほど積極的に掘る）
-        false  // allowFreeMotion: 自由移動（水中など）
+        true, // allowSprinting: ダッシュを許可
+        true, // allowParkour: ジャンプを許可
+        true, // canOpenDoors: ドアを開ける
+        true, // canDig: ブロックを掘る（障害物を除去）
+        true, // dontMineUnderFallingBlock: 落下ブロックの下は掘らない
+        1, // digCost: 掘るコスト（低いほど積極的に掘る）
+        false // allowFreeMotion: 自由移動（水中など）
       );
 
-      const goal = new goals.GoalNear(x, y, z, range);
+      // goalTypeに応じてGoalを選択
+      let goal;
+      let goalDescription: string;
+
+      switch (goalType) {
+        case 'xz':
+          // XZ座標のみ（Y座標は自動調整）
+          goal = new goals.GoalXZ(x, z);
+          goalDescription = `XZ座標(${x}, ${z})`;
+          break;
+
+        case 'nearxz':
+          // XZ座標の近く（範囲指定）
+          goal = new goals.GoalNearXZ(x, z, range);
+          goalDescription = `XZ座標(${x}, ${z})の${range}ブロック以内`;
+          break;
+
+        case 'y':
+          // 指定高さに移動
+          goal = new goals.GoalY(y);
+          goalDescription = `高さY=${y}`;
+          break;
+
+        case 'near':
+        default:
+          // デフォルト: GoalNear（XYZ座標の近くに移動）
+          goal = new goals.GoalNear(x, y, z, range);
+          goalDescription = `座標(${x}, ${y}, ${z})`;
+          break;
+      }
+
       const timeout = 30000; // 30秒
 
       const timeoutPromise = new Promise((_, reject) => {
@@ -97,7 +172,7 @@ class MoveTo extends InstantSkill {
 
       return {
         success: true,
-        result: `座標(${x}, ${y}, ${z})に移動しました（距離: ${distance.toFixed(
+        result: `${goalDescription}に移動しました（距離: ${distance.toFixed(
           1
         )}m）`,
       };

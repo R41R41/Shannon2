@@ -59,7 +59,20 @@ class CheckRecipe extends InstantSkill {
    * 木材系アイテムに注釈を追加（pale_oak_planks → pale_oak_planks(任意のplanks可)）
    */
   private addWoodNote(name: string): string {
-    const woodTypes = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove', 'cherry', 'bamboo', 'crimson', 'warped', 'pale_oak'];
+    const woodTypes = [
+      'oak',
+      'spruce',
+      'birch',
+      'jungle',
+      'acacia',
+      'dark_oak',
+      'mangrove',
+      'cherry',
+      'bamboo',
+      'crimson',
+      'warped',
+      'pale_oak',
+    ];
     const woodSuffixes = ['_planks', '_log', '_wood', '_slab', '_stairs'];
 
     for (const suffix of woodSuffixes) {
@@ -94,48 +107,86 @@ class CheckRecipe extends InstantSkill {
         };
       }
 
-      // 最初のレシピを取得
-      const recipe = allRecipes[0];
-      const ingredientCounts: { [key: string]: number } = {};
-      let requiresCraftingTable = false;
+      // 全てのレシピを処理
+      const recipeDescriptions: string[] = [];
 
-      // レシピの形式に応じて材料を抽出
-      if (recipe.inShape) {
-        // 形あり（shaped）レシピ
-        const flatShape = recipe.inShape.flat();
+      for (let i = 0; i < allRecipes.length; i++) {
+        const recipe = allRecipes[i];
+        const ingredientCounts: { [key: string]: number } = {};
+        let requiresCraftingTable = false;
 
-        for (const ingredientId of flatShape) {
-          const name = this.getIngredientName(ingredientId);
-          if (name) {
-            ingredientCounts[name] = (ingredientCounts[name] || 0) + 1;
+        // レシピの形式に応じて材料を抽出
+        if (recipe.inShape) {
+          // 形あり（shaped）レシピ
+          const flatShape = recipe.inShape.flat();
+
+          for (const ingredientId of flatShape) {
+            const name = this.getIngredientName(ingredientId);
+            if (name) {
+              ingredientCounts[name] = (ingredientCounts[name] || 0) + 1;
+            }
+          }
+
+          // 3x3以上のレシピはクラフトテーブルが必要
+          if (
+            recipe.inShape.length > 2 ||
+            (recipe.inShape[0] && recipe.inShape[0].length > 2)
+          ) {
+            requiresCraftingTable = true;
+          }
+        } else if (recipe.ingredients) {
+          // 形なし（shapeless）レシピ
+          for (const ingredientId of recipe.ingredients) {
+            const name = this.getIngredientName(ingredientId);
+            if (name) {
+              ingredientCounts[name] = (ingredientCounts[name] || 0) + 1;
+            }
+          }
+
+          // 4個以上の材料はクラフトテーブルが必要
+          if (recipe.ingredients.length > 4) {
+            requiresCraftingTable = true;
           }
         }
 
-        // 3x3以上のレシピはクラフトテーブルが必要
-        if (recipe.inShape.length > 2 || (recipe.inShape[0] && recipe.inShape[0].length > 2)) {
-          requiresCraftingTable = true;
-        }
-      } else if (recipe.ingredients) {
-        // 形なし（shapeless）レシピ
-        for (const ingredientId of recipe.ingredients) {
-          const name = this.getIngredientName(ingredientId);
-          if (name) {
-            ingredientCounts[name] = (ingredientCounts[name] || 0) + 1;
-          }
-        }
+        const ingredients = Object.entries(ingredientCounts).map(
+          ([name, count]) => `${name} x${count}`
+        );
 
-        // 4個以上の材料はクラフトテーブルが必要
-        if (recipe.ingredients.length > 4) {
-          requiresCraftingTable = true;
+        if (ingredients.length > 0) {
+          const craftingNote = requiresCraftingTable
+            ? ' (クラフトテーブル必要)'
+            : '';
+          recipeDescriptions.push(`${ingredients.join(', ')}${craftingNote}`);
         }
       }
 
-      const ingredients = Object.entries(ingredientCounts)
-        .map(([name, count]) => `${name} x${count}`);
+      // 重複を除去（同じ材料構成のレシピを統合）
+      const uniqueRecipes = [...new Set(recipeDescriptions)];
 
+      if (uniqueRecipes.length === 0) {
+        return {
+          success: true,
+          result: `${itemName}のクラフトレシピは存在しません`,
+        };
+      }
+
+      if (uniqueRecipes.length === 1) {
+        return {
+          success: true,
+          result: `${itemName}のレシピ: ${uniqueRecipes[0]}`,
+        };
+      }
+
+      // 複数レシピがある場合は番号付きで表示
+      const formattedRecipes = uniqueRecipes.map(
+        (r, idx) => `[${idx + 1}] ${r}`
+      );
       return {
         success: true,
-        result: `${itemName}のレシピ: ${ingredients.join(', ')}${requiresCraftingTable ? ' (クラフトテーブル必要)' : ''}`,
+        result: `${itemName}のレシピ（${
+          uniqueRecipes.length
+        }種類）:\n${formattedRecipes.join('\n')}`,
       };
     } catch (error: any) {
       return {
