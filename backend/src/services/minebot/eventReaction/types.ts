@@ -49,7 +49,7 @@ export const DEFAULT_REACTION_CONFIGS: EventReactionConfig[] = [
     { eventType: 'weather_change', enabled: true, probability: 30, idleOnly: true, reactionType: 'task' }, // idle時のみ
     { eventType: 'biome_change', enabled: true, probability: 50, idleOnly: true, reactionType: 'task' }, // idle時のみ（無限ループ防止）
     { eventType: 'teleported', enabled: true, probability: 100, idleOnly: true, reactionType: 'task' }, // idle時のみ
-    { eventType: 'damage', enabled: true, probability: 100, idleOnly: false, reactionType: 'task' }, // idle時はtask、busy時はemergency
+    { eventType: 'damage', enabled: true, probability: 100, idleOnly: false, reactionType: 'emergency' }, // 常に緊急タスクとして処理
     { eventType: 'suffocation', enabled: true, probability: 100, idleOnly: false, reactionType: 'emergency' },
 ];
 

@@ -20,7 +20,6 @@ class FleeFrom extends InstantSkill {
         type: 'string',
         description:
           '逃げる対象。エンティティ名（例: "zombie", "Player123"）または座標（例: "100,64,200"）',
-        required: true,
       },
       {
         name: 'minDistance',
@@ -34,29 +33,38 @@ class FleeFrom extends InstantSkill {
         description: 'タイムアウト時間（ミリ秒、デフォルト: 10000=10秒）',
         default: 10000,
       },
+      {
+        name: 'entityName',
+        type: 'string',
+        description: '（非推奨）targetと同じ。後方互換性のため残しています。',
+      },
     ];
   }
 
   async runImpl(
     target: string,
     minDistance: number = 16,
-    timeout: number = 10000
+    timeout: number = 10000,
+    entityName?: string // 後方互換性のため
   ) {
     try {
-      if (!target) {
+      // entityNameが渡された場合はtargetとして使用（後方互換性）
+      const actualTarget = target || entityName;
+
+      if (!actualTarget) {
         return {
           success: false,
-          result: '逃げる対象を指定してください',
+          result: '逃げる対象を指定してください（target引数にエンティティ名または座標を指定）',
         };
       }
 
       // 対象の位置を取得
-      const targetInfo = this.resolveTarget(target);
+      const targetInfo = this.resolveTarget(actualTarget);
 
       if (!targetInfo) {
         return {
           success: false,
-          result: `"${target}"が見つかりません`,
+          result: `"${actualTarget}"が見つかりません`,
         };
       }
 

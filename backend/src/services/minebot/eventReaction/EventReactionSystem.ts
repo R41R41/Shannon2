@@ -603,15 +603,33 @@ export class EventReactionSystem {
     }
 
     /**
-     * 緊急イベントを処理
+     * 緊急イベントを処理（TaskGraph経由でUIに表示）
      */
     private async handleEmergencyEvent(eventData: EventData): Promise<EventReactionResult> {
+        if (!this.taskGraph) {
+            console.warn('⚠️ TaskGraphが初期化されていません');
+            return { handled: false, reactionType: 'emergency' };
+        }
+
         const message = this.buildEmergencyMessage(eventData);
         console.log(`\x1b[31m🚨 緊急対応: ${message}\x1b[0m`);
 
         try {
-            const action = await this.emergencyResponder.respond(eventData);
-            return { handled: true, reactionType: 'emergency', message, action };
+            // 現在のタスクを中断（paused状態に）
+            this.taskGraph.interruptForEmergency(message);
+
+            // 緊急タスクを設定（UIに表示される）
+            const emergencyTaskInput = {
+                userMessage: message,
+                isEmergency: true,
+                emergencyType: eventData.eventType,
+            };
+            this.taskGraph.setEmergencyTask(emergencyTaskInput);
+
+            // 緊急対応タスクを実行
+            await this.taskGraph.invoke(emergencyTaskInput);
+
+            return { handled: true, reactionType: 'emergency', message };
         } catch (error) {
             console.error('緊急対応エラー:', error);
             return { handled: false, reactionType: 'emergency', message };

@@ -29,14 +29,21 @@ export class InstantSkillTool extends StructuredTool {
             Object.fromEntries(
                 params.map((param: any) => {
                     let zodType = this.getZodType(param.type);
-                    zodType = zodType.nullable();
 
-                    if (param.default !== undefined) {
-                        try {
-                            zodType = (zodType as any).default(param.default);
-                        } catch (error) {
-                            console.error(`デフォルト値の設定に失敗: ${error}`);
+                    // optionalまたはdefaultありの場合
+                    if (!param.required || param.default !== undefined) {
+                        zodType = zodType.optional().nullable();
+
+                        if (param.default !== undefined) {
+                            try {
+                                zodType = (zodType as any).default(param.default);
+                            } catch (error) {
+                                console.error(`デフォルト値の設定に失敗: ${error}`);
+                            }
                         }
+                    } else {
+                        // 必須フィールドはnullを許可しない
+                        zodType = zodType;
                     }
 
                     zodType = zodType.describe(param.description || '');

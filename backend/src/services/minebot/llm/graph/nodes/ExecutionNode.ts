@@ -159,8 +159,12 @@ export class ExecutionNode {
 
             if (error instanceof Error && error.message.includes('did not match expected schema')) {
                 const paramsInfo = this.getToolSchemaInfo(tool);
+                // cleanArgsを使用（_expectedResultなどの内部フィールドを除去した状態で表示）
+                const cleanArgs = { ...action.args };
+                delete cleanArgs._expectedResult;
+                delete cleanArgs._dynamicResolve;
                 errorMsg = `${action.toolName}の引数が間違っています。` +
-                    `提供された引数: ${JSON.stringify(action.args)}。` +
+                    `提供された引数: ${JSON.stringify(cleanArgs)}。` +
                     `このスキルの引数: ${paramsInfo}`;
             } else {
                 errorMsg += `: ${error instanceof Error ? error.message : '不明なエラー'}`;

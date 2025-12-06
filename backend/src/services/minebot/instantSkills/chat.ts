@@ -20,12 +20,16 @@ class Chat extends InstantSkill {
     }
 
     async runImpl(message: string) {
+        console.log(`\x1b[35m🔧 Chat.runImpl called with: ${message}\x1b[0m`);
+
         if (!message) {
             return { success: false, result: 'メッセージが指定されていません' };
         }
 
         // Minecraftチャットに送信
+        console.log(`\x1b[35m🔧 Calling this.bot.chat("${message}")\x1b[0m`);
         this.bot.chat(message);
+        console.log(`\x1b[35m🔧 this.bot.chat completed\x1b[0m`);
 
         // UI Modのチャットタブにも反映させる
         this.notifyUIMod(message).catch(err => {

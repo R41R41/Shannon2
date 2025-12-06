@@ -83,6 +83,16 @@ export class SkillAgent {
       await this.centralAgent.initialize();
       console.log('✅ centralAgent initialized');
 
+      // TaskGraphをbotに設定（HTTPサーバーからアクセスできるように）
+      (this.bot as any).taskGraph = this.centralAgent.currentTaskGraph;
+
+      // タスクリスト更新コールバックを設定
+      if (this.centralAgent.currentTaskGraph) {
+        this.centralAgent.currentTaskGraph.setTaskListUpdateCallback((taskListState) => {
+          this.sendTaskListState(taskListState);
+        });
+      }
+
       // EventReactionSystem初期化
       await this.eventReactionSystem.initialize();
       console.log('✅ EventReactionSystem initialized');
@@ -464,5 +474,23 @@ export class SkillAgent {
    */
   getHttpServer(): MinebotHttpServer {
     return this.httpServer;
+  }
+
+  /**
+   * タスクリスト状態をUI Modに送信
+   */
+  async sendTaskListState(taskListState: any) {
+    try {
+      await fetch(`http://localhost:${CONFIG.UI_MOD_PORT}/task_list`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+        body: JSON.stringify(taskListState),
+      });
+
+      console.log('📤 Task list state sent to UI Mod');
+    } catch (error) {
+      // MODサーバーが起動していない場合はエラーを無視
+      console.debug('Task list state send skipped (UI Mod not available)');
+    }
   }
 }

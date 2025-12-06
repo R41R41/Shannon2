@@ -558,15 +558,20 @@ export class PlanningNode {
     }
 
     // 2. 環境情報
+    // Minecraft時間: 0=6:00, 6000=12:00, 12000=18:00, 18000=0:00
     const timeOfDay = this.bot.time?.timeOfDay || 0;
     let timeString: string;
     if (timeOfDay < 6000) {
+      // 0-6000 = 6:00-12:00
       timeString = 'morning';
     } else if (timeOfDay < 12000) {
-      timeString = 'noon';
-    } else if (timeOfDay < 18000) {
+      // 6000-12000 = 12:00-18:00
+      timeString = 'afternoon';
+    } else if (timeOfDay < 13000) {
+      // 12000-13000 = 18:00-19:00
       timeString = 'evening';
     } else {
+      // 13000-24000 = 19:00-6:00
       timeString = 'night';
     }
 

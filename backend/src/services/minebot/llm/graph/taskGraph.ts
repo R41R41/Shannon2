@@ -31,18 +31,38 @@ export class TaskGraph {
   private bot: CustomBot | null = null;
   public currentState: any = null;
 
-  // タスクスタック（緊急中断時に使用）
+  // タスクスタック（緊急中断時に使用 - 非推奨、taskQueueに移行）
   private taskStack: Array<{
     taskTree: any;
     state: any;
     timestamp: number;
     reason: string;
   }> = [];
+
+  // タスクキュー（最大3つ + 緊急1つ）
+  private static readonly MAX_QUEUE_SIZE = 3;
+  private taskQueue: Array<{
+    id: string;
+    taskTree: any;
+    state: any;
+    createdAt: number;
+    status: 'pending' | 'executing' | 'paused';
+  }> = [];
+  private emergencyTask: {
+    id: string;
+    taskTree: any;
+    state: any;
+    createdAt: number;
+  } | null = null;
+
   private isEmergencyMode = false;
   private isExecuting = false; // タスク実行中フラグ（排他制御用）
 
   // 直近の成功アクション履歴（同じアクションの繰り返し検出用）
   private recentSuccessfulActions: string[] = [];
+
+  // タスクリスト更新コールバック
+  private onTaskListUpdate: ((tasks: any) => void) | null = null;
 
   constructor() {
     this.bot = null;
@@ -169,6 +189,11 @@ export class TaskGraph {
       reducer: (_, next) => next,
       default: () => null,
     }),
+    // 緊急タスクフラグ
+    isEmergency: Annotation<boolean>({
+      reducer: (_, next) => next,
+      default: () => false,
+    }),
   });
 
   private createGraph() {
@@ -294,7 +319,16 @@ export class TaskGraph {
           return 'planning';
         }
 
-        // === 問題3修正: status: completedの場合は即座に終了 ===
+        // まずnextActionSequenceがあるかチェック（status関係なくスキルは実行する）
+        const hasActions =
+          (state.taskTree?.nextActionSequence && state.taskTree.nextActionSequence.length > 0) ||
+          (state.taskTree?.actionSequence && state.taskTree.actionSequence.length > 0);
+
+        if (hasActions) {
+          return 'execution';
+        }
+
+        // アクションがない場合のみstatusをチェック
         if (state.taskTree?.status === 'completed') {
           console.log('\x1b[32m✅ タスク完了\x1b[0m');
           return END;
@@ -302,15 +336,6 @@ export class TaskGraph {
         if (state.taskTree?.status === 'error') {
           console.log('\x1b[31m❌ タスクエラー\x1b[0m');
           return END;
-        }
-
-        // nextActionSequence または actionSequenceがある場合は実行
-        const hasActions =
-          (state.taskTree?.nextActionSequence && state.taskTree.nextActionSequence.length > 0) ||
-          (state.taskTree?.actionSequence && state.taskTree.actionSequence.length > 0);
-
-        if (hasActions) {
-          return 'execution';
         }
 
         // actionSequenceもなく、statusも未完了の場合は終了
@@ -343,10 +368,10 @@ export class TaskGraph {
 
         // 同じアクションが連続3回以上成功している場合は終了
         const actionHistory = this.recentSuccessfulActions || [];
-        if (actionHistory.length >= 3) {
+        if (actionHistory.length >= 5) {
           const lastAction = actionHistory[actionHistory.length - 1];
           const repeatCount = actionHistory.slice(-5).filter((a: string) => a === lastAction).length;
-          if (repeatCount >= 3) {
+          if (repeatCount >= 5) {
             console.log(
               `\x1b[33m⚠ 同じアクション（${lastAction}）が${repeatCount}回連続で成功。進展がないため終了します。\x1b[0m`
             );
@@ -378,24 +403,44 @@ export class TaskGraph {
     // 新しいタスク開始時にアクション履歴をリセット
     this.recentSuccessfulActions = [];
 
+    // 元のタスクを復元する場合はtaskTreeを引き継ぐ
+    const isResuming = partialState.taskTree && partialState.taskTree.goal;
+
     let state: typeof this.TaskState.State = {
-      taskId: crypto.randomUUID(),
+      taskId: isResuming ? `${crypto.randomUUID()}-resumed` : crypto.randomUUID(),
       environmentState: partialState.environmentState ?? null,
       selfState: partialState.selfState ?? null,
       humanFeedback: partialState.humanFeedback ?? null,
       messages: partialState.messages ?? [],
       userMessage: partialState.userMessage ?? null,
-      taskTree: {
-        status: 'in_progress',
-        goal: '',
-        strategy: '',
-        subTasks: null,
-      },
+      taskTree: isResuming
+        ? {
+          status: 'in_progress' as const, // 再開時はin_progressに戻す
+          goal: partialState.taskTree!.goal,
+          strategy: partialState.taskTree!.strategy || '',
+          hierarchicalSubTasks: partialState.taskTree!.hierarchicalSubTasks,
+          currentSubTaskId: partialState.taskTree!.currentSubTaskId,
+          nextActionSequence: null, // 再開時はPlanningNodeで再計画
+          actionSequence: null,
+          subTasks: partialState.taskTree!.subTasks,
+          error: null,
+        }
+        : {
+          status: 'in_progress',
+          goal: '',
+          strategy: '',
+          subTasks: null,
+        },
       humanFeedbackPending: false,
       forceStop: false,
-      retryCount: 0,
+      retryCount: partialState.retryCount ?? 0,
       executionResults: null,
+      isEmergency: partialState.isEmergency ?? false,
     };
+
+    if (isResuming) {
+      console.log(`\x1b[32m📖 元タスクを復元: "${partialState.taskTree?.goal}"\x1b[0m`);
+    }
     this.currentState = state;
 
     try {
@@ -551,39 +596,66 @@ export class TaskGraph {
   }
 
   /**
-   * 緊急事態で現在のタスクを中断
+   * 緊急事態で現在のタスクを中断（キュー管理対応）
    */
   public interruptForEmergency(emergencyMessage: string): void {
-    if (this.currentState?.taskTree && !this.isEmergencyMode) {
-      // 現在のタスクをスタックに保存
-      this.pushCurrentTask('emergency');
-      this.isEmergencyMode = true;
-
-      console.log('\x1b[31m⚠️ タスクを緊急中断しました\x1b[0m');
-
-      // 実行中の pathfinder や制御をクリア
-      this.clearBotControls();
+    if (this.isEmergencyMode) {
+      console.log('\x1b[33m⚠️ 既に緊急モード中です（緊急タスクを上書き）\x1b[0m');
+      // 既存の緊急タスクは上書きされる
     }
+
+    // 現在実行中のタスクを「paused」状態にする
+    const executingTask = this.taskQueue.find(t => t.status === 'executing');
+    if (executingTask) {
+      executingTask.status = 'paused';
+      executingTask.taskTree = this.currentState?.taskTree || executingTask.taskTree;
+      console.log(`\x1b[33m⏸️ タスクを一時停止: "${executingTask.taskTree?.goal}"\x1b[0m`);
+    }
+
+    this.isEmergencyMode = true;
+
+    // 実行中の pathfinder や制御をクリア
+    this.clearBotControls();
+
+    // forceStopで現在の実行を止める
+    if (this.isExecuting) {
+      this.forceStop();
+    }
+
+    console.log('\x1b[31m⚠️ 緊急タスクを開始します\x1b[0m');
+    this.notifyTaskListUpdate();
   }
 
   /**
-   * 緊急タスク完了後、元のタスクに復帰
+   * 緊急タスクを設定して実行
+   */
+  public setEmergencyTask(taskInput: TaskStateInput): void {
+    this.emergencyTask = {
+      id: crypto.randomUUID(),
+      taskTree: { goal: taskInput.userMessage || 'Emergency', status: 'executing' },
+      state: taskInput,
+      createdAt: Date.now(),
+    };
+    this.notifyTaskListUpdate();
+  }
+
+  /**
+   * 緊急タスク完了後、元のタスクに復帰（キュー管理対応）
    */
   public async resumePreviousTask(): Promise<void> {
-    const previousTask = this.popPreviousTask();
-
-    if (!previousTask) {
-      console.log('\x1b[33m復帰するタスクがありません\x1b[0m');
-      this.isEmergencyMode = false;
-      return;
-    }
-
+    // 緊急タスクをクリア
+    this.emergencyTask = null;
     this.isEmergencyMode = false;
+    this.isExecuting = false;
 
-    // 元のタスクを再開
-    console.log(`\x1b[32m🔄 タスク復帰を開始...\x1b[0m`);
+    console.log('\x1b[32m✅ 緊急タスク完了、通常タスクを再開\x1b[0m');
+    this.notifyTaskListUpdate();
 
-    this.invoke(previousTask);
+    // 少し待機してから再開
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // キューの次のタスクを実行
+    this.executeNextTask();
   }
 
   /**
@@ -602,5 +674,235 @@ export class TaskGraph {
    */
   public isInEmergencyMode(): boolean {
     return this.isEmergencyMode;
+  }
+
+  // ========== タスクキュー管理 ==========
+
+  /**
+   * タスクリスト更新コールバックを設定
+   */
+  public setTaskListUpdateCallback(callback: (tasks: any) => void): void {
+    this.onTaskListUpdate = callback;
+  }
+
+  /**
+   * タスクリストの状態を取得
+   */
+  public getTaskListState(): {
+    tasks: Array<{
+      id: string;
+      goal: string;
+      status: 'pending' | 'executing' | 'paused';
+      createdAt: number;
+    }>;
+    emergencyTask: {
+      id: string;
+      goal: string;
+      createdAt: number;
+    } | null;
+    currentTaskId: string | null;
+  } {
+    const tasks = this.taskQueue.map(t => ({
+      id: t.id,
+      goal: t.taskTree?.goal || 'Unknown',
+      status: t.status,
+      createdAt: t.createdAt,
+    }));
+
+    return {
+      tasks,
+      emergencyTask: this.emergencyTask ? {
+        id: this.emergencyTask.id,
+        goal: this.emergencyTask.taskTree?.goal || 'Emergency',
+        createdAt: this.emergencyTask.createdAt,
+      } : null,
+      currentTaskId: this.isExecuting ? (this.taskQueue.find(t => t.status === 'executing')?.id || null) : null,
+    };
+  }
+
+  /**
+   * タスクをキューに追加（最大3つ）
+   * @returns { success: boolean, reason?: string }
+   */
+  public addTaskToQueue(taskInput: TaskStateInput): { success: boolean; reason?: string; taskId?: string } {
+    if (this.taskQueue.length >= TaskGraph.MAX_QUEUE_SIZE) {
+      console.log('\x1b[33m⚠️ タスクキューがいっぱいです（最大3つ）\x1b[0m');
+      return {
+        success: false,
+        reason: 'タスクキューがいっぱいです。既存のタスクを削除してから新しいタスクを追加してください。'
+      };
+    }
+
+    const taskId = crypto.randomUUID();
+    const task = {
+      id: taskId,
+      taskTree: taskInput.taskTree || { goal: taskInput.userMessage || 'New Task', status: 'pending' },
+      state: taskInput,
+      createdAt: Date.now(),
+      status: 'pending' as const,
+    };
+
+    this.taskQueue.push(task);
+    console.log(`\x1b[32m📥 タスクをキューに追加: "${task.taskTree.goal}" (${this.taskQueue.length}/${TaskGraph.MAX_QUEUE_SIZE})\x1b[0m`);
+
+    this.notifyTaskListUpdate();
+
+    // キューに1つしかない場合は即実行
+    if (this.taskQueue.length === 1 && !this.isExecuting && !this.isEmergencyMode) {
+      this.executeNextTask();
+    }
+
+    return { success: true, taskId };
+  }
+
+  /**
+   * タスクを削除（強制終了）
+   */
+  public removeTask(taskId: string): { success: boolean; reason?: string } {
+    // 緊急タスクの削除
+    if (this.emergencyTask?.id === taskId) {
+      console.log(`\x1b[31m🚨 緊急タスクを削除: "${this.emergencyTask.taskTree?.goal}"\x1b[0m`);
+      this.emergencyTask = null;
+      this.isEmergencyMode = false;
+
+      // 緊急タスク実行中だった場合は停止
+      if (this.isExecuting) {
+        this.forceStop();
+      }
+
+      this.notifyTaskListUpdate();
+
+      // 通常タスクを再開
+      this.executeNextTask();
+      return { success: true };
+    }
+
+    // 通常タスクの削除
+    const taskIndex = this.taskQueue.findIndex(t => t.id === taskId);
+    if (taskIndex === -1) {
+      return { success: false, reason: 'タスクが見つかりません' };
+    }
+
+    const task = this.taskQueue[taskIndex];
+    const wasExecuting = task.status === 'executing';
+
+    console.log(`\x1b[31m🗑️ タスクを削除: "${task.taskTree?.goal}"\x1b[0m`);
+    this.taskQueue.splice(taskIndex, 1);
+
+    // 実行中のタスクを削除した場合は停止
+    if (wasExecuting && this.isExecuting) {
+      this.forceStop();
+    }
+
+    this.notifyTaskListUpdate();
+
+    // 次のタスクを実行
+    if (wasExecuting && !this.isEmergencyMode) {
+      this.executeNextTask();
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * タスクを優先実行（選択したタスクを先に実行）
+   */
+  public prioritizeTask(taskId: string): { success: boolean; reason?: string } {
+    const taskIndex = this.taskQueue.findIndex(t => t.id === taskId);
+    if (taskIndex === -1) {
+      return { success: false, reason: 'タスクが見つかりません' };
+    }
+
+    if (taskIndex === 0 && this.taskQueue[0].status === 'executing') {
+      return { success: false, reason: 'このタスクは既に実行中です' };
+    }
+
+    const task = this.taskQueue[taskIndex];
+
+    // 現在実行中のタスクを一時停止
+    const executingTask = this.taskQueue.find(t => t.status === 'executing');
+    if (executingTask) {
+      executingTask.status = 'paused';
+      executingTask.taskTree = this.currentState?.taskTree || executingTask.taskTree;
+      if (this.isExecuting) {
+        this.forceStop();
+      }
+    }
+
+    // タスクを先頭に移動
+    this.taskQueue.splice(taskIndex, 1);
+    this.taskQueue.unshift(task);
+
+    console.log(`\x1b[35m⏫ タスクを優先実行: "${task.taskTree?.goal}"\x1b[0m`);
+    this.notifyTaskListUpdate();
+
+    // 緊急モードでなければ実行
+    if (!this.isEmergencyMode) {
+      this.executeNextTask();
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * 次のタスクを実行
+   */
+  private async executeNextTask(): Promise<void> {
+    if (this.isExecuting || this.isEmergencyMode) {
+      return;
+    }
+
+    const nextTask = this.taskQueue.find(t => t.status === 'pending' || t.status === 'paused');
+    if (!nextTask) {
+      console.log('\x1b[33m📭 実行するタスクがありません\x1b[0m');
+      return;
+    }
+
+    const wasPaused = nextTask.status === 'paused';
+    nextTask.status = 'executing';
+    this.notifyTaskListUpdate();
+
+    console.log(`\x1b[32m▶️ タスク実行開始: "${nextTask.taskTree?.goal}"${wasPaused ? ' (再開)' : ''}\x1b[0m`);
+
+    // invokeを呼び出し
+    await this.invoke({
+      ...nextTask.state,
+      taskTree: wasPaused ? nextTask.taskTree : undefined,
+    });
+
+    // タスク完了後の処理
+    this.handleTaskCompletion(nextTask.id);
+  }
+
+  /**
+   * タスク完了時の処理
+   */
+  private handleTaskCompletion(taskId: string): void {
+    const taskIndex = this.taskQueue.findIndex(t => t.id === taskId);
+    if (taskIndex !== -1) {
+      const task = this.taskQueue[taskIndex];
+      console.log(`\x1b[32m✅ タスク完了: "${task.taskTree?.goal}"\x1b[0m`);
+      this.taskQueue.splice(taskIndex, 1);
+    }
+
+    this.notifyTaskListUpdate();
+
+    // 次のタスクを実行
+    if (!this.isEmergencyMode) {
+      setTimeout(() => this.executeNextTask(), 500);
+    }
+  }
+
+  /**
+   * タスクリスト更新を通知
+   */
+  private notifyTaskListUpdate(): void {
+    const state = this.getTaskListState();
+    console.log(`\x1b[35m📋 TaskList更新: tasks=${state.tasks.length}, emergency=${state.emergencyTask ? 'あり' : 'なし'}\x1b[0m`);
+    if (this.onTaskListUpdate) {
+      this.onTaskListUpdate(state);
+    } else {
+      console.log('\x1b[33m⚠️ onTaskListUpdateコールバックが設定されていません\x1b[0m');
+    }
   }
 }

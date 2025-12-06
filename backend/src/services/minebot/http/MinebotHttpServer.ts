@@ -312,6 +312,66 @@ export class MinebotHttpServer {
             }
         });
 
+        // タスクリスト取得エンドポイント
+        this.app.get('/task_list', async (req: any, res: any) => {
+            try {
+                const taskGraph = (this.bot as any).taskGraph;
+                if (!taskGraph) {
+                    return res.status(200).json({ tasks: [], emergencyTask: null, currentTaskId: null });
+                }
+                const taskListState = taskGraph.getTaskListState();
+                res.status(200).json(taskListState);
+            } catch (error) {
+                const httpError = new HttpServerError('/task_list', 500, error as Error);
+                console.error(httpError.toJSON());
+                res.status(500).json({ success: false, result: httpError.message });
+            }
+        });
+
+        // タスク削除エンドポイント
+        this.app.post('/task_delete', async (req: any, res: any) => {
+            try {
+                const { taskId } = req.body;
+                if (!taskId) {
+                    return res.status(400).json({ success: false, result: 'taskId is required' });
+                }
+
+                const taskGraph = (this.bot as any).taskGraph;
+                if (!taskGraph) {
+                    return res.status(400).json({ success: false, result: 'TaskGraph not initialized' });
+                }
+
+                const result = taskGraph.removeTask(taskId);
+                res.status(200).json(result);
+            } catch (error) {
+                const httpError = new HttpServerError('/task_delete', 500, error as Error);
+                console.error(httpError.toJSON());
+                res.status(500).json({ success: false, result: httpError.message });
+            }
+        });
+
+        // タスク優先実行エンドポイント
+        this.app.post('/task_prioritize', async (req: any, res: any) => {
+            try {
+                const { taskId } = req.body;
+                if (!taskId) {
+                    return res.status(400).json({ success: false, result: 'taskId is required' });
+                }
+
+                const taskGraph = (this.bot as any).taskGraph;
+                if (!taskGraph) {
+                    return res.status(400).json({ success: false, result: 'TaskGraph not initialized' });
+                }
+
+                const result = taskGraph.prioritizeTask(taskId);
+                res.status(200).json(result);
+            } catch (error) {
+                const httpError = new HttpServerError('/task_prioritize', 500, error as Error);
+                console.error(httpError.toJSON());
+                res.status(500).json({ success: false, result: httpError.message });
+            }
+        });
+
         console.log('✅ API endpoints registered');
     }
 

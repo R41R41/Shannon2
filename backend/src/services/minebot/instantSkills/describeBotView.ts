@@ -231,19 +231,42 @@ class DescribeBotView extends InstantSkill {
   }
 
   /**
-   * ShannonUIModからスクリーンショットを取得
+   * ShannonUIModからスクリーンショットを取得（MODサーバー経由）
+   * ボットの視点から撮影
    */
   private async fetchScreenshot(
     width: number,
     height: number
   ): Promise<ScreenshotResponse> {
     try {
+      // ボットの位置と向きを取得
+      const botPosition = this.bot.entity?.position || { x: 0, y: 0, z: 0 };
+      const botYaw = this.bot.entity?.yaw || 0;
+      const botPitch = this.bot.entity?.pitch || 0;
+      const botName = this.bot.username || 'Shannon';
+
+      // yawをラジアンから度に変換（Minecraft: 南=0, 西=90, 北=180, 東=-90）
+      const yawDegrees = (botYaw * 180) / Math.PI;
+      const pitchDegrees = (botPitch * 180) / Math.PI;
+
+      console.log(`📸 Requesting screenshot from bot view: ${botName} at (${botPosition.x.toFixed(1)}, ${botPosition.y.toFixed(1)}, ${botPosition.z.toFixed(1)}) yaw=${yawDegrees.toFixed(1)}°`);
+
+      // MODサーバー経由でスクリーンショットを取得（パケットでクライアントに転送される）
       const response = await fetch(
-        `${CONFIG.UI_MOD_CLIENT_BASE_URL}/screenshot`,
+        `${CONFIG.UI_MOD_BASE_URL}/screenshot`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ width, height }),
+          body: JSON.stringify({
+            width,
+            height,
+            botName,
+            botX: botPosition.x,
+            botY: botPosition.y + 1.62, // 目の高さ
+            botZ: botPosition.z,
+            botYaw: yawDegrees,
+            botPitch: pitchDegrees,
+          }),
         }
       );
 
@@ -262,7 +285,7 @@ class DescribeBotView extends InstantSkill {
     } catch (error: any) {
       return {
         success: false,
-        error: `接続エラー: ${error.message}。ShannonUIModのMinecraftクライアントが起動していることを確認してください。`,
+        error: `接続エラー: ${error.message}。ShannonUIMod Minecraftサーバーに接続できません。`,
         image: '',
         width: 0,
         height: 0,
