@@ -7,7 +7,7 @@ class AttackNearest extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'attack-nearest';
-    this.description = '最も近い敵エンティティに1回攻撃します。';
+    this.description = '最も近い敵エンティティに1回攻撃します。敵を倒すためであれば、武器を装備してから実行した方が良いです。';
     this.params = [
       {
         name: 'maxDistance',
@@ -23,28 +23,38 @@ class AttackNearest extends InstantSkill {
       // 敵対的なMobのリスト
       const hostileMobs = [
         'zombie',
+        'husk',           // ゾンビ亜種
+        'drowned',        // 水中ゾンビ
         'skeleton',
+        'stray',          // スケルトン亜種
         'creeper',
         'spider',
         'enderman',
         'witch',
         'slime',
+        'magma_cube',
         'phantom',
         'blaze',
         'ghast',
         'zombified_piglin',
         'piglin',
+        'piglin_brute',
         'hoglin',
+        'zoglin',
         'wither_skeleton',
+        'wither',
         'cave_spider',
         'silverfish',
+        'endermite',
         'guardian',
         'elder_guardian',
         'shulker',
         'vindicator',
         'evoker',
+        'vex',
         'pillager',
         'ravager',
+        'warden',
       ];
 
       // 最も近い敵を探す

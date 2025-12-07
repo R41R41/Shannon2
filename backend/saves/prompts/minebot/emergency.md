@@ -2,35 +2,36 @@
 
 You received an EMERGENCY message (damage, suffocation, etc.). Follow these simple steps:
 
-## Step 1: Check for Enemies (FIRST action)
+## Step 1: FLEE FIRST (最優先)
 
-- `list-nearby-entities` - 周囲に敵対的モブがいるか確認
-- ❌ describe-bot-view は使わない（遅い）
-- ❌ investigate-terrain は使わない（不要）
+敵がいる場合は**まず逃げる**：
 
-## Step 2: React Based on Enemies
+- `flee-from(target: "zombie", minDistance: 32)` - 32 ブロック以上離れる
+- ❌ 攻撃は絶対にしない（緊急時は逃げることが最優先）
+- ❌ 素手では戦わない
 
-**If hostile mobs nearby:**
+## Step 2: Heal (逃げた後)
 
-- `flee-from` with target (entity name or coordinates)
-- Example: `flee-from(target: "zombie")` or `flee-from(target: "100,64,200")`
+十分に離れたら回復：
 
-**If NO hostile mobs:**
+- `use-item(itemName: "bread")` または他の食べ物
+- HP が 50%以上になるまで食べ続ける
 
-- Skip to Step 3 directly
+## Step 3: Complete
 
-## Step 3: Heal (if needed)
-
-- `use-item` with food (bread, cooked_beef, etc.)
-- Check `get-bot-status` if unsure about inventory
+- 敵から 32 ブロック以上離れている
+- HP > 50%
+- → `emergencyResolved: true` を設定して完了
 
 ## Critical Rules
 
-- ✅ 敵がいなければ即座に食事で体力回復
-- ✅ 短いアクションシーケンス（1-2 個）でプランを再評価
-- ❌ 長い調査は不要（status: completed を早めに設定）
+- ✅ 逃げる → 回復 → 完了（この順序を厳守）
+- ✅ 短いアクションシーケンス（1-2 個）で再評価
+- ❌ 緊急時に攻撃しない（死ぬリスクが高い）
+- ❌ describe-bot-view, investigate-terrain は使わない
+- ❌ 武器がなければ戦闘は避ける
 
 ## Set `emergencyResolved: true` when:
 
-- HP > 50% AND no hostile mobs within 16 blocks
+- HP > 50% AND no hostile mobs within 32 blocks
 - これを確認したら即座に完了にする

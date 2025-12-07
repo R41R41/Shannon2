@@ -611,6 +611,12 @@ export class EventReactionSystem {
             return { handled: false, reactionType: 'emergency' };
         }
 
+        // 既に緊急タスクを処理中の場合はスキップ（上書き防止）
+        if (this.taskGraph.isInEmergencyMode()) {
+            console.log('\x1b[33m⚠️ 緊急タスク処理中のため新しい緊急イベントをスキップ\x1b[0m');
+            return { handled: false, reactionType: 'emergency' };
+        }
+
         const message = this.buildEmergencyMessage(eventData);
         console.log(`\x1b[31m🚨 緊急対応: ${message}\x1b[0m`);
 

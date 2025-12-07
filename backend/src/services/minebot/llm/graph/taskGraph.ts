@@ -493,6 +493,14 @@ export class TaskGraph {
     } finally {
       // 排他制御を解除
       this.isExecuting = false;
+
+      // 緊急タスク完了時はemergencyModeをリセット
+      if (partialState.isEmergency) {
+        console.log('\x1b[33m🚨 緊急タスク終了、emergencyModeをリセット\x1b[0m');
+        this.isEmergencyMode = false;
+        this.emergencyTask = null;
+        this.notifyTaskListUpdate();
+      }
     }
   }
 

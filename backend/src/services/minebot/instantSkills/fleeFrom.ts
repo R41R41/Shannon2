@@ -24,8 +24,8 @@ class FleeFrom extends InstantSkill {
       {
         name: 'minDistance',
         type: 'number',
-        description: '最低限離れる距離（ブロック数、デフォルト: 16）',
-        default: 16,
+        description: '最低限離れる距離（ブロック数、デフォルト: 32）',
+        default: 32,
       },
       {
         name: 'timeout',
@@ -43,7 +43,7 @@ class FleeFrom extends InstantSkill {
 
   async runImpl(
     target: string,
-    minDistance: number = 16,
+    minDistance: number = 32,
     timeout: number = 10000,
     entityName?: string // 後方互換性のため
   ) {
