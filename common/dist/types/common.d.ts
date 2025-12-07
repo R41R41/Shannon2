@@ -1,18 +1,63 @@
-import { DiscordClientInput, DiscordClientOutput, DiscordEventType, DiscordGuild } from './discord';
-import { LLMEventType, SkillInfo } from './llm';
-import { MinebotEventType, MinebotInput, MinebotOutput, SkillParameters, SkillResult } from './minebot';
-import { MinecraftEventType, MinecraftInput, MinecraftOutput } from './minecraft';
-import { NotionClientInput, NotionClientOutput, NotionEventType } from './notion';
-import { SchedulerEventType, SchedulerInput, SchedulerOutput } from './scheduler';
-import { EmotionType, TaskEventType, TaskInput, TaskTreeState } from './taskGraph';
-import { ToolEventType } from './tools';
-import { TwitterClientInput, TwitterClientOutput, TwitterEventType, TwitterSchedulePostEndpoint } from './twitter';
-import { OpenAIInput, OpenAIMessageOutput, WebEventType, WebSkillInput } from './web';
-import { YoutubeClientOutput, YoutubeEventType } from './youtube';
+import { DiscordClientInput, DiscordClientOutput, DiscordEventType, DiscordGuild } from './discord.js';
+import { LLMEventType, SkillInfo } from './llm.js';
+import { MinebotEventType, MinebotInput, MinebotOutput, SkillParameters, SkillResult } from './minebot.js';
+import { MinecraftEventType, MinecraftInput, MinecraftOutput } from './minecraft.js';
+import { NotionClientInput, NotionClientOutput, NotionEventType } from './notion.js';
+import { SchedulerEventType, SchedulerInput, SchedulerOutput } from './scheduler.js';
+import { EmotionType, TaskEventType, TaskInput, TaskTreeState } from './taskGraph.js';
+import { ToolEventType } from './tools.js';
+import { TwitterClientInput, TwitterClientOutput, TwitterEventType, TwitterSchedulePostEndpoint } from './twitter.js';
+import { OpenAIInput, OpenAIMessageOutput, WebEventType, WebSkillInput } from './web.js';
+import { YoutubeClientOutput, YoutubeEventType } from './youtube.js';
 export type Platform = 'web' | 'discord' | 'minecraft' | 'scheduler' | 'twitter' | 'youtube' | 'notion' | 'minebot' | 'youtube:live_chat';
+/**
+ * タスク実行のコンテキスト情報
+ * Platformに加えて、より詳細な情報を保持
+ */
+export interface TaskContext {
+    /** プラットフォーム（メッセージの入出力先） */
+    platform: Platform;
+    /** Discord固有の情報 */
+    discord?: {
+        guildId?: string;
+        guildName?: string;
+        channelId?: string;
+        channelName?: string;
+        messageId?: string;
+        userId?: string;
+        userName?: string;
+    };
+    /** Twitter固有の情報 */
+    twitter?: {
+        tweetId?: string;
+        authorId?: string;
+        authorName?: string;
+    };
+    /** YouTube固有の情報 */
+    youtube?: {
+        videoId?: string;
+        channelId?: string;
+        commentId?: string;
+        liveId?: string;
+    };
+    /** 会話追跡用 */
+    conversationId?: string;
+    /** 追加のメタデータ */
+    metadata?: Record<string, any>;
+}
+/**
+ * MemoryZone から TaskContext への変換ヘルパー
+ * @deprecated 将来的にはTaskContextを直接使用してください
+ */
+export declare function memoryZoneToContext(memoryZone: MemoryZone, channelId?: string): TaskContext;
+/**
+ * TaskContext から MemoryZone への変換ヘルパー
+ * @deprecated 将来的にはTaskContextを直接使用してください
+ */
+export declare function contextToMemoryZone(context: TaskContext): MemoryZone;
 export type ConversationType = 'text' | 'audio' | 'realtime_text' | 'realtime_audio' | 'command' | 'log' | 'user_transcript';
 export declare const promptTypes: PromptType[];
-export type PromptType = TwitterSchedulePostEndpoint | 'base_text' | 'base_voice' | 'discord' | 'minecraft' | 'weather_to_emoji' | 'forecast_for_toyama_server' | 'reply_youtube_comment' | 'planning' | 'reply_twitter_comment' | 'emotion' | 'use_tool' | 'reply_youtube_live_comment';
+export type PromptType = TwitterSchedulePostEndpoint | 'base_text' | 'base_voice' | 'discord' | 'minecraft' | 'weather_to_emoji' | 'forecast_for_toyama_server' | 'reply_youtube_comment' | 'planning' | 'reply_twitter_comment' | 'emotion' | 'use_tool' | 'reply_youtube_live_comment' | 'emergency';
 export type RealTimeAPIEndpoint = 'realtime_text_input' | 'realtime_text_commit' | 'realtime_audio_append' | 'realtime_audio_commit' | 'realtime_vad_on' | 'realtime_vad_off' | 'text_done' | 'audio_done';
 export type ServiceStatus = 'running' | 'stopped' | 'connecting';
 export type ServiceCommand = 'start' | 'stop' | 'status';

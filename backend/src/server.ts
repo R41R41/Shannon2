@@ -1,14 +1,16 @@
-import mongoose from 'mongoose';
-import { DiscordBot } from './services/discord/client.js';
-import { Scheduler } from './services/scheduler/client.js';
-import { YoutubeClient } from './services/youtube/client.js';
 import dotenv from 'dotenv';
+import express from 'express';
+import mongoose from 'mongoose';
+import { PORTS } from './config/ports.js';
+import { DiscordBot } from './services/discord/client.js';
 import { LLMService } from './services/llm/client.js';
+import { MinebotClient } from './services/minebot/client.js';
+import { MinecraftClient } from './services/minecraft/client.js';
+import { NotionClient } from './services/notion/client.js';
+import { Scheduler } from './services/scheduler/client.js';
 import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
-import { MinecraftClient } from './services/minecraft/client.js';
-import { MinebotClient } from './services/minebot/client.js';
-import { NotionClient } from './services/notion/client.js';
+import { YoutubeClient } from './services/youtube/client.js';
 dotenv.config();
 
 class Server {
@@ -21,17 +23,32 @@ class Server {
   private minecraftClient: MinecraftClient;
   private minebotClient: MinebotClient;
   private notionClient: NotionClient;
+  private httpServer: any;
+
   constructor() {
     const isDevMode = process.argv.includes('--dev');
     this.llmService = LLMService.getInstance(isDevMode);
     this.discordBot = DiscordBot.getInstance(isDevMode);
-    this.webClient = WebClient.getInstance(isDevMode);
+    // WebClientは環境変数で正しいポートを設定しているので、isTestはfalse
+    this.webClient = WebClient.getInstance(false);
     this.twitterClient = TwitterClient.getInstance(isDevMode);
     this.scheduler = Scheduler.getInstance(isDevMode);
     this.youtubeClient = YoutubeClient.getInstance(isDevMode);
     this.minecraftClient = MinecraftClient.getInstance(isDevMode);
     this.minebotClient = MinebotClient.getInstance(isDevMode);
     this.notionClient = NotionClient.getInstance(isDevMode);
+  }
+
+  private startHTTPServer() {
+    const app = express();
+    app.get('/health', (req, res) => {
+      res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    });
+
+    const port = process.env.PORT || PORTS.HTTP_SERVER;
+    this.httpServer = app.listen(port, () => {
+      console.log(`\x1b[34mHTTP Server listening on port ${port}\x1b[0m`);
+    });
   }
 
   private async connectDatabase() {
@@ -51,7 +68,10 @@ class Server {
 
   public async start() {
     try {
-      // データベース接続を最初に行う
+      // HTTPサーバーを最初に起動
+      this.startHTTPServer();
+
+      // データベース接続
       await this.connectDatabase();
 
       await Promise.all([

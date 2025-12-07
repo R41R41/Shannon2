@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# スクリーンセッション名を定義
+# セッション名を定義
 FRONTEND_SESSION="shannon-frontend"
 BACKEND_SESSION="shannon-backend"
 
@@ -14,31 +14,29 @@ if [ "$1" = "--dev" ]; then
 fi
 
 # 既存のセッションを確認・終了
-screen -X -S $FRONTEND_SESSION quit > /dev/null 2>&1
-screen -X -S $BACKEND_SESSION quit > /dev/null 2>&1
+tmux kill-session -t $FRONTEND_SESSION 2>/dev/null
+tmux kill-session -t $BACKEND_SESSION 2>/dev/null
 
 # バックエンドを起動
 cd backend
 if [ "$IS_DEV" = true ]; then
-    screen -dmS $BACKEND_SESSION bash -c 'npm run dev:dev'
+    ./start.sh --dev
 else
-    screen -dmS $BACKEND_SESSION bash -c 'npm run dev'
+    ./start.sh
 fi
-echo "Backend started in screen session: $BACKEND_SESSION"
 
 # フロントエンドを起動
 cd ../frontend
 if [ "$IS_DEV" = true ]; then
-    screen -dmS $FRONTEND_SESSION bash -c 'npm run dev:dev'
+    ./start.sh --dev
 else
-    screen -dmS $FRONTEND_SESSION bash -c 'npm run dev'
+    ./start.sh
 fi
-echo "Frontend started in screen session: $FRONTEND_SESSION"
 
 # セッション一覧を表示
-echo -e "\nActive screen sessions:"
-screen -ls
+echo -e "\nActive tmux sessions:"
+tmux list-sessions
 
 echo -e "\nTo attach to a session:"
-echo "  frontend: screen -r $FRONTEND_SESSION"
-echo "  backend:  screen -r $BACKEND_SESSION" 
+echo "  frontend: tmux attach -t $FRONTEND_SESSION"
+echo "  backend:  tmux attach -t $BACKEND_SESSION" 

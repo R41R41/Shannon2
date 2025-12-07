@@ -9,6 +9,7 @@ import {
   OpenAIRealTimeTextInput,
   OpenAITextInput,
   SkillInfo,
+  TaskContext,
   TwitterClientInput,
   TwitterReplyOutput,
   YoutubeClientInput,
@@ -65,6 +66,10 @@ export class LLMService {
   }
 
   public async initialize() {
+    // TaskGraphを初期化（ツール読み込み、ノード初期化）
+    await this.taskGraph.initialize();
+
+    // 各種エージェントを初期化（単発タスク用）
     this.aboutTodayAgent = await PostAboutTodayAgent.create();
     this.weatherAgent = await PostWeatherAgent.create();
     this.fortuneAgent = await PostFortuneAgent.create();
@@ -300,13 +305,28 @@ export class LLMService {
         const infoMessage = JSON.stringify(info, null, 2);
         const memoryZone = await getDiscordMemoryZone(message.guildId);
 
+        // TaskContextを構築（詳細なDiscord情報を含む）
+        const context: TaskContext = {
+          platform: 'discord',
+          discord: {
+            guildId: message.guildId,
+            guildName: message.guildName,
+            channelId: message.channelId,
+            channelName: message.channelName,
+            messageId: message.messageId,
+            userId: message.userId,
+            userName: message.userName,
+          },
+        };
+
         await this.processMessage(
           memoryZone,
           message.userName,
           message.text,
           infoMessage,
           message.recentMessages,
-          message.channelId
+          message.channelId,
+          context
         );
         return;
       }
@@ -385,16 +405,31 @@ export class LLMService {
     message?: string | null,
     infoMessage?: string | null,
     recentMessages?: BaseMessage[] | null,
-    channelId?: string | null
+    channelId?: string | null,
+    context?: TaskContext | null
   ) {
     try {
       const currentTime = new Date().toLocaleString('ja-JP', {
         timeZone: 'Asia/Tokyo',
       });
       const newMessage = `${currentTime} ${userName}: ${message}`;
+
+      // TaskContextを構築（新しい形式を優先）
+      const taskContext: TaskContext = context || {
+        platform: inputMemoryZone.startsWith('discord:') ? 'discord' :
+          inputMemoryZone.startsWith('twitter:') ? 'twitter' :
+            inputMemoryZone === 'youtube' ? 'youtube' :
+              'web',
+        discord: inputMemoryZone.startsWith('discord:') ? {
+          guildName: inputMemoryZone.replace('discord:', ''),
+          channelId: channelId || undefined,
+        } : undefined,
+      };
+
       await this.taskGraph.invoke({
         channelId: channelId,
         memoryZone: inputMemoryZone,
+        context: taskContext,
         environmentState: infoMessage || null,
         messages: recentMessages?.concat([new HumanMessage(newMessage)]) || [],
         userMessage: newMessage,

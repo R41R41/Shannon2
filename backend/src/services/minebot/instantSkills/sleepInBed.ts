@@ -1,20 +1,30 @@
-import { InstantSkill, CustomBot } from '../types.js';
 import pathfinder from 'mineflayer-pathfinder';
-const { goals } = pathfinder;
 import { Vec3 } from 'vec3';
+import { CustomBot, InstantSkill } from '../types.js';
 
+const { goals } = pathfinder;
+
+/**
+ * 原子的スキル: ベッドで寝る
+ */
 class SleepInBed extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'sleep-in-bed';
     this.description =
-      'ベッドで眠ります。ベッドがない場合はベッドを設置して眠ります。wakeUpをtrueにするとベッドから起きます。';
-    this.status = false;
+      'ベッドで眠ります。近くにベッドがない場合はインベントリのベッドを設置して眠ります。wakeUpをtrueにするとベッドから起きます。';
     this.params = [
       {
         name: 'wakeUp',
         type: 'boolean',
-        description: 'trueの場合、ベッドから起きます',
+        description: 'trueの場合、ベッドから起きます。',
+        default: false,
+      },
+      {
+        name: 'isTakeBed',
+        type: 'boolean',
+        description:
+          '既に寝ている村人がいた場合にベッドを奪うかどうか。デフォルトはfalse。',
         default: false,
       },
     ];
@@ -41,8 +51,7 @@ class SleepInBed extends InstantSkill {
           if (blockPos && blockPosHead && blockBelow && blockBelowHead) {
             if (
               (blockPos.name === 'air' || blockPos.name === 'cave_air') &&
-              (blockPosHead.name === 'air' ||
-                blockPosHead.name === 'cave_air') &&
+              (blockPosHead.name === 'air' || blockPosHead.name === 'cave_air') &&
               blockBelow.name !== 'air' &&
               blockBelow.name !== 'cave_air' &&
               blockBelowHead.name !== 'air' &&
@@ -59,8 +68,7 @@ class SleepInBed extends InstantSkill {
           if (blockPos && blockPosHead && blockBelow && blockBelowHead) {
             if (
               (blockPos.name === 'air' || blockPos.name === 'cave_air') &&
-              (blockPosHead.name === 'air' ||
-                blockPosHead.name === 'cave_air') &&
+              (blockPosHead.name === 'air' || blockPosHead.name === 'cave_air') &&
               blockBelow.name !== 'air' &&
               blockBelow.name !== 'cave_air' &&
               blockBelowHead.name !== 'air' &&
@@ -72,11 +80,10 @@ class SleepInBed extends InstantSkill {
         }
       }
     }
-
     return null;
   }
 
-  async runImpl(wakeUp?: boolean) {
+  async runImpl(wakeUp?: boolean, isTakeBed?: boolean) {
     try {
       // ベッドから起きる場合
       if (wakeUp) {
@@ -88,30 +95,128 @@ class SleepInBed extends InstantSkill {
         }
       }
 
-      // ベッドで寝る場合（以降は既存のコード）
+      // 時間チェック
+      const timeOfDay = this.bot.time.timeOfDay;
+      // 夜は12542～23459
+      if (timeOfDay < 12542 || timeOfDay > 23459) {
+        return {
+          success: false,
+          result: '夜または嵐の時にしか寝られません（現在の時間: ' + timeOfDay + '）',
+        };
+      }
+
+      // 敵が近くにいないかチェック
+      const nearbyMobs = Object.values(this.bot.entities).filter((entity) => {
+        if (!entity || !entity.position) return false;
+        const dist = entity.position.distanceTo(this.bot.entity.position);
+        if (dist > 8) return false;
+
+        const hostileMobs = [
+          'zombie', 'skeleton', 'creeper', 'spider', 'enderman',
+          'witch', 'slime', 'phantom', 'blaze', 'ghast',
+        ];
+
+        const entityName = entity.name?.toLowerCase() || '';
+        return hostileMobs.some((mob) => entityName.includes(mob));
+      });
+
+      if (nearbyMobs.length > 0) {
+        const mob = nearbyMobs[0];
+        const dist = mob.position.distanceTo(this.bot.entity.position).toFixed(1);
+        return {
+          success: false,
+          result: `近くに敵がいるため寝られません（${mob.name}が${dist}m先にいます）`,
+        };
+      }
+
       // まず近くにベッドがあるか探す
-      const bed = this.bot.findBlock({
+      let bed = this.bot.findBlock({
         matching: this.bot.isABed,
-        maxDistance: 16, // 近い範囲で探索
+        maxDistance: 16,
       });
 
       if (bed) {
         // すでにベッドがある場合は、そこに移動して寝る
         try {
-          await this.bot.pathfinder.goto(
-            new goals.GoalNear(
-              bed.position.x,
-              bed.position.y,
-              bed.position.z,
-              2
-            )
+          const distance = this.bot.entity.position.distanceTo(bed.position);
+          if (distance > 3) {
+            // 既存のゴールをクリア（他のスキルとの競合を防ぐ）
+            this.bot.pathfinder.stop();
+            await this.bot.pathfinder.goto(
+              new goals.GoalNear(bed.position.x, bed.position.y, bed.position.z, 2)
+            );
+          }
+
+          // ベッドで寝ている村人を探す
+          const villagers = Object.values(this.bot.entities).filter(
+            (entity) =>
+              entity.name === 'villager' &&
+              entity.position.distanceTo(bed!.position) < 2
           );
+          const sleepingVillager = villagers.find(
+            (entity) => Number(entity.metadata[6]) === 2
+          );
+
+          if (sleepingVillager && isTakeBed) {
+            // ベッドをアクティブにして村人を起こす
+            try {
+              await this.bot.activateBlock(bed);
+            } catch (error: any) {
+              console.log('村人起こしエラー:', error.message);
+            }
+            // 村人が起きるまで少し待つ
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            bed = this.bot.findBlock({
+              matching: this.bot.isABed,
+              maxDistance: 8,
+            });
+          } else if (sleepingVillager && !isTakeBed) {
+            return {
+              success: false,
+              result:
+                '既に村人が寝ているベッドです。isTakeBedをtrueに設定すると村人を起こしてベッドを奪うことができます。',
+            };
+          }
+
+          if (!bed) {
+            return { success: false, result: 'ベッドが見つかりません' };
+          }
+
           await this.bot.sleep(bed);
-          return { success: true, result: '既存のベッドで眠りました' };
+
+          // 起床を待つ
+          return new Promise<{ success: boolean; result: string }>((resolve) => {
+            const timeout = setTimeout(() => {
+              resolve({
+                success: true,
+                result: '既存のベッドで眠りました',
+              });
+            }, 10000);
+
+            const onWake = () => {
+              clearTimeout(timeout);
+              this.bot.removeListener('wake', onWake);
+              resolve({
+                success: true,
+                result: '既存のベッドで眠り、朝になりました',
+              });
+            };
+
+            this.bot.once('wake', onWake);
+          });
         } catch (error: any) {
+          // エラーを詳細化して返す
+          let errorDetail = error.message;
+          if (error.message.includes('too far')) {
+            errorDetail = 'ベッドが遠すぎます';
+          } else if (error.message.includes('monsters')) {
+            errorDetail = '近くに敵がいます';
+          } else if (error.message.includes('occupied')) {
+            errorDetail = 'ベッドは使用中です';
+          }
           return {
             success: false,
-            result: `ベッドで眠ることができませんでした: ${error.message}`,
+            result: `ベッドで眠ることができませんでした: ${errorDetail}`,
           };
         }
       }
@@ -120,6 +225,7 @@ class SleepInBed extends InstantSkill {
       const bedItem = this.bot.inventory
         .items()
         .find((i) => i.name.includes('bed'));
+
       if (!bedItem) {
         return {
           success: false,
@@ -138,9 +244,14 @@ class SleepInBed extends InstantSkill {
       }
 
       // 設置場所に移動
-      await this.bot.pathfinder.goto(
-        new goals.GoalNear(placePos.x, placePos.y, placePos.z, 2)
-      );
+      const distToPlace = this.bot.entity.position.distanceTo(placePos);
+      if (distToPlace > 3) {
+        // 既存のゴールをクリア（他のスキルとの競合を防ぐ）
+        this.bot.pathfinder.stop();
+        await this.bot.pathfinder.goto(
+          new goals.GoalNear(placePos.x, placePos.y, placePos.z, 2)
+        );
+      }
 
       // ベッドを手に持つ
       await this.bot.equip(bedItem, 'hand');
@@ -156,13 +267,12 @@ class SleepInBed extends InstantSkill {
 
       // ベッドを設置
       await this.bot.placeBlock(referenceBlock, new Vec3(0, 1, 0));
-
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       // 設置したベッドを探す
       const placedBed = this.bot.findBlock({
         matching: this.bot.isABed,
-        maxDistance: 3, // 近い範囲で探索
+        maxDistance: 3,
       });
 
       if (!placedBed) {
@@ -171,9 +281,29 @@ class SleepInBed extends InstantSkill {
 
       // ベッドで寝る
       await this.bot.sleep(placedBed);
-      return { success: true, result: 'ベッドを設置して眠りました' };
+
+      // 起床を待つ
+      return new Promise<{ success: boolean; result: string }>((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve({
+            success: true,
+            result: 'ベッドを設置して眠りました',
+          });
+        }, 10000);
+
+        const onWake = () => {
+          clearTimeout(timeout);
+          this.bot.removeListener('wake', onWake);
+          resolve({
+            success: true,
+            result: 'ベッドを設置して眠り、朝になりました',
+          });
+        };
+
+        this.bot.once('wake', onWake);
+      });
     } catch (error: any) {
-      return { success: false, result: `${error.message} in ${error.stack}` };
+      return { success: false, result: `${error.message}` };
     }
   }
 }

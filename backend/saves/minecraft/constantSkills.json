@@ -1,0 +1,82 @@
+[
+  {
+    "skillName": "auto-pick-up-item",
+    "status": false
+  },
+  {
+    "skillName": "auto-eat",
+    "status": false
+  },
+  {
+    "skillName": "auto-follow",
+    "status": false
+  },
+  {
+    "skillName": "auto-attack-hostile",
+    "status": false
+  },
+  {
+    "skillName": "auto-face-moved-entity",
+    "status": true
+  },
+  {
+    "skillName": "auto-sleep",
+    "status": false
+  },
+  {
+    "skillName": "auto-run-from-hostiles",
+    "status": false
+  },
+  {
+    "skillName": "auto-swim",
+    "status": false
+  },
+  {
+    "skillName": "auto-equip-best-tool",
+    "status": false
+  },
+  {
+    "skillName": "auto-shoot-arrow-to-block",
+    "status": false
+  },
+  {
+    "skillName": "auto-face-updated-block",
+    "status": false
+  },
+  {
+    "skillName": "auto-face-nearest-entity",
+    "status": true
+  },
+  {
+    "skillName": "auto-throw-ender-pearl",
+    "status": false
+  },
+  {
+    "skillName": "auto-avoid-dragon-breath",
+    "status": false
+  },
+  {
+    "skillName": "auto-shoot-dragon",
+    "status": false
+  },
+  {
+    "skillName": "auto-attack-dragon-perch",
+    "status": false
+  },
+  {
+    "skillName": "auto-break-spawner",
+    "status": false
+  },
+  {
+    "skillName": "auto-update-looking-at",
+    "status": false
+  },
+  {
+    "skillName": "auto-detect-block-or-entity",
+    "status": false
+  },
+  {
+    "skillName": "auto-face-speaker",
+    "status": true
+  }
+]

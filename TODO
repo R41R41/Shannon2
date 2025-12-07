@@ -4,14 +4,14 @@
 Web:
   ☐ 音声会話ができる
   ☐ 管理者モード
-  ☐ 管理者はユーザーを追加できる @high
+  ☐ 管理者はユーザーを追加できる
   ☐ 画像認識送付機能
-  ☐ チャットログをDBに保存 @high
-  ☐ チャットログを読み込み @high
+  ☐ チャットログをDBに保存
+  ☐ チャットログを読み込み
 
 discord:
-  ☐ しょうもない機能たち*1 @high
-  ☐ 音声会話 @high
+  ☐ 音声入力でMinebot操作 @high
+  ☐ 音声出力 @high
   
 LLM:
   ☐ スキル獲得
@@ -22,19 +22,18 @@ LLM:
   ☐ 再開する
   ☐ 終了する
   ☐ フィードバック入力
-  ☐ Twitterのリンク先を見る
-  ☐ Youtubeのリンク先を見る
-  ☐ Notionのリンク先を見る
   
 Minebot:
   ☐ 指定回数釣りを繰り返す
-  ☐ シャノン、近くの的ブロックにエンダーパールを投げて
   ☐ ポーションを作る
-  ☐ ボートに乗る
   ☐ ボートで移動
   ☐ 泳ぎの改善
+  ☐ 体力が一定以下になったら緊急退避
+  ☐ チャット欄にシャノン、と打つのを簡単にする
+  ☐ constantSkillの状態を保存する
 
 その他:
+  ☐ エンドラ討伐を一通りテスト
   ☐ HP・空腹度の減少に反応する設定
   ☐ 周囲の環境変化（敵モブの接近、ユーザーの接近、昼・夜になる）に反応する設定
   ☐ タイムアウトせず目的のために常に稼働
@@ -42,12 +41,9 @@ Minebot:
   ☐ 目的：プレイヤーと仲良くなること、マイクラを楽しむこと
 
 Minecraft入力用mod:
-  ☐ プロトタイプをホットリロードできる環境作る @high @today
   ☐ 画像取得
-  ☐ アイコンと体力・空腹度
   ☐ チャット欄
-  ☐ スキル一覧（constant、instant）
-  ☐ インベントリ
+  ☐ スキル一覧（instant）
 
 各serviceのeventBus:
   web:
@@ -130,6 +126,18 @@ wsを追加したときにやること:
   - ログの確認 sudo tail -f /var/log/nginx/error.log
 
 Archive:
+  ✔ 環境状態と自己状態をLLMに読みやすくする @done(25-06-13 13:00) @project(Minebot)
+  ✔ 優先順位：逃げる>戦う @done(25-06-13 12:59) @project(Minebot)
+  ✔ 優先順位：単発スキル>常時タスク @done(25-06-13 12:59) @project(Minebot)
+  ✔ インベントリ @done(25-06-13 08:27) @project(Minecraft入力用mod)
+  ✔ アイコンと体力・空腹度 @done(25-06-13 08:27) @project(Minecraft入力用mod)
+  ✔ プロトタイプをホットリロードできる環境作る @high @today @done(25-06-13 08:27) @project(Minecraft入力用mod)
+  ✔ ボートに乗る @done(25-06-13 08:27) @project(Minebot)
+  ✔ シャノン、近くの的ブロックにエンダーパールを投げて @done(25-06-13 08:26) @project(Minebot)
+  ✔ Twitterのリンク先を見る @done(25-06-13 08:26) @project(LLM)
+  ✔ Youtubeのリンク先を見る @done(25-06-13 08:26) @project(LLM)
+  ✔ Notionのリンク先を見る @done(25-06-13 08:26) @project(LLM)
+  ✔ しょうもない機能たち*1 @high @done(25-06-13 08:26) @project(discord)
   ✔ 人と交易、進捗「いい取引だ！」 @done(25-05-22 01:55) @project(Minebot)
   ✔ ネザーに入る、進捗「さらなる深みへ」 @done(25-05-22 01:55) @project(Minebot)
   ✔ モブから食料を集める @done(25-05-21 22:17) @project(Minebot)

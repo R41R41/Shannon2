@@ -1,0 +1,21 @@
+{
+  "folders": [
+	{
+		"path": "."
+	},
+	{
+		"path": "../NotionProjectAssistant"
+	},
+	{
+		"path": "../Shannon-prod"
+	},
+	{
+		"path": "../minecraft"
+	}
+],
+  "settings": {
+    "typescript.format.enable": true,
+    "javascript.format.enable": true,
+    "typescript.surveys.enabled": false
+  }
+}

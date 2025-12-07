@@ -1,59 +1,102 @@
 {
   "equipment": {
-    "helmet": null,
+    "helmet": {
+      "name": "carved_pumpkin",
+      "count": 1
+    },
     "chestplate": null,
     "leggings": null,
     "boots": null,
     "mainHand": {
-      "name": "bread",
-      "count": 62
+      "name": "bow",
+      "count": 1
     },
     "offHand": null
   },
   "inventory": [
     {
-      "name": "tall_grass",
+      "name": "dirt",
+      "count": 27
+    },
+    {
+      "name": "coal",
       "count": 1
     },
     {
-      "name": "iron_ingot",
-      "count": 15
+      "name": "pumpkin_seeds",
+      "count": 4
     },
     {
-      "name": "short_grass",
+      "name": "spruce_stairs",
       "count": 1
     },
     {
-      "name": "oak_stairs",
+      "name": "blue_bed",
       "count": 1
     },
     {
       "name": "bread",
+      "count": 41
+    },
+    {
+      "name": "spruce_planks",
       "count": 62
     },
     {
-      "name": "dirt",
-      "count": 3
-    },
-    {
-      "name": "birch_log",
+      "name": "stone_axe",
       "count": 1
     },
     {
-      "name": "cake",
+      "name": "emerald",
+      "count": 11
+    },
+    {
+      "name": "purple_bed",
       "count": 1
     },
     {
-      "name": "brown_mushroom",
+      "name": "furnace",
+      "count": 1
+    },
+    {
+      "name": "wheat_seeds",
+      "count": 2
+    },
+    {
+      "name": "stone_pickaxe",
+      "count": 1
+    },
+    {
+      "name": "bow",
       "count": 1
     },
     {
       "name": "rotten_flesh",
+      "count": 1
+    },
+    {
+      "name": "stick",
+      "count": 25
+    },
+    {
+      "name": "lead",
       "count": 2
     },
     {
-      "name": "oak_planks",
-      "count": 32
+      "name": "arrow",
+      "count": 64
+    },
+    {
+      "name": "mossy_cobblestone",
+      "count": 1
+    },
+    {
+      "name": "shears",
+      "count": 1
+    },
+    {
+      "name": "cobblestone",
+      "count": 17
     }
   ]
 }

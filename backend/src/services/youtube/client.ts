@@ -308,7 +308,7 @@ export class YoutubeClient extends BaseClient {
   public async replyComment(videoId: string, commentId: string, reply: string) {
     if (this.status !== 'running') return;
     if (!this.client) {
-      throw new Error('YouTube client is not initialized');
+      throw new Error('YouTube client is not initialized!');
     }
     try {
       await this.client.comments.insert({
@@ -338,11 +338,11 @@ export class YoutubeClient extends BaseClient {
         await this.setUpConnection();
         this.setupEventHandlers();
         this.lastSubscriberCount = await this.getSubscriberCount();
-        console.log('lastSubscriberCount:', this.lastSubscriberCount);
+        console.log('lastSubscriberCount2:', this.lastSubscriberCount);
       } catch (error) {
         console.error(`\x1b[31mYouTube initialization error: ${error}\x1b[0m`);
         console.warn(
-          '\x1b[33mYouTube initialization failed, but continuing without YouTube functionality\x1b[0m'
+          '\x1b[33mYouTube initialization failed, but continuing without YouTube functionality!\x1b[0m'
         );
         // エラーをスローせずに処理を続行
         this.status = 'stopped';
@@ -594,7 +594,7 @@ export class YoutubeClient extends BaseClient {
   }
 
   async getCurrentLiveVideoId(): Promise<string | null> {
-    // .envからURL取得
+    // .envからURL取得/
     const liveUrl = process.env.YOUTUBE_LIVE_URL;
     if (liveUrl) {
       // 正規表現で動画ID抽出（v=, /video/, /watch/, youtu.be/ など対応）
