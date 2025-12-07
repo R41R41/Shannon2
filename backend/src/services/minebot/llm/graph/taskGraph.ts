@@ -319,16 +319,8 @@ export class TaskGraph {
           return 'planning';
         }
 
-        // まずnextActionSequenceがあるかチェック（status関係なくスキルは実行する）
-        const hasActions =
-          (state.taskTree?.nextActionSequence && state.taskTree.nextActionSequence.length > 0) ||
-          (state.taskTree?.actionSequence && state.taskTree.actionSequence.length > 0);
-
-        if (hasActions) {
-          return 'execution';
-        }
-
-        // アクションがない場合のみstatusをチェック
+        // status: completed/error の場合は終了（nextActionSequenceがあっても無視）
+        // LLMがstatus: completedにしたなら、報告chatはその前に実行すべき
         if (state.taskTree?.status === 'completed') {
           console.log('\x1b[32m✅ タスク完了\x1b[0m');
           return END;
@@ -336,6 +328,15 @@ export class TaskGraph {
         if (state.taskTree?.status === 'error') {
           console.log('\x1b[31m❌ タスクエラー\x1b[0m');
           return END;
+        }
+
+        // nextActionSequenceがあるかチェック
+        const hasActions =
+          (state.taskTree?.nextActionSequence && state.taskTree.nextActionSequence.length > 0) ||
+          (state.taskTree?.actionSequence && state.taskTree.actionSequence.length > 0);
+
+        if (hasActions) {
+          return 'execution';
         }
 
         // actionSequenceもなく、statusも未完了の場合は終了
@@ -360,20 +361,31 @@ export class TaskGraph {
         const execResults = state.executionResults || [];
         const recentActions = this.recentSuccessfulActions || [];
 
-        // 今回成功したアクションを履歴に追加
-        const successfulActions = execResults.filter((r: any) => r.success).map((r: any) => r.toolName);
+        // 今回成功したアクションを履歴に追加（ツール名+引数のハッシュ）
+        const successfulActions = execResults
+          .filter((r: any) => r.success)
+          .map((r: any) => {
+            // 座標を含む引数がある場合は、ツール名+座標で識別
+            const args = r.args || {};
+            const coordKey = (args.x !== undefined && args.y !== undefined && args.z !== undefined)
+              ? `${r.toolName}@${args.x},${args.y},${args.z}`
+              : r.toolName;
+            return coordKey;
+          });
         if (successfulActions.length > 0) {
-          this.recentSuccessfulActions = [...recentActions, ...successfulActions].slice(-10); // 直近10件保持
+          this.recentSuccessfulActions = [...recentActions, ...successfulActions].slice(-15); // 直近15件保持
         }
 
-        // 同じアクションが連続3回以上成功している場合は終了
+        // 同じアクション（同じ座標）が連続5回以上成功している場合は終了
         const actionHistory = this.recentSuccessfulActions || [];
         if (actionHistory.length >= 5) {
           const lastAction = actionHistory[actionHistory.length - 1];
           const repeatCount = actionHistory.slice(-5).filter((a: string) => a === lastAction).length;
           if (repeatCount >= 5) {
+            // ツール名だけを抽出（座標を除く）
+            const toolName = lastAction.split('@')[0];
             console.log(
-              `\x1b[33m⚠ 同じアクション（${lastAction}）が${repeatCount}回連続で成功。進展がないため終了します。\x1b[0m`
+              `\x1b[33m⚠ 同じアクション（${toolName}）が同じ座標で${repeatCount}回連続で成功。進展がないため終了します。\x1b[0m`
             );
             return END;
           }
@@ -640,11 +652,23 @@ export class TaskGraph {
     if (!this.bot) return;
 
     try {
+      // 移動制御をクリア
       this.bot.clearControlStates();
+
       const pathfinder = (this.bot as any).pathfinder;
       if (pathfinder) {
+        // pathfinderを停止
+        pathfinder.stop();
         pathfinder.setGoal(null);
       }
+
+      // collectBlockも停止
+      const collectBlock = (this.bot as any).collectBlock;
+      if (collectBlock) {
+        collectBlock.cancelTask();
+      }
+
+      console.log('\x1b[33m⏹️ ボット制御を停止しました\x1b[0m');
     } catch (error) {
       console.error('制御クリアエラー:', error);
     }
@@ -822,6 +846,7 @@ export class TaskGraph {
 
       // 緊急タスク実行中だった場合は停止
       if (this.isExecuting) {
+        this.clearBotControls(); // pathfinderと制御状態をクリア
         this.forceStop();
       }
 
@@ -846,6 +871,7 @@ export class TaskGraph {
 
     // 実行中のタスクを削除した場合は停止
     if (wasExecuting && this.isExecuting) {
+      this.clearBotControls(); // pathfinderと制御状態をクリア
       this.forceStop();
     }
 

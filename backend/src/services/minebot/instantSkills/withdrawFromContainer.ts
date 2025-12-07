@@ -11,7 +11,7 @@ class WithdrawFromContainer extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'withdraw-from-container';
-    this.description = 'コンテナからアイテムを取り出します。';
+    this.description = 'コンテナからアイテムを取り出します。先にコンテナの中身を確認してください（check-container）。';
     this.mcData = minecraftData(this.bot.version);
     this.params = [
       {

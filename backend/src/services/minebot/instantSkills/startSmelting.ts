@@ -133,6 +133,51 @@ class StartSmelting extends InstantSkill {
       }
 
       try {
+        // スロットの状態を確認
+        const currentInput = furnace.inputItem();
+        const currentFuel = furnace.fuelItem();
+        const currentOutput = furnace.outputItem();
+
+        // 材料スロットに別のアイテムが入っているかチェック
+        if (currentInput && currentInput.name !== inputItem) {
+          furnace.close();
+          return {
+            success: false,
+            result: `材料スロットに別のアイテムがあります: ${currentInput.name} x${currentInput.count}。先に取り出してください（withdraw-from-furnace slot="input"）`,
+          };
+        }
+
+        // 燃料スロットに別のアイテムが入っているかチェック
+        if (currentFuel && currentFuel.name !== fuelItem) {
+          furnace.close();
+          return {
+            success: false,
+            result: `燃料スロットに別のアイテムがあります: ${currentFuel.name} x${currentFuel.count}。先に取り出してください（withdraw-from-furnace slot="fuel"）`,
+          };
+        }
+
+        // 出力スロットにアイテムがあれば警告
+        if (currentOutput) {
+          furnace.close();
+          return {
+            success: false,
+            result: `完成品スロットにアイテムがあります: ${currentOutput.name} x${currentOutput.count}。先に取り出してください（withdraw-from-furnace slot="output"）`,
+          };
+        }
+
+        // 材料スロットの空き容量をチェック
+        if (currentInput) {
+          const maxStack = 64; // ほとんどのアイテムのスタック上限
+          const availableSpace = maxStack - currentInput.count;
+          if (count > availableSpace) {
+            furnace.close();
+            return {
+              success: false,
+              result: `材料スロットに空きが足りません。現在: ${currentInput.name} x${currentInput.count}、追加可能: ${availableSpace}個`,
+            };
+          }
+        }
+
         // 材料を入れる（上のスロット）
         await furnace.putInput(inputItems[0].type, null, count);
 

@@ -7,6 +7,7 @@
     "common"
   ],
   "scripts": {
+    "postinstall": "patch-package",
     "build": "npm run build -w common && npm run build -w backend",
     "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
     "clean": "rm -rf */dist",
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@types/node": "^22.15.21",
     "concurrently": "^8.2.2",
+    "patch-package": "^8.0.1",
     "ts-node": "^10.9.2",
     "tsc-watch": "^6.2.1",
     "tsconfig-paths": "^4.2.0"

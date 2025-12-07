@@ -21,7 +21,7 @@ class InvestigateTerrain extends InstantSkill {
       name: 'context',
       type: 'string' as const,
       description:
-        '調査の目的やコンテクスト（例: "家を建てるのに適した平地を探す", "近くに鉱石があるか確認", "この建物の構造を分析"）',
+        '調査の目的やコンテクスト（例: "家を建てるのに適した平地を探す", "近くに鉱石があるか確認", "この建物の構造を分析", "自分の足場を分析"）',
       required: true,
     },
     {

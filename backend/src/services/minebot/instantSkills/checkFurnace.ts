@@ -11,7 +11,7 @@ class CheckFurnace extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'check-furnace';
-    this.description = 'かまどの精錬状態（完了したか）を確認します。';
+    this.description = 'かまどの精錬状態（完了したか）や各スロットの中身を確認します。';
     this.mcData = minecraftData(this.bot.version);
     this.params = [
       {
@@ -66,31 +66,55 @@ class CheckFurnace extends InstantSkill {
       }
 
       try {
-        // 出力スロットを確認
+        // 全スロットを確認
         const outputItem = furnace.outputItem();
         const inputItem = furnace.inputItem();
         const fuelItem = furnace.fuelItem();
+        const fuel = furnace.fuel; // 残り燃焼時間
+        const progress = furnace.progress; // 精錬進捗
 
         furnace.close();
 
-        if (outputItem) {
-          return {
-            success: true,
-            result: `精錬完了: ${outputItem.name} x${outputItem.count}が取り出せます`,
-          };
-        } else if (inputItem) {
-          return {
-            success: true,
-            result: `精錬中: ${inputItem.name} x${
-              inputItem.count
-            }を精錬中（燃料: ${fuelItem ? fuelItem.name : 'なし'}）`,
-          };
+        // 各スロットの状態を構築
+        const slots: string[] = [];
+
+        if (inputItem) {
+          slots.push(`材料: ${inputItem.name} x${inputItem.count}`);
         } else {
-          return {
-            success: true,
-            result: 'かまどは空です',
-          };
+          slots.push('材料: なし');
         }
+
+        if (fuelItem) {
+          slots.push(`燃料: ${fuelItem.name} x${fuelItem.count}`);
+        } else {
+          slots.push('燃料: なし');
+        }
+
+        if (outputItem) {
+          slots.push(`完成品: ${outputItem.name} x${outputItem.count}（取り出し可能）`);
+        } else {
+          slots.push('完成品: なし');
+        }
+
+        // 精錬状態を判定
+        let status = '';
+        if (inputItem && fuel > 0) {
+          const progressPercent = Math.round(progress * 100);
+          status = `精錬中（進捗: ${progressPercent}%）`;
+        } else if (outputItem && !inputItem) {
+          status = '精錬完了';
+        } else if (!inputItem && !fuelItem && !outputItem) {
+          status = '空';
+        } else if (inputItem && fuel === 0) {
+          status = '燃料切れ';
+        } else {
+          status = '待機中';
+        }
+
+        return {
+          success: true,
+          result: `[${status}] ${slots.join(' | ')}`,
+        };
       } catch (error: any) {
         furnace.close();
         throw error;

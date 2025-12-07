@@ -55,6 +55,7 @@ export class BotEventHandler {
         this.bot.on('entitySpawn', async (entity) => {
             const autoPickUpItem = this.bot.constantSkills.getSkill('auto-pick-up-item');
             if (!autoPickUpItem) {
+                console.log('autoPickUpItem not found');
                 return;
             }
             if (!autoPickUpItem.status) return;

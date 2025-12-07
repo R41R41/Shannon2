@@ -64,14 +64,55 @@ class FindBlocks extends InstantSkill {
 
       // 距離順にソート
       const sortedBlocks = blocks
-        .map((pos) => ({
-          x: pos.x,
-          y: pos.y,
-          z: pos.z,
-          distance:
-            Math.floor(this.bot.entity.position.distanceTo(pos) * 10) / 10,
-        }))
+        .map((pos) => {
+          const blockData: any = {
+            x: pos.x,
+            y: pos.y,
+            z: pos.z,
+            distance:
+              Math.floor(this.bot.entity.position.distanceTo(pos) * 10) / 10,
+          };
+
+          // farmlandの場合は上のブロックを確認
+          if (blockName === 'farmland') {
+            const aboveBlock = this.bot.blockAt(pos.offset(0, 1, 0));
+            if (aboveBlock && aboveBlock.name !== 'air') {
+              blockData.above = aboveBlock.name;
+            }
+          }
+
+          return blockData;
+        })
         .sort((a, b) => a.distance - b.distance);
+
+      // farmlandの場合は空きと埋まっているものを分けて表示
+      if (blockName === 'farmland') {
+        const emptyFarmland = sortedBlocks.filter((b) => !b.above);
+        const occupiedFarmland = sortedBlocks.filter((b) => b.above);
+
+        const emptyList = emptyFarmland
+          .slice(0, 5)
+          .map((b) => `(${b.x}, ${b.y}, ${b.z})`)
+          .join(', ');
+
+        const occupiedCount = occupiedFarmland.length;
+        const emptyCount = emptyFarmland.length;
+
+        let result = `farmlandを${blocks.length}個発見。`;
+        if (emptyCount > 0) {
+          result += `空き${emptyCount}個: ${emptyList}${emptyCount > 5 ? '...' : ''}`;
+        } else {
+          result += '空きなし';
+        }
+        if (occupiedCount > 0) {
+          result += `、使用中${occupiedCount}個`;
+        }
+
+        return {
+          success: true,
+          result,
+        };
+      }
 
       const blockList = sortedBlocks
         .slice(0, 5) // 最初の5個だけ表示
@@ -80,9 +121,8 @@ class FindBlocks extends InstantSkill {
 
       return {
         success: true,
-        result: `${blockName}を${blocks.length}個発見: ${blockList}${
-          blocks.length > 5 ? '...' : ''
-        }`,
+        result: `${blockName}を${blocks.length}個発見: ${blockList}${blocks.length > 5 ? '...' : ''
+          }`,
       };
     } catch (error: any) {
       return {

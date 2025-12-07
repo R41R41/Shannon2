@@ -131,6 +131,7 @@
 ## 会話への対応
 
 ユーザーが**会話**（挨拶、質問、雑談など）をしてきた場合は、**chat スキルで直接応答**してください。
+また、最終的な結果が得られたら、必ず chat スキルを使用して 1 回だけユーザーに報告してください。その後に status を completed に設定してください。
 
 ```
 例1: ユーザー「こんにちは」
@@ -158,33 +159,6 @@
 
 ---
 
-## 「あの〜」「あれを〜」など指示語への対応
-
-ユーザーが「あの屋根」「あれを見て」「あの建物」など、**何かを指して指示**している場合は、以下の手順で対応してください：
-
-### 手順
-
-1. **ユーザーの視線方向を取得**: `get-entity-look-direction` でユーザーの位置と向きを確認
-2. **ユーザーの横に移動**: 返された座標に移動（ユーザーが邪魔にならない位置）
-3. **同じ方向を向く**: ユーザーと同じ `yaw` 角度を向く（`look-at`に`yaw`を渡す）
-4. **視界を確認**: `describe-bot-view` で何が見えるか確認
-5. **座標を取得**: `get-block-in-sight` で見ているブロックの正確な座標を取得
-6. **タスク実行**: 取得した座標を使って移動
-
-### 例
-
-```
-ユーザー「あの屋根の上に登って」
-
-→ nextActionSequence:
-   1. get-entity-look-direction (entityName: "ユーザー名")
-   2. move-to (返された移動先座標)
-   3. look-at (返されたyaw角度)
-   4. describe-bot-view (context: "屋根を探す")
-   5. get-block-in-sight () ← 見ている屋根ブロックの座標を取得
-   6. move-to (屋根の座標に移動)
-```
-
 ### get-block-in-sight の使い方
 
 describe-bot-view で目標物を確認した後、`get-block-in-sight`を使うと見ているブロックの正確な座標が分かります。
@@ -201,16 +175,36 @@ move-to → {"x":-15,"y":79,"z":-92} で屋根の上に移動
 - ユーザーの**横に立つ**（前に立つとユーザーが指しているものが見えない）
 - 確認してから実行する（推測で行動しない）
 
-### 見つからない場合の対応
+---
 
-「あの〜」で指されたものが見つからない場合：
+## 農業の手順
 
-1. **investigate-terrain は使わない**（視覚的な構造物認識には不向き）
-2. **ユーザーに確認する**（chat スキルで「〇〇が見つかりません。もう少し詳しく教えてもらえますか？」）
-3. ユーザーの指示に従って再試行
+### 種を植える
+
+1. **既存の耕地を探す**: `find-blocks("farmland", 20)`
+2. **耕地がある場合**: `plant-crop(x, y, z, "wheat_seeds")` で種を植える
+   - **座標は farmland 自体の座標**（farmland の上ではない！）
+3. **耕地がない場合**:
+   - クワ（hoe）を持っているか確認
+   - `find-blocks("grass_block")` または `find-blocks("dirt")` で土を探す
+   - `use-item-on-block(x, y, z, "wooden_hoe")` で土を耕す → farmland になる
+   - その後 `plant-crop` で種を植える
 
 ```
-例: describe-bot-viewで「屋根は見当たりません」となった場合
-→ nextActionSequence: [{"toolName": "chat", "args": "{\"message\": \"あの屋根が見つかりません。もう少し近くにあるものですか？それとも別の方向でしょうか？\"}"}]
-→ status: "completed" (ユーザーの返答を待つ)
+✅ OK: 既存のfarmlandに植える
+find-blocks("farmland", 20)  → (10, 64, 20)
+plant-crop(10, 64, 20, "wheat_seeds")
+
+✅ OK: 土を耕してから植える
+find-blocks("grass_block", 10)  → (15, 64, 25)
+use-item-on-block(15, 64, 25, "wooden_hoe")  → farmlandになる
+plant-crop(15, 64, 25, "wheat_seeds")
+
+❌ ダメ: dig-block-atで土を「耕す」
+dig-block-at(15, 64, 25)  ← これは土を掘るだけ！耕せない！
 ```
+
+### 収穫する
+
+- `harvest-crop(x, y, z)` で成熟した作物を収穫
+- 成熟度は `get-block-at` で確認（wheat の age=7 が成熟）

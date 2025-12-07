@@ -1,7 +1,7 @@
 [
   {
     "skillName": "auto-pick-up-item",
-    "status": false
+    "status": true
   },
   {
     "skillName": "auto-eat",
@@ -17,7 +17,7 @@
   },
   {
     "skillName": "auto-face-moved-entity",
-    "status": false
+    "status": true
   },
   {
     "skillName": "auto-sleep",
@@ -45,7 +45,7 @@
   },
   {
     "skillName": "auto-face-nearest-entity",
-    "status": false
+    "status": true
   },
   {
     "skillName": "auto-throw-ender-pearl",
@@ -77,6 +77,6 @@
   },
   {
     "skillName": "auto-face-speaker",
-    "status": false
+    "status": true
   }
 ]

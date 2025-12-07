@@ -1,14 +1,20 @@
 import { CustomBot, InstantSkill } from '../types.js';
 
 /**
- * 原子的スキル: 最も近い敵に1回攻撃
+ * 原子的スキル: 最も近いエンティティに1回攻撃
  */
 class AttackNearest extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'attack-nearest';
-    this.description = '最も近い敵エンティティに1回攻撃します。移動は含まれまれず、その場で手が届く範囲の敵のみが対象です。倒すためであれば、武器を装備してから実行した方が良いです。';
+    this.description = '最も近いエンティティに1回攻撃します。entityNameで対象を指定可能。省略時は敵対的Mobのみ。';
     this.params = [
+      {
+        name: 'entityName',
+        type: 'string',
+        description: '攻撃対象のエンティティ名（例: pig, cow, zombie）。省略時は敵対的Mobのみ',
+        default: '',
+      },
       {
         name: 'maxDistance',
         type: 'number',
@@ -18,7 +24,7 @@ class AttackNearest extends InstantSkill {
     ];
   }
 
-  async runImpl(maxDistance: number = 4.5) {
+  async runImpl(entityName: string = '', maxDistance: number = 4.5) {
     try {
       // 敵対的なMobのリスト
       const hostileMobs = [
@@ -57,46 +63,53 @@ class AttackNearest extends InstantSkill {
         'warden',
       ];
 
-      // 最も近い敵を探す
-      const enemy = this.bot.nearestEntity((entity) => {
+      const targetEntityName = entityName.toLowerCase().trim();
+
+      // 最も近い対象を探す
+      const target = this.bot.nearestEntity((entity) => {
         if (!entity || !entity.position) return false;
 
         const distance = entity.position.distanceTo(this.bot.entity.position);
         if (distance > maxDistance) return false;
 
-        // 敵対的なMobかチェック
-        const entityName = entity.name?.toLowerCase() || '';
-        return hostileMobs.some((mob) => entityName.includes(mob));
+        const name = entity.name?.toLowerCase() || '';
+
+        // エンティティ名が指定されている場合はそれにマッチするものを探す
+        if (targetEntityName) {
+          return name.includes(targetEntityName);
+        }
+
+        // 指定がない場合は敵対的なMobのみ
+        return hostileMobs.some((mob) => name.includes(mob));
       });
 
-      if (!enemy) {
+      if (!target) {
+        const targetDesc = targetEntityName || '敵対的Mob';
         return {
           success: false,
-          result: `${maxDistance}ブロック以内に攻撃可能な敵が見つかりません`,
+          result: `${maxDistance}ブロック以内に攻撃可能な${targetDesc}が見つかりません`,
         };
       }
 
-      const distance = enemy.position.distanceTo(this.bot.entity.position);
+      const distance = target.position.distanceTo(this.bot.entity.position);
 
       // 距離が遠すぎる場合
       if (distance > 4.5) {
         return {
           success: false,
-          result: `敵(${enemy.name})が遠すぎます（距離: ${distance.toFixed(
-            1
-          )}m）`,
+          result: `${target.name}が遠すぎます（距離: ${distance.toFixed(1)}m）`,
         };
       }
 
-      // 敵を見る
-      await this.bot.lookAt(enemy.position.offset(0, enemy.height * 0.8, 0));
+      // 対象を見る
+      await this.bot.lookAt(target.position.offset(0, target.height * 0.8, 0));
 
       // 攻撃
-      await this.bot.attack(enemy);
+      await this.bot.attack(target);
 
       return {
         success: true,
-        result: `${enemy.name}を攻撃しました（距離: ${distance.toFixed(1)}m）`,
+        result: `${target.name}を攻撃しました（距離: ${distance.toFixed(1)}m）`,
       };
     } catch (error: any) {
       return {

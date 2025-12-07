@@ -174,6 +174,7 @@ class FillArea extends InstantSkill {
               }
 
               // ブロックを設置
+              await this.bot.equip(item, 'hand');
               await this.bot.placeBlock(
                 this.bot.blockAt(pos.offset(0, -1, 0))!,
                 new Vec3(0, 1, 0)
