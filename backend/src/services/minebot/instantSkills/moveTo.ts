@@ -176,6 +176,9 @@ class MoveTo extends InstantSkill {
         setTimeout(() => reject(new Error('移動タイムアウト')), timeout);
       });
 
+      // 既存のゴールをクリア（別のスキルが設定したゴールと競合を防ぐ）
+      this.bot.pathfinder.stop();
+
       await Promise.race([this.bot.pathfinder.goto(goal), timeoutPromise]);
 
       return {

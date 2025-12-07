@@ -140,6 +140,8 @@ class SleepInBed extends InstantSkill {
         try {
           const distance = this.bot.entity.position.distanceTo(bed.position);
           if (distance > 3) {
+            // 既存のゴールをクリア（他のスキルとの競合を防ぐ）
+            this.bot.pathfinder.stop();
             await this.bot.pathfinder.goto(
               new goals.GoalNear(bed.position.x, bed.position.y, bed.position.z, 2)
             );
@@ -244,6 +246,8 @@ class SleepInBed extends InstantSkill {
       // 設置場所に移動
       const distToPlace = this.bot.entity.position.distanceTo(placePos);
       if (distToPlace > 3) {
+        // 既存のゴールをクリア（他のスキルとの競合を防ぐ）
+        this.bot.pathfinder.stop();
         await this.bot.pathfinder.goto(
           new goals.GoalNear(placePos.x, placePos.y, placePos.z, 2)
         );

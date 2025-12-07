@@ -21,7 +21,7 @@
   },
   {
     "skillName": "auto-sleep",
-    "status": true
+    "status": false
   },
   {
     "skillName": "auto-run-from-hostiles",
