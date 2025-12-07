@@ -1,7 +1,7 @@
 import { StructuredTool } from '@langchain/core/tools';
-import { z } from 'zod';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
+import { z } from 'zod';
 
 dotenv.config();
 
@@ -47,16 +47,24 @@ export default class GoogleSearchTool extends StructuredTool {
 
     try {
       const response = await fetch(url);
-      const result = await response.json();
+      const result = await response.json() as any;
 
       if (result.items && result.items.length > 0) {
-        return result.items.map((item: any) => item.title).join(', ');
+        // タイトル、スニペット、URLを含む詳細な結果を返す
+        const formattedResults = result.items.map((item: any, index: number) => {
+          const title = item.title || 'タイトルなし';
+          const snippet = item.snippet || '説明なし';
+          const link = item.link || '';
+          return `【${index + 1}. ${title}】\n${snippet}\nURL: ${link}`;
+        }).join('\n\n');
+
+        return `検索クエリ: "${data.query}"\n検索結果 ${result.items.length}件:\n\n${formattedResults}\n\n※情報が不十分な場合は、URLをfetch-urlで取得するか、別のクエリで再検索してください。`;
       } else {
-        return 'No results found.';
+        return `検索クエリ "${data.query}" で結果が見つかりませんでした。別のキーワードで再検索してください。`;
       }
     } catch (error) {
       console.error('Google search error:', error);
-      return `An error occurred while searching: ${error}`;
+      return `検索中にエラーが発生しました: ${error}`;
     }
   }
 }
