@@ -16,11 +16,12 @@ class AutoDetectBlockOrEntity extends ConstantSkill {
   }
 
   async runImpl() {
-    this.lock();
+    // ロックは親クラスのrun()が管理するため、ここでは不要
     if (this.args.blockName) {
       const Block = this.mcData.blocksByName[this.args.blockName];
       if (!Block) {
         this.bot.chat(`ブロック${this.args.blockName}はありません`);
+        return;
       }
       const Blocks = this.bot.findBlocks({
         matching: Block.id,
@@ -46,7 +47,6 @@ class AutoDetectBlockOrEntity extends ConstantSkill {
         this.status = false;
       }
     }
-    this.unlock();
   }
 }
 

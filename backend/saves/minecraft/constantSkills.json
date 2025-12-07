@@ -5,7 +5,7 @@
   },
   {
     "skillName": "auto-eat",
-    "status": true
+    "status": false
   },
   {
     "skillName": "auto-follow",
@@ -17,11 +17,11 @@
   },
   {
     "skillName": "auto-face-moved-entity",
-    "status": false
+    "status": true
   },
   {
     "skillName": "auto-sleep",
-    "status": true
+    "status": false
   },
   {
     "skillName": "auto-run-from-hostiles",
@@ -45,7 +45,7 @@
   },
   {
     "skillName": "auto-face-nearest-entity",
-    "status": false
+    "status": true
   },
   {
     "skillName": "auto-throw-ender-pearl",
@@ -74,5 +74,9 @@
   {
     "skillName": "auto-detect-block-or-entity",
     "status": false
+  },
+  {
+    "skillName": "auto-face-speaker",
+    "status": true
   }
 ]

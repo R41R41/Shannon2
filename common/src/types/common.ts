@@ -3,50 +3,50 @@ import {
   DiscordClientOutput,
   DiscordEventType,
   DiscordGuild,
-} from './discord';
-import { LLMEventType, SkillInfo } from './llm';
+} from './discord.js';
+import { LLMEventType, SkillInfo } from './llm.js';
 import {
   MinebotEventType,
   MinebotInput,
   MinebotOutput,
   SkillParameters,
   SkillResult,
-} from './minebot';
+} from './minebot.js';
 import {
   MinecraftEventType,
   MinecraftInput,
   MinecraftOutput,
-} from './minecraft';
+} from './minecraft.js';
 import {
   NotionClientInput,
   NotionClientOutput,
   NotionEventType,
-} from './notion';
+} from './notion.js';
 import {
   SchedulerEventType,
   SchedulerInput,
   SchedulerOutput,
-} from './scheduler';
+} from './scheduler.js';
 import {
   EmotionType,
   TaskEventType,
   TaskInput,
   TaskTreeState,
-} from './taskGraph';
-import { ToolEventType } from './tools';
+} from './taskGraph.js';
+import { ToolEventType } from './tools.js';
 import {
   TwitterClientInput,
   TwitterClientOutput,
   TwitterEventType,
   TwitterSchedulePostEndpoint,
-} from './twitter';
+} from './twitter.js';
 import {
   OpenAIInput,
   OpenAIMessageOutput,
   WebEventType,
   WebSkillInput,
-} from './web';
-import { YoutubeClientOutput, YoutubeEventType } from './youtube';
+} from './web.js';
+import { YoutubeClientOutput, YoutubeEventType } from './youtube.js';
 
 export type Platform =
   | 'web'
@@ -58,6 +58,93 @@ export type Platform =
   | 'notion'
   | 'minebot'
   | 'youtube:live_chat';
+
+/**
+ * タスク実行のコンテキスト情報
+ * Platformに加えて、より詳細な情報を保持
+ */
+export interface TaskContext {
+  /** プラットフォーム（メッセージの入出力先） */
+  platform: Platform;
+
+  /** Discord固有の情報 */
+  discord?: {
+    guildId?: string;
+    guildName?: string;
+    channelId?: string;
+    channelName?: string;
+    messageId?: string;
+    userId?: string;
+    userName?: string;
+  };
+
+  /** Twitter固有の情報 */
+  twitter?: {
+    tweetId?: string;
+    authorId?: string;
+    authorName?: string;
+  };
+
+  /** YouTube固有の情報 */
+  youtube?: {
+    videoId?: string;
+    channelId?: string;
+    commentId?: string;
+    liveId?: string;
+  };
+
+  /** 会話追跡用 */
+  conversationId?: string;
+
+  /** 追加のメタデータ */
+  metadata?: Record<string, any>;
+}
+
+/**
+ * MemoryZone から TaskContext への変換ヘルパー
+ * @deprecated 将来的にはTaskContextを直接使用してください
+ */
+export function memoryZoneToContext(memoryZone: MemoryZone, channelId?: string): TaskContext {
+  if (memoryZone === 'web') {
+    return { platform: 'web' };
+  }
+  if (memoryZone.startsWith('discord:')) {
+    return {
+      platform: 'discord',
+      discord: {
+        guildName: memoryZone.replace('discord:', ''),
+        channelId,
+      },
+    };
+  }
+  if (memoryZone.startsWith('twitter:')) {
+    return { platform: 'twitter' };
+  }
+  if (memoryZone === 'youtube') {
+    return { platform: 'youtube' };
+  }
+  if (memoryZone === 'minecraft' || memoryZone === 'minebot') {
+    return { platform: memoryZone as Platform };
+  }
+  if (memoryZone === 'notion') {
+    return { platform: 'notion' };
+  }
+  return { platform: 'web' };
+}
+
+/**
+ * TaskContext から MemoryZone への変換ヘルパー
+ * @deprecated 将来的にはTaskContextを直接使用してください
+ */
+export function contextToMemoryZone(context: TaskContext): MemoryZone {
+  if (context.platform === 'discord' && context.discord?.guildName) {
+    return `discord:${context.discord.guildName}` as MemoryZone;
+  }
+  if (context.platform === 'twitter') {
+    return 'twitter:post';
+  }
+  return context.platform as MemoryZone;
+}
 
 export type ConversationType =
   | 'text'
@@ -96,7 +183,8 @@ export type PromptType =
   | 'reply_twitter_comment'
   | 'emotion'
   | 'use_tool'
-  | 'reply_youtube_live_comment';
+  | 'reply_youtube_live_comment'
+  | 'emergency';
 
 export type RealTimeAPIEndpoint =
   | 'realtime_text_input'
@@ -156,32 +244,32 @@ export interface Event {
   type: EventType;
   memoryZone: MemoryZone;
   data:
-    | TwitterClientInput
-    | TwitterClientOutput
-    | OpenAIInput
-    | DiscordClientInput
-    | ILog
-    | OpenAIMessageOutput
-    | DiscordClientOutput
-    | MinecraftInput
-    | MinecraftOutput
-    | SchedulerInput
-    | SchedulerOutput
-    | StatusAgentInput
-    | ServiceInput
-    | YoutubeClientOutput
-    | MinebotOutput
-    | MinebotInput
-    | ServiceOutput
-    | TaskInput
-    | TaskTreeState
-    | EmotionType
-    | SkillInfo[]
-    | WebSkillInput
-    | SkillParameters
-    | SkillResult
-    | NotionClientInput
-    | NotionClientOutput;
+  | TwitterClientInput
+  | TwitterClientOutput
+  | OpenAIInput
+  | DiscordClientInput
+  | ILog
+  | OpenAIMessageOutput
+  | DiscordClientOutput
+  | MinecraftInput
+  | MinecraftOutput
+  | SchedulerInput
+  | SchedulerOutput
+  | StatusAgentInput
+  | ServiceInput
+  | YoutubeClientOutput
+  | MinebotOutput
+  | MinebotInput
+  | ServiceOutput
+  | TaskInput
+  | TaskTreeState
+  | EmotionType
+  | SkillInfo[]
+  | WebSkillInput
+  | SkillParameters
+  | SkillResult
+  | NotionClientInput
+  | NotionClientOutput;
   targetMemoryZones?: MemoryZone[];
 }
 

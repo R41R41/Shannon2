@@ -14,18 +14,16 @@ class AutoFaceNearestEntity extends ConstantSkill {
 
   async runImpl() {
     if (this.bot.executingSkill) return;
-    if (this.isLocked) return;
     const entities = Object.values(this.bot.entities)
       .filter((e) => e.id !== this.bot.entity.id)
       .filter((e) => this.bot.entity.position.distanceTo(e.position) <= 4);
     if (entities.length === 0) return;
     const nearest = entities.reduce((a, b) =>
       this.bot.entity.position.distanceTo(a.position) <
-      this.bot.entity.position.distanceTo(b.position)
+        this.bot.entity.position.distanceTo(b.position)
         ? a
         : b
     );
-    this.isLocked = true;
     // エンティティの頭の位置を計算
     const headPos = new Vec3(
       nearest.position.x,
@@ -33,8 +31,8 @@ class AutoFaceNearestEntity extends ConstantSkill {
       nearest.position.z
     );
     await this.bot.lookAt(headPos);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    this.isLocked = false;
+    // ロックは親クラスのrun()が管理するため、ここでは待機のみ
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 }
 

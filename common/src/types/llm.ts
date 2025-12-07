@@ -1,4 +1,4 @@
-import { ConversationType, Platform } from "./common";
+import { ConversationType, Platform } from "./common.js";
 
 export interface LLMInput {
   platform: Platform;

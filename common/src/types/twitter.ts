@@ -1,4 +1,4 @@
-import { ServiceInput } from "./common";
+import { ServiceInput } from "./common.js";
 
 export type TwitterSchedulePostEndpoint =
   | "about_today"

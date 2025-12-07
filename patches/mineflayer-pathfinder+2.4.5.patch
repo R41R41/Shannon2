@@ -1,0 +1,20 @@
+diff --git a/node_modules/mineflayer-pathfinder/index.js b/node_modules/mineflayer-pathfinder/index.js
+index b38bd30..6fc4d20 100644
+--- a/node_modules/mineflayer-pathfinder/index.js
++++ b/node_modules/mineflayer-pathfinder/index.js
+@@ -521,7 +521,14 @@ function inject (bot) {
+       // Open gates or doors
+       if (placingBlock?.useOne) {
+         if (!lockUseBlock.tryAcquire()) return
+-        bot.activateBlock(bot.blockAt(new Vec3(placingBlock.x, placingBlock.y, placingBlock.z))).then(() => {
++        const blockToActivate = bot.blockAt(new Vec3(placingBlock.x, placingBlock.y, placingBlock.z))
++        if (!blockToActivate) {
++          // Block not loaded, skip and continue
++          lockUseBlock.release()
++          placingBlock = nextPoint.toPlace.shift()
++          return
++        }
++        bot.activateBlock(blockToActivate).then(() => {
+           lockUseBlock.release()
+           placingBlock = nextPoint.toPlace.shift()
+         }, err => {

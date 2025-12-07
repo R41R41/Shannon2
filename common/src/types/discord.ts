@@ -1,7 +1,7 @@
-import { ServiceInput, ServiceOutput } from "./common";
-import { TwitterSchedulePostEndpoint } from "./twitter";
 import { BaseMessage } from "@langchain/core/messages";
-import { TaskTreeState } from "./taskGraph";
+import { ServiceInput, ServiceOutput } from "./common.js";
+import { TaskTreeState } from "./taskGraph.js";
+import { TwitterSchedulePostEndpoint } from "./twitter.js";
 export type DiscordGuild =
   | "discord:toyama_server"
   | "discord:douki_server"

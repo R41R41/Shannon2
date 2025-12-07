@@ -14,16 +14,14 @@ class AutoFaceUpdatedBlock extends ConstantSkill {
 
   async runImpl(block: Block) {
     if (this.bot.executingSkill) return;
-    if (this.isLocked) return;
-    this.isLocked = true;
     const blockPos = new Vec3(
       block.position.x + 0.5,
       block.position.y + 0.5,
       block.position.z + 0.5
     );
     await this.bot.lookAt(blockPos);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    this.isLocked = false;
+    // ロックは親クラスのrun()が管理するため、ここでは待機のみ
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 }
 

@@ -1,4 +1,4 @@
-import { ServiceInput } from './common';
+import { ServiceInput } from './common.js';
 export type YoutubeClientInput = YoutubeLiveChatInput | YoutubeVideoInput;
 export interface YoutubeLiveChatInput extends ServiceInput {
     videoId: string;
