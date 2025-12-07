@@ -936,14 +936,26 @@ export class TaskGraph {
     const taskIndex = this.taskQueue.findIndex(t => t.id === taskId);
     if (taskIndex !== -1) {
       const task = this.taskQueue[taskIndex];
-      console.log(`\x1b[32m✅ タスク完了: "${task.taskTree?.goal}"\x1b[0m`);
-      this.taskQueue.splice(taskIndex, 1);
+      const taskStatus = this.currentState?.taskTree?.status;
+
+      if (taskStatus === 'error') {
+        // エラーの場合はキューに残す（pausedに戻す）
+        console.log(`\x1b[31m❌ タスクエラー: "${task.taskTree?.goal}" - キューに残します\x1b[0m`);
+        task.status = 'paused';
+        // タスクツリーの状態を更新
+        task.taskTree = this.currentState?.taskTree || task.taskTree;
+      } else {
+        // 完了の場合はキューから削除
+        console.log(`\x1b[32m✅ タスク完了: "${task.taskTree?.goal}"\x1b[0m`);
+        this.taskQueue.splice(taskIndex, 1);
+      }
     }
 
     this.notifyTaskListUpdate();
 
-    // 次のタスクを実行
-    if (!this.isEmergencyMode) {
+    // 次のタスクを実行（エラーの場合は自動実行しない）
+    const taskStatus = this.currentState?.taskTree?.status;
+    if (!this.isEmergencyMode && taskStatus !== 'error') {
       setTimeout(() => this.executeNextTask(), 500);
     }
   }

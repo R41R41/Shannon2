@@ -128,9 +128,9 @@ class MoveTo extends InstantSkill {
         true, // allowSprinting: ダッシュを許可
         true, // allowParkour: ジャンプを許可
         true, // canOpenDoors: ドアを開ける
-        !isInWater, // canDig: 水中ではブロックを掘らない（泳ぐ方が早い）
+        true, // canDig: 水中ではブロックを掘らない（泳ぐ方が早い）
         true, // dontMineUnderFallingBlock: 落下ブロックの下は掘らない
-        isInWater ? 100 : 1, // digCost: 水中では掘るコストを上げる
+        isInWater ? 2 : 1, // digCost: 水中では掘るコストを上げる
         isInWater, // allowFreeMotion: 水中では自由移動を許可
         true // canSwim: 泳ぐことを許可
       );
