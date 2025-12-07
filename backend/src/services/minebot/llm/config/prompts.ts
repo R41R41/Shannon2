@@ -1,10 +1,7 @@
 import { PromptType } from '@shannon/common';
 import { readFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { join } from 'path';
+import { CONFIG } from '../../config/MinebotConfig.js';
 
 export const loadPrompt = async (
   promptType: PromptType,
@@ -14,15 +11,14 @@ export const loadPrompt = async (
     let path: string;
     if (directoryName) {
       path = join(
-        __dirname,
-        '../../../../../saves/prompts',
+        CONFIG.PROMPTS_DIR,
         directoryName,
         `${promptType}.md`
       );
     } else {
       path = join(
-        __dirname,
-        '../../../../../saves/prompts/others',
+        CONFIG.PROMPTS_DIR,
+        'others',
         `${promptType}.md`
       );
     }

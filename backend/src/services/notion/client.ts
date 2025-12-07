@@ -1,6 +1,6 @@
+import { Client } from "@notionhq/client";
 import { NotionClientInput } from '@shannon/common';
 import dotenv from 'dotenv';
-import { Client } from "@notionhq/client";
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
 
@@ -78,65 +78,127 @@ export class NotionClient extends BaseClient {
         return title;
     }
 
-    async getPageBlocksToMarkdown(pageId: string) {
+    /**
+     * リッチテキストからプレーンテキストを抽出
+     */
+    private extractRichText(richTextArray: any[]): string {
+        if (!richTextArray || !Array.isArray(richTextArray)) return "";
+        return richTextArray.map(rt => rt?.text?.content || rt?.plain_text || "").join("");
+    }
+
+    /**
+     * 画像ブロックからURLを取得
+     */
+    private getImageUrl(block: any): string | null {
+        const imageData = block.image;
+        if (!imageData) return null;
+
+        if (imageData.type === 'file') {
+            return imageData.file?.url || null;
+        } else if (imageData.type === 'external') {
+            return imageData.external?.url || null;
+        }
+        return null;
+    }
+
+    /**
+     * ブロックをマークダウンに変換
+     */
+    private blockToMarkdown(block: any, indent: number = 0): string {
+        const indentStr = "  ".repeat(indent);
+        let content = "";
+        const type = block.type;
+
+        if (type === "paragraph") {
+            content = this.extractRichText(block.paragraph?.rich_text);
+        } else if (type === "heading_1") {
+            content = `# ${this.extractRichText(block.heading_1?.rich_text)}`;
+        } else if (type === "heading_2") {
+            content = `## ${this.extractRichText(block.heading_2?.rich_text)}`;
+        } else if (type === "heading_3") {
+            content = `### ${this.extractRichText(block.heading_3?.rich_text)}`;
+        } else if (type === "bulleted_list_item") {
+            content = `${indentStr}- ${this.extractRichText(block.bulleted_list_item?.rich_text)}`;
+        } else if (type === "numbered_list_item") {
+            content = `${indentStr}1. ${this.extractRichText(block.numbered_list_item?.rich_text)}`;
+        } else if (type === "to_do") {
+            const checked = block.to_do?.checked;
+            content = `${indentStr}- [${checked ? 'x' : ' '}] ${this.extractRichText(block.to_do?.rich_text)}`;
+        } else if (type === "toggle") {
+            content = `${indentStr}▶ ${this.extractRichText(block.toggle?.rich_text)}`;
+        } else if (type === "code") {
+            const language = block.code?.language || "";
+            content = `\`\`\`${language}\n${this.extractRichText(block.code?.rich_text)}\n\`\`\``;
+        } else if (type === "quote") {
+            content = `> ${this.extractRichText(block.quote?.rich_text)}`;
+        } else if (type === "callout") {
+            const icon = block.callout?.icon?.emoji || "💡";
+            content = `${icon} ${this.extractRichText(block.callout?.rich_text)}`;
+        } else if (type === "divider") {
+            content = "---";
+        } else if (type === "table_row") {
+            const cells = block.table_row?.cells || [];
+            content = `| ${cells.map((cell: any[]) => this.extractRichText(cell)).join(" | ")} |`;
+        } else if (type === "image") {
+            // 画像ブロック: URLを返す（内容分析はdescribe-imageツールで行う）
+            const imageUrl = this.getImageUrl(block);
+            const caption = this.extractRichText(block.image?.caption);
+            if (imageUrl) {
+                content = `📷 [画像${caption ? `: ${caption}` : ''}] URL: ${imageUrl}`;
+            } else {
+                content = "📷 [画像: URLを取得できませんでした]";
+            }
+        } else if (type === "file") {
+            // ファイルブロック
+            const fileUrl = block.file?.file?.url || block.file?.external?.url || "";
+            const fileName = block.file?.name || "添付ファイル";
+            content = `📎 [ファイル: ${fileName}] URL: ${fileUrl}`;
+        } else if (type === "pdf") {
+            // PDFブロック
+            const pdfUrl = block.pdf?.file?.url || block.pdf?.external?.url || "";
+            content = `📄 [PDF] URL: ${pdfUrl}`;
+        } else if (type === "video") {
+            // ビデオブロック
+            const videoUrl = block.video?.external?.url || block.video?.file?.url || "";
+            content = `🎥 [動画] URL: ${videoUrl}`;
+        } else if (type === "embed" || type === "bookmark") {
+            // 埋め込みブロック
+            const url = block[type]?.url || "";
+            content = `🔗 [埋め込み] URL: ${url}`;
+        }
+
+        return content;
+    }
+
+    /**
+     * 再帰的にブロックとその子ブロックを取得してマークダウンに変換
+     */
+    async getPageBlocksToMarkdown(pageId: string, indent: number = 0): Promise<string[]> {
         console.log('\x1b[34mgetPageBlocksToMarkdown\x1b[0m', pageId);
         try {
             const response = await this.client.blocks.children.list({
                 block_id: pageId,
             });
 
-            const markdown = response.results.map((block) => {
-                let content = "";
-                // ブロックタイプに基づいてマークダウン形式のコンテンツを生成
+            const markdownLines: string[] = [];
+
+            for (const block of response.results) {
                 // @ts-ignore
-                if (block.type === "paragraph") {
-                    // @ts-ignore
-                    const richText = block.paragraph?.rich_text?.[0];
-                    content = richText?.text?.content || "";
-                    // @ts-ignore
-                } else if (block.type === "heading_1") {
-                    // @ts-ignore
-                    const richText = block.heading_1?.rich_text?.[0];
-                    content = `# ${richText?.text?.content || ""}`;
-                    // @ts-ignore
-                } else if (block.type === "heading_2") {
-                    // @ts-ignore
-                    const richText = block.heading_2?.rich_text?.[0];
-                    content = `## ${richText?.text?.content || ""}`;
-                    // @ts-ignore
-                } else if (block.type === "heading_3") {
-                    // @ts-ignore
-                    const richText = block.heading_3?.rich_text?.[0];
-                    content = `### ${richText?.text?.content || ""}`;
-                    // @ts-ignore
-                } else if (block.type === "bulleted_list_item") {
-                    // @ts-ignore
-                    const richText = block.bulleted_list_item?.rich_text?.[0];
-                    content = `- ${richText?.text?.content || ""}`;
-                    // @ts-ignore
-                } else if (block.type === "numbered_list_item") {
-                    // @ts-ignore
-                    const richText = block.numbered_list_item?.rich_text?.[0];
-                    content = `1. ${richText?.text?.content || ""}`;
-                    // @ts-ignore
-                } else if (block.type === "to_do") {
-                    // @ts-ignore
-                    const richText = block.to_do?.rich_text?.[0];
-                    // @ts-ignore
-                    const checked = block.to_do?.checked;
-                    content = `- [${checked ? 'x' : ' '}] ${richText?.text?.content || ""}`;
-                    // @ts-ignore
-                } else if (block.type === "code") {
-                    // @ts-ignore
-                    const richText = block.code?.rich_text?.[0];
-                    // @ts-ignore
-                    const language = block.code?.language || "";
-                    content = `\`\`\`${language}\n${richText?.text?.content || ""}\n\`\`\``;
+                const content = this.blockToMarkdown(block, indent);
+                if (content) {
+                    markdownLines.push(content);
                 }
 
-                return content;
-            });
-            return markdown;
+                // 子ブロックがある場合は再帰的に取得
+                // @ts-ignore
+                if (block.has_children) {
+                    // @ts-ignore
+                    const childMarkdown = await this.getPageBlocksToMarkdown(block.id, indent + 1);
+                    markdownLines.push(...childMarkdown);
+                }
+            }
+
+            return markdownLines;
         } catch (error) {
             console.error(`Notionブロック取得エラー: ${error}`);
             return [];

@@ -3,11 +3,41 @@ export interface TaskInput {
     date?: Date | null;
 }
 export type TaskStatus = "pending" | "in_progress" | "completed" | "error";
+/**
+ * 階層的サブタスク構造（タスクの全体像・表示用）
+ *
+ * 例:
+ * ├── 石のツルハシを作る
+ * │   ├── 丸石を3つ集める
+ * │   │   ├── 丸石を探す ✓
+ * │   │   ├── 丸石に移動する ✓
+ * │   │   └── 丸石を掘る ↻
+ * │   ├── 棒を2本用意する □
+ * │   └── クラフトする □
+ */
+export interface HierarchicalSubTask {
+    id: string;
+    goal: string;
+    status: TaskStatus;
+    result?: string | null;
+    failureReason?: string | null;
+    children?: HierarchicalSubTask[] | null;
+    depth: number;
+}
+export interface ActionItem {
+    toolName: string;
+    args: Record<string, any>;
+    expectedResult: string;
+}
 export interface TaskTreeState {
     goal: string;
     strategy: string;
     status: TaskStatus;
     error?: string | null;
+    hierarchicalSubTasks?: HierarchicalSubTask[] | null;
+    currentSubTaskId?: string | null;
+    nextActionSequence?: ActionItem[] | null;
+    actionSequence?: ActionItem[] | null;
     subTasks?: {
         subTaskGoal: string;
         subTaskStrategy: string;

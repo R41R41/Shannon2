@@ -1,24 +1,48 @@
-import { CustomBot } from '../types.js';
-import { ConstantSkill } from '../types.js';
-import { FollowEntity } from '../instantSkills/followEntity.js';
+import { ConstantSkill, CustomBot } from '../types.js';
 
+/**
+ * 自動浮上スキル
+ * 水中で酸素が半分以下になったら自動で水面に浮上する
+ */
 class AutoSwim extends ConstantSkill {
-  private followEntity: FollowEntity;
-  private distance: number;
+  private isSwimmingUp: boolean = false;
+
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'auto-swim';
-    this.description = '自動で泳ぐ';
-    this.interval = 1000;
-    this.distance = 24;
-    this.followEntity = new FollowEntity(this.bot);
-    this.status = true;
+    this.description = '水中で酸素が減ったら自動で浮上する（溺死防止）';
+    this.interval = 100;  // 100msごとにチェック（高速反応）
+    this.status = true;   // デフォルトでON
+    this.priority = 10;   // 最高優先度
+    this.containMovement = true;
   }
 
-  async run() {
+  async runImpl() {
     try {
-      if (this.bot.isInWater) {
-        await this.followEntity.swim(null);
+      const oxygen = this.bot.oxygenLevel ?? 20;
+      const isInWater = (this.bot.entity as any)?.isInWater || false;
+
+      // 水中かつ酸素が半分以下（10未満）→ 浮上開始
+      if (isInWater && oxygen < 10 && !this.isSwimmingUp) {
+        console.log(`\x1b[36m🏊 自動浮上開始！酸素: ${oxygen}/20\x1b[0m`);
+        this.isSwimmingUp = true;
+      }
+
+      // 浮上中は酸素が完全回復（20）するまで継続
+      if (this.isSwimmingUp) {
+        if (oxygen >= 20) {
+          // 完全回復したら停止
+          console.log(`\x1b[32m🏊 浮上完了！酸素完全回復: 20/20\x1b[0m`);
+          this.isSwimmingUp = false;
+          this.bot.setControlState('jump', false);
+        } else {
+          // まだ回復してない → 浮上継続
+          this.bot.setControlState('jump', true);
+
+          // 上を向く
+          const currentPos = this.bot.entity.position;
+          await this.bot.lookAt(currentPos.offset(0, 10, 0));
+        }
       }
     } catch (error) {
       console.log('autoSwim error', error);

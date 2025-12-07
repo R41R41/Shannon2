@@ -1,5 +1,9 @@
+import { exec } from 'child_process';
 import http from 'http';
+import { promisify } from 'util';
 import WebSocket, { WebSocketServer } from 'ws';
+
+const execAsync = promisify(exec);
 
 export interface WebSocketServiceConfig {
   port?: number;
@@ -8,23 +12,27 @@ export interface WebSocketServiceConfig {
 }
 
 export abstract class WebSocketServiceBase {
-  protected wss: WebSocketServer;
+  protected wss!: WebSocketServer;
   protected serviceName: string;
   private isInitialized = false;
   protected activeConnections = new Set<WebSocket>();
 
   constructor(config: WebSocketServiceConfig) {
+    this.serviceName = config.serviceName;
     if (config.server) {
       this.wss = new WebSocketServer({ server: config.server });
+      console.log(`WebSocketServer created with existing server for service ${this.serviceName}`);
     } else if (config.port) {
       this.wss = new WebSocketServer({ port: config.port });
+      console.log(`WebSocketServer created on port ${config.port} for service ${this.serviceName}`);
     } else {
       throw new Error('Invalid configuration');
     }
-    console.log(
-      `WebSocketServer created on port ${config.port} for service ${config.serviceName}`
-    );
-    this.serviceName = config.serviceName;
+
+    // エラーハンドリングを追加
+    this.wss.on('error', (error) => {
+      console.error(`WebSocket server error for ${this.serviceName}:`, error);
+    });
   }
 
   public start() {

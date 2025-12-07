@@ -1,18 +1,58 @@
 {
   "type": "chest",
   "position": {
-    "x": -227,
-    "y": 71,
-    "z": 240
+    "x": 330,
+    "y": 63,
+    "z": 230
   },
   "items": [
     {
-      "name": "mossy_cobblestone",
+      "name": "stick",
+      "count": 2
+    },
+    {
+      "name": "bread",
       "count": 1
     },
     {
-      "name": "grass_block",
-      "count": 64
+      "name": "bread",
+      "count": 1
+    },
+    {
+      "name": "stick",
+      "count": 1
+    },
+    {
+      "name": "stick",
+      "count": 1
+    },
+    {
+      "name": "bread",
+      "count": 1
+    },
+    {
+      "name": "stick",
+      "count": 1
+    },
+    {
+      "name": "bread",
+      "count": 1
+    },
+    {
+      "name": "iron_shovel",
+      "count": 1
+    },
+    {
+      "name": "bread",
+      "count": 1
+    },
+    {
+      "name": "bread",
+      "count": 1
+    },
+    {
+      "name": "bread",
+      "count": 1
     }
   ]
 }

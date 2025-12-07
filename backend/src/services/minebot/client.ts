@@ -15,31 +15,21 @@ import { plugin as pvp } from 'mineflayer-pvp';
 import { plugin as toolPlugin } from 'mineflayer-tool';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
+import { CONFIG } from './config/MinebotConfig.js';
 import { SkillAgent } from './skillAgent.js';
 import { ConstantSkills, CustomBot, InstantSkills } from './types.js';
 import { Utils } from './utils/index.js';
 dotenv.config();
 
-if (
-  !process.env.MINECRAFT_BOT_USER_NAME ||
-  !process.env.MINECRAFT_BOT_PASSWORD
-) {
-  throw new Error(
-    'MINECRAFT_BOT_USER_NAME and MINECRAFT_BOT_PASSWORD must be set'
-  );
-}
-
-const ports = {
-  '1.21.4-test': 25566,
-  '1.19.0-youtube': 25564,
-  '1.21.1-play': 25565,
-};
+// 環境変数の検証
+CONFIG.validateEnvironment();
 
 export class MinebotClient extends BaseClient {
   private bot: CustomBot | null = null;
   public isDev: boolean = false;
   private static instance: MinebotClient;
   private skillAgent: SkillAgent | null = null;
+  private unsubscribeFunctions: (() => void)[] = [];
 
   constructor(serviceName: 'minebot', isDev: boolean) {
     const eventBus = getEventBus();
@@ -56,15 +46,16 @@ export class MinebotClient extends BaseClient {
   }
 
   private async setUpBot(data: MinebotInput) {
-    const username = process.env.MINECRAFT_BOT_USER_NAME;
-    const password = process.env.MINECRAFT_BOT_PASSWORD;
+    const username = CONFIG.MINECRAFT_BOT_USER_NAME;
+    const password = CONFIG.MINECRAFT_BOT_PASSWORD;
 
-    if (!password || !username) {
-      throw new Error('必要な環境変数が設定されていません');
-    }
     const { serverName } = data as MinebotStartOrStopInput;
-    const port = ports[serverName as keyof typeof ports];
+    const port = CONFIG.MINECRAFT_SERVERS[serverName as string];
     const version = serverName?.split('-')[0];
+
+    if (!port) {
+      throw new Error(`Unknown server: ${serverName}`);
+    }
 
     console.log(`${port} ${version}に接続します`);
 
@@ -74,7 +65,7 @@ export class MinebotClient extends BaseClient {
       username,
       auth: 'microsoft',
       version,
-      checkTimeoutInterval: 60 * 60 * 1000,
+      checkTimeoutInterval: CONFIG.CHECK_TIMEOUT_INTERVAL,
       skipValidation: true,
     }) as CustomBot;
 
@@ -97,8 +88,7 @@ export class MinebotClient extends BaseClient {
       this.eventBus.log('minecraft', 'green', 'Bot has logged in.');
     });
 
-    this.bot.isTest =
-      process.env.IS_DEV === 'True' || process.argv[3] === 'dev';
+    this.bot.isTest = CONFIG.IS_DEV;
     this.bot.chatMode = true;
     this.bot.attackEntity = null;
     this.bot.runFromEntity = null;
@@ -116,11 +106,11 @@ export class MinebotClient extends BaseClient {
     };
     this.bot.environmentState = {
       senderName: '',
-      senderPosition: '',
+      senderPosition: null,
       weather: '',
       time: '',
       biome: '',
-      dimension: '',
+      dimension: null,
       bossbar: null,
     };
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -192,7 +182,12 @@ export class MinebotClient extends BaseClient {
   }
 
   private async setupEventBus() {
-    this.eventBus.subscribe('minebot:status', async (event) => {
+    // 既存のsubscribeを解除
+    this.unsubscribeFunctions.forEach(unsubscribe => unsubscribe());
+    this.unsubscribeFunctions = [];
+
+    // 新しいsubscribeを追加
+    const unsubscribe1 = this.eventBus.subscribe('minebot:status', async (event) => {
       const { serviceCommand } = event.data as ServiceInput;
       if (serviceCommand === 'start') {
         await this.start();
@@ -209,7 +204,9 @@ export class MinebotClient extends BaseClient {
         });
       }
     });
-    this.eventBus.subscribe('minebot:bot:status', async (event) => {
+    this.unsubscribeFunctions.push(unsubscribe1);
+
+    const unsubscribe2 = this.eventBus.subscribe('minebot:bot:status', async (event) => {
       if (this.status !== 'running') return;
       const { serviceCommand } = event.data as ServiceInput;
       if (serviceCommand === 'start') {
@@ -248,6 +245,7 @@ export class MinebotClient extends BaseClient {
         });
       }
     });
+    this.unsubscribeFunctions.push(unsubscribe2);
   }
 
   private async startBot(data: MinebotInput) {
@@ -271,13 +269,16 @@ export class MinebotClient extends BaseClient {
         throw new Error('Botが初期化されていません');
       }
       // port 8082を開放
-      if (this.skillAgent?.server) {
-        this.skillAgent.server.close(() => {
-          console.log('Express server on 8082 closed');
-        });
-        this.skillAgent.server = null;
+      if (this.skillAgent) {
+        const httpServer = this.skillAgent.getHttpServer();
+        await httpServer.stop();
       }
       this.bot.quit();
+      if (this.skillAgent?.centralAgent.currentTaskGraph) {
+        this.skillAgent.centralAgent.currentTaskGraph.forceStop();
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      this.skillAgent = null;
       this.bot = null;
       this.eventBus.log('minecraft', 'green', 'Minecraft bot stopped');
       return true;

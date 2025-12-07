@@ -1,147 +1,14 @@
 [
   {
-    "id": "24579",
-    "name": "I_am_Sh4nnon",
-    "type": "player",
-    "position": {
-      "x": 1.3167154902660507,
-      "y": 70,
-      "z": -2.687063100228083
-    },
-    "distance": 0,
-    "metadata": [
-      0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      20,
-      [],
-      null,
-      2,
-      null,
-      null,
-      null,
-      null,
-      127
-    ]
-  },
-  {
-    "id": "517",
-    "name": "yummy34",
-    "type": "player",
-    "position": {
-      "x": 3.193894664390712,
-      "y": 70,
-      "z": -3.6763334716533618
-    },
-    "distance": 2.12,
-    "metadata": [
-      0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      8,
-      null,
-      null,
-      0,
-      null,
-      null,
-      null,
-      49,
-      127
-    ]
-  },
-  {
-    "id": "23213",
-    "name": "item_frame",
-    "type": "other",
-    "position": {
-      "x": 0,
-      "y": 71,
-      "z": 0
-    },
-    "distance": 3.16,
-    "metadata": [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      {
-        "itemCount": 1,
-        "itemId": 1040,
-        "addedComponentCount": 0,
-        "removedComponentCount": 0,
-        "components": [],
-        "removeComponents": []
-      },
-      1
-    ]
-  },
-  {
-    "id": "24035",
-    "name": "item_frame",
-    "type": "other",
-    "position": {
-      "x": 2,
-      "y": 71,
-      "z": 1
-    },
-    "distance": 3.88,
-    "metadata": [
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      {
-        "itemCount": 1,
-        "itemId": 1040,
-        "addedComponentCount": 0,
-        "removedComponentCount": 0,
-        "components": [],
-        "removeComponents": []
-      }
-    ]
-  },
-  {
-    "id": "24137",
-    "name": "oak_boat",
-    "type": "other",
-    "position": {
-      "x": 3.569980745616305,
-      "y": 70,
-      "z": 4.1553907918121995
-    },
-    "distance": 7.2,
-    "metadata": []
-  },
-  {
-    "id": "10",
-    "name": "sheep",
+    "id": "3719",
+    "name": "chicken",
     "type": "animal",
     "position": {
-      "x": 3.569980745616305,
-      "y": 70.1875,
-      "z": 4.1553907918121995
+      "x": 10.991277475239142,
+      "y": 61,
+      "z": 2.1863886586163397
     },
-    "distance": 7.21,
+    "distance": 9.78,
     "metadata": [
       null,
       null,
@@ -152,39 +19,19 @@
       null,
       null,
       null,
-      8,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      6
+      4
     ]
   },
   {
-    "id": "17410",
-    "name": "birch_boat",
-    "type": "other",
-    "position": {
-      "x": 5.726481711857562,
-      "y": 70,
-      "z": -10.3125
-    },
-    "distance": 8.81,
-    "metadata": []
-  },
-  {
-    "id": "22",
-    "name": "cow",
+    "id": "3718",
+    "name": "chicken",
     "type": "animal",
     "position": {
-      "x": 5.726481711857562,
-      "y": 70.1875,
-      "z": -10.3125
+      "x": 10.613866774005018,
+      "y": 61,
+      "z": 2.6324338151891977
     },
-    "distance": 8.81,
+    "distance": 10.02,
     "metadata": [
       null,
       null,
@@ -195,21 +42,20 @@
       null,
       null,
       null,
-      10
+      4
     ]
   },
   {
-    "id": "45",
-    "name": "R41R41",
-    "type": "player",
+    "id": "3727",
+    "name": "chicken",
+    "type": "animal",
     "position": {
-      "x": -3.6926247242020587,
-      "y": 71,
-      "z": -13.494228491217285
+      "x": 10.95457746334903,
+      "y": 61,
+      "z": 2.7181079648706645
     },
-    "distance": 11.95,
+    "distance": 10.24,
     "metadata": [
-      0,
       null,
       null,
       null,
@@ -218,29 +64,28 @@
       null,
       null,
       null,
-      19.999998092651367,
+      null,
+      4,
       null,
       null,
-      0,
       null,
       null,
       null,
-      55,
-      127
+      null,
+      true
     ]
   },
   {
-    "id": "793",
-    "name": "guriko8670",
-    "type": "player",
+    "id": "4051",
+    "name": "chicken",
+    "type": "animal",
     "position": {
-      "x": 21.831601519467974,
-      "y": 64,
-      "z": -3.8702025435837983
+      "x": 10.94636020010132,
+      "y": 61,
+      "z": 2.9797219462386995
     },
-    "distance": 21.41,
+    "distance": 10.47,
     "metadata": [
-      8,
       null,
       null,
       null,
@@ -248,16 +93,16 @@
       null,
       null,
       null,
-      2,
-      19,
-      [],
+      null,
+      null,
+      4,
       null,
       null,
       null,
       null,
       null,
-      149,
-      127
+      null,
+      true
     ]
   }
 ]
