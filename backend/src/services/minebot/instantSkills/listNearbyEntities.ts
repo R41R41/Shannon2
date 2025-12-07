@@ -49,6 +49,7 @@ class ListNearbyEntities extends InstantSkill {
           return distance <= maxDistance;
         })
         .map((e) => ({
+          id: e.id,
           name: e.name || e.type,
           type: e.type,
           distance:
@@ -70,7 +71,7 @@ class ListNearbyEntities extends InstantSkill {
       }
 
       const entityList = allEntities
-        .map((e) => `${e.name}(${e.type}) 距離${e.distance}m`)
+        .map((e: any) => `${e.name}(${e.type})${e.id ? ` ID:${e.id}` : ''} 距離${e.distance}m`)
         .join(', ');
 
       return {

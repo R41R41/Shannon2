@@ -481,6 +481,11 @@ export class SkillAgent {
    */
   async sendTaskListState(taskListState: any) {
     try {
+      const emergencyInfo = taskListState.emergencyTask
+        ? `goal="${taskListState.emergencyTask.goal}"`
+        : 'null';
+      console.log(`📤 Task list state sending: tasks=${taskListState.tasks?.length || 0}, emergencyTask=${emergencyInfo}`);
+
       await fetch(`http://localhost:${CONFIG.UI_MOD_PORT}/task_list`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=UTF-8' },

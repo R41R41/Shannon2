@@ -1,75 +1,58 @@
-import pathfinderPkg from 'mineflayer-pathfinder';
+import SleepInBed from '../instantSkills/sleepInBed.js';
 import { ConstantSkill, CustomBot } from '../types.js';
 
-const { goals } = pathfinderPkg;
-
-/**
- * 自動睡眠スキル
- * 夜になったら自動でベッドで寝る
- */
 class AutoSleep extends ConstantSkill {
-  private isSleeping: boolean = false;
-
+  private sleepInBed: SleepInBed;
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'auto-sleep';
-    this.description = '夜になったら自動でベッドで寝ます';
-    this.interval = 5000; // 5秒ごとにチェック
+    this.description = '夜になったら自動で眠り、朝になったら自動で起きます';
+    this.interval = 1000;
     this.isLocked = false;
-    this.status = false;
-    this.priority = 4;
+    this.priority = 10;
+    this.sleepInBed = new SleepInBed(this.bot);
+    this.status = true;
+    this.containMovement = true;
   }
 
   async runImpl() {
-    // 既に寝ている場合はスキップ
-    if (this.isSleeping || this.bot.isSleeping) return;
-
-    // 移動中はスキップ
-    if (this.bot.pathfinder.isMoving()) return;
-
-    // 夜かどうかチェック（時刻が13000-23000の間が夜）
-    const timeOfDay = this.bot.time.timeOfDay;
-    if (timeOfDay < 13000 || timeOfDay > 23000) return;
-
-    // 近くのベッドを探す（32ブロック以内）
-    const bed = this.bot.findBlock({
-      matching: (block) =>
-        block.name.includes('bed') && block.name !== 'bedrock',
-      maxDistance: 32,
-    });
-
-    if (!bed) {
-      console.log('\x1b[33m⚠ 近くにベッドが見つかりません\x1b[0m');
+    // ネザーやエンドにいる場合は何もしない
+    if (this.bot.game.dimension === 'the_nether' || this.bot.game.dimension === 'the_end') {
       return;
     }
 
-    try {
-      this.isSleeping = true;
+    // 夜の時間帯 (12000-23000)
+    const isNightTime =
+      this.bot.time.timeOfDay >= 12500 && this.bot.time.timeOfDay <= 23500;
 
-      // ベッドに近づく
-      const distance = this.bot.entity.position.distanceTo(bed.position);
-      if (distance > 3) {
-        console.log('\x1b[36mベッドに移動中...\x1b[0m');
-        await this.bot.pathfinder.goto(
-          new goals.GoalNear(bed.position.x, bed.position.y, bed.position.z, 2)
-        );
+    // 朝の時間帯 (0-1000)
+    const isMorningTime =
+      this.bot.time.timeOfDay >= 0 && this.bot.time.timeOfDay <= 1000;
+
+    // 既に寝ている場合で朝になったら起きる
+    if (this.bot.isSleeping && isMorningTime) {
+      try {
+        const result = await this.sleepInBed.run(true, false);
+        console.log(result);
+      } catch (error: any) {
+        console.error(error);
       }
+      return;
+    }
 
-      // ベッドで寝る
-      console.log('\x1b[36mベッドで寝ます...\x1b[0m');
-      await this.bot.sleep(bed);
-      console.log('\x1b[32m✓ ベッドで寝ました\x1b[0m');
+    // 既に寝ている場合は何もしない
+    if (this.bot.isSleeping) {
+      return;
+    }
 
-      // 起きるまで待機
-      await this.bot.waitForTicks(100);
-
-      this.isSleeping = false;
-    } catch (error) {
-      this.isSleeping = false;
-      console.log(
-        `\x1b[33m⚠ 睡眠に失敗: ${error instanceof Error ? error.message : '不明なエラー'
-        }\x1b[0m`
-      );
+    // 夜になったら寝る
+    if (isNightTime) {
+      try {
+        const result = await this.sleepInBed.run(false, true);
+        console.log(result);
+      } catch (error: any) {
+        console.error(error);
+      }
     }
   }
 }

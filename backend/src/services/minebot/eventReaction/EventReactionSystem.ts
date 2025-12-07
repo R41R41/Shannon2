@@ -654,10 +654,17 @@ export class EventReactionSystem {
         console.log(`📋 タスク生成: ${message}`);
 
         try {
-            await this.taskGraph.invoke({
+            // タスクをキューに追加（直接invokeではなくキュー管理経由）
+            const result = this.taskGraph.addTaskToQueue({
                 userMessage: message,
                 isEmergency: false,
             });
+
+            if (!result.success) {
+                console.log(`\x1b[33m⚠️ タスク追加失敗: ${result.reason}\x1b[0m`);
+                return { handled: false, reactionType: 'task', message };
+            }
+
             return { handled: true, reactionType: 'task', message };
         } catch (error) {
             console.error('タスク生成エラー:', error);

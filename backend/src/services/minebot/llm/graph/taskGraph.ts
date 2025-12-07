@@ -365,29 +365,46 @@ export class TaskGraph {
         const successfulActions = execResults
           .filter((r: any) => r.success)
           .map((r: any) => {
-            // 座標を含む引数がある場合は、ツール名+座標で識別
             const args = r.args || {};
-            const coordKey = (args.x !== undefined && args.y !== undefined && args.z !== undefined)
-              ? `${r.toolName}@${args.x},${args.y},${args.z}`
-              : r.toolName;
-            return coordKey;
+            let actionKey: string;
+
+            // 座標を含む引数がある場合は、ツール名+座標で識別
+            if (args.x !== undefined && args.y !== undefined && args.z !== undefined) {
+              actionKey = `${r.toolName}@${args.x},${args.y},${args.z}`;
+            }
+            // chatアクションの場合は、メッセージ内容のハッシュで識別
+            else if (r.toolName === 'chat' && args.message) {
+              // メッセージの最初の50文字で識別（長いメッセージは短縮）
+              const msgKey = args.message.substring(0, 50);
+              actionKey = `${r.toolName}@${msgKey}`;
+            }
+            else {
+              actionKey = r.toolName;
+            }
+            return actionKey;
           });
         if (successfulActions.length > 0) {
           this.recentSuccessfulActions = [...recentActions, ...successfulActions].slice(-15); // 直近15件保持
         }
 
-        // 同じアクション（同じ座標）が連続5回以上成功している場合は終了
+        // 同じアクションが連続で成功している場合は終了
+        // chatは2回、その他は5回で検出
         const actionHistory = this.recentSuccessfulActions || [];
-        if (actionHistory.length >= 5) {
+        if (actionHistory.length >= 2) {
           const lastAction = actionHistory[actionHistory.length - 1];
-          const repeatCount = actionHistory.slice(-5).filter((a: string) => a === lastAction).length;
-          if (repeatCount >= 5) {
-            // ツール名だけを抽出（座標を除く）
-            const toolName = lastAction.split('@')[0];
-            console.log(
-              `\x1b[33m⚠ 同じアクション（${toolName}）が同じ座標で${repeatCount}回連続で成功。進展がないため終了します。\x1b[0m`
-            );
-            return END;
+          const toolName = lastAction.split('@')[0];
+
+          // chatアクションは2回で終了（同じメッセージを何度も送る意味がない）
+          const threshold = toolName === 'chat' ? 2 : 5;
+
+          if (actionHistory.length >= threshold) {
+            const repeatCount = actionHistory.slice(-threshold).filter((a: string) => a === lastAction).length;
+            if (repeatCount >= threshold) {
+              console.log(
+                `\x1b[33m⚠ 同じアクション（${toolName}）が${repeatCount}回連続で成功。進展がないため終了します。\x1b[0m`
+              );
+              return END;
+            }
           }
         }
 
@@ -511,8 +528,19 @@ export class TaskGraph {
       if (partialState.isEmergency || this.isEmergencyMode) {
         console.log('\x1b[33m🚨 緊急タスク終了、emergencyModeをリセット\x1b[0m');
         this.isEmergencyMode = false;
-        this.emergencyTask = null;
-        this.notifyTaskListUpdate();
+
+        // 緊急タスク完了をUIに通知してから少し待ってクリア
+        // （UIが表示を更新する時間を確保）
+        if (this.emergencyTask) {
+          this.emergencyTask.taskTree.status = 'completed';
+          this.notifyTaskListUpdate();
+
+          // 1秒後にemergencyTaskをクリア
+          setTimeout(() => {
+            this.emergencyTask = null;
+            this.notifyTaskListUpdate();
+          }, 1000);
+        }
       }
     }
   }
@@ -709,12 +737,17 @@ export class TaskGraph {
    * 緊急タスクを設定して実行
    */
   public setEmergencyTask(taskInput: TaskStateInput): void {
+    const goal = taskInput.userMessage || 'Emergency';
+    console.log(`\x1b[31m🚨 緊急タスクを設定: "${goal}"\x1b[0m`);
+
     this.emergencyTask = {
       id: crypto.randomUUID(),
-      taskTree: { goal: taskInput.userMessage || 'Emergency', status: 'executing' },
+      taskTree: { goal, status: 'executing' },
       state: taskInput,
       createdAt: Date.now(),
     };
+
+    console.log(`\x1b[31m🚨 emergencyTask設定完了: id=${this.emergencyTask.id}\x1b[0m`);
     this.notifyTaskListUpdate();
   }
 
