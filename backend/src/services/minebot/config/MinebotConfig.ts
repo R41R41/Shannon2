@@ -79,7 +79,7 @@ export class MinebotConfig {
   // ===== タスク設定 =====
 
   /** 最大リトライ回数 */
-  readonly MAX_RETRY_COUNT = 5;
+  readonly MAX_RETRY_COUNT = 10;
 
   /** タスクタイムアウト（ミリ秒） */
   readonly TASK_TIMEOUT = 10000;

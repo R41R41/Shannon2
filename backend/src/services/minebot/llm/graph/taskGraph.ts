@@ -495,7 +495,8 @@ export class TaskGraph {
       this.isExecuting = false;
 
       // 緊急タスク完了時はemergencyModeをリセット
-      if (partialState.isEmergency) {
+      // partialState.isEmergency または this.isEmergencyMode がtrueなら緊急タスク
+      if (partialState.isEmergency || this.isEmergencyMode) {
         console.log('\x1b[33m🚨 緊急タスク終了、emergencyModeをリセット\x1b[0m');
         this.isEmergencyMode = false;
         this.emergencyTask = null;
@@ -520,6 +521,52 @@ export class TaskGraph {
     if (this.currentState) {
       this.currentState.forceStop = true;
     }
+  }
+
+  /**
+   * 死亡によりタスクを失敗としてマーク
+   */
+  public failCurrentTaskDueToDeath(deathReason: string): void {
+    console.log(`\x1b[31m💀 タスク失敗（死亡）: ${deathReason}\x1b[0m`);
+
+    if (this.currentState?.taskTree) {
+      // 現在のサブタスクを失敗としてマーク
+      if (this.currentState.taskTree.currentSubTaskId && this.currentState.taskTree.hierarchicalSubTasks) {
+        const updateSubTask = (tasks: any[]): boolean => {
+          for (const task of tasks) {
+            if (task.id === this.currentState!.taskTree!.currentSubTaskId) {
+              task.status = 'error';
+              task.failureReason = `死亡: ${deathReason}`;
+              return true;
+            }
+            if (task.children && updateSubTask(task.children)) {
+              return true;
+            }
+          }
+          return false;
+        };
+        updateSubTask(this.currentState.taskTree.hierarchicalSubTasks);
+      }
+
+      // タスク全体をエラーに
+      this.currentState.taskTree.status = 'error';
+      this.currentState.taskTree.error = `死亡によりタスク失敗: ${deathReason}`;
+    }
+
+    // 強制終了
+    this.forceStop();
+
+    // 緊急モードをリセット
+    this.isEmergencyMode = false;
+    this.emergencyTask = null;
+
+    // タスクキューから実行中のタスクを削除
+    const executingIndex = this.taskQueue.findIndex(t => t.status === 'executing');
+    if (executingIndex !== -1) {
+      this.taskQueue.splice(executingIndex, 1);
+    }
+
+    this.notifyTaskListUpdate();
   }
 
   /**

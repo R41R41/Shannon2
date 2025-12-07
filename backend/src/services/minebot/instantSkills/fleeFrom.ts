@@ -82,17 +82,18 @@ class FleeFrom extends InstantSkill {
         };
       }
 
-      // pathfinderの移動設定
+      // pathfinderの移動設定（水を避ける）
       setMovements(
         this.bot,
-        false, // allow1by1towers
+        true, // allow1by1towers: 高い場所に逃げられる
         true, // allowSprinting: 逃げるときはダッシュ
         true, // allowParkour
         true, // canOpenDoors
-        false, // canDig: 逃げるときは掘らない
+        false, // canDig: 逃げるときは掘らない（遅い）
         true, // dontMineUnderFallingBlock
-        100, // digCost: 掘らないように高コスト
-        false // allowFreeMotion
+        100, // digCost: 掘るコストを高く（避ける）
+        false, // allowFreeMotion: 水中移動は遅いので避ける
+        false // canSwim: 水を避けて逃げる（水中は危険）
       );
 
       console.log(

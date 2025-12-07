@@ -12,9 +12,10 @@ export class BotEventHandler {
     private centralAgent: CentralAgent;
     private recentMessages: BaseMessage[];
     private lastHealth: number = 20;
-    private lastOxygen: number = 300;
+    private lastOxygen: number = 20;  // 酸素の最大値は20
     private consecutiveDamageCount: number = 0;
     private lastDamageTime: number = 0;
+    private lastDeathMessage: string = '';  // Minecraftの死亡メッセージ
     private eventReactionSystem: EventReactionSystem | null = null;
 
     constructor(bot: CustomBot, centralAgent: CentralAgent, recentMessages: BaseMessage[]) {
@@ -41,6 +42,9 @@ export class BotEventHandler {
         this.registerBlockUpdate();
         this.registerEntityMove();
         this.registerBossbar();
+        this.registerDeathMessage();
+        this.registerDeath();
+        this.registerRespawn();
         console.log('✅ All bot event handlers registered');
     }
 
@@ -115,9 +119,10 @@ export class BotEventHandler {
             // 窒息検知（水中または埋まっている状態でHPが減っている）
             const entity = this.bot.entity as any;
             if (entity?.isInWater || entity?.isCollidedVertically) {
-                const oxygen = (this.bot as any).oxygen || 300;
-                if (oxygen < this.lastOxygen - 30 || (oxygen < 100 && currentHealth < this.lastHealth)) {
-                    console.log(`\x1b[31m⚠️ 緊急: 窒息検知 (酸素: ${oxygen}/300, HP: ${currentHealth}/20)\x1b[0m`);
+                const oxygen = this.bot.oxygenLevel || 20;
+                // 酸素が大きく減った（3以上）または、酸素が半分以下でHPが減っている
+                if (oxygen < this.lastOxygen - 3 || (oxygen < 10 && currentHealth < this.lastHealth)) {
+                    console.log(`\x1b[31m⚠️ 緊急: 窒息検知 (酸素: ${oxygen}/20, HP: ${currentHealth}/20)\x1b[0m`);
 
                     if (this.eventReactionSystem) {
                         await this.eventReactionSystem.handleSuffocation({
@@ -224,6 +229,98 @@ export class BotEventHandler {
 
         this.bot.on('bossBarDeleted', async (bossbar) => {
             this.bot.environmentState.bossbar = null;
+        });
+    }
+
+    /**
+     * 死亡メッセージをキャプチャ（Minecraftのチャットから）
+     */
+    private registerDeathMessage(): void {
+        this.bot.on('messagestr', (message: string) => {
+            const botName = this.bot.username;
+
+            // ボットの名前が含まれる死亡メッセージをチェック
+            // 日本語と英語両方に対応
+            const deathPatterns = [
+                // 日本語パターン
+                new RegExp(`${botName}は.*に.*された`),
+                new RegExp(`${botName}は.*で死んだ`),
+                new RegExp(`${botName}は.*した`),
+                new RegExp(`${botName}が.*死`),
+                // 英語パターン
+                new RegExp(`${botName} was slain by`),
+                new RegExp(`${botName} was killed by`),
+                new RegExp(`${botName} was shot by`),
+                new RegExp(`${botName} drowned`),
+                new RegExp(`${botName} fell`),
+                new RegExp(`${botName} hit the ground`),
+                new RegExp(`${botName} burned`),
+                new RegExp(`${botName} went up in flames`),
+                new RegExp(`${botName} suffocated`),
+                new RegExp(`${botName} died`),
+                new RegExp(`${botName} was blown up`),
+                new RegExp(`${botName} was pricked`),
+                new RegExp(`${botName} starved`),
+                new RegExp(`${botName} withered away`),
+            ];
+
+            for (const pattern of deathPatterns) {
+                if (pattern.test(message)) {
+                    this.lastDeathMessage = message;
+                    console.log(`\x1b[31m💀 死亡メッセージ検出: ${message}\x1b[0m`);
+                    return;
+                }
+            }
+        });
+    }
+
+    /**
+     * deathイベント - 死亡時の処理
+     */
+    private registerDeath(): void {
+        this.bot.on('death', async () => {
+            // 死亡メッセージがあればそれを使用、なければ推測
+            if (!this.lastDeathMessage) {
+                // 推測（フォールバック）
+                const nearbyHostile = this.bot.nearestEntity((entity) => {
+                    if (!entity || !entity.position) return false;
+                    const distance = entity.position.distanceTo(this.bot.entity.position);
+                    if (distance > 10) return false;
+                    const hostileMobs = ['zombie', 'husk', 'skeleton', 'creeper', 'spider', 'drowned', 'stray'];
+                    const entityName = entity.name?.toLowerCase() || '';
+                    return hostileMobs.some(mob => entityName.includes(mob));
+                });
+
+                if (nearbyHostile) {
+                    this.lastDeathMessage = `${nearbyHostile.name}に倒された可能性`;
+                } else {
+                    this.lastDeathMessage = '不明な原因で死亡';
+                }
+            }
+
+            console.log(`\x1b[31m💀 ボット死亡: ${this.lastDeathMessage}\x1b[0m`);
+        });
+    }
+
+    /**
+     * spawnイベント - リスポーン時の処理
+     */
+    private registerRespawn(): void {
+        this.bot.on('spawn', async () => {
+            console.log('\x1b[32m🔄 Bot has respawned.\x1b[0m');
+
+            // TaskGraphに死亡を通知してタスクを失敗としてマーク
+            const taskGraph = this.centralAgent.currentTaskGraph;
+            if (taskGraph && taskGraph.isRunning()) {
+                const deathReason = this.lastDeathMessage || '死亡によりタスク失敗';
+                taskGraph.failCurrentTaskDueToDeath(deathReason);
+            }
+
+            // 状態をリセット
+            this.lastHealth = 20;
+            this.lastOxygen = 20;
+            this.consecutiveDamageCount = 0;
+            this.lastDeathMessage = '';
         });
     }
 }

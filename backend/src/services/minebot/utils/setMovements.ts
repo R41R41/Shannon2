@@ -12,7 +12,8 @@ export function setMovements(
   canDig = true,
   dontMineUnderFallingBlock = true,
   digCost = 1,
-  allowFreeMotion = false
+  allowFreeMotion = false,
+  canSwim = true
 ) {
   const defaultMove = new Movements(bot as Bot);
   defaultMove.allow1by1towers = allow1by1towers;
@@ -23,5 +24,6 @@ export function setMovements(
   defaultMove.dontMineUnderFallingBlock = dontMineUnderFallingBlock;
   defaultMove.digCost = digCost;
   defaultMove.allowFreeMotion = allowFreeMotion;
+  (defaultMove as any).canSwim = canSwim;
   bot.pathfinder.setMovements(defaultMove);
 }

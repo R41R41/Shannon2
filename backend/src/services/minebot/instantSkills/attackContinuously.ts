@@ -37,28 +37,38 @@ class AttackContinuously extends InstantSkill {
       // 敵対的なMobのリスト
       const hostileMobs = [
         'zombie',
+        'husk',           // ゾンビ亜種
+        'drowned',        // 水中ゾンビ
         'skeleton',
+        'stray',          // スケルトン亜種
         'creeper',
         'spider',
         'enderman',
         'witch',
         'slime',
+        'magma_cube',
         'phantom',
         'blaze',
         'ghast',
         'zombified_piglin',
         'piglin',
+        'piglin_brute',
         'hoglin',
+        'zoglin',
         'wither_skeleton',
+        'wither',
         'cave_spider',
         'silverfish',
+        'endermite',
         'guardian',
         'elder_guardian',
         'shulker',
         'vindicator',
         'evoker',
+        'vex',
         'pillager',
         'ravager',
+        'warden',
       ];
 
       let attackCount = 0;

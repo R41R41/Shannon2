@@ -7,7 +7,7 @@ class AttackNearest extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'attack-nearest';
-    this.description = '最も近い敵エンティティに1回攻撃します。敵を倒すためであれば、武器を装備してから実行した方が良いです。';
+    this.description = '最も近い敵エンティティに1回攻撃します。移動は含まれまれず、その場で手が届く範囲の敵のみが対象です。倒すためであれば、武器を装備してから実行した方が良いです。';
     this.params = [
       {
         name: 'maxDistance',

@@ -35,12 +35,29 @@ export class Prompt {
 
   private getToolsInfo(): string {
     return this.tools
-      .map((tool) => ({
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.schema, // JSONSchemaの形式でパラメータ情報を含む
-      }))
-      .map((tool) => `Tool: ${tool.name}\nDescription: ${tool.description}`)
+      .map((tool) => {
+        // パラメータ情報を整形
+        let paramsInfo = '';
+        try {
+          const schema = tool.schema;
+          if (schema && typeof schema === 'object' && '_def' in schema) {
+            const def = (schema as any)._def;
+            if (def.typeName === 'ZodObject' && def.shape) {
+              const params = Object.entries(def.shape()).map(([key, field]: [string, any]) => {
+                const desc = field?._def?.description || '';
+                const typeName = field?._def?.typeName || 'unknown';
+                const isOptional = typeName === 'ZodOptional' || typeName === 'ZodNullable';
+                return `  - ${key}${isOptional ? ' (optional)' : ''}: ${desc}`;
+              });
+              paramsInfo = params.length > 0 ? `\nParameters:\n${params.join('\n')}` : '';
+            }
+          }
+        } catch (e) {
+          // パラメータ解析に失敗した場合は空のまま
+        }
+
+        return `Tool: ${tool.name}\nDescription: ${tool.description}${paramsInfo}`;
+      })
       .join('\n\n');
   }
 

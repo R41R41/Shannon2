@@ -405,7 +405,7 @@ export class EventReactionSystem {
             if (!hostileMobs.some(h => mobName.includes(h))) return;
 
             const distance = this.bot.entity.position.distanceTo(entity.position);
-            if (distance <= 10) {
+            if (distance <= 16) {
                 nearbyHostiles.push({ entity, distance });
             }
         });

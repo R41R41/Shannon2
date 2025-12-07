@@ -127,36 +127,47 @@ class CraftOne extends InstantSkill {
             .map((i: any) => `${i.name}x${i.count}`)
             .join(', ') || 'なし';
 
-          // 必要な材料を取得（全選択肢を表示）
-          const recipe = allRecipes[0];
-          const ingredientCounts: { [key: string]: number } = {};
+          // 全レシピの材料パターンを取得
+          const recipePatterns: string[] = [];
 
-          if (recipe.inShape) {
-            for (const row of recipe.inShape) {
-              for (const id of row) {
+          for (const recipe of allRecipes) {
+            const ingredientCounts: { [key: string]: number } = {};
+
+            if (recipe.inShape) {
+              for (const row of recipe.inShape) {
+                for (const id of row) {
+                  const name = this.getIngredientName(id);
+                  if (name) {
+                    ingredientCounts[name] = (ingredientCounts[name] || 0) + 1;
+                  }
+                }
+              }
+            } else if (recipe.ingredients) {
+              for (const id of recipe.ingredients) {
                 const name = this.getIngredientName(id);
                 if (name) {
                   ingredientCounts[name] = (ingredientCounts[name] || 0) + 1;
                 }
               }
             }
-          } else if (recipe.ingredients) {
-            for (const id of recipe.ingredients) {
-              const name = this.getIngredientName(id);
-              if (name) {
-                ingredientCounts[name] = (ingredientCounts[name] || 0) + 1;
-              }
+
+            const pattern = Object.entries(ingredientCounts)
+              .map(([n, c]) => `${n} x${c}`)
+              .join(' + ');
+
+            if (pattern && !recipePatterns.includes(pattern)) {
+              recipePatterns.push(pattern);
             }
           }
 
-          const requiredMaterials = Object.entries(ingredientCounts)
-            .map(([n, c]) => `${n}x${c}`)
-            .join(', ');
+          const requiredMaterials = recipePatterns.length > 0
+            ? recipePatterns.join(' or ')
+            : '不明';
 
           return {
             success: false,
             result: `${itemName}のクラフトに必要な材料が不足。` +
-              `必要: ${requiredMaterials || '不明'}。` +
+              `必要: ${requiredMaterials}。` +
               `現在のインベントリ: ${inventory}。`,
           };
         }

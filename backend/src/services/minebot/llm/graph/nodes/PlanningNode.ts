@@ -309,6 +309,8 @@ export class PlanningNode {
         },
       });
 
+      // console.log('messages', JSON.stringify(messages, null, 2));
+
       const response = await structuredLLM.invoke(messages);
 
       // 詳細なプランニング結果をログ出力

@@ -29,7 +29,7 @@
   },
   {
     "skillName": "auto-swim",
-    "status": false
+    "status": true
   },
   {
     "skillName": "auto-equip-best-tool",

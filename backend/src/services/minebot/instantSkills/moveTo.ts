@@ -103,8 +103,8 @@ class MoveTo extends InstantSkill {
           // 3D距離
           distance = Math.sqrt(
             Math.pow(x - currentPos.x, 2) +
-              Math.pow(y - currentPos.y, 2) +
-              Math.pow(z - currentPos.z, 2)
+            Math.pow(y - currentPos.y, 2) +
+            Math.pow(z - currentPos.z, 2)
           );
           break;
       }
@@ -119,17 +119,25 @@ class MoveTo extends InstantSkill {
       }
 
       // pathfinderの移動設定を最適化
+      // 水中にいる場合はallowFreeMotionとcanSwimを有効化
+      const isInWater = (this.bot.entity as any)?.isInWater || false;
+
       setMovements(
         this.bot,
         false, // allow1by1towers: ブロックを積み上げない
         true, // allowSprinting: ダッシュを許可
         true, // allowParkour: ジャンプを許可
         true, // canOpenDoors: ドアを開ける
-        true, // canDig: ブロックを掘る（障害物を除去）
+        !isInWater, // canDig: 水中ではブロックを掘らない（泳ぐ方が早い）
         true, // dontMineUnderFallingBlock: 落下ブロックの下は掘らない
-        1, // digCost: 掘るコスト（低いほど積極的に掘る）
-        false // allowFreeMotion: 自由移動（水中など）
+        isInWater ? 100 : 1, // digCost: 水中では掘るコストを上げる
+        isInWater, // allowFreeMotion: 水中では自由移動を許可
+        true // canSwim: 泳ぐことを許可
       );
+
+      if (isInWater) {
+        console.log('\x1b[36m🏊 水中移動モード\x1b[0m');
+      }
 
       // goalTypeに応じてGoalを選択
       let goal;

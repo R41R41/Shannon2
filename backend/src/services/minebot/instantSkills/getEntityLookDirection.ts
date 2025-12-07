@@ -29,11 +29,20 @@ class GetEntityLookDirection extends InstantSkill {
                 };
             }
 
-            // エンティティを検索
-            const entity = Object.values(this.bot.entities).find((e) => {
-                const name = e.username || e.name || '';
-                return name.toLowerCase() === entityName.toLowerCase();
-            });
+            // まずプレイヤーを検索
+            let entity = null;
+            const player = this.bot.players[entityName];
+            if (player && player.entity) {
+                entity = player.entity;
+            }
+
+            // プレイヤーが見つからなければ、その他のエンティティを検索
+            if (!entity) {
+                entity = Object.values(this.bot.entities).find((e) => {
+                    const name = e.username || e.name || '';
+                    return name.toLowerCase() === entityName.toLowerCase();
+                });
+            }
 
             if (!entity) {
                 return {
