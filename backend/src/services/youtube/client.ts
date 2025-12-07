@@ -598,7 +598,7 @@ export class YoutubeClient extends BaseClient {
     const liveUrl = process.env.YOUTUBE_LIVE_URL;
     if (liveUrl) {
       // 正規表現で動画ID抽出（v=, /video/, /watch/, youtu.be/ など対応）
-      const match = liveUrl.match(/(?:v=|\/video\/|youtu\.be\/|watch\?v=)([a-zA-Z0-9_-]{11})/);
+      const match = liveUrl.match(/(?:v=|\/(?:video|live)\/|youtu\.be\/|watch\?v=)([a-zA-Z0-9_-]{11})/);
       if (match && match[1]) {
         return match[1];
       }
