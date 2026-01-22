@@ -72,6 +72,13 @@ class CraftOne extends InstantSkill {
 
   async runImpl(itemName: string) {
     try {
+      // 開いているGUIを閉じる（activate-blockで開いたクラフトテーブルなど）
+      if (this.bot.currentWindow) {
+        console.log('🔧 craft-one: 開いているウィンドウを閉じます');
+        this.bot.closeWindow(this.bot.currentWindow);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
       const item = this.mcData.itemsByName[itemName];
       if (!item) {
         const allItems = Object.keys(this.mcData.itemsByName);
@@ -120,6 +127,19 @@ class CraftOne extends InstantSkill {
 
       // レシピを取得
       let recipes = this.bot.recipesFor(item.id, null, 1, craftingTable);
+
+      // デバッグ: 現在のインベントリを詳細に表示
+      console.log('🔍 craft-one: インベントリ詳細:');
+      const allItems = this.bot.inventory.items();
+      allItems.forEach((item) => {
+        console.log(`  ${item.name} x${item.count} (slot: ${item.slot})`);
+      });
+      console.log(`🔍 craft-one: recipesFor()の結果: ${recipes.length}個のレシピ`);
+      if (recipes.length > 0) {
+        recipes.forEach((r, i) => {
+          console.log(`  Recipe ${i}: delta=${JSON.stringify(r.delta)}`);
+        });
+      }
 
       if (recipes.length === 0) {
         if (allRecipes && allRecipes.length > 0) {

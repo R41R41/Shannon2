@@ -108,10 +108,11 @@ export class MinebotConfig {
     '1.21.4-test': 25566,
     '1.19.0-youtube': 25564,
     '1.21.1-play': 25565,
+    '1.21.4-fabric-youtube': 25566,  // 実際のサーバーポート
   };
 
-  /** チェックタイムアウト間隔（ミリ秒） */
-  readonly CHECK_TIMEOUT_INTERVAL = 60 * 60 * 1000; // 1時間
+  /** チェックタイムアウト間隔（ミリ秒） - サーバーのKeep-Alive応答用 */
+  readonly CHECK_TIMEOUT_INTERVAL = 30 * 1000; // 30秒（サーバーのデフォルトタイムアウトに合わせる）
 
   // ===== 定期実行間隔 =====
 

@@ -20,7 +20,7 @@ const ActionJudgementSchema = z.object({
         'プレイヤーの発言が新しいタスクの依頼か、既存タスクへのアドバイスか、タスク終了要望かを判定'
     ),
     reasoning: z.string().describe('判定の理由'),
-    confidence: z.number().min(0).max(1).optional().describe('判定の確信度 (0-1)'),
+    confidence: z.number().min(0).max(1).nullable().describe('判定の確信度 (0-1)'),
 });
 
 /**
@@ -67,7 +67,7 @@ export class ActionJudge implements IActionJudge {
             return {
                 action: result.action as TaskAction,
                 reasoning: result.reasoning,
-                confidence: result.confidence,
+                confidence: result.confidence ?? undefined,
             };
         } catch (error) {
             const llmError = new LLMError('action-judgement', error as Error);

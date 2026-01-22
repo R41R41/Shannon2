@@ -1,23 +1,31 @@
 import {
-  MinecraftOutput,
   MinecraftServerName,
   ServiceInput,
   ServiceOutput,
-  ServiceStatus,
+  ServiceStatus
 } from '@shannon/common';
 import { exec } from 'child_process';
+import dotenv from 'dotenv';
 import { promisify } from 'util';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
-import dotenv from 'dotenv';
 dotenv.config();
 const execAsync = promisify(exec);
+
+// サーバー名とtmuxセッション名のマッピング
+const SERVER_TMUX_SESSIONS: Record<string, string> = {
+  '1.21.4-fabric-youtube': 'minecraft-youtube',
+  '1.21.4-test': 'minecraft-test',
+  '1.19.0-youtube': 'minecraft-youtube-old',
+  '1.21.1-play': 'minecraft-play',
+};
 
 export class MinecraftClient extends BaseClient {
   private static instance: MinecraftClient;
   private minecraftClients: MinecraftClient[];
   private serverStatuses: Map<string, boolean> = new Map();
   private readonly VALID_SERVERS: MinecraftServerName[] = [
+    '1.21.4-fabric-youtube',
     '1.21.4-test',
     '1.19.0-youtube',
     '1.21.1-play',
@@ -47,12 +55,15 @@ export class MinecraftClient extends BaseClient {
   public async startServer(
     serverName: MinecraftServerName
   ): Promise<{ success: boolean; message: string }> {
-    if (this.serverStatuses.get(serverName)) {
+    // 現在のステータスを確認
+    const currentStatus = await this.getServerStatus(serverName);
+    if (currentStatus === 'running') {
       return { success: false, message: 'サーバーは既に起動しています' };
     }
 
     try {
       const serverPath = `${this.SERVER_BASE_PATH}/${serverName}`;
+      console.log(`Starting server at ${serverPath}`);
       await execAsync(`cd ${serverPath} && ./start.sh`);
       this.serverStatuses.set(serverName, true);
       return { success: true, message: `${serverName}を起動しました` };
@@ -67,13 +78,25 @@ export class MinecraftClient extends BaseClient {
   public async stopServer(
     serverName: MinecraftServerName
   ): Promise<{ success: boolean; message: string }> {
-    if (!this.serverStatuses.get(serverName)) {
+    // 現在のステータスを確認
+    const currentStatus = await this.getServerStatus(serverName);
+    if (currentStatus === 'stopped') {
       return { success: false, message: 'サーバーは既に停止しています' };
     }
     try {
-      // screen -S {serverName} -X quit でサーバーを停止
-      const screenName = serverName.split('-')[1];
-      await execAsync(`screen -S ${screenName} -X quit`);
+      const serverPath = `${this.SERVER_BASE_PATH}/${serverName}`;
+      // stop.shがあれば使用、なければtmuxでstopコマンド送信
+      try {
+        await execAsync(`cd ${serverPath} && ./stop.sh`);
+      } catch {
+        // stop.shがない場合はtmuxでstopコマンドを送信
+        const tmuxSession = SERVER_TMUX_SESSIONS[serverName];
+        if (tmuxSession) {
+          await execAsync(`tmux send-keys -t ${tmuxSession} "stop" Enter`);
+          // 停止を待つ
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+      }
       this.serverStatuses.set(serverName, false);
       return { success: true, message: `${serverName}を停止しました` };
     } catch (error: any) {
@@ -88,12 +111,21 @@ export class MinecraftClient extends BaseClient {
     serverName: MinecraftServerName
   ): Promise<ServiceStatus> {
     try {
+      // tmuxセッションを確認
+      const tmuxSession = SERVER_TMUX_SESSIONS[serverName];
+      if (tmuxSession) {
+        const { stdout } = await execAsync('tmux list-sessions 2>/dev/null || true');
+        const isRunning = stdout.includes(tmuxSession);
+        this.serverStatuses.set(serverName, isRunning);
+        return isRunning ? 'running' : 'stopped';
+      }
+      // フォールバック: screenを確認
       const { stdout } = await execAsync('screen -ls');
       const isRunning = stdout.includes(serverName.split('-')[1]);
       this.serverStatuses.set(serverName, isRunning);
       return isRunning ? 'running' : 'stopped';
     } catch (error) {
-      // screen -ls が失敗した場合は停止中と判断
+      // コマンドが失敗した場合は停止中と判断
       this.serverStatuses.set(serverName, false);
       return 'stopped';
     }

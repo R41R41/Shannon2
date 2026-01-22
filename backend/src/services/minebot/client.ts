@@ -88,6 +88,22 @@ export class MinebotClient extends BaseClient {
       this.eventBus.log('minecraft', 'green', 'Bot has logged in.');
     });
 
+    // タイムアウト・切断のログ
+    this.bot.on('kicked', (reason: string) => {
+      console.log(`\x1b[31m🚫 Bot was kicked: ${reason}\x1b[0m`);
+      this.eventBus.log('minecraft', 'red', `Bot was kicked: ${reason}`);
+    });
+
+    this.bot.on('end', (reason: string) => {
+      console.log(`\x1b[31m🔌 Bot disconnected: ${reason}\x1b[0m`);
+      this.eventBus.log('minecraft', 'red', `Bot disconnected: ${reason}`);
+    });
+
+    this.bot.on('error', (err: Error) => {
+      console.log(`\x1b[31m❌ Bot error: ${err.message}\x1b[0m`);
+      this.eventBus.log('minecraft', 'red', `Bot error: ${err.message}`);
+    });
+
     this.bot.isTest = CONFIG.IS_DEV;
     this.bot.chatMode = true;
     this.bot.attackEntity = null;
@@ -167,6 +183,12 @@ export class MinebotClient extends BaseClient {
 
     this.bot.on('spawn', () => {
       this.eventBus.log('minecraft', 'green', 'Minecraft bot spawned');
+      // Discord等にspawn完了を通知
+      this.eventBus.publish({
+        type: 'minebot:spawned',
+        memoryZone: 'minebot',
+        data: { success: true },
+      });
     });
   }
 
@@ -259,6 +281,12 @@ export class MinebotClient extends BaseClient {
         'red',
         `Botの起動に失敗しました: ${error}`
       );
+      // Discord等にエラーを通知
+      this.eventBus.publish({
+        type: 'minebot:error',
+        memoryZone: 'minebot',
+        data: { message: `${error}` },
+      });
       return false;
     }
   }
@@ -281,6 +309,12 @@ export class MinebotClient extends BaseClient {
       this.skillAgent = null;
       this.bot = null;
       this.eventBus.log('minecraft', 'green', 'Minecraft bot stopped');
+      // Discord等にstop完了を通知
+      this.eventBus.publish({
+        type: 'minebot:stopped',
+        memoryZone: 'minebot',
+        data: { success: true },
+      });
       return true;
     } catch (error) {
       this.eventBus.log(

@@ -1,7 +1,7 @@
 import { CustomBot, InstantSkill } from '../types.js';
 
 /**
- * 原子的スキル: エンティティを連続で攻撃
+ * 原子的スキル: エンティティを連続で攻撃a
  */
 class AttackContinuously extends InstantSkill {
   constructor(bot: CustomBot) {
