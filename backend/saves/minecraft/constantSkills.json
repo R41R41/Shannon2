@@ -5,7 +5,7 @@
   },
   {
     "skillName": "auto-eat",
-    "status": false
+    "status": true
   },
   {
     "skillName": "auto-follow",
@@ -17,7 +17,7 @@
   },
   {
     "skillName": "auto-face-moved-entity",
-    "status": true
+    "status": false
   },
   {
     "skillName": "auto-sleep",

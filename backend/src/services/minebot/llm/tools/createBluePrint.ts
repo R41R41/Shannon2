@@ -1,9 +1,9 @@
 import { StructuredTool } from '@langchain/core/tools';
-import { z } from 'zod';
-import OpenAI from 'openai';
-import fs from 'fs';
-import path from 'path';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import OpenAI from 'openai';
+import path from 'path';
+import { z } from 'zod';
 
 dotenv.config();
 
@@ -15,7 +15,7 @@ const ArchitectureBlockSchema = z.object({
     y: z.number(),
     z: z.number(),
   }),
-  facing: z.string().optional(),
+  facing: z.string().nullable(),
 });
 
 const ArchitectureSchema = z.object({

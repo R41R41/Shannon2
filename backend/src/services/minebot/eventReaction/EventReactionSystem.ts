@@ -611,6 +611,12 @@ export class EventReactionSystem {
             return { handled: false, reactionType: 'emergency' };
         }
 
+        // InstantSkill実行中は緊急対応をスキップ（移動中に中断されるのを防ぐ）
+        if (this.bot.executingSkill) {
+            console.log('\x1b[33m⚠️ InstantSkill実行中のため緊急対応をスキップ\x1b[0m');
+            return { handled: false, reactionType: 'emergency' };
+        }
+
         // 既に緊急タスクを処理中の場合はスキップ（上書き防止）
         if (this.taskGraph.isInEmergencyMode()) {
             console.log('\x1b[33m⚠️ 緊急タスク処理中のため新しい緊急イベントをスキップ\x1b[0m');

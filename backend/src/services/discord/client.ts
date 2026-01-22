@@ -1,15 +1,17 @@
+import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import {
   DiscordClientInput,
-  MinecraftServerName,
-  ServiceInput,
-  DiscordScheduledPostInput,
-  DiscordSendTextMessageInput,
   DiscordGetServerEmojiInput,
   DiscordGetServerEmojiOutput,
+  DiscordPlanningInput,
+  DiscordScheduledPostInput,
   DiscordSendServerEmojiInput,
   DiscordSendServerEmojiOutput,
+  DiscordSendTextMessageInput,
   DiscordSendTextMessageOutput,
-  DiscordPlanningInput,
+  MinebotInput,
+  MinecraftServerName,
+  ServiceInput,
   YoutubeSubscriberUpdateOutput,
 } from '@shannon/common';
 import {
@@ -17,23 +19,22 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ChatInputCommandInteraction,
-  ComponentType,
   Client,
+  ComponentType,
+  EmbedBuilder,
   GatewayIntentBits,
   SlashCommandBuilder,
   TextChannel,
   User,
-  EmbedBuilder,
 } from 'discord.js';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import * as Jimp from 'jimp';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
-import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
-import path from 'path';
-import * as Jimp from 'jimp';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -135,6 +136,12 @@ export class DiscordBot extends BaseClient {
 
   private async setupSlashCommands() {
     try {
+      const serverChoices = [
+        { name: 'YouTube配信用', value: '1.21.4-fabric-youtube' },
+        { name: 'テスト用', value: '1.21.4-test' },
+        { name: 'プレイ用', value: '1.21.1-play' },
+      ];
+
       const commands = [
         new SlashCommandBuilder()
           .setName('minecraft_server_status')
@@ -144,11 +151,41 @@ export class DiscordBot extends BaseClient {
               .setName('server_name')
               .setDescription('サーバー名')
               .setRequired(true)
-              .addChoices(
-                { name: 'ワールド1', value: 'world1' },
-                { name: 'ワールド2', value: 'world2' }
-              )
+              .addChoices(...serverChoices)
           ),
+        new SlashCommandBuilder()
+          .setName('minecraft_server_start')
+          .setDescription('Minecraftサーバーを起動する')
+          .addStringOption((option) =>
+            option
+              .setName('server_name')
+              .setDescription('サーバー名')
+              .setRequired(true)
+              .addChoices(...serverChoices)
+          ),
+        new SlashCommandBuilder()
+          .setName('minecraft_server_stop')
+          .setDescription('Minecraftサーバーを停止する')
+          .addStringOption((option) =>
+            option
+              .setName('server_name')
+              .setDescription('サーバー名')
+              .setRequired(true)
+              .addChoices(...serverChoices)
+          ),
+        new SlashCommandBuilder()
+          .setName('minebot_login')
+          .setDescription('MinebotをMinecraftサーバーにログインさせる')
+          .addStringOption((option) =>
+            option
+              .setName('server_name')
+              .setDescription('サーバー名')
+              .setRequired(true)
+              .addChoices(...serverChoices)
+          ),
+        new SlashCommandBuilder()
+          .setName('minebot_logout')
+          .setDescription('MinebotをMinecraftサーバーからログアウトさせる'),
         new SlashCommandBuilder()
           .setName('vote')
           .setDescription('投票を開始します')
@@ -215,24 +252,223 @@ export class DiscordBot extends BaseClient {
                   'server_name',
                   true
                 ) as MinecraftServerName;
-              const data = {
-                type: 'command',
-                serverName: serverName,
-                command: 'status',
-              } as ServiceInput;
+              await interaction.deferReply();
               try {
+                // ステータス取得のためにリスナーを設定
+                const statusPromise = new Promise<string>((resolve) => {
+                  const unsubscribe = this.eventBus.subscribe('web:status', (event) => {
+                    const data = event.data as { service: string; status: string };
+                    if (data.service === `minecraft:${serverName}`) {
+                      unsubscribe();
+                      resolve(data.status);
+                    }
+                  });
+                  // 10秒でタイムアウト
+                  setTimeout(() => {
+                    unsubscribe();
+                    resolve('timeout');
+                  }, 10000);
+                });
+
                 this.eventBus.publish({
                   type: `minecraft:${serverName}:status`,
                   memoryZone: 'minecraft',
-                  data: data,
+                  data: { serviceCommand: 'status' } as ServiceInput,
                 });
-                await interaction.reply('ツイートを送信しました！');
+
+                const status = await statusPromise;
+                const statusEmoji = status === 'running' ? '🟢' : status === 'stopped' ? '🔴' : '⚪';
+                await interaction.editReply(`${statusEmoji} **${serverName}**: ${status}`);
               } catch (error) {
-                await interaction.reply('ツイートの送信に失敗しました。');
-                console.error('Tweet error:', error);
+                await interaction.editReply('ステータスの取得に失敗しました。');
+                console.error('Status error:', error);
               }
             }
             break;
+
+          case 'minecraft_server_start':
+            if (interaction.isChatInputCommand()) {
+              const serverName: MinecraftServerName =
+                interaction.options.getString(
+                  'server_name',
+                  true
+                ) as MinecraftServerName;
+              await interaction.deferReply();
+              try {
+                // ステータス取得のためにリスナーを設定
+                const statusPromise = new Promise<string>((resolve) => {
+                  const unsubscribe = this.eventBus.subscribe('web:status', (event) => {
+                    const data = event.data as { service: string; status: string };
+                    if (data.service === `minecraft:${serverName}`) {
+                      unsubscribe();
+                      resolve(data.status);
+                    }
+                  });
+                  // 30秒でタイムアウト（起動に時間がかかる）
+                  setTimeout(() => {
+                    unsubscribe();
+                    resolve('timeout');
+                  }, 30000);
+                });
+
+                this.eventBus.publish({
+                  type: `minecraft:${serverName}:status`,
+                  memoryZone: 'minecraft',
+                  data: { serviceCommand: 'start' } as ServiceInput,
+                });
+
+                const status = await statusPromise;
+                if (status === 'running') {
+                  await interaction.editReply(`🟢 **${serverName}** を起動しました！`);
+                } else if (status === 'timeout') {
+                  await interaction.editReply(`⏰ **${serverName}** の起動がタイムアウトしました。`);
+                } else {
+                  await interaction.editReply(`⚠️ **${serverName}** の起動に問題が発生しました。ステータス: ${status}`);
+                }
+              } catch (error) {
+                await interaction.editReply('サーバーの起動に失敗しました。');
+                console.error('Start error:', error);
+              }
+            }
+            break;
+
+          case 'minecraft_server_stop':
+            if (interaction.isChatInputCommand()) {
+              const serverName: MinecraftServerName =
+                interaction.options.getString(
+                  'server_name',
+                  true
+                ) as MinecraftServerName;
+              await interaction.deferReply();
+              try {
+                // ステータス取得のためにリスナーを設定
+                const statusPromise = new Promise<string>((resolve) => {
+                  const unsubscribe = this.eventBus.subscribe('web:status', (event) => {
+                    const data = event.data as { service: string; status: string };
+                    if (data.service === `minecraft:${serverName}`) {
+                      unsubscribe();
+                      resolve(data.status);
+                    }
+                  });
+                  // 30秒でタイムアウト
+                  setTimeout(() => {
+                    unsubscribe();
+                    resolve('timeout');
+                  }, 30000);
+                });
+
+                this.eventBus.publish({
+                  type: `minecraft:${serverName}:status`,
+                  memoryZone: 'minecraft',
+                  data: { serviceCommand: 'stop' } as ServiceInput,
+                });
+
+                const status = await statusPromise;
+                if (status === 'stopped') {
+                  await interaction.editReply(`🔴 **${serverName}** を停止しました！`);
+                } else if (status === 'timeout') {
+                  await interaction.editReply(`⏰ **${serverName}** の停止がタイムアウトしました。`);
+                } else {
+                  await interaction.editReply(`⚠️ **${serverName}** の停止に問題が発生しました。ステータス: ${status}`);
+                }
+              } catch (error) {
+                await interaction.editReply('サーバーの停止に失敗しました。');
+                console.error('Stop error:', error);
+              }
+            }
+            break;
+
+          case 'minebot_login':
+            if (interaction.isChatInputCommand()) {
+              const serverName: MinecraftServerName =
+                interaction.options.getString(
+                  'server_name',
+                  true
+                ) as MinecraftServerName;
+              await interaction.deferReply();
+              try {
+                // spawn イベントを待つ（実際にログイン完了まで）
+                const spawnPromise = new Promise<{ success: boolean; message?: string }>((resolve) => {
+                  // spawnイベントのリスナー
+                  const unsubscribeSpawn = this.eventBus.subscribe('minebot:spawned', () => {
+                    unsubscribeSpawn();
+                    resolve({ success: true });
+                  });
+                  // エラーイベントのリスナー
+                  const unsubscribeError = this.eventBus.subscribe('minebot:error', (event) => {
+                    unsubscribeError();
+                    resolve({ success: false, message: (event.data as { message?: string })?.message });
+                  });
+                  // 120秒でタイムアウト（Microsoft認証に時間がかかる場合）
+                  setTimeout(() => {
+                    unsubscribeSpawn();
+                    unsubscribeError();
+                    resolve({ success: false, message: 'timeout' });
+                  }, 120000);
+                });
+
+                // ログイン開始を通知
+                await interaction.editReply(`⏳ Minebotを **${serverName}** にログイン中...\n（Microsoft認証が必要な場合、コンソールでコードを確認してください）`);
+
+                this.eventBus.publish({
+                  type: 'minebot:bot:status',
+                  memoryZone: 'minebot',
+                  data: { serviceCommand: 'start', serverName } as MinebotInput,
+                });
+
+                const result = await spawnPromise;
+                if (result.success) {
+                  await interaction.editReply(`🤖 Minebotが **${serverName}** にログインしました！`);
+                } else if (result.message === 'timeout') {
+                  await interaction.editReply(`⏰ Minebotのログインがタイムアウトしました（120秒）。\nMicrosoft認証が必要な場合はコンソールを確認してください。`);
+                } else {
+                  await interaction.editReply(`⚠️ Minebotのログインに失敗しました: ${result.message}`);
+                }
+              } catch (error) {
+                await interaction.editReply('Minebotのログインに失敗しました。');
+                console.error('Minebot login error:', error);
+              }
+            }
+            break;
+
+          case 'minebot_logout':
+            if (interaction.isChatInputCommand()) {
+              await interaction.deferReply();
+              try {
+                // 完了イベントを待つ
+                const logoutPromise = new Promise<{ success: boolean; message?: string }>((resolve) => {
+                  const unsubscribe = this.eventBus.subscribe('minebot:stopped', () => {
+                    unsubscribe();
+                    resolve({ success: true });
+                  });
+                  // 30秒でタイムアウト
+                  setTimeout(() => {
+                    unsubscribe();
+                    resolve({ success: false, message: 'timeout' });
+                  }, 30000);
+                });
+
+                this.eventBus.publish({
+                  type: 'minebot:bot:status',
+                  memoryZone: 'minebot',
+                  data: { serviceCommand: 'stop' } as MinebotInput,
+                });
+
+                const result = await logoutPromise;
+                if (result.success) {
+                  await interaction.editReply(`👋 Minebotがログアウトしました！`);
+                } else if (result.message === 'timeout') {
+                  await interaction.editReply(`⏰ Minebotのログアウトがタイムアウトしました。`);
+                } else {
+                  await interaction.editReply(`⚠️ Minebotのログアウトに問題が発生しました: ${result.message}`);
+                }
+              } catch (error) {
+                await interaction.editReply('Minebotのログアウトに失敗しました。');
+                console.error('Minebot logout error:', error);
+              }
+            }
+            break;
+
           case 'vote':
             if (interaction.isChatInputCommand()) {
               const description = interaction.options.getString('description', true);
