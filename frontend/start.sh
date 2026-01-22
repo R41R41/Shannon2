@@ -2,13 +2,13 @@
 
 # テストモードフラグをチェック
 IS_DEV=false
-PORT=3000
-FRONTEND_SESSION="shannon-frontend"
+PORT=3001
+FRONTEND_SESSION="shannon-frontend-prod"
 
 if [ "$1" = "--dev" ]; then
     IS_DEV=true
-    PORT=13000
-    FRONTEND_SESSION="shannon-frontend-dev"
+    PORT=13001
+    FRONTEND_SESSION="shannon-frontend-prod-dev"
     echo "Starting frontend in dev mode on port $PORT..."
 else
     echo "Starting frontend on port $PORT..."
@@ -41,9 +41,9 @@ sleep 2
 
 # フロントエンドを起動
 if [ "$IS_DEV" = true ]; then
-    tmux new-session -d -s $FRONTEND_SESSION "cd /home/azureuser/Shannon-dev/frontend && PORT=$PORT npm run dev:dev"
+    tmux new-session -d -s $FRONTEND_SESSION "cd /home/azureuser/Shannon-prod/frontend && PORT=$PORT npm run dev:dev"
 else
-    tmux new-session -d -s $FRONTEND_SESSION "cd /home/azureuser/Shannon-dev/frontend && PORT=$PORT npm run dev"
+    tmux new-session -d -s $FRONTEND_SESSION "cd /home/azureuser/Shannon-prod/frontend && PORT=$PORT npm run dev"
 fi
 echo "Frontend started in tmux session: $FRONTEND_SESSION"
 

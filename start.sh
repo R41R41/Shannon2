@@ -1,8 +1,11 @@
 #!/bin/bash
 
+# スクリプトのディレクトリを取得
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # セッション名を定義
-FRONTEND_SESSION="shannon-frontend"
-BACKEND_SESSION="shannon-backend"
+FRONTEND_SESSION="shannon-frontend-prod"
+BACKEND_SESSION="shannon-backend-prod"
 
 # テストモードフラグをチェック
 IS_DEV=false
@@ -18,7 +21,7 @@ tmux kill-session -t $FRONTEND_SESSION 2>/dev/null
 tmux kill-session -t $BACKEND_SESSION 2>/dev/null
 
 # バックエンドを起動
-cd backend
+cd "$SCRIPT_DIR/backend"
 if [ "$IS_DEV" = true ]; then
     ./start.sh --dev
 else
@@ -26,7 +29,7 @@ else
 fi
 
 # フロントエンドを起動
-cd ../frontend
+cd "$SCRIPT_DIR/frontend"
 if [ "$IS_DEV" = true ]; then
     ./start.sh --dev
 else

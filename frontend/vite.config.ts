@@ -1,30 +1,29 @@
-import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { defineConfig } from 'vite';
 
+// Shannon-prod用: ポートを3001に変更
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
   server: {
     host: true, // 全てのIPアドレスでリッスン
-    port: mode === 'test' ? 13000 : 3000,
+    port: mode === 'test' ? 13001 : 3001,
     strictPort: true, // 指定したポートが使用中の場合はエラーを出す
     // 許可するホストを追加
     proxy: {
-      '/api': 'http://localhost:5000',
+      '/api': 'http://localhost:5001',
     },
     allowedHosts: ['sh4nnon.com', 'www.sh4nnon.com', 'localhost'],
     headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-      'Cross-Origin-Embedder-Policy': 'require-corp'
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups'
     }
   },
   // ホスト設定を追加
   preview: {
     host: true,
-    port: 3000,
+    port: 3001,
     headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-      'Cross-Origin-Embedder-Policy': 'require-corp'
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups'
     }
   },
   resolve: {
