@@ -91,6 +91,35 @@
 ✅ "oak_log", "birch_log", "oak_planks", "cobblestone"
 ```
 
+## ブロックのドロップ知識（重要！）
+
+**stone（石）を掘る → cobblestone（丸石）がドロップ**
+
+cobblestone が必要な場合は、`find-blocks("stone")` で石を探して掘る！
+cobblestone ブロックを探すのではなく、stone を掘って入手する。
+
+```
+❌ ダメ: cobblestoneを探す
+find-blocks("cobblestone", 50)  ← cobblestoneブロックは自然には少ない
+
+✅ OK: stoneを探して掘る
+find-blocks("stone", 50)  → (10, 60, -30)
+dig-block-at(10, 60, -30)  → cobblestoneがドロップ
+```
+
+その他のドロップ：
+
+- stone（石）→ cobblestone（丸石）
+- deepslate（深層岩）→ cobbled_deepslate（深層岩の丸石）
+- coal_ore（石炭鉱石）→ coal（石炭）
+- iron_ore（鉄鉱石）→ raw_iron（鉄の原石）
+- diamond_ore（ダイヤ鉱石）→ diamond（ダイヤモンド）
+- lapis_ore（ラピス鉱石）→ lapis_lazuli（ラピスラズリ）
+- redstone_ore（レッドストーン鉱石）→ redstone（レッドストーン）
+- gold_ore（金鉱石）→ raw_gold（金の原石）
+- copper_ore（銅鉱石）→ raw_copper（銅の原石）
+- glass（ガラス）→ 何もドロップしない（シルクタッチが必要）
+
 ## 木材の種類を合わせる！
 
 ```

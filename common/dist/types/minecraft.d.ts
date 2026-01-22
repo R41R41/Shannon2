@@ -1,5 +1,5 @@
 export type MinecraftServerEndpoint = "status" | "start" | "stop";
-export type MinecraftServerName = "1.19.0-youtube" | "1.21.4-test" | "1.21.1-play";
+export type MinecraftServerName = "1.19.0-youtube" | "1.21.4-test" | "1.21.1-play" | "1.21.4-fabric-youtube";
 export interface MinecraftInput {
     serverName?: MinecraftServerName | null;
     command?: MinecraftServerEndpoint | null;

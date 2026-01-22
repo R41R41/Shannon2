@@ -141,13 +141,19 @@ export abstract class ConstantSkill extends Skill {
     // containMovementがtrueの場合、優先度チェックとInstantSkill実行チェックを行う
     if (this.containMovement) {
       // InstantSkillが実行中の場合は実行しない
-      if (this.bot.executingSkill) return;
+      if (this.bot.executingSkill) {
+        console.log(`⏸️ ConstantSkill ${this.skillName} スキップ: InstantSkill実行中`);
+        return;
+      }
 
       // 優先度の高いConstantSkillが実行中の場合は実行しない
       const runningSkills = this.bot.constantSkills
         .getSkills()
         .filter((skill) => skill.containMovement && skill.isLocked && skill.priority > this.priority);
-      if (runningSkills.length > 0) return;
+      if (runningSkills.length > 0) {
+        console.log(`⏸️ ConstantSkill ${this.skillName} スキップ: 優先度の高いスキル実行中`);
+        return;
+      }
     }
 
     this.isLocked = true;
@@ -381,7 +387,7 @@ export class ConstantSkills {
     // ));
   }
 
-  // 次のタスクを処理
+  // 次のタスクを処理a
   private async processNextTask() {
     if (this.isProcessing || this.taskQueue.length() === 0) return;
 

@@ -16,7 +16,7 @@ import { ConstantSkillInfo, LLMError, SkillExecutionError } from './types/index.
 
 /**
  * SkillAgent
- * Minecraftボットのスキル管理とイベント処理を統括するメインクラス
+ * Minecraftボットのスキル管理とイベント処理を統括するメインクラスあ
  * 
  * 責任:
  * - 各コンポーネントの初期化と調整
