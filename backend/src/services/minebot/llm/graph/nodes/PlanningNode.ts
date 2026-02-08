@@ -60,9 +60,9 @@ export class PlanningNode {
     this.centralLogManager = centralLogManager || CentralLogManager.getInstance();
     this.logManager = this.centralLogManager.getLogManager('planning_node');
 
-    // gpt-4oを使用（高速 & Structured Outputs対応）
+    // gpt-4.1を使用（指示追従能力が高い & Structured Outputs対応）
     this.model = new ChatOpenAI({
-      modelName: 'gpt-4o',
+      modelName: 'gpt-4.1',
       apiKey: process.env.OPENAI_API_KEY!,
       temperature: 0,
     });

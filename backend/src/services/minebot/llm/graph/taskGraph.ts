@@ -319,21 +319,28 @@ export class TaskGraph {
           return 'planning';
         }
 
-        // status: completed/error の場合は終了（nextActionSequenceがあっても無視）
-        // LLMがstatus: completedにしたなら、報告chatはその前に実行すべき
-        if (state.taskTree?.status === 'completed') {
-          console.log('\x1b[32m✅ タスク完了\x1b[0m');
-          return END;
-        }
-        if (state.taskTree?.status === 'error') {
-          console.log('\x1b[31m❌ タスクエラー\x1b[0m');
-          return END;
-        }
-
         // nextActionSequenceがあるかチェック
         const hasActions =
           (state.taskTree?.nextActionSequence && state.taskTree.nextActionSequence.length > 0) ||
           (state.taskTree?.actionSequence && state.taskTree.actionSequence.length > 0);
+
+        // status: completed/error でも残りアクション（chat報告等）があれば先に実行
+        if (state.taskTree?.status === 'completed') {
+          if (hasActions) {
+            console.log('\x1b[32m✅ タスク完了（残りアクションを実行してから終了）\x1b[0m');
+            return 'execution';
+          }
+          console.log('\x1b[32m✅ タスク完了\x1b[0m');
+          return END;
+        }
+        if (state.taskTree?.status === 'error') {
+          if (hasActions) {
+            console.log('\x1b[31m❌ タスクエラー（残りアクションを実行してから終了）\x1b[0m');
+            return 'execution';
+          }
+          console.log('\x1b[31m❌ タスクエラー\x1b[0m');
+          return END;
+        }
 
         if (hasActions) {
           return 'execution';
@@ -369,8 +376,10 @@ export class TaskGraph {
             let actionKey: string;
 
             // 座標を含む引数がある場合は、ツール名+座標で識別
+            // deposit/withdraw/tradeなど、アイテム名がある場合はそれも含める
             if (args.x !== undefined && args.y !== undefined && args.z !== undefined) {
-              actionKey = `${r.toolName}@${args.x},${args.y},${args.z}`;
+              const itemSuffix = args.itemName ? `:${args.itemName}` : '';
+              actionKey = `${r.toolName}@${args.x},${args.y},${args.z}${itemSuffix}`;
             }
             // chatアクションの場合は、メッセージ内容のハッシュで識別
             else if (r.toolName === 'chat' && args.message) {
@@ -406,6 +415,16 @@ export class TaskGraph {
               return END;
             }
           }
+        }
+
+        // completed/error 状態で残りアクションを実行した後は終了
+        if (state.taskTree?.status === 'completed') {
+          console.log('\x1b[32m✅ タスク完了（最終アクション実行済み）\x1b[0m');
+          return END;
+        }
+        if (state.taskTree?.status === 'error') {
+          console.log('\x1b[31m❌ タスクエラー（最終アクション実行済み）\x1b[0m');
+          return END;
         }
 
         if (this.currentState.humanFeedbackPending) {
