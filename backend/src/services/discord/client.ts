@@ -235,10 +235,26 @@ export class DiscordBot extends BaseClient {
       // コマンドをJSON形式に変換
       const commandsJson = commands.map((command) => command.toJSON());
 
-      // コマンドを登録
-      if (this.client.application) {
+      // コマンドを特定のギルドに登録（即時反映）
+      const targetGuildId = this.isDev
+        ? process.env.TEST_GUILD_ID
+        : process.env.AIMINE_GUILD_ID;
+
+      if (targetGuildId) {
+        const guild = this.client.guilds.cache.get(targetGuildId);
+        if (guild) {
+          await guild.commands.set(commandsJson);
+          console.log(`\x1b[32mSlash commands registered to guild: ${guild.name}\x1b[0m`);
+        } else {
+          console.log(`\x1b[33mGuild ${targetGuildId} not found, falling back to global\x1b[0m`);
+          if (this.client.application) {
+            await this.client.application.commands.set(commandsJson);
+            console.log('\x1b[32mSlash commands registered globally\x1b[0m');
+          }
+        }
+      } else if (this.client.application) {
         await this.client.application.commands.set(commandsJson);
-        console.log('\x1b[32mSlash commands registered successfully\x1b[0m');
+        console.log('\x1b[32mSlash commands registered globally\x1b[0m');
       }
 
       this.client.on('interactionCreate', async (interaction) => {
@@ -341,6 +357,9 @@ export class DiscordBot extends BaseClient {
                 ) as MinecraftServerName;
               await interaction.deferReply();
               try {
+                // 停止開始を通知
+                await interaction.editReply(`⏳ **${serverName}** を停止中...\n（ワールド保存に時間がかかる場合があります）`);
+
                 // ステータス取得のためにリスナーを設定
                 const statusPromise = new Promise<string>((resolve) => {
                   const unsubscribe = this.eventBus.subscribe('web:status', (event) => {
@@ -350,11 +369,11 @@ export class DiscordBot extends BaseClient {
                       resolve(data.status);
                     }
                   });
-                  // 30秒でタイムアウト
+                  // 90秒でタイムアウト（ワールド保存に時間がかかる）
                   setTimeout(() => {
                     unsubscribe();
                     resolve('timeout');
-                  }, 30000);
+                  }, 90000);
                 });
 
                 this.eventBus.publish({

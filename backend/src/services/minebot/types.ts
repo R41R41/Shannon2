@@ -69,6 +69,7 @@ export interface CustomBot extends Omit<Bot, 'on' | 'once' | 'emit'> {
   ): boolean;
   isTest: boolean;
   chatMode: boolean;
+  connectedServerName: string;
   attackEntity: Entity | null;
   runFromEntity: Entity | null;
   goal: Goal | null;

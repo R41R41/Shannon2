@@ -103,6 +103,9 @@ export class MinebotConfig {
 
   // ===== Minecraft接続設定 =====
 
+  /** Minecraftサーバーのベースディレクトリ */
+  readonly MINECRAFT_BASE_DIR = process.env.MINECRAFT_BASE_DIR || '/home/azureuser/minecraft';
+
   /** サーバー名とポートのマッピング */
   readonly MINECRAFT_SERVERS: Record<string, number> = {
     '1.21.4-test': 25566,

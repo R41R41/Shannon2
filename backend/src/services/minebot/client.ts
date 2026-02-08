@@ -106,6 +106,7 @@ export class MinebotClient extends BaseClient {
 
     this.bot.isTest = CONFIG.IS_DEV;
     this.bot.chatMode = true;
+    this.bot.connectedServerName = serverName as string;
     this.bot.attackEntity = null;
     this.bot.runFromEntity = null;
     this.bot.goal = null;
