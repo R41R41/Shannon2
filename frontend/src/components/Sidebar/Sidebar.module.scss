@@ -4,51 +4,55 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: color(background, primary);
+  background-color: color(background, secondary);
+  border-right: 1px solid color(border, secondary);
 
   &.mobile {
-    height: 60px;
+    height: 56px;
     flex-direction: row;
+    border-right: none;
+    border-top: 1px solid color(border, primary);
   }
 }
 
 .tabContainer {
   flex-shrink: 0;
-  padding: auto;
   display: flex;
   flex-direction: row;
   justify-content: center;
-  height: 32px;
+  height: 36px;
+  border-bottom: 1px solid color(border, secondary);
+
   &.mobileTabContainer {
-    flex-direction: row;
     width: 100%;
     justify-content: space-around;
     align-items: center;
+    border-bottom: none;
   }
 }
 
 .tab {
-  font-size: 12px;
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: color(text, primary);
+  @include flex-center;
+  width: 44px;
+  height: 36px;
+  color: color(text, disabled);
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all transition(fast);
+  border-bottom: 2px solid transparent;
+
   &:hover {
+    color: color(text, secondary);
     background-color: color(surface, secondary);
   }
 
   &.active {
-    background-color: color(surface, secondary);
-    border-bottom: 1px solid color(surface, active);
+    color: color(text, primary);
+    border-bottom-color: color(primary);
   }
 
   svg {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
   }
 }
 

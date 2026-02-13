@@ -15,8 +15,10 @@ import { EmotionAgent } from "@/services/agents/emotionAgent";
 import { SkillAgent } from "@/services/agents/skillAgent";
 import { UserInfo } from "@common/types/web";
 
-const ResizeHandle = ({ className = "" }) => (
-  <PanelResizeHandle className={`${styles.resizeHandle} ${className}`} />
+const ResizeHandle = ({ direction = "vertical" }: { direction?: "vertical" | "horizontal" }) => (
+  <PanelResizeHandle
+    className={direction === "vertical" ? styles.resizeHandleV : styles.resizeHandleH}
+  />
 );
 
 interface ShannonUIProps {
@@ -35,16 +37,12 @@ const ShannonUI: React.FC<ShannonUIProps> = ({ isTest }) => {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    // ローカルストレージからユーザー情報を取得
     const storedUserInfo = localStorage.getItem("userInfo");
     if (storedUserInfo) {
       setUserInfo(JSON.parse(storedUserInfo));
     }
 
-    // シングルトンインスタンスを取得
     const webClient = WebClient.getInstance();
-
-    // 各サービスのインスタンスを設定
     setMonitoring(webClient.monitoringService);
     setOpenai(webClient.openaiService);
     setScheduler(webClient.schedulerService);
@@ -53,44 +51,39 @@ const ShannonUI: React.FC<ShannonUIProps> = ({ isTest }) => {
     setEmotion(webClient.emotionService);
     setSkill(webClient.skillService);
 
-    // 初回のみ接続を開始
     if (!webClient.isConnected()) {
       webClient.start();
     }
 
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
     handleResize();
     window.addEventListener("resize", handleResize);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      // コンポーネントのアンマウント時には接続を切断しない
-    };
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   return (
     <div className={styles.container}>
-      <Header userInfo={userInfo} />
+      <Header
+        userInfo={userInfo}
+        monitoring={monitoring}
+        openai={openai}
+        status={status}
+      />
       <div className={styles.mainSection}>
         {isMobile ? (
-          // モバイルレイアウト
           <div className={styles.mobileLayout}>
             <div className={styles.mobileContent}>
-              <div className={styles.mobileMainContent}>
-                <MainContent
-                  monitoring={monitoring}
-                  openai={openai}
-                  status={status}
-                  planning={planning}
-                  emotion={emotion}
-                  isMobile={true}
-                />
-              </div>
-              <div className={styles.mobileChatView}>
-                <ChatView openai={openai} userInfo={userInfo} />
-              </div>
+              <MainContent
+                monitoring={monitoring}
+                openai={openai}
+                status={status}
+                planning={planning}
+                emotion={emotion}
+                isMobile={true}
+              />
+            </div>
+            <div className={styles.mobileChatView}>
+              <ChatView openai={openai} userInfo={userInfo} />
             </div>
             <div className={styles.mobileNavbar}>
               <Sidebar
@@ -105,9 +98,8 @@ const ShannonUI: React.FC<ShannonUIProps> = ({ isTest }) => {
             </div>
           </div>
         ) : (
-          // デスクトップレイアウト
           <PanelGroup direction="horizontal">
-            <Panel defaultSize={20} minSize={15}>
+            <Panel defaultSize={18} minSize={14}>
               <Sidebar
                 monitoring={monitoring}
                 scheduler={scheduler}
@@ -117,18 +109,17 @@ const ShannonUI: React.FC<ShannonUIProps> = ({ isTest }) => {
                 isTest={isTest}
               />
             </Panel>
-            <ResizeHandle />
-            <Panel defaultSize={60} minSize={30}>
+            <ResizeHandle direction="horizontal" />
+            <Panel defaultSize={62} minSize={30}>
               <MainContent
                 monitoring={monitoring}
                 openai={openai}
                 status={status}
                 planning={planning}
                 emotion={emotion}
-                isMobile={isMobile}
               />
             </Panel>
-            <ResizeHandle />
+            <ResizeHandle direction="horizontal" />
             <Panel defaultSize={20} minSize={15}>
               <ChatView openai={openai} userInfo={userInfo} />
             </Panel>

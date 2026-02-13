@@ -2,16 +2,54 @@ import React, { useEffect, useState, useRef } from "react";
 import styles from "./ActivityLog.module.scss";
 import { ILog, MemoryZone } from "@common/types/common";
 import { MonitoringAgent } from "@/services/agents/monitoringAgent";
+import classNames from "classnames";
 
 interface ActivityLogProps {
   monitoring: MonitoringAgent | null;
 }
 
+interface FilterTab {
+  label: string;
+  value: MemoryZone | "";
+}
+
+const FILTER_TABS: FilterTab[] = [
+  { label: "All", value: "" },
+  { label: "ShannonUI", value: "web" },
+  { label: "Minecraft", value: "minecraft" },
+  { label: "Twitter", value: "twitter:schedule_post" },
+  { label: "YouTube", value: "youtube" },
+];
+
+const DISCORD_SERVERS = [
+  {
+    label: "全サーバー",
+    value: "discord" as MemoryZone,
+  },
+  {
+    label: "とやまさば",
+    value: "discord:toyama_server" as MemoryZone,
+  },
+  {
+    label: "アイマイラボ！",
+    value: "discord:aiminelab_server" as MemoryZone,
+  },
+  {
+    label: "テスト用サーバー",
+    value: "discord:test_server" as MemoryZone,
+  },
+  {
+    label: "どうきさば",
+    value: "discord:douki_server" as MemoryZone,
+  },
+];
+
 const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
   const [logs, setLogs] = useState<ILog[]>([]);
-  const [selectedMemoryZone, setSelectedMemoryZone] = useState<MemoryZone | "">(
-    ""
-  );
+  const [selectedMemoryZone, setSelectedMemoryZone] = useState<
+    MemoryZone | ""
+  >("");
+  const [showDiscordMenu, setShowDiscordMenu] = useState(false);
   const logListRef = useRef<HTMLDivElement>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const MAX_LOGS = 200;
@@ -20,7 +58,6 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
     monitoring?.setLogCallback((log: ILog) => {
       setLogs((prevLogs) => {
         const newLogs = [...prevLogs, log].slice(-MAX_LOGS);
-        // 新しいログが追加されたら自動スクロール
         if (shouldAutoScroll) {
           setTimeout(() => {
             logListRef.current?.scrollTo({
@@ -46,18 +83,14 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
           console.error("Failed to fetch all memory zone logs:", error);
         }
       };
-
       fetchAllMemoryZoneLogs();
     }
   }, [monitoring?.status, monitoring]);
 
-  // スクロールイベントを監視して、手動スクロール時に自動スクロールを無効化
   const handleScroll = () => {
     if (!logListRef.current) return;
-
     const { scrollTop, scrollHeight, clientHeight } = logListRef.current;
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 20;
-    setShouldAutoScroll(isNearBottom);
+    setShouldAutoScroll(scrollHeight - scrollTop - clientHeight < 20);
   };
 
   const formatContent = (content: string) => {
@@ -83,126 +116,87 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
       .replace(/\//g, "-");
   };
 
-  const filteredLogs: ILog[] = logs.filter((log) => {
-    return selectedMemoryZone === ""
+  const filteredLogs = logs.filter((log) =>
+    selectedMemoryZone === ""
       ? true
-      : log.memoryZone.includes(selectedMemoryZone);
-  });
+      : log.memoryZone.includes(selectedMemoryZone)
+  );
+
+  const isErrorLog = (log: ILog) => log.color === "red";
+  const isWarningLog = (log: ILog) => log.color === "yellow";
 
   return (
     <div className={styles.container}>
-      <div className={styles.tabs}>
-        <button
-          className={`${styles.tab} ${
-            selectedMemoryZone === "" ? styles.active : ""
-          }`}
-          onClick={() => setSelectedMemoryZone("")}
-        >
-          All
-        </button>
-        <button
-          className={`${styles.tab} ${
-            selectedMemoryZone === "web" ? styles.active : ""
-          }`}
-          onClick={() => setSelectedMemoryZone("web")}
-        >
-          ShannonUI
-        </button>
-        <div className={styles.dropdownTab}>
+      {/* Filter tabs */}
+      <div className={styles.tabBar}>
+        {FILTER_TABS.map((tab) => (
           <button
-            className={`${styles.tab} ${
-              selectedMemoryZone.startsWith("discord") ? styles.active : ""
-            }`}
+            key={tab.value || "all"}
+            className={classNames(styles.tab, {
+              [styles.active]: selectedMemoryZone === tab.value,
+            })}
+            onClick={() => setSelectedMemoryZone(tab.value)}
           >
-            Discord:{" "}
-            {selectedMemoryZone.split(":")[1] === "toyama_server"
-              ? "とやまさば"
-              : selectedMemoryZone.split(":")[1] === "aiminelab_server"
-              ? "アイマイラボ！"
-              : selectedMemoryZone.split(":")[1] === "test_server"
-              ? "シャノンテスト用サーバー"
-              : selectedMemoryZone.split(":")[1] === "douki_server"
-              ? "どうきさば"
-              : "全てのサーバー"}
+            {tab.label}
           </button>
-          <div className={styles.dropdownContent}>
-            <button
-              className={`${styles.dropdownItem} ${
-                selectedMemoryZone === "discord:toyama_server"
-                  ? styles.active
-                  : ""
-              }`}
-              onClick={() => setSelectedMemoryZone("discord:toyama_server")}
-            >
-              discord:とやまさば
-            </button>
-            <button
-              className={`${styles.dropdownItem} ${
-                selectedMemoryZone === "discord:aiminelab_server"
-                  ? styles.active
-                  : ""
-              }`}
-              onClick={() => setSelectedMemoryZone("discord:aiminelab_server")}
-            >
-              discord:アイマイラボ！
-            </button>
-            <button
-              className={`${styles.dropdownItem} ${
-                selectedMemoryZone === "discord:test_server"
-                  ? styles.active
-                  : ""
-              }`}
-              onClick={() => setSelectedMemoryZone("discord:test_server")}
-            >
-              discord:シャノンテスト用サーバー
-            </button>
-            <button
-              className={`${styles.dropdownItem} ${
-                selectedMemoryZone === "discord:douki_server"
-                  ? styles.active
-                  : ""
-              }`}
-              onClick={() => setSelectedMemoryZone("discord:douki_server")}
-            >
-              discord:どうきさば
-            </button>
-          </div>
+        ))}
+
+        {/* Discord dropdown */}
+        <div
+          className={styles.dropdownWrapper}
+          onMouseEnter={() => setShowDiscordMenu(true)}
+          onMouseLeave={() => setShowDiscordMenu(false)}
+        >
+          <button
+            className={classNames(styles.tab, {
+              [styles.active]:
+                selectedMemoryZone.startsWith("discord"),
+            })}
+          >
+            Discord
+          </button>
+          {showDiscordMenu && (
+            <div className={styles.dropdown}>
+              {DISCORD_SERVERS.map((server) => (
+                <button
+                  key={server.value}
+                  className={classNames(styles.dropdownItem, {
+                    [styles.active]: selectedMemoryZone === server.value,
+                  })}
+                  onClick={() => {
+                    setSelectedMemoryZone(server.value);
+                    setShowDiscordMenu(false);
+                  }}
+                >
+                  {server.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        <button
-          className={`${styles.tab} ${
-            selectedMemoryZone === "minecraft" ? styles.active : ""
-          }`}
-          onClick={() => setSelectedMemoryZone("minecraft")}
-        >
-          Minecraft
-        </button>
-        <button
-          className={`${styles.tab} ${
-            selectedMemoryZone === "twitter:schedule_post" ? styles.active : ""
-          }`}
-          onClick={() => setSelectedMemoryZone("twitter:schedule_post")}
-        >
-          twitter
-        </button>
-        <button
-          className={`${styles.tab} ${
-            selectedMemoryZone === "youtube" ? styles.active : ""
-          }`}
-          onClick={() => setSelectedMemoryZone("youtube")}
-        >
-          YouTube
-        </button>
       </div>
-      <div ref={logListRef} className={styles.logList} onScroll={handleScroll}>
+
+      {/* Log list */}
+      <div
+        ref={logListRef}
+        className={styles.logList}
+        onScroll={handleScroll}
+      >
         {filteredLogs.map((log, index) => (
-          <div key={index} className={styles.logEntry}>
+          <div
+            key={index}
+            className={classNames(styles.logEntry, {
+              [styles.errorEntry]: isErrorLog(log),
+              [styles.warningEntry]: isWarningLog(log),
+            })}
+          >
             <span className={styles.timestamp}>
               {formatTimestamp(log.timestamp)}
             </span>
             {selectedMemoryZone === "" && (
               <span className={styles.memoryZone}>{log.memoryZone}</span>
             )}
-            <span className={`${styles.content} ${styles[log.color]}`}>
+            <span className={classNames(styles.content, styles[log.color])}>
               {formatContent(log.content)}
             </span>
           </div>

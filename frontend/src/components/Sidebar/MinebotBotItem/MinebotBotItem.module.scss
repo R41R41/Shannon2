@@ -1,143 +1,69 @@
-@use "../../../styles/variables" as *;
+@use "@styles/variables.scss" as *;
+@use "../service-common" as *;
 
 .serviceItem {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px;
-  background-color: color(surface, primary);
-  border-radius: 8px;
+  @include service-item;
 }
 
 .info {
-  display: grid;
-  gap: 4px;
+  @include service-info;
 }
 
 .name {
-  font-weight: bold;
-  font-size: 14px;
+  @include service-name;
 }
 
-.status {
-  color: color(text, disabled);
-  font-size: 12px;
-  text-transform: capitalize;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-
-  &::before {
-    content: "";
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-  }
-
-  &.running::before {
-    background-color: color(success);
-  }
-
-  &.stopped::before {
-    background-color: color(danger);
-  }
-
-  &.connecting::before {
-    background-color: color(warning);
-    animation: pulse 1.5s infinite;
-  }
+.statusText {
+  @include service-status-text;
 }
 
-.controlContainer {
+.statusDot {
+  @include service-status-dot;
+}
+
+.controlWrapper {
   position: relative;
-  display: flex;
-  align-items: center;
+  flex-shrink: 0;
 }
 
-.toggleButton {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: color(primary);
-  border: none;
-  border-radius: 8px;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: color(text, primary);
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  &.start {
-    background-color: color(primary);
-    &:hover:not(:disabled) {
-      background-color: rgba(color(primary), 0.8);
-    }
-  }
-
-  &.stop {
-    background-color: color(danger);
-    &:hover:not(:disabled) {
-      background-color: rgba(color(danger), 0.8);
-    }
-  }
-
-  svg {
-    width: 20px;
-    height: 20px;
-  }
+.toggle {
+  @include toggle-switch;
 }
 
-.serverList {
-  width: 160px;
+.toggleThumb {
+  @include toggle-thumb;
+}
+
+// Server dropdown (MinebotBotItem only)
+.serverDropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + spacing(xs));
   right: 0;
-  background-color: #2c2c2c;
-  border-radius: 4px;
-  padding: 8px;
-  z-index: 1000;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  min-width: 150px;
+  background-color: color(surface, secondary);
+  border: 1px solid color(border, primary);
+  border-radius: radius(md);
+  padding: spacing(xs);
+  z-index: z(dropdown);
+  box-shadow: shadow(md);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: spacing(xxs);
 }
 
-.serverButton {
-  background-color: #3c3c3c;
-  border: none;
-  color: white;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
+.serverOption {
   width: 100%;
+  padding: spacing(sm) spacing(md);
   text-align: left;
-  transition: background-color 0.2s;
+  font-size: font-size(sm);
+  background: none;
+  border: none;
+  border-radius: radius(sm);
+  color: color(text, primary);
+  cursor: pointer;
+  transition: background-color transition(fast);
 
   &:hover {
-    background-color: #4c4c4c;
-  }
-
-  &:active {
-    background-color: #5c5c5c;
-  }
-}
-
-@keyframes pulse {
-  0% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.5;
+    background-color: color(surface, hover);
   }
 }
