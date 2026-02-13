@@ -111,6 +111,43 @@ class Fish extends InstantSkill {
     return true;
   }
 
+  /**
+   * mineflayer の use_item パケットの rotation バグを修正するモンキーパッチ。
+   *
+   * 問題: mineflayer の activateItem() は use_item パケットの rotation を
+   * { x: 0, y: 0 } にハードコードしている（inventory.js 131行目）。
+   * Minecraft 1.21.2+ ではサーバーがこの rotation を使ってキャスト方向を判定するため、
+   * 常に南向き水平（yaw=0, pitch=0）にキャストされてしまう。
+   *
+   * 修正: _client.write をラップして、use_item パケットの rotation を
+   * ボットの実際の向き（Notchian形式）に差し替える。
+   */
+  private patchActivateItemRotation(): () => void {
+    const client = (this.bot as any)._client;
+    const origWrite = client.write.bind(client);
+    const bot = this.bot;
+
+    client.write = function (name: string, data: any, ...rest: any[]) {
+      if (name === 'use_item' && data && data.rotation) {
+        // mineflayer内部(ラジアン) → Notchian(度) に変換
+        // toNotchianYaw(yaw)  = degrees(π - yaw)
+        // toNotchianPitch(pitch) = degrees(-pitch)
+        const notchYaw = (180 / Math.PI) * (Math.PI - bot.entity.yaw);
+        const notchPitch = (180 / Math.PI) * (-bot.entity.pitch);
+        data.rotation = { x: notchYaw, y: notchPitch };
+        console.log(
+          `\x1b[35m🔧 use_item rotation修正: yaw=${notchYaw.toFixed(1)}° pitch=${notchPitch.toFixed(1)}°\x1b[0m`,
+        );
+      }
+      return origWrite(name, data, ...rest);
+    };
+
+    // パッチ解除用の関数を返す
+    return () => {
+      client.write = origWrite;
+    };
+  }
+
   async runImpl(count: number = 1) {
     try {
       // 釣り竿を持っているかチェック
@@ -130,83 +167,84 @@ class Fish extends InstantSkill {
       await this.bot.equip(fishingRod, 'hand');
       await this.bot.waitForTicks(5);
 
-      // 釣りボバーは放物線を描くため、常にauto-aimで最適な角度を計算する
-      // 「視線方向に水がある」だけでは不十分（ピッチが浅いとボバーがオーバーシュートする）
+      // use_item パケットの rotation バグを修正
+      const unpatch = this.patchActivateItemRotation();
+
+      // 水面ターゲットを検出
       let aimTarget: Vec3 | null = null;
-      let aimHorizontalDist: number = 0;
 
-      {
-        // 自動水面検出 + ボバー弧補正
-        const waterSurface = this.findBestWaterSurface();
-        if (!waterSurface) {
-          const anyWater = this.bot.findBlock({
-            matching: (block: any) => block.name === 'water',
-            maxDistance: 10,
-          });
-          if (!anyWater) {
-            return {
-              success: false,
-              result:
-                '近くに水が見つかりません。水辺に移動してください（10ブロック以内）。',
-            };
-          }
-          console.log(`\x1b[33m⚠ 視線が通る水面がなく、最寄りの水ブロックに向きます: ${anyWater.position}\x1b[0m`);
-          aimTarget = anyWater.position.offset(0.5, 0.5, 0.5);
-        } else {
-          aimTarget = waterSurface.offset(0.5, 0.5, 0.5);
+      const waterSurface = this.findBestWaterSurface();
+      if (!waterSurface) {
+        const anyWater = this.bot.findBlock({
+          matching: (block: any) => block.name === 'water',
+          maxDistance: 10,
+        });
+        if (!anyWater) {
+          unpatch();
+          return {
+            success: false,
+            result:
+              '近くに水が見つかりません。水辺に移動してください（10ブロック以内）。',
+          };
         }
-
-        const eyePos = this.bot.entity.position.offset(0, 1.62, 0);
-        const dist = eyePos.distanceTo(aimTarget);
-        const dx = aimTarget.x - eyePos.x;
-        const dy = aimTarget.y - eyePos.y;
-        const dz = aimTarget.z - eyePos.z;
-        const horizontalDist = Math.sqrt(dx * dx + dz * dz);
-        aimHorizontalDist = horizontalDist;
-        const directPitchDeg = Math.round(Math.atan2(-dy, horizontalDist) * 180 / Math.PI);
-        console.log(`\x1b[36m🎯 自動照準: 水面ターゲット (${aimTarget.x.toFixed(1)}, ${aimTarget.y.toFixed(1)}, ${aimTarget.z.toFixed(1)}) dist=${dist.toFixed(1)}m 水平=${horizontalDist.toFixed(1)}m 直接pitch=${directPitchDeg}°\x1b[0m`);
-
-        // Step 1: 釣りボバーは放物線を描くため、水面を直接狙うとオーバーシュートする
-        // 水面より下を狙うことで、ボバーが適切な距離に着水する
-        // 補正量: 近距離(2m)→2.3m下, 中距離(4m)→3.1m下
-        const arcCompensation = 1.5 + horizontalDist * 0.4;
-        const compensatedTarget = new Vec3(aimTarget.x, aimTarget.y - arcCompensation, aimTarget.z);
-        const fishingPitchDeg = Math.round(Math.atan2(-(compensatedTarget.y - eyePos.y), horizontalDist) * 180 / Math.PI);
-        console.log(`\x1b[36m🎯 ボバー弧補正: pitch=${directPitchDeg}°→${fishingPitchDeg}° (水面y=${aimTarget.y.toFixed(1)} → 照準y=${compensatedTarget.y.toFixed(1)}, 補正=${arcCompensation.toFixed(1)}m下)\x1b[0m`);
-        await this.bot.lookAt(compensatedTarget, true);
+        console.log(
+          `\x1b[33m⚠ 視線が通る水面がなく、最寄りの水ブロックに向きます: ${anyWater.position}\x1b[0m`,
+        );
+        aimTarget = anyWater.position.offset(0.5, 0.5, 0.5);
+      } else {
+        aimTarget = waterSurface.offset(0.5, 0.5, 0.5);
       }
-
-      // Step 2: 体(Body Yaw)を頭(Head Yaw)に合わせる
-      // Minecraftでは頭と体は独立しており、lookAtは頭だけ回転する。
-      // 体は移動しないと追従しない。
-      // スニーク中は崖/水辺のエッジから落ちないので安全。
-      this.bot.setControlState('sneak', true);
-      this.bot.setControlState('forward', true);
-      await this.bot.waitForTicks(3);
-      this.bot.setControlState('forward', false);
-      this.bot.setControlState('sneak', false);
-
-      // Step 3: スニーク前進でpitch/yawが狂う場合があるので、
-      // 元の視線方向を必ず復元する（弧補正付き）
-      const arcComp = 1.5 + aimHorizontalDist * 0.4;
-      const restoreTarget = new Vec3(aimTarget!.x, aimTarget!.y - arcComp, aimTarget!.z);
-      await this.bot.lookAt(restoreTarget, true);
-      await this.bot.waitForTicks(5);
-
-      // 最終的な方向を確認ログ
-      const finalYaw = Math.round((this.bot.entity.yaw * 180 / Math.PI));
-      const finalPitch = Math.round((this.bot.entity.pitch * 180 / Math.PI));
-      console.log(`\x1b[36m🎯 最終方向: yaw=${finalYaw}° pitch=${finalPitch}° (体の向き同期済み)\x1b[0m`);
 
       const caughtItems: string[] = [];
       let successCount = 0;
       let failCount = 0;
 
       for (let i = 0; i < count; i++) {
+        // ── 毎回キャスト前に照準を再設定 ──
+        // （前回のキャストやリールインで方向がずれる可能性があるため）
+        const eyePos = this.bot.entity.position.offset(0, 1.62, 0);
+        const dx = aimTarget.x - eyePos.x;
+        const dy = aimTarget.y - eyePos.y;
+        const dz = aimTarget.z - eyePos.z;
+        const horizontalDist = Math.sqrt(dx * dx + dz * dz);
+
+        // ボバー弧補正: 水面より下を狙って放物線で着水させる
+        const arcCompensation = 1.5 + horizontalDist * 0.4;
+        const compensatedTarget = new Vec3(
+          aimTarget.x,
+          aimTarget.y - arcCompensation,
+          aimTarget.z,
+        );
+
+        if (i === 0) {
+          // 初回のみ詳細ログ
+          const directPitchDeg = Math.round(
+            Math.atan2(-dy, horizontalDist) * (180 / Math.PI),
+          );
+          const fishingPitchDeg = Math.round(
+            Math.atan2(
+              -(compensatedTarget.y - eyePos.y),
+              horizontalDist,
+            ) *
+              (180 / Math.PI),
+          );
+          console.log(
+            `\x1b[36m🎯 自動照準: 水面ターゲット (${aimTarget.x.toFixed(1)}, ${aimTarget.y.toFixed(1)}, ${aimTarget.z.toFixed(1)}) dist=${eyePos.distanceTo(aimTarget).toFixed(1)}m 水平=${horizontalDist.toFixed(1)}m\x1b[0m`,
+          );
+          console.log(
+            `\x1b[36m🎯 ボバー弧補正: pitch=${directPitchDeg}°→${fishingPitchDeg}° (補正=${arcCompensation.toFixed(1)}m下)\x1b[0m`,
+          );
+        }
+
+        // lookAt で方向設定 (force=true でパケット即送信)
+        await this.bot.lookAt(compensatedTarget, true);
+        // サーバーに方向が確実に届くよう少し待つ
+        await this.bot.waitForTicks(5);
         // 中断チェック: 基底クラスのPromise.raceでrun()は即座に返るが、
         // このチェックがないとrunImpl()のループがバックグラウンドで走り続ける
         if (this.shouldInterrupt()) {
           console.log(`\x1b[33m⚡ 釣りループ終了: 中断シグナル受信（${successCount}/${i}回完了）\x1b[0m`);
+          unpatch();
           return {
             success: successCount > 0,
             result: successCount > 0
@@ -272,6 +310,7 @@ class Fish extends InstantSkill {
 
           // 中断シグナルならループを即終了
           if (this.shouldInterrupt()) {
+            unpatch();
             return {
               success: successCount > 0,
               result: successCount > 0
@@ -285,6 +324,7 @@ class Fish extends InstantSkill {
             .items()
             .find((item) => item.name === 'fishing_rod');
           if (!currentRod) {
+            unpatch();
             return {
               success: successCount > 0,
               result:
@@ -298,6 +338,9 @@ class Fish extends InstantSkill {
           await this.bot.waitForTicks(20);
         }
       }
+
+      // パッチ解除
+      unpatch();
 
       if (successCount === 0) {
         return {
