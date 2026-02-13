@@ -65,7 +65,7 @@ export default class DescribeNotionImageTool extends StructuredTool {
             console.log(`\x1b[35m📷 画像${data.image_number}を分析中...\x1b[0m`);
 
             const response = await this.openai.chat.completions.create({
-                model: 'gpt-4o',
+                model: 'gpt-5.2',
                 messages: [
                     {
                         role: 'user',

@@ -16,7 +16,7 @@ export class ReplyYoutubeLiveCommentAgent {
 
   private constructor(systemPrompt: string) {
     this.model = new ChatOpenAI({
-      modelName: 'gpt-4o',
+      modelName: 'gpt-5.2',
       temperature: 1,
       apiKey: OPENAI_API_KEY,
     });

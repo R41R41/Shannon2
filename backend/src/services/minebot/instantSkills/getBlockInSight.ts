@@ -9,7 +9,7 @@ class GetBlockInSight extends InstantSkill {
         super(bot);
         this.skillName = 'get-block-in-sight';
         this.description =
-            'ボットが現在見ている方向にあるブロックの座標を取得します。describe-bot-viewで見つけたものの正確な座標を知りたい時に使用します。';
+            'ボットが現在見ている方向にあるブロックの座標を取得します。look-atで向いた先にあるブロックの正確な座標を知りたい時に使用します。';
         this.params = [
             {
                 name: 'maxDistance',

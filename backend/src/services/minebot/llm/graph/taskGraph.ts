@@ -57,6 +57,7 @@ export class TaskGraph {
 
   private isEmergencyMode = false;
   private isExecuting = false; // タスク実行中フラグ（排他制御用）
+  private abortController: AbortController | null = null; // LLM呼び出しキャンセル用
 
   // 直近の成功アクション履歴（同じアクションの繰り返し検出用）
   private recentSuccessfulActions: string[] = [];
@@ -447,6 +448,7 @@ export class TaskGraph {
     }
 
     this.isExecuting = true;
+    this.abortController = new AbortController();
 
     // 新しいタスク開始時にアクション履歴をリセット
     this.recentSuccessfulActions = [];
@@ -493,7 +495,10 @@ export class TaskGraph {
 
     try {
       console.log('タスクグラフ実行開始 ID:', state.taskId);
-      const result = await this.graph.invoke(state, { recursionLimit: CONFIG.LANGGRAPH_RECURSION_LIMIT });
+      const result = await this.graph.invoke(state, {
+        recursionLimit: CONFIG.LANGGRAPH_RECURSION_LIMIT,
+        signal: this.abortController?.signal,
+      });
       if (result.taskTree?.status === 'in_progress') {
         result.taskTree.status = 'error';
       }
@@ -510,9 +515,24 @@ export class TaskGraph {
 
       return result;
     } catch (error) {
+      // AbortError（forceStopによるキャンセル）の場合
+      if (error instanceof Error && (error.name === 'AbortError' || error.message?.includes('aborted') || error.message?.includes('abort'))) {
+        console.log('\x1b[33m⚠️ タスクが強制停止されました（AbortError）\x1b[0m');
+        return {
+          ...state,
+          forceStop: true,
+          taskTree: {
+            status: 'error',
+            goal: state.taskTree?.goal || '強制停止',
+            strategy: '',
+            subTasks: null,
+          },
+        };
+      }
+
       // 再帰制限エラーの場合
       if (error instanceof Error && 'lc_error_code' in error) {
-        if (error.lc_error_code === 'GRAPH_RECURSION_LIMIT') {
+        if ((error as any).lc_error_code === 'GRAPH_RECURSION_LIMIT') {
           console.warn('再帰制限に達しました。タスクを強制終了します。');
           return {
             ...state,
@@ -541,6 +561,7 @@ export class TaskGraph {
     } finally {
       // 排他制御を解除
       this.isExecuting = false;
+      this.abortController = null;
 
       // 緊急タスク完了時はemergencyModeをリセット
       // partialState.isEmergency または this.isEmergencyMode がtrueなら緊急タスク
@@ -561,6 +582,14 @@ export class TaskGraph {
           }, 1000);
         }
       }
+
+      // キューに待機中のタスクがあれば次を実行
+      const hasPendingTasks = this.taskQueue.some(t => t.status === 'pending' || t.status === 'paused');
+      if (hasPendingTasks && !this.isEmergencyMode) {
+        console.log('\x1b[36m📋 キューに待機中タスクあり、次のタスクを実行\x1b[0m');
+        // 少し遅延して次のタスクを開始（現在のスタックを抜けてから）
+        setTimeout(() => this.executeNextTask(), 100);
+      }
     }
   }
 
@@ -572,6 +601,11 @@ export class TaskGraph {
       this.currentState.humanFeedbackPending = true;
       console.log('humanFeedbackが更新されました:', feedback);
     }
+    // 実行中のスキルに中断シグナルを送る
+    if (this.bot && this.bot.executingSkill) {
+      this.bot.interruptExecution = true;
+      console.log('⚡ 実行中スキルに中断シグナルを送信');
+    }
   }
 
   // タスクを強制終了
@@ -579,6 +613,11 @@ export class TaskGraph {
     console.log('forceStop');
     if (this.currentState) {
       this.currentState.forceStop = true;
+    }
+    // 進行中のLLM呼び出しをキャンセル
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
     }
   }
 
@@ -772,21 +811,29 @@ export class TaskGraph {
 
   /**
    * 緊急タスク完了後、元のタスクに復帰（キュー管理対応）
+   * 注意: この関数はPlanningNode内（invoke実行中）から呼ばれる場合がある。
+   * isExecuting は invoke() の finally ブロックで自動的にリセットされるため、
+   * ここでは手動設定しない（二重実行の原因になる）。
    */
   public async resumePreviousTask(): Promise<void> {
     // 緊急タスクをクリア
     this.emergencyTask = null;
     this.isEmergencyMode = false;
-    this.isExecuting = false;
+    // 注意: this.isExecuting = false はここでしない！
+    // invoke() の finally ブロックが自動的にリセットし、
+    // そこで executeNextTask() も呼ばれる。
 
     console.log('\x1b[32m✅ 緊急タスク完了、通常タスクを再開\x1b[0m');
     this.notifyTaskListUpdate();
 
-    // 少し待機してから再開
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // キューの次のタスクを実行
-    this.executeNextTask();
+    // invoke() が完了した後に finally ブロックが executeNextTask() を呼ぶので、
+    // ここでの明示的な呼び出しは不要。
+    // ただし、invoke() 外から呼ばれた場合のフォールバック:
+    // isExecuting が既に false なら次のタスクを開始する
+    if (!this.isExecuting) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      this.executeNextTask();
+    }
   }
 
   /**
@@ -925,13 +972,22 @@ export class TaskGraph {
     if (wasExecuting && this.isExecuting) {
       this.clearBotControls(); // pathfinderと制御状態をクリア
       this.forceStop();
+      // 注意: ここで executeNextTask() は呼ばない。
+      // forceStop() → AbortError → invoke().finally が isExecuting = false にした後、
+      // finally ブロック内で hasPendingTasks をチェックして executeNextTask() を呼ぶ。
+      // 同期的に呼ぶと、isExecuting がまだ true のため無意味であり、
+      // finally からも呼ばれて二重実行のリスクがある。
     }
 
     this.notifyTaskListUpdate();
 
-    // 次のタスクを実行
-    if (wasExecuting && !this.isEmergencyMode) {
-      this.executeNextTask();
+    // 実行中でなかった（paused等）タスクの削除後、
+    // まだ実行していないタスクがあれば開始
+    if (!wasExecuting && !this.isExecuting && !this.isEmergencyMode) {
+      const hasPending = this.taskQueue.some(t => t.status === 'pending' || t.status === 'paused');
+      if (hasPending) {
+        this.executeNextTask();
+      }
     }
 
     return { success: true };
@@ -970,7 +1026,9 @@ export class TaskGraph {
     this.notifyTaskListUpdate();
 
     // 緊急モードでなければ実行
-    if (!this.isEmergencyMode) {
+    // forceStop() が呼ばれた場合、invoke().finally で isExecuting = false になった後に
+    // executeNextTask() が呼ばれるので、ここでは isExecuting が false の場合のみ呼ぶ
+    if (!this.isEmergencyMode && !this.isExecuting) {
       this.executeNextTask();
     }
 

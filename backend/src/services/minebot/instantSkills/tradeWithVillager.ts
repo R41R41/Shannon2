@@ -364,6 +364,15 @@ class TradeWithVillager extends InstantSkill {
 
               // 取引実行
               for (let t = 0; t < tradeTimes; t++) {
+                if (this.shouldInterrupt()) {
+                  window.close && window.close();
+                  return {
+                    success: t > 0,
+                    result: t > 0
+                      ? `中断: ${trade.outputItem.name} x${t * rateOutput}を入手（${t}/${tradeTimes}回取引）`
+                      : '取引中に中断されました',
+                  };
+                }
                 await window.trade(i, 1);
                 await this.bot.waitForTicks(10);
               }

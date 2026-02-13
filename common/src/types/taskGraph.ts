@@ -24,9 +24,10 @@ export interface HierarchicalSubTask {
   result?: string | null;          // 結果（完了時）
   failureReason?: string | null;   // エラー理由（失敗時）
 
-  // 階層構造（再帰的に子タスクを持てる）
-  children?: HierarchicalSubTask[] | null;  // 子タスク
-  depth: number;                   // 階層の深さ（0が最上位）
+  // フラット構造で親子関係を表現（再帰スキーマ回避）
+  parentId?: string | null;        // 親サブタスクID（トップレベルはnull）
+  children?: HierarchicalSubTask[] | null;  // 後方互換用（非推奨）
+  depth?: number;                  // 階層の深さ（0が最上位）- optional for backward compat
 }
 
 // 次に実行するアクション（実行用・引数は完全に指定）

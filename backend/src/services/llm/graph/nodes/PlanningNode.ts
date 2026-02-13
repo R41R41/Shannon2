@@ -22,9 +22,9 @@ export class PlanningNode {
         this.prompt = prompt;
         this.eventBus = getEventBus();
 
-        // gpt-4oを使用（高速 & Structured Outputs対応）
+        // gpt-5.2を使用（高精度 & Structured Outputs対応）
         this.model = new ChatOpenAI({
-            modelName: 'gpt-4o',
+            modelName: 'gpt-5.2',
             apiKey: process.env.OPENAI_API_KEY!,
             temperature: 0,
         });

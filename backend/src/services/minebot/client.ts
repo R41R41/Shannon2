@@ -110,6 +110,7 @@ export class MinebotClient extends BaseClient {
     this.bot.attackEntity = null;
     this.bot.runFromEntity = null;
     this.bot.goal = null;
+    this.bot.interruptExecution = false;
     this.bot.instantSkills = new InstantSkills();
     this.bot.constantSkills = new ConstantSkills();
     this.bot.utils = new Utils(this.bot);

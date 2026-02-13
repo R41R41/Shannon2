@@ -1,140 +1,120 @@
 import { CustomBot, InstantSkill } from '../types.js';
 
+/**
+ * パラメータ名 → 実際の常時スキル名のマッピング
+ * constantSkills.json / constantSkills/*.ts に実在するスキル名に合わせること
+ */
+const PARAM_TO_SKILL_NAME: Record<string, string> = {
+    switchAutoAvoidProjectileRange: 'auto-avoid-projectile-range',
+    switchAutoEat: 'auto-eat',
+    switchAutoPickUpItem: 'auto-pick-up-item',
+    switchAutoRunFromHostile: 'auto-run-from-hostiles',   // 実装は複数形
+    switchAutoSleep: 'auto-sleep',
+    switchAutoSwim: 'auto-swim',
+    switchAutoFaceNearestEntity: 'auto-face-nearest-entity',
+    switchAutoAvoidDragonBreath: 'auto-avoid-dragon-breath',
+    switchAutoFollow: 'auto-follow',
+};
+
 export class SwitchConstantSkill extends InstantSkill {
     constructor(bot: CustomBot) {
         super(bot);
         this.skillName = 'switch-constant-skill';
-        this.description = '常時実行するスキルを有効/無効にします';
+        this.description = '常時実行するスキルを有効/無効にします。変更したいスキルのみ指定してください（指定しないスキルは変更されません）';
         this.priority = 10;
         this.params = [
-            {
-                name: 'switchAutoAttackHostile',
-                type: 'boolean',
-                description: '敵対的なモンスターに対して自動攻撃を有効にするかどうか',
-                default: true,
-            },
             {
                 name: 'switchAutoAvoidProjectileRange',
                 type: 'boolean',
                 description: 'スケルトンなどの射撃範囲の自動回避を有効にするかどうか',
-                default: true,
             },
             {
                 name: 'switchAutoEat',
                 type: 'boolean',
                 description: '自動で食べるを有効にするかどうか',
-                default: true,
-            },
-            {
-                name: 'switchAutoEquipBestToolForTargetBlock',
-                type: 'boolean',
-                description: 'ブロックに対する最適なツールの自動選択を有効にするかどうか',
-                default: true,
-            },
-            {
-                name: 'switchAutoFaceEntityOrBlock',
-                type: 'boolean',
-                description: '4ブロック以内にあるエンティティやブロックに注目する機能を有効にするかどうか',
-                default: true,
             },
             {
                 name: 'switchAutoPickUpItem',
                 type: 'boolean',
                 description: '落ちているアイテムの自動収集を有効にするかどうか',
-                default: true,
             },
             {
                 name: 'switchAutoRunFromHostile',
                 type: 'boolean',
                 description: '敵モブから自動で逃げる機能を有効にするかどうか',
-                default: true,
             },
             {
                 name: 'switchAutoSleep',
                 type: 'boolean',
                 description: '夜になったら自動で寝る機能を有効にするかどうか',
-                default: true,
             },
             {
                 name: 'switchAutoSwim',
                 type: 'boolean',
                 description: '水中に入ったら自動で泳ぐ機能を有効にするかどうか',
-                default: true,
             },
             {
-                name: 'switchAutoThrowEnderPearlToAvoidFall',
+                name: 'switchAutoFaceNearestEntity',
                 type: 'boolean',
-                description: '落下死しそうな時に自動でエンダーパールを投げて落下ダメージを回避する機能を有効にするかどうか',
-                default: true,
+                description: '近くのエンティティに自動で顔を向ける機能を有効にするかどうか',
+            },
+            {
+                name: 'switchAutoAvoidDragonBreath',
+                type: 'boolean',
+                description: 'ドラゴンブレスを自動で回避する機能を有効にするかどうか',
+            },
+            {
+                name: 'switchAutoFollow',
+                type: 'boolean',
+                description: 'プレイヤーを自動で追従する機能を有効にするかどうか',
             },
         ];
     }
 
-    async runImpl(switchAutoAttackHostile: boolean, switchAutoAvoidProjectileRange: boolean, switchAutoEat: boolean, switchAutoEquipBestToolForTargetBlock: boolean, switchAutoFaceEntityOrBlock: boolean, switchAutoPickUpItem: boolean, switchAutoRunFromHostile: boolean, switchAutoSleep: boolean, switchAutoSwim: boolean, switchAutoThrowEnderPearlToAvoidFall: boolean) {
-        console.log('switchAutoAttackHostile', switchAutoAttackHostile);
-        console.log('switchAutoAvoidProjectileRange', switchAutoAvoidProjectileRange);
-        console.log('switchAutoEat', switchAutoEat);
-        console.log('switchAutoEquipBestToolForTargetBlock', switchAutoEquipBestToolForTargetBlock);
-        console.log('switchAutoFaceEntityOrBlock', switchAutoFaceEntityOrBlock);
-        console.log('switchAutoPickUpItem', switchAutoPickUpItem);
-        console.log('switchAutoRunFromHostile', switchAutoRunFromHostile);
-        console.log('switchAutoSleep', switchAutoSleep);
-        console.log('switchAutoSwim', switchAutoSwim);
-        console.log('switchAutoThrowEnderPearlToAvoidFall', switchAutoThrowEnderPearlToAvoidFall);
+    async runImpl(...args: any[]) {
         try {
-            const autoAttackHostile = this.bot.constantSkills.getSkill('auto-attack-hostile');
-            if (!autoAttackHostile) {
-                return { success: false, result: `スキルが見つからない: auto-attack-hostile` };
+            const results: string[] = [];
+            const errors: string[] = [];
+
+            // パラメータ定義の順序に対応する引数を処理
+            for (let i = 0; i < this.params.length; i++) {
+                const paramName = this.params[i].name;
+                const value = args[i];
+
+                // 未指定のパラメータはスキップ（変更しない）
+                if (value === undefined || value === null) continue;
+
+                const skillName = PARAM_TO_SKILL_NAME[paramName];
+                if (!skillName) {
+                    errors.push(`不明なパラメータ: ${paramName}`);
+                    continue;
+                }
+
+                const skill = this.bot.constantSkills.getSkill(skillName);
+                if (!skill) {
+                    console.warn(`⚠️ 常時スキルが未登録: ${skillName} (${paramName})`);
+                    errors.push(`スキル未登録: ${skillName}`);
+                    continue;
+                }
+
+                skill.status = value;
+                results.push(`${skillName}: ${value ? '有効' : '無効'}`);
             }
-            autoAttackHostile.status = switchAutoAttackHostile;
-            const autoAvoidProjectileRange = this.bot.constantSkills.getSkill('auto-avoid-projectile-range');
-            if (!autoAvoidProjectileRange) {
-                return { success: false, result: `スキルが見つからない: auto-avoid-projectile-range` };
+
+            if (results.length === 0 && errors.length > 0) {
+                return { success: false, result: `全て失敗: ${errors.join(', ')}` };
             }
-            autoAvoidProjectileRange.status = switchAutoAvoidProjectileRange;
-            const autoEat = this.bot.constantSkills.getSkill('auto-eat');
-            if (!autoEat) {
-                return { success: false, result: `スキルが見つからない: auto-eat` };
-            }
-            autoEat.status = switchAutoEat;
-            const autoEquipBestToolForTargetBlock = this.bot.constantSkills.getSkill('auto-equip-best-tool-for-target-block');
-            if (!autoEquipBestToolForTargetBlock) {
-                return { success: false, result: `スキルが見つからない: auto-equip-best-tool-for-target-block` };
-            }
-            autoEquipBestToolForTargetBlock.status = switchAutoEquipBestToolForTargetBlock;
-            const autoFaceEntityOrBlock = this.bot.constantSkills.getSkill('auto-face-entity-or-block');
-            if (!autoFaceEntityOrBlock) {
-                return { success: false, result: `スキルが見つからない: auto-face-entity-or-block` };
-            }
-            autoFaceEntityOrBlock.status = switchAutoFaceEntityOrBlock;
-            const autoPickUpItem = this.bot.constantSkills.getSkill('auto-pick-up-item');
-            if (!autoPickUpItem) {
-                return { success: false, result: `スキルが見つからない: auto-pick-up-item` };
-            }
-            autoPickUpItem.status = switchAutoPickUpItem;
-            const autoRunFromHostile = this.bot.constantSkills.getSkill('auto-run-from-hostile');
-            if (!autoRunFromHostile) {
-                return { success: false, result: 'スキルが見つからない: auto-run-from-hostile' };
-            }
-            autoRunFromHostile.status = switchAutoRunFromHostile;
-            const autoSleep = this.bot.constantSkills.getSkill('auto-sleep');
-            if (!autoSleep) {
-                return { success: false, result: 'スキルが見つからない: auto-sleep' };
-            }
-            autoSleep.status = switchAutoSleep;
-            const autoSwim = this.bot.constantSkills.getSkill('auto-swim');
-            if (!autoSwim) {
-                return { success: false, result: 'スキルが見つからない: auto-swim' };
-            }
-            autoSwim.status = switchAutoSwim;
-            const autoThrowEnderPearlToAvoidFall = this.bot.constantSkills.getSkill('auto-throw-ender-pearl-to-avoid-fall');
-            if (!autoThrowEnderPearlToAvoidFall) {
-                return { success: false, result: 'スキルが見つからない: auto-throw-ender-pearl-to-avoid-fall' };
-            }
-            autoThrowEnderPearlToAvoidFall.status = switchAutoThrowEnderPearlToAvoidFall;
+
+            const message = results.length > 0
+                ? `更新完了: ${results.join(', ')}`
+                : '変更対象のスキルがありません';
+            const errorMessage = errors.length > 0
+                ? ` (警告: ${errors.join(', ')})`
+                : '';
+
             return {
-                success: true,
-                result: `各種常時実行スキルの状態を更新しました`,
+                success: results.length > 0,
+                result: message + errorMessage,
             };
         } catch (error: any) {
             return { success: false, result: `${error.message} in ${error.stack}` };

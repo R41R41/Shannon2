@@ -82,6 +82,16 @@ class AttackContinuously extends InstantSkill {
       let lastTargetName = '';
 
       for (let i = 0; i < maxAttacks; i++) {
+        // 中断チェック
+        if (this.shouldInterrupt()) {
+          return {
+            success: attackCount > 0,
+            result: attackCount > 0
+              ? `中断。${lastTargetName}を${attackCount}回攻撃しました`
+              : '中断されました',
+          };
+        }
+
         // 最も近い対象を探す
         const target = this.bot.nearestEntity((entity) => {
           if (!entity || !entity.position) return false;

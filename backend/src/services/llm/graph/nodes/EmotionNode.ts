@@ -20,9 +20,9 @@ export class EmotionNode {
         this.prompt = prompt;
         this.eventBus = getEventBus();
 
-        // gpt-4o-mini（感情分析は軽量モデルで十分）
+        // gpt-5-mini（感情分析は軽量モデルで十分）
         this.model = new ChatOpenAI({
-            modelName: 'gpt-4o-mini',
+            modelName: 'gpt-5-mini',
             apiKey: process.env.OPENAI_API_KEY!,
             temperature: 0.7,
         });
