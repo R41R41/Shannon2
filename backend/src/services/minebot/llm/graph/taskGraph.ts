@@ -9,6 +9,7 @@ import { CONFIG } from '../../config/MinebotConfig.js';
 import { CustomBot } from '../../types.js';
 import { CentralLogManager } from './logging/index.js';
 import { ExecutionNode } from './nodes/ExecutionNode.js';
+import { FunctionCallingAgent } from './nodes/FunctionCallingAgent.js';
 import { PlanningNode } from './nodes/PlanningNode.js';
 import { Prompt } from './prompt.js';
 import { InstantSkillTool } from './tools/InstantSkillTool.js';
@@ -25,11 +26,17 @@ export class TaskGraph {
   private tools: any[] = [];
   private planningNode: PlanningNode | null = null;
   private executionNode: ExecutionNode | null = null;
+  private functionCallingAgent: FunctionCallingAgent | null = null;
   private centralLogManager: CentralLogManager;
   private graph: any;
   private prompt: Prompt | null = null;
   private bot: CustomBot | null = null;
   public currentState: any = null;
+
+  // Function Calling モード切替フラグ
+  // true: 新方式（Function Calling Agent）- 高速・省コンテキスト
+  // false: 旧方式（LangGraph PlanningNode + ExecutionNode）
+  private useFunctionCalling: boolean = CONFIG.USE_FUNCTION_CALLING;
 
   // タスクスタック（緊急中断時に使用 - 非推奨、taskQueueに移行）
   private taskStack: Array<{
@@ -82,8 +89,19 @@ export class TaskGraph {
     this.planningNode = new PlanningNode(this.bot, this.prompt, this.centralLogManager);
     this.executionNode = new ExecutionNode(this.tools, this.centralLogManager);
 
+    // Function Calling Agent を初期化
+    this.functionCallingAgent = new FunctionCallingAgent(
+      this.bot,
+      this.tools,
+      this.centralLogManager,
+    );
+
     this.graph = this.createGraph();
     this.currentState = null;
+
+    console.log(
+      `\x1b[36m📦 TaskGraph: mode=${this.useFunctionCalling ? 'FunctionCalling' : 'LangGraph'}\x1b[0m`,
+    );
   }
 
   /**
@@ -93,6 +111,19 @@ export class TaskGraph {
     if (this.planningNode) {
       this.planningNode.setEmergencyResolvedHandler(handler);
     }
+    if (this.functionCallingAgent) {
+      this.functionCallingAgent.setEmergencyResolvedHandler(handler);
+    }
+  }
+
+  /**
+   * Function Calling モードの切り替え
+   */
+  public setUseFunctionCalling(value: boolean): void {
+    this.useFunctionCalling = value;
+    console.log(
+      `\x1b[36m📦 TaskGraph: mode=${value ? 'FunctionCalling' : 'LangGraph'}\x1b[0m`,
+    );
   }
 
   public static getInstance(): TaskGraph {
@@ -495,10 +526,32 @@ export class TaskGraph {
 
     try {
       console.log('タスクグラフ実行開始 ID:', state.taskId);
-      const result = await this.graph.invoke(state, {
-        recursionLimit: CONFIG.LANGGRAPH_RECURSION_LIMIT,
-        signal: this.abortController?.signal,
-      });
+
+      let result;
+
+      if (this.useFunctionCalling && this.functionCallingAgent) {
+        // === Function Calling モード ===
+        console.log('\x1b[36m🤖 Function Calling モードで実行\x1b[0m');
+        const agentResult = await this.functionCallingAgent.run(
+          state,
+          this.abortController?.signal,
+        );
+        result = {
+          ...state,
+          taskTree: agentResult.taskTree,
+          messages: agentResult.messages || state.messages || [],
+          forceStop: agentResult.forceStop,
+          isEmergency: agentResult.isEmergency,
+        };
+      } else {
+        // === 旧方式: LangGraph モード ===
+        console.log('\x1b[36m📊 LangGraph モードで実行\x1b[0m');
+        result = await this.graph.invoke(state, {
+          recursionLimit: CONFIG.LANGGRAPH_RECURSION_LIMIT,
+          signal: this.abortController?.signal,
+        });
+      }
+
       if (result.taskTree?.status === 'in_progress') {
         result.taskTree.status = 'error';
       }
@@ -508,7 +561,7 @@ export class TaskGraph {
         taskId: result.taskId,
         status: result.taskTree?.status,
         wasForceStop: result.forceStop,
-        messageCount: result.messages.length,
+        messageCount: result.messages?.length || 0,
       });
 
       this.currentState = result;
@@ -596,6 +649,12 @@ export class TaskGraph {
   // humanFeedbackを更新
   public updateHumanFeedback(feedback: string) {
     console.log('updateHumanFeedback', feedback);
+
+    // Function Calling モードの場合はエージェントに直接フィードバック
+    if (this.useFunctionCalling && this.functionCallingAgent) {
+      this.functionCallingAgent.addFeedback(feedback);
+    }
+
     if (this.currentState) {
       this.currentState.humanFeedback = feedback;
       this.currentState.humanFeedbackPending = true;

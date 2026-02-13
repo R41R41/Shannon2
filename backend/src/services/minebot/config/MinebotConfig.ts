@@ -78,6 +78,12 @@ export class MinebotConfig {
 
   // ===== タスク設定 =====
 
+  /** Function Calling モードを使用するか（true: 新方式, false: 旧LangGraph方式） */
+  readonly USE_FUNCTION_CALLING = true;
+
+  /** Function Calling Agent のモデル名 */
+  readonly FUNCTION_CALLING_MODEL = 'gpt-4.1-mini';
+
   /** 最大リトライ回数 */
   readonly MAX_RETRY_COUNT = 10;
 
