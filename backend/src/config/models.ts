@@ -17,39 +17,36 @@ export const models = {
   emotion: 'gpt-5-mini',
 
   /** Minebot planning model (reasoning-focused) */
-  planning: 'o3-mini',
+  planning: 'o4-mini',
 
   /** Content generation: reply to comments, fortune, etc. */
-  contentGeneration: 'gpt-5.2',
+  contentGeneration: 'gpt-5-mini',
 
   /** Scheduled posting agents (weather, news, about-today) */
-  scheduledPost: 'o4-mini',
+  scheduledPost: 'gpt-5-mini',
 
   /** Vision / image description */
-  vision: 'gpt-5.2',
+  vision: 'gpt-5-mini',
 
   /** Image generation */
   imageGeneration: 'gpt-image-1',
 
   /** Blueprint creation (minebot) */
-  blueprint: 'gpt-4o',
+  blueprint: 'gpt-4.1-mini',
 
   /** Emergency responder (minebot) */
-  emergency: 'gpt-4o-mini',
+  emergency: 'gpt-4.1-mini',
 
   /** Realtime API (voice) */
-  realtime: 'gpt-4o-realtime-preview-2024-12-17',
+  realtime: 'gpt-realtime-mini',
 
   /** Audio transcription */
   whisper: 'whisper-1',
 
-  // --- Minebot legacy model config (used by MinebotConfig) ---
+  // --- Minebot config (used by MinebotConfig) ---
   minebot: {
     centralAgent: 'gpt-4.1-mini',
-    planning: 'gpt-4o',
-    execution: 'gpt-4o',
-    understanding: 'gpt-4o',
-    reflection: 'gpt-4o',
+    execution: 'gpt-4.1-mini',
     functionCalling: 'gpt-4.1-mini',
   },
 } as const;

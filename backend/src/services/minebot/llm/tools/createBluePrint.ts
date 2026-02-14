@@ -38,7 +38,7 @@ export default class CreateBluePrintTool extends StructuredTool {
   }
 
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
-    // GPT-4oに投げるプロンプト
+    // LLMに投げるプロンプト
     const systemPrompt = `あなたはMinecraftの設計図自動生成AIです。以下の条件でJSONを出力してください：\n\n- JSONは必ず以下の形式\n{\n  "name": string,\n  "blocks": [\n    { "name": string, "position": {"x": number, "y": number, "z": number}, "facing"?: string }\n  ]\n}\n- blocksは原点(0,0,0)からの相対座標で、建築物の全ブロックを列挙してください。\n- 必ず有効なJSONのみを出力し、説明文やコードブロック記号は不要です。\n- nameは${data.architectureName}としてください。`;
 
     let jsonText = '';

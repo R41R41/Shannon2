@@ -1,7 +1,7 @@
 /**
  * EmergencyResponder
  * 緊急事態に即座に対応するシステム
- * gpt-4o-miniを使用して高速に判断・実行
+ * 軽量モデルを使用して高速に判断・実行
  */
 
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';

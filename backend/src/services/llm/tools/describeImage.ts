@@ -43,7 +43,7 @@ export default class DescribeImageTool extends StructuredTool {
             ],
           },
         ],
-        max_tokens: 300,
+        max_completion_tokens: 300,
       });
 
       return (

@@ -16,17 +16,8 @@ export class MinebotConfig {
   /** CentralAgent用モデル（アクション判定） */
   readonly CENTRAL_AGENT_MODEL = models.minebot.centralAgent;
 
-  /** Planning用モデル */
-  readonly PLANNING_MODEL = models.minebot.planning;
-
   /** Execution用モデル */
   readonly EXECUTION_MODEL = models.minebot.execution;
-
-  /** Understanding用モデル */
-  readonly UNDERSTANDING_MODEL = models.minebot.understanding;
-
-  /** Reflection用モデル */
-  readonly REFLECTION_MODEL = models.minebot.reflection;
 
   /** Planning時の温度パラメータ（創造性重視） */
   readonly TEMPERATURE_PLANNING = 1.0;
@@ -82,9 +73,6 @@ export class MinebotConfig {
 
   /** Function Calling モードを使用するか（true: 新方式, false: 旧LangGraph方式） */
   readonly USE_FUNCTION_CALLING = true;
-
-  /** Function Calling Agent のモデル名 */
-  readonly FUNCTION_CALLING_MODEL = models.minebot.functionCalling;
 
   /** 最大リトライ回数 */
   readonly MAX_RETRY_COUNT = 10;
@@ -214,7 +202,6 @@ export class MinebotConfig {
     console.log('📋 Minebot Configuration:');
     console.log(`  LLM Models:`);
     console.log(`    - Central Agent: ${this.CENTRAL_AGENT_MODEL}`);
-    console.log(`    - Planning: ${this.PLANNING_MODEL}`);
     console.log(`    - Execution: ${this.EXECUTION_MODEL}`);
     console.log(`  Server Ports:`);
     console.log(`    - Minebot API: ${this.MINEBOT_API_PORT}`);
