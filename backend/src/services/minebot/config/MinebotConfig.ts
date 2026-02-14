@@ -1,5 +1,7 @@
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { config } from '../../../config/env.js';
+import { models } from '../../../config/models.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -12,19 +14,19 @@ export class MinebotConfig {
   // ===== LLM設定 =====
 
   /** CentralAgent用モデル（アクション判定） */
-  readonly CENTRAL_AGENT_MODEL = 'gpt-4.1-mini';
+  readonly CENTRAL_AGENT_MODEL = models.minebot.centralAgent;
 
   /** Planning用モデル */
-  readonly PLANNING_MODEL = 'gpt-4o';
+  readonly PLANNING_MODEL = models.minebot.planning;
 
   /** Execution用モデル */
-  readonly EXECUTION_MODEL = 'gpt-4o';
+  readonly EXECUTION_MODEL = models.minebot.execution;
 
   /** Understanding用モデル */
-  readonly UNDERSTANDING_MODEL = 'gpt-4o';
+  readonly UNDERSTANDING_MODEL = models.minebot.understanding;
 
   /** Reflection用モデル */
-  readonly REFLECTION_MODEL = 'gpt-4o';
+  readonly REFLECTION_MODEL = models.minebot.reflection;
 
   /** Planning時の温度パラメータ（創造性重視） */
   readonly TEMPERATURE_PLANNING = 1.0;
@@ -47,7 +49,7 @@ export class MinebotConfig {
   readonly UI_MOD_CLIENT_PORT = 8083;
 
   /** UI Modのサーバーホスト */
-  readonly UI_MOD_HOST = process.env.UI_MOD_HOST || 'localhost';
+  readonly UI_MOD_HOST = config.minecraft.uiModHost;
 
   /** UI ModサーバーのベースURL */
   get UI_MOD_BASE_URL(): string {
@@ -82,7 +84,7 @@ export class MinebotConfig {
   readonly USE_FUNCTION_CALLING = true;
 
   /** Function Calling Agent のモデル名 */
-  readonly FUNCTION_CALLING_MODEL = 'gpt-4.1-mini';
+  readonly FUNCTION_CALLING_MODEL = models.minebot.functionCalling;
 
   /** 最大リトライ回数 */
   readonly MAX_RETRY_COUNT = 10;
@@ -110,7 +112,7 @@ export class MinebotConfig {
   // ===== Minecraft接続設定 =====
 
   /** Minecraftサーバーのベースディレクトリ */
-  readonly MINECRAFT_BASE_DIR = process.env.MINECRAFT_BASE_DIR || '/home/azureuser/minecraft';
+  readonly MINECRAFT_BASE_DIR = config.minecraft.baseDir;
 
   /** サーバー名とポートのマッピング */
   readonly MINECRAFT_SERVERS: Record<string, number> = {
@@ -151,38 +153,22 @@ export class MinebotConfig {
 
   /** OpenAI API Key */
   get OPENAI_API_KEY(): string {
-    const key = process.env.OPENAI_API_KEY;
-    if (!key) {
-      throw new Error('OPENAI_API_KEY environment variable is required');
-    }
-    return key;
+    return config.openaiApiKey;
   }
 
   /** Minecraft Bot Username */
   get MINECRAFT_BOT_USER_NAME(): string {
-    const username = process.env.MINECRAFT_BOT_USER_NAME;
-    if (!username) {
-      throw new Error(
-        'MINECRAFT_BOT_USER_NAME environment variable is required'
-      );
-    }
-    return username;
+    return config.minecraft.botUserName;
   }
 
   /** Minecraft Bot Password */
   get MINECRAFT_BOT_PASSWORD(): string {
-    const password = process.env.MINECRAFT_BOT_PASSWORD;
-    if (!password) {
-      throw new Error(
-        'MINECRAFT_BOT_PASSWORD environment variable is required'
-      );
-    }
-    return password;
+    return config.minecraft.botPassword;
   }
 
   /** 開発モードかどうか */
   get IS_DEV(): boolean {
-    return process.env.IS_DEV === 'True' || process.argv[3] === 'dev';
+    return config.isDev;
   }
 
   /**

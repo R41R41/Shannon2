@@ -27,15 +27,14 @@ import {
   TextChannel,
   User,
 } from 'discord.js';
-import dotenv from 'dotenv';
 import fs from 'fs';
 import * as Jimp from 'jimp';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { config } from '../../config/env.js';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -99,25 +98,25 @@ export class DiscordBot extends BaseClient {
   }
 
   private setUpChannels() {
-    this.toyamaGuildId = process.env.TOYAMA_GUILD_ID ?? '';
-    this.doukiGuildId = process.env.DOUKI_GUILD_ID ?? '';
-    this.colabGuildId = process.env.COLAB_GUILD_ID ?? '';
-    this.toyamaChannelId = process.env.TOYAMA_CHANNEL_ID ?? '';
-    this.doukiChannelId = process.env.DOUKI_CHANNEL_ID ?? '';
-    this.colabChannelId = process.env.COLAB_CHANNEL_ID ?? '';
-    this.aiminelabGuildId = process.env.AIMINE_GUILD_ID ?? '';
-    this.aiminelabXChannelId = process.env.AIMINE_X_CHANNEL_ID ?? '';
+    this.toyamaGuildId = config.discord.guilds.toyama.guildId;
+    this.doukiGuildId = config.discord.guilds.douki.guildId;
+    this.colabGuildId = config.discord.guilds.colab.guildId;
+    this.toyamaChannelId = config.discord.guilds.toyama.channelId;
+    this.doukiChannelId = config.discord.guilds.douki.channelId;
+    this.colabChannelId = config.discord.guilds.colab.channelId;
+    this.aiminelabGuildId = config.discord.guilds.aimine.guildId;
+    this.aiminelabXChannelId = config.discord.guilds.aimine.xChannelId;
     this.aiminelabAnnounceChannelId =
-      process.env.AIMINE_ANNOUNCE_CHANNEL_ID ?? '';
+      config.discord.guilds.aimine.announceChannelId;
     this.aiminelabUpdateChannelId =
-      process.env.AIMINE_UPDATE_CHANNEL_ID ?? '';
-    this.testGuildId = process.env.TEST_GUILD_ID ?? '';
-    this.testXChannelId = process.env.TEST_X_CHANNEL_ID ?? '';
+      config.discord.guilds.aimine.updateChannelId;
+    this.testGuildId = config.discord.guilds.test.guildId;
+    this.testXChannelId = config.discord.guilds.test.xChannelId;
   }
 
   public initialize() {
     try {
-      this.client.login(process.env.DISCORD_TOKEN);
+      this.client.login(config.discord.token);
       console.log('\x1b[34mDiscord bot started\x1b[0m');
       this.eventBus.log(
         'discord:aiminelab_server',
@@ -237,8 +236,8 @@ export class DiscordBot extends BaseClient {
 
       // コマンドを特定のギルドに登録（即時反映）
       const targetGuildId = this.isDev
-        ? process.env.TEST_GUILD_ID
-        : process.env.AIMINE_GUILD_ID;
+        ? config.discord.guilds.test.guildId
+        : config.discord.guilds.aimine.guildId;
 
       if (targetGuildId) {
         const guild = this.client.guilds.cache.get(targetGuildId);
@@ -719,7 +718,7 @@ export class DiscordBot extends BaseClient {
     });
     this.client.on('messageCreate', async (message) => {
       if (this.status !== 'running') return;
-      const isDevGuild = message.guildId === process.env.TEST_GUILD_ID;
+      const isDevGuild = message.guildId === config.discord.guilds.test.guildId;
       if (this.isDev !== isDevGuild) return;
       console.log(message.content);
 
@@ -814,7 +813,7 @@ export class DiscordBot extends BaseClient {
       const channel = this.client.channels.cache.get(speech.channelId);
       if (!channel || !('guild' in channel)) return;
 
-      const isDevGuild = channel.guild.id === process.env.TEST_GUILD_ID;
+      const isDevGuild = channel.guild.id === config.discord.guilds.test.guildId;
       if (this.isDev !== isDevGuild) return;
 
       const memoryZone = await getDiscordMemoryZone(channel.guildId);
@@ -1019,7 +1018,22 @@ export class DiscordBot extends BaseClient {
             planning.status
           )} ${planning.goal}\n${planning.strategy}\n`;
 
-          // サブタスクがある場合は追加
+          // hierarchicalSubTasks（新フォーマット）がある場合は追加
+          if (planning.hierarchicalSubTasks && planning.hierarchicalSubTasks.length > 0) {
+            planning.hierarchicalSubTasks.forEach((subTask) => {
+              const depth = subTask.depth ?? 0;
+              const indent = '  '.repeat(depth + 1);
+              formattedContent += `${indent}${getStatusEmoji(subTask.status)} ${subTask.goal}\n`;
+              if (subTask.result) {
+                formattedContent += `${indent}  → ${subTask.result.substring(0, 100)}\n`;
+              }
+              if (subTask.failureReason) {
+                formattedContent += `${indent}  ✗ ${subTask.failureReason.substring(0, 100)}\n`;
+              }
+            });
+          }
+
+          // subTasks（旧フォーマット互換）がある場合は追加
           if (planning.subTasks && planning.subTasks.length > 0) {
             planning.subTasks.forEach((subTask) => {
               formattedContent += `  ${getStatusEmoji(subTask.subTaskStatus)} ${subTask.subTaskGoal
@@ -1045,7 +1059,7 @@ export class DiscordBot extends BaseClient {
       if (this.status !== 'running') return;
       const data = event.data as YoutubeSubscriberUpdateOutput;
       const { subscriberCount } = data;
-      const guildId = process.env.aiminelabGuildId ?? '';
+      const guildId = config.discord.guilds.aimine.guildId;
       const guild = this.client.guilds.cache.get(guildId);
       if (guild) {
         const channel = guild.channels.cache.get(

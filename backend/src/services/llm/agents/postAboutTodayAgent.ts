@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { loadPrompt } from '../config/prompts.js';
+import { models } from '../../../config/models.js';
 import { ChatOpenAI } from '@langchain/openai';
 import { AgentExecutor, createOpenAIToolsAgent } from 'langchain/agents';
 import { SystemMessage } from '@langchain/core/messages';
@@ -19,7 +20,7 @@ export class PostAboutTodayAgent {
 
   private constructor(systemPrompt: string) {
     this.model = new ChatOpenAI({
-      modelName: 'o4-mini',
+      modelName: models.scheduledPost,
     });
     this.systemPrompt = systemPrompt;
     this.executor = null;

@@ -1,13 +1,11 @@
 import { DiscordGuild } from '@shannon/common';
-import dotenv from 'dotenv';
+import { config } from '../config/env.js';
 
-dotenv.config();
-
-const DISCORD_GUILD_ID_TOYAMA_SERVER = process.env.TOYAMA_GUILD_ID;
-const DISCORD_GUILD_ID_DOUKI_SERVER = process.env.DOUKI_GUILD_ID;
-const DISCORD_GUILD_ID_AIMINELAB_SERVER = process.env.AIMINE_GUILD_ID;
-const DISCORD_GUILD_ID_TEST_SERVER = process.env.TEST_GUILD_ID;
-const DISCORD_GUILD_ID_COLAB_SERVER = process.env.COLAB_GUILD_ID;
+const DISCORD_GUILD_ID_TOYAMA_SERVER = config.discord.guilds.toyama.guildId;
+const DISCORD_GUILD_ID_DOUKI_SERVER = config.discord.guilds.douki.guildId;
+const DISCORD_GUILD_ID_AIMINELAB_SERVER = config.discord.guilds.aimine.guildId;
+const DISCORD_GUILD_ID_TEST_SERVER = config.discord.guilds.test.guildId;
+const DISCORD_GUILD_ID_COLAB_SERVER = config.discord.guilds.colab.guildId;
 
 export const getDiscordMemoryZone = async (
   guildId: string

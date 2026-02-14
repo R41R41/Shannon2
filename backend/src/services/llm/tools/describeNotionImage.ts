@@ -1,6 +1,8 @@
 import { StructuredTool } from '@langchain/core/tools';
 import OpenAI from 'openai';
 import { z } from 'zod';
+import { config } from '../../../config/env.js';
+import { models } from '../../../config/models.js';
 
 // 画像URLキャッシュ（グローバル）
 const imageUrlCache: Map<number, string> = new Map();
@@ -43,7 +45,7 @@ export default class DescribeNotionImageTool extends StructuredTool {
 
     constructor() {
         super();
-        const openaiApiKey = process.env.OPENAI_API_KEY;
+        const openaiApiKey = config.openaiApiKey;
         if (!openaiApiKey) {
             throw new Error('OPENAI_API_KEY environment variable is not set.');
         }
@@ -65,7 +67,7 @@ export default class DescribeNotionImageTool extends StructuredTool {
             console.log(`\x1b[35m📷 画像${data.image_number}を分析中...\x1b[0m`);
 
             const response = await this.openai.chat.completions.create({
-                model: 'gpt-5.2',
+                model: models.vision,
                 messages: [
                     {
                         role: 'user',

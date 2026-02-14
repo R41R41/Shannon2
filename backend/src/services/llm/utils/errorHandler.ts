@@ -1,15 +1,14 @@
-export class LLMError extends Error {
-  constructor(message: string, public code?: string) {
-    super(message);
-    this.name = 'LLMError';
-  }
-}
+import { LLMError, getErrorMessage } from '../../../errors/base.js';
 
-export const handleLLMError = (error: any): LLMError => {
+// Re-export for backward compatibility
+export { LLMError };
+
+export const handleLLMError = (error: unknown): LLMError => {
   if (error instanceof LLMError) return error;
 
-  return new LLMError(
-    error.message || 'LLMサービスでエラーが発生しました。',
-    error.code
-  );
+  const originalError = error instanceof Error
+    ? error
+    : new Error(getErrorMessage(error));
+
+  return new LLMError('unknown', originalError);
 };

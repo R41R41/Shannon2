@@ -7,10 +7,9 @@ import {
   TaskTreeState,
   memoryZoneToContext,
 } from '@shannon/common';
-import dotenv from 'dotenv';
-import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { loadToolsFromDirectory } from '../../../utils/toolLoader.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { getEventBus } from '../../eventBus/index.js';
 import { EmotionNode, EmotionState } from './nodes/EmotionNode.js';
@@ -25,8 +24,6 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-dotenv.config();
 
 /**
  * TaskGraph: EmotionNode(擬似並列) + FunctionCallingAgent 構成
@@ -108,28 +105,7 @@ export class TaskGraph {
    */
   private async initializeTools() {
     const toolsDir = join(__dirname, '../tools');
-    const toolFiles = readdirSync(toolsDir).filter(
-      (file) =>
-        (file.endsWith('.ts') || file.endsWith('.js')) &&
-        !file.includes('.d.ts')
-    );
-
-    this.tools = [];
-
-    for (const file of toolFiles) {
-      if (file === 'index.ts' || file === 'index.js') continue;
-
-      try {
-        const toolModule = await import(join(toolsDir, file));
-        const ToolClass = toolModule.default;
-        if (ToolClass?.prototype?.constructor) {
-          this.tools.push(new ToolClass());
-        }
-      } catch (error) {
-        console.error(`ツール読み込みエラー: ${file}`, error);
-      }
-    }
-    console.log(`✅ ${this.tools.length} tools loaded`);
+    this.tools = await loadToolsFromDirectory(toolsDir, 'LLM');
   }
 
   /**

@@ -1,26 +1,30 @@
+import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { Runnable } from '@langchain/core/runnables';
+import { StructuredTool } from '@langchain/core/tools';
+import { ChatOpenAI } from '@langchain/openai';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { loadPrompt } from '../config/prompts.js';
-import { ChatOpenAI } from '@langchain/openai';
 import { AgentExecutor, createOpenAIToolsAgent } from 'langchain/agents';
-import GoogleSearchTool from '../tools/googleSearch.js';
 import { pull } from 'langchain/hub';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { loadPrompt } from '../config/prompts.js';
+import { models } from '../../../config/models.js';
+import GoogleSearchTool from '../tools/googleSearch.js';
 
 const jst = 'Asia/Tokyo';
 
 export class PostNewsAgent {
     private model: ChatOpenAI;
     private systemPrompt: string;
-    private tools: any[];
-    private agent: any;
+    private tools: StructuredTool[];
+    private agent: Runnable | null;
     private executor: AgentExecutor | null;
 
     private constructor(systemPrompt: string) {
         this.model = new ChatOpenAI({
-            modelName: 'o4-mini',
+            modelName: models.scheduledPost,
         });
         this.systemPrompt = systemPrompt;
+        this.agent = null;
         this.executor = null;
         this.tools = [];
         this.setTools();

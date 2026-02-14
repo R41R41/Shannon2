@@ -10,6 +10,9 @@ import { StructuredTool } from '@langchain/core/tools';
 import { TaskTreeState, HierarchicalSubTask } from '@shannon/common';
 import { CustomBot } from '../../../types.js';
 import { CentralLogManager, LogManager } from '../logging/index.js';
+import { UpdatePlanTool } from '../tools/UpdatePlanTool.js';
+import { config } from '../../../../../config/env.js';
+import { models } from '../../../../../config/models.js';
 
 // taskTreeをPOST送信する関数
 async function sendTaskTreeToServer(taskTree: any) {
@@ -56,12 +59,13 @@ export class FunctionCallingAgent {
   private logManager: LogManager;
   private centralLogManager: CentralLogManager;
   private onEmergencyResolved: (() => Promise<void>) | null = null;
+  private updatePlanTool: UpdatePlanTool | null = null;
 
   // ユーザーからのリアルタイムフィードバック
   private pendingFeedback: string[] = [];
 
   // === 設定 ===
-  static readonly MODEL_NAME = 'gpt-4.1-mini';
+  static readonly MODEL_NAME = models.functionCalling;
   static readonly MAX_ITERATIONS = 30;
   static readonly LLM_TIMEOUT_MS = 30000; // 1回のLLM呼び出し: 30秒
   static readonly MAX_TOTAL_TIME_MS = 300000; // 全体: 5分
@@ -80,11 +84,17 @@ export class FunctionCallingAgent {
       'function_calling_agent',
     );
 
+    // update-plan ツールを検出
+    const planTool = tools.find((t) => t.name === 'update-plan');
+    if (planTool && planTool instanceof UpdatePlanTool) {
+      this.updatePlanTool = planTool;
+    }
+
     const modelName = FunctionCallingAgent.MODEL_NAME;
 
     this.model = new ChatOpenAI({
       modelName,
-      apiKey: process.env.OPENAI_API_KEY!,
+      apiKey: config.openaiApiKey,
       temperature: 0,
       maxTokens: 4096,
     });
@@ -307,30 +317,39 @@ export class FunctionCallingAgent {
         for (const toolCall of toolCalls) {
           if (signal?.aborted) throw new Error('Task aborted');
 
-          stepCounter++;
-          const stepId = `step_${stepCounter}`;
-          const step: HierarchicalSubTask = {
-            id: stepId,
-            goal: `${toolCall.name}(${this.summarizeArgs(toolCall.args)})`,
-            status: 'in_progress',
-          };
-          steps.push(step);
+          // update-plan は計画ツールなので自動ステップ記録しない
+          const isUpdatePlan = toolCall.name === 'update-plan';
 
-          // UI 更新
-          await sendTaskTreeToServer({
-            status: 'in_progress',
-            goal,
-            strategy: `${toolCall.name} を実行中...`,
-            hierarchicalSubTasks: steps,
-            currentSubTaskId: stepId,
-          });
+          if (!isUpdatePlan) {
+            stepCounter++;
+            const stepId = `step_${stepCounter}`;
+            const step: HierarchicalSubTask = {
+              id: stepId,
+              goal: `${toolCall.name}(${this.summarizeArgs(toolCall.args)})`,
+              status: 'in_progress',
+            };
+            steps.push(step);
+
+            // UI 更新
+            await sendTaskTreeToServer({
+              status: 'in_progress',
+              goal,
+              strategy: `${toolCall.name} を実行中...`,
+              hierarchicalSubTasks: steps,
+              currentSubTaskId: stepId,
+            });
+          }
 
           const tool = this.toolMap.get(toolCall.name);
           if (!tool) {
             const errorMsg = `ツール "${toolCall.name}" が見つかりません`;
             console.log(`\x1b[31m  ✗ ${errorMsg}\x1b[0m`);
-            step.status = 'error';
-            step.failureReason = errorMsg;
+
+            if (!isUpdatePlan && steps.length > 0) {
+              const lastStep = steps[steps.length - 1];
+              lastStep.status = 'error';
+              lastStep.failureReason = errorMsg;
+            }
 
             messages.push(
               new ToolMessage({
@@ -366,9 +385,13 @@ export class FunctionCallingAgent {
                 result.includes('error') ||
                 result.includes('見つかりません'));
 
-            step.status = isError ? 'error' : 'completed';
-            step.result = resultStr.substring(0, 200);
-            if (isError) step.failureReason = resultStr;
+            // update-plan 以外のツールはステップを更新
+            if (!isUpdatePlan && steps.length > 0) {
+              const lastStep = steps[steps.length - 1];
+              lastStep.status = isError ? 'error' : 'completed';
+              lastStep.result = resultStr.substring(0, 200);
+              if (isError) lastStep.failureReason = resultStr;
+            }
 
             messages.push(
               new ToolMessage({
@@ -392,8 +415,11 @@ export class FunctionCallingAgent {
             const errorMsg = `${toolCall.name} 実行エラー: ${error instanceof Error ? error.message : 'Unknown'}`;
             console.log(`\x1b[31m  ✗ ${errorMsg}\x1b[0m`);
 
-            step.status = 'error';
-            step.failureReason = errorMsg;
+            if (!isUpdatePlan && steps.length > 0) {
+              const lastStep = steps[steps.length - 1];
+              lastStep.status = 'error';
+              lastStep.failureReason = errorMsg;
+            }
 
             messages.push(
               new ToolMessage({
@@ -535,13 +561,14 @@ export class FunctionCallingAgent {
 - 向き: ${env.facing.direction}${entitiesStr}
 
 ## ルール
-1. 行動する前にまず状況を確認する（find-blocks, check-inventory等）
-2. ブロック/コンテナ操作は近距離(3m以内)で。遠い場合はmove-toで近づく
-3. 失敗したら同じことを繰り返さない。2回同じエラーが出たら方針転換
-4. 具体的なブロック名を使う（"log"→"oak_log", "planks"→"oak_planks"）
-5. stone(石)を掘る→cobblestone(丸石)がドロップ。cobblestoneが欲しい場合はstoneを掘る
-6. 木材の種類を合わせる（oak_log→oak_planks, birch_log→birch_planks）
-7. 農業: farmlandに種を植える。土をクワで耕すとfarmlandになる`;
+1. 複雑なタスク（3ステップ以上）はまずupdate-planで計画を立ててから実行する。サブタスクの完了時もupdate-planでステータスを更新する
+2. 行動する前にまず状況を確認する（find-blocks, check-inventory等）
+3. ブロック/コンテナ操作は近距離(3m以内)で。遠い場合はmove-toで近づく
+4. 失敗したら同じことを繰り返さない。2回同じエラーが出たら方針転換
+5. 具体的なブロック名を使う（"log"→"oak_log", "planks"→"oak_planks"）
+6. stone(石)を掘る→cobblestone(丸石)がドロップ。cobblestoneが欲しい場合はstoneを掘る
+7. 木材の種類を合わせる（oak_log→oak_planks, birch_log→birch_planks）
+8. 農業: farmlandに種を植える。土をクワで耕すとfarmlandになる`;
   }
 
   /**

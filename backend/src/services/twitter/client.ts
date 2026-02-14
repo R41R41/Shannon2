@@ -3,13 +3,11 @@ import {
   TwitterClientOutput,
   TwitterReplyOutput,
 } from '@shannon/common';
-import axios from 'axios';
-import dotenv from 'dotenv';
+import axios, { isAxiosError } from 'axios';
 import { TwitterApi } from 'twitter-api-v2';
+import { config } from '../../config/env.js';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
-
-dotenv.config();
 
 export class TwitterClient extends BaseClient {
   private myUserId: string | null = null;
@@ -27,11 +25,11 @@ export class TwitterClient extends BaseClient {
   private proxy3: string;
   private lastCheckedReplyIds: Set<string> = new Set();
   private officialAccountUserName =
-    process.env.TWITTER_AIMINELAB_USERNAME || '';
+    config.twitter.usernames.aiminelab;
   private friendAccountUserNames = [
-    process.env.TWITTER_YUMMY_USERNAME,
-    process.env.TWITTER_RAI_USERNAME,
-    process.env.TWITTER_GURIKO_USERNAME,
+    config.twitter.usernames.yummy,
+    config.twitter.usernames.rai,
+    config.twitter.usernames.guriko,
   ].filter(Boolean) as string[];
 
   public static getInstance(isTest: boolean = false) {
@@ -40,26 +38,26 @@ export class TwitterClient extends BaseClient {
       TwitterClient.instance = new TwitterClient('twitter', isTest);
     }
     TwitterClient.instance.isTest = isTest;
-    TwitterClient.instance.myUserId = process.env.TWITTER_USER_ID || null;
+    TwitterClient.instance.myUserId = config.twitter.userId || null;
     return TwitterClient.instance;
   }
 
   private constructor(serviceName: 'twitter', isTest: boolean) {
     const eventBus = getEventBus();
     super(serviceName, eventBus);
-    this.apiKey = process.env.TWITTERAPI_IO_API_KEY || '';
-    this.email = process.env.TWITTER_EMAIL || '';
-    this.password = process.env.TWITTER_PASSWORD || '';
-    this.login_data = process.env.TWITTER_LOGIN_DATA || '';
-    this.two_fa_code = process.env.TWITTER_TWO_FA_CODE || '';
-    this.auth_session = process.env.TWITTER_AUTH_SESSION || '';
-    this.proxy1 = process.env.TWITTER_PROXY1 || '';
-    this.proxy2 = process.env.TWITTER_PROXY2 || '';
-    this.proxy3 = process.env.TWITTER_PROXY3 || '';
-    const apiKey = process.env.TWITTER_API_KEY;
-    const apiKeySecret = process.env.TWITTER_API_KEY_SECRET;
-    const accessToken = process.env.TWITTER_ACCESS_TOKEN;
-    const accessTokenSecret = process.env.TWITTER_ACCESS_TOKEN_SECRET;
+    this.apiKey = config.twitter.twitterApiIoKey;
+    this.email = config.twitter.email;
+    this.password = config.twitter.password;
+    this.login_data = config.twitter.loginData;
+    this.two_fa_code = config.twitter.twoFaCode;
+    this.auth_session = config.twitter.authSession;
+    this.proxy1 = config.twitter.proxy1;
+    this.proxy2 = config.twitter.proxy2;
+    this.proxy3 = config.twitter.proxy3;
+    const apiKey = config.twitter.apiKey;
+    const apiKeySecret = config.twitter.apiKeySecret;
+    const accessToken = config.twitter.accessToken;
+    const accessTokenSecret = config.twitter.accessTokenSecret;
 
     if (!apiKey || !apiKeySecret || !accessToken || !accessTokenSecret) {
       throw new Error('Twitter APIの認証情報が設定されていません');
@@ -180,11 +178,11 @@ export class TwitterClient extends BaseClient {
         authorName,
         mediaUrl,
       };
-    } catch (error: any) {
-      console.error(
-        'API呼び出しエラー:',
-        error.response?.data || error.message
-      );
+    } catch (error: unknown) {
+      const errMsg = isAxiosError(error)
+        ? (error.response?.data ?? error.message)
+        : error instanceof Error ? error.message : String(error);
+      console.error('API呼び出しエラー:', errMsg);
       throw error;
     }
   }
@@ -204,8 +202,8 @@ export class TwitterClient extends BaseClient {
       console.log('login_data: ', login_data);
       console.log('status: ', status);
       return { login_data, status };
-    } catch (error: any) {
-      console.error(`\x1b[31mLogin error: ${error.message}\x1b[0m`);
+    } catch (error: unknown) {
+      console.error(`\x1b[31mLogin error: ${error instanceof Error ? error.message : String(error)}\x1b[0m`);
       throw error;
     }
   }
@@ -220,8 +218,8 @@ export class TwitterClient extends BaseClient {
       const response = await axios.post(endpoint, data, config);
       console.log('response: ', response.data);
       this.auth_session = response.data.auth_session;
-    } catch (error: any) {
-      console.error(`\x1b[31mLogin error: ${error.message}\x1b[0m`);
+    } catch (error: unknown) {
+      console.error(`\x1b[31mLogin error: ${error instanceof Error ? error.message : String(error)}\x1b[0m`);
       throw error;
     }
   }
@@ -233,8 +231,8 @@ export class TwitterClient extends BaseClient {
       console.log(
         `\x1b[32mTweet posted successfully ${response.data.id}\x1b[0m`
       );
-    } catch (error: any) {
-      console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
+    } catch (error: unknown) {
+      console.error(`\x1b[31mTweet error: ${error instanceof Error ? error.message : String(error)}\x1b[0m`);
       throw error;
     }
   }
@@ -256,8 +254,8 @@ export class TwitterClient extends BaseClient {
         console.error(`\x1b[31mTweet error: ${res.data.data.message}\x1b[0m`);
         return [];
       }
-    } catch (error: any) {
-      console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
+    } catch (error: unknown) {
+      console.error(`\x1b[31mTweet error: ${error instanceof Error ? error.message : String(error)}\x1b[0m`);
       throw error;
     }
   }
@@ -311,8 +309,11 @@ export class TwitterClient extends BaseClient {
           repliedTweetAuthorName: replies[0].reply.author.name,
         } as TwitterReplyOutput,
       });
-    } catch (err: any) {
-      console.error('❌ エラー:', err.response?.data || err.message);
+    } catch (err: unknown) {
+      const errMsg = isAxiosError(err)
+        ? (err.response?.data ?? err.message)
+        : err instanceof Error ? err.message : String(err);
+      console.error('❌ エラー:', errMsg);
     }
   }
 
@@ -338,8 +339,8 @@ export class TwitterClient extends BaseClient {
       };
       const response = await axios.post(endpoint, data, config);
       return response;
-    } catch (error: any) {
-      console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
+    } catch (error: unknown) {
+      console.error(`\x1b[31mTweet error: ${error instanceof Error ? error.message : String(error)}\x1b[0m`);
       return error;
     }
   }

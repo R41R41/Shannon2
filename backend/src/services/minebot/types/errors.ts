@@ -1,59 +1,24 @@
 /**
- * エラー関連の型定義とカスタムエラークラス
+ * Minebot-specific error classes.
+ * All extend ShannonError (the application-wide base class).
  */
+import { ShannonError, ErrorType } from '../../../errors/base.js';
+
+// Re-export for backward compatibility
+export { ErrorType } from '../../../errors/base.js';
 
 /**
- * エラータイプ
+ * Minebot base error (extends ShannonError)
  */
-export enum ErrorType {
-    SKILL_LOAD = 'SKILL_LOAD_ERROR',
-    SKILL_EXECUTION = 'SKILL_EXECUTION_ERROR',
-    HTTP_SERVER = 'HTTP_SERVER_ERROR',
-    CONFIG = 'CONFIG_ERROR',
-    LLM = 'LLM_ERROR',
-    MINECRAFT = 'MINECRAFT_ERROR',
-    UNKNOWN = 'UNKNOWN_ERROR',
-}
-
-/**
- * 基底エラークラス
- */
-export class MinebotError extends Error {
-    public readonly type: ErrorType;
-    public readonly code?: string;
-    public readonly metadata?: Record<string, any>;
-    public readonly timestamp: Date;
-
+export class MinebotError extends ShannonError {
     constructor(
         message: string,
         type: ErrorType = ErrorType.UNKNOWN,
         code?: string,
-        metadata?: Record<string, any>
+        metadata?: Record<string, unknown>
     ) {
-        super(message);
+        super(message, type, code, metadata);
         this.name = 'MinebotError';
-        this.type = type;
-        this.code = code;
-        this.metadata = metadata;
-        this.timestamp = new Date();
-
-        // プロトタイプチェーンを維持
-        Object.setPrototypeOf(this, MinebotError.prototype);
-    }
-
-    /**
-     * エラーをJSON形式で出力
-     */
-    toJSON() {
-        return {
-            name: this.name,
-            message: this.message,
-            type: this.type,
-            code: this.code,
-            metadata: this.metadata,
-            timestamp: this.timestamp.toISOString(),
-            stack: this.stack,
-        };
     }
 }
 

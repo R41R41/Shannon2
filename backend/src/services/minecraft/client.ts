@@ -8,8 +8,9 @@ import { exec } from 'child_process';
 import dotenv from 'dotenv';
 import { promisify } from 'util';
 import { BaseClient } from '../common/BaseClient.js';
+import { config } from '../../config/env.js';
 import { getEventBus } from '../eventBus/index.js';
-dotenv.config();
+
 const execAsync = promisify(exec);
 
 // サーバー名とtmuxセッション名のマッピング
@@ -30,7 +31,7 @@ export class MinecraftClient extends BaseClient {
     '1.19.0-youtube',
     '1.21.1-play',
   ];
-  private readonly SERVER_BASE_PATH = process.env.SERVER_BASE_PATH;
+  private readonly SERVER_BASE_PATH = config.minecraft.serverBasePath;
   public isDev: boolean = false;
 
   public static getInstance(isDev: boolean = false) {

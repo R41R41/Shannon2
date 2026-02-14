@@ -1,11 +1,10 @@
 import { StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import axios from "axios";
-import dotenv from 'dotenv';
+import axios, { isAxiosError } from "axios";
 import { getEventBus } from '../../eventBus/index.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { TwitterClientOutput, TwitterClientInput } from '@shannon/common';
-dotenv.config();
+import { config } from '../../../config/env.js';
 
 export default class GetXorTwitterPostContentFromURLTool extends StructuredTool {
     name = 'get-x-or-twitter-post-content-from-url';
@@ -20,7 +19,7 @@ export default class GetXorTwitterPostContentFromURLTool extends StructuredTool 
     constructor() {
         super();
         this.eventBus = getEventBus();
-        this.apiKey = process.env.TWITTERAPI_IO_API_KEY || '';
+        this.apiKey = config.twitter.twitterApiIoKey;
     }
 
     private extractTweetId(url: string): string | null {
@@ -57,8 +56,11 @@ export default class GetXorTwitterPostContentFromURLTool extends StructuredTool 
                 authorName,
                 mediaUrl
             };
-        } catch (error: any) {
-            console.error("API呼び出しエラー:", error.response?.data || error.message);
+        } catch (error: unknown) {
+            const errMsg = isAxiosError(error)
+                ? (error.response?.data ?? error.message)
+                : error instanceof Error ? error.message : String(error);
+            console.error("API呼び出しエラー:", errMsg);
             throw error;
         }
     }

@@ -1,11 +1,10 @@
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
-import dotenv from 'dotenv';
 import { loadPrompt } from '../config/prompts.js';
+import { config } from '../../../config/env.js';
+import { models } from '../../../config/models.js';
 
-dotenv.config();
-
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_KEY = config.openaiApiKey;
 if (!OPENAI_API_KEY) {
   throw new Error('OPENAI_API_KEY is not set');
 }
@@ -16,7 +15,7 @@ export class ReplyTwitterCommentAgent {
 
   private constructor(systemPrompt: string) {
     this.model = new ChatOpenAI({
-      modelName: 'gpt-5.2',
+      modelName: models.contentGeneration,
       temperature: 1,
       apiKey: OPENAI_API_KEY,
     });

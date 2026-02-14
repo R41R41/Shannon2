@@ -1,9 +1,7 @@
 import { StructuredTool } from '@langchain/core/tools';
-import dotenv from 'dotenv';
 import fetch from 'node-fetch';
 import { z } from 'zod';
-
-dotenv.config();
+import { config } from '../../../config/env.js';
 
 export default class GoogleSearchTool extends StructuredTool {
   name = 'google-search';
@@ -25,8 +23,8 @@ export default class GoogleSearchTool extends StructuredTool {
 
   constructor() {
     super();
-    this.apiKey = process.env.GOOGLE_API_KEY || '';
-    this.searchEngineId = process.env.SEARCH_ENGINE_ID || '';
+    this.apiKey = config.google.apiKey;
+    this.searchEngineId = config.google.searchEngineId;
 
     if (!this.apiKey || !this.searchEngineId) {
       throw new Error('API key or Search Engine ID is not set in environment variables.');

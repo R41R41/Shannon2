@@ -1,6 +1,7 @@
 import { StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { createRequire } from 'module';
+import { config } from '../../../config/env.js';
 const require = createRequire(import.meta.url);
 const WolframAlphaAPI = require('@wolfram-alpha/wolfram-alpha-api');
 
@@ -19,7 +20,7 @@ export default class WolframAlphaTool extends StructuredTool {
 
   constructor() {
     super();
-    const wolframAppId = process.env.WOLFRAM_ALPHA_APPID;
+    const wolframAppId = config.wolframAlpha.appId;
     if (!wolframAppId) {
       throw new Error('WOLFRAM_ALPHA_APPID environment variable is not set.');
     }

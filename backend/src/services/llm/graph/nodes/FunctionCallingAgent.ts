@@ -1,4 +1,6 @@
 import { ChatOpenAI } from '@langchain/openai';
+import { config } from '../../../../config/env.js';
+import { models } from '../../../../config/models.js';
 import {
     AIMessage,
     BaseMessage,
@@ -65,7 +67,7 @@ export class FunctionCallingAgent {
     private pendingFeedback: string[] = [];
 
     // === 設定 ===
-    static readonly MODEL_NAME = 'gpt-4.1-mini';
+    static readonly MODEL_NAME = models.functionCalling;
     static readonly MAX_ITERATIONS = 30;
     static readonly LLM_TIMEOUT_MS = 30000;   // 1回のLLM呼び出し: 30秒
     static readonly MAX_TOTAL_TIME_MS = 300000; // 全体: 5分
@@ -83,7 +85,7 @@ export class FunctionCallingAgent {
 
         this.model = new ChatOpenAI({
             modelName: FunctionCallingAgent.MODEL_NAME,
-            apiKey: process.env.OPENAI_API_KEY!,
+            apiKey: config.openaiApiKey,
             temperature: 0,
             maxTokens: 4096,
         });

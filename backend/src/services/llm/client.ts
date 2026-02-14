@@ -1,4 +1,6 @@
 import { BaseMessage, HumanMessage } from '@langchain/core/messages';
+import { StructuredTool } from '@langchain/core/tools';
+import { z } from 'zod';
 import {
   DiscordScheduledPostInput,
   DiscordSendTextMessageOutput,
@@ -47,7 +49,7 @@ export class LLMService {
   private replyTwitterCommentAgent!: ReplyTwitterCommentAgent;
   private replyYoutubeCommentAgent!: ReplyYoutubeCommentAgent;
   private replyYoutubeLiveCommentAgent!: ReplyYoutubeLiveCommentAgent;
-  private tools: any[] = [];
+  private tools: StructuredTool[] = [];
   private isDevMode: boolean;
   constructor(isDevMode: boolean) {
     this.isDevMode = isDevMode;
@@ -148,9 +150,11 @@ export class LLMService {
       return {
         name: tool.name.toString(),
         description: tool.description.toString(),
-        parameters: Object.entries(tool.schema.shape).map(([name, value]) => ({
+        parameters: Object.entries(
+          (tool.schema as z.ZodObject<z.ZodRawShape>).shape
+        ).map(([name, value]) => ({
           name,
-          description: (value as any)._def.description,
+          description: (value as z.ZodTypeAny)._def.description,
         })),
       };
     });

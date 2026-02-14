@@ -1,5 +1,6 @@
 export * from "./types/common.js";
 export * from "./types/discord.js";
+export * from "./types/eventMap.js";
 export * from "./types/llm.js";
 export * from "./types/minebot.js";
 export * from "./types/minecraft.js";

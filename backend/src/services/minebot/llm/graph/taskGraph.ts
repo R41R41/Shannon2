@@ -1,10 +1,9 @@
 import { AIMessage, BaseMessage } from '@langchain/core/messages';
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { TaskTreeState } from '@shannon/common';
-import dotenv from 'dotenv';
-import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { loadToolsFromDirectory } from '../../../../utils/toolLoader.js';
 import { CONFIG } from '../../config/MinebotConfig.js';
 import { CustomBot } from '../../types.js';
 import { CentralLogManager } from './logging/index.js';
@@ -13,13 +12,12 @@ import { FunctionCallingAgent } from './nodes/FunctionCallingAgent.js';
 import { PlanningNode } from './nodes/PlanningNode.js';
 import { Prompt } from './prompt.js';
 import { InstantSkillTool } from './tools/InstantSkillTool.js';
+import { UpdatePlanTool } from './tools/UpdatePlanTool.js';
 import { TaskStateInput } from './types.js';
 import { convertToToolCalls } from './utils/argsParser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-dotenv.config();
 
 export class TaskGraph {
   private static instance: TaskGraph;
@@ -146,25 +144,12 @@ export class TaskGraph {
       this.tools.push(skillTool);
     }
     const toolsDir = join(__dirname, '../tools');
-    const toolFiles = readdirSync(toolsDir).filter(
-      (file) =>
-        (file.endsWith('.ts') || file.endsWith('.js')) &&
-        !file.includes('.d.ts')
-    );
+    const fileTools = await loadToolsFromDirectory(toolsDir, 'Minebot');
+    this.tools.push(...fileTools);
 
-    for (const file of toolFiles) {
-      if (file === 'index.ts' || file === 'index.js') continue;
+    // update-plan ツールを追加（Function Calling Agent 用）
+    this.tools.push(new UpdatePlanTool());
 
-      try {
-        const toolModule = await import(join(toolsDir, file));
-        const ToolClass = toolModule.default;
-        if (ToolClass?.prototype?.constructor) {
-          this.tools.push(new ToolClass());
-        }
-      } catch (error) {
-        console.error(`ツール読み込みエラー: ${file}`, error);
-      }
-    }
     console.log('tools', this.tools.length);
   }
 

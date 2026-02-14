@@ -4,6 +4,8 @@ import OpenAI from 'openai';
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { config } from '../../../config/env.js';
+import { models } from '../../../config/models.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -22,7 +24,7 @@ export default class CreateImageTool extends StructuredTool {
 
   constructor() {
     super();
-    const openaiApiKey = process.env.OPENAI_API_KEY;
+    const openaiApiKey = config.openaiApiKey;
     if (!openaiApiKey) {
       throw new Error('OPENAI_API_KEY environment variable is not set.');
     }
@@ -38,7 +40,7 @@ export default class CreateImageTool extends StructuredTool {
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
     try {
       const response = await this.openai.images.generate({
-        model: 'gpt-image-1',
+        model: models.imageGeneration,
         prompt: data.text,
         n: 1,
         size: '1024x1024',

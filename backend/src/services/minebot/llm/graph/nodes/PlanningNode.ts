@@ -4,6 +4,8 @@ import { Vec3 } from 'vec3';
 import { z } from 'zod';
 import { CentralLogManager, LogManager } from '../logging/index.js';
 import { Prompt } from '../prompt.js';
+import { config } from '../../../../../config/env.js';
+import { models } from '../../../../../config/models.js';
 
 // 失敗したサブタスクの情報
 interface FailedSubTaskInfo {
@@ -64,12 +66,12 @@ export class PlanningNode {
     // === モデル設定 ===
     // 切り替え用: 'o3-mini'(最速), 'gpt-5-mini'(安い), 'o3'(高品質), 'gpt-5'(バランス)
     // reasoning_effort: 'low'(高速), 'medium'(バランス), 'high'(高品質)
-    const modelName = 'o3-mini';
+    const modelName = models.planning;
     const reasoningEffort = 'low';
 
     this.model = new ChatOpenAI({
       modelName,
-      apiKey: process.env.OPENAI_API_KEY!,
+      apiKey: config.openaiApiKey,
       timeout: 45000, // 45秒タイムアウト
       // reasoning modelはtemperature非対応、max_tokensではなくmax_completion_tokensを使う。
       // o3系はLangChainのisReasoningModel()が認識するのでmodelKwargsでの回避は不要だが、

@@ -1,6 +1,8 @@
 import { StructuredTool } from '@langchain/core/tools';
 import OpenAI from 'openai';
 import { z } from 'zod';
+import { config } from '../../../config/env.js';
+import { models } from '../../../config/models.js';
 
 export default class DescribeImageTool extends StructuredTool {
   name = 'describe-image';
@@ -16,7 +18,7 @@ export default class DescribeImageTool extends StructuredTool {
 
   constructor() {
     super();
-    const openaiApiKey = process.env.OPENAI_API_KEY;
+    const openaiApiKey = config.openaiApiKey;
     if (!openaiApiKey) {
       throw new Error('OPENAI_API_KEY environment variable is not set.');
     }
@@ -26,7 +28,7 @@ export default class DescribeImageTool extends StructuredTool {
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-5.2',
+        model: models.vision,
         messages: [
           {
             role: 'user',

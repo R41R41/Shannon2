@@ -1,11 +1,10 @@
 import { StructuredTool } from '@langchain/core/tools';
-import dotenv from 'dotenv';
+import { config } from '../../../../config/env.js';
+import { models } from '../../../../config/models.js';
 import fs from 'fs';
 import OpenAI from 'openai';
 import path from 'path';
 import { z } from 'zod';
-
-dotenv.config();
 
 // buildArchitecture.tsのArchitecture型に合わせたzodスキーマ
 const ArchitectureBlockSchema = z.object({
@@ -35,11 +34,7 @@ export default class CreateBluePrintTool extends StructuredTool {
 
   constructor() {
     super();
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-    if (!openaiApiKey) {
-      throw new Error('OPENAI_API_KEY environment variable is not set.');
-    }
-    this.openai = new OpenAI({ apiKey: openaiApiKey });
+    this.openai = new OpenAI({ apiKey: config.openaiApiKey });
   }
 
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
@@ -49,7 +44,7 @@ export default class CreateBluePrintTool extends StructuredTool {
     let jsonText = '';
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: models.blueprint,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: data.prompt },

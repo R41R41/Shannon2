@@ -1,5 +1,7 @@
 import { ChatOpenAI } from '@langchain/openai';
-import { BaseMessage, HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { config } from '../../../../config/env.js';
+import { models } from '../../../../config/models.js';
+import { AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import { EmotionType } from '@shannon/common';
 import { z } from 'zod';
 import { EventBus } from '../../../eventBus/eventBus.js';
@@ -98,7 +100,7 @@ export class EmotionNode {
         // gpt-5-mini（感情分析は軽量モデルで十分）
         // gpt-5-mini は temperature=1 のみサポート（デフォルト値を使用）
         this.model = new ChatOpenAI({
-            modelName: 'gpt-5-mini',
+            modelName: models.emotion,
             apiKey: config.openaiApiKey,
         });
     }
@@ -246,10 +248,27 @@ export class EmotionNode {
             messages.push(new SystemMessage(`最近の行動結果:\n${resultsStr}`));
         }
 
-        // 最新の会話（最大5件）
-        const recent = recentMessages.slice(-5);
+        // 最新の会話からテキストメッセージのみ抽出（最大5件）
+        // ToolMessage や tool_calls 付き AIMessage を含めると
+        // OpenAI API が "messages with role 'tool' must be a response to
+        // a preceding message with 'tool_calls'" エラーを返すため除外する
+        const textMessages = recentMessages.filter((msg) => {
+            if (msg instanceof ToolMessage) return false;
+            if (msg instanceof AIMessage && msg.tool_calls && msg.tool_calls.length > 0) return false;
+            if (msg instanceof SystemMessage) return false;
+            return true;
+        });
+        const recent = textMessages.slice(-5);
         for (const msg of recent) {
-            messages.push(msg);
+            // AIMessage のテキスト部分のみ追加
+            if (msg instanceof AIMessage) {
+                const content = typeof msg.content === 'string' ? msg.content : '';
+                if (content) {
+                    messages.push(new SystemMessage(`AIの応答: ${content.substring(0, 300)}`));
+                }
+            } else {
+                messages.push(msg);
+            }
         }
 
         return messages;

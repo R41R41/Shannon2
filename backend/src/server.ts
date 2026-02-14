@@ -1,7 +1,8 @@
-import dotenv from 'dotenv';
 import express from 'express';
+import http from 'http';
 import mongoose from 'mongoose';
 import { PORTS } from './config/ports.js';
+import { config } from './config/env.js';
 import { DiscordBot } from './services/discord/client.js';
 import { LLMService } from './services/llm/client.js';
 import { MinebotClient } from './services/minebot/client.js';
@@ -11,7 +12,6 @@ import { Scheduler } from './services/scheduler/client.js';
 import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
 import { YoutubeClient } from './services/youtube/client.js';
-dotenv.config();
 
 class Server {
   private llmService: LLMService;
@@ -23,7 +23,7 @@ class Server {
   private minecraftClient: MinecraftClient;
   private minebotClient: MinebotClient;
   private notionClient: NotionClient;
-  private httpServer: any;
+  private httpServer: http.Server | null = null;
 
   constructor() {
     const isDevMode = process.argv.includes('--dev');
@@ -45,7 +45,7 @@ class Server {
       res.json({ status: 'ok', timestamp: new Date().toISOString() });
     });
 
-    const port = process.env.PORT || PORTS.HTTP_SERVER;
+    const port = config.port;
     this.httpServer = app.listen(port, () => {
       console.log(`\x1b[34mHTTP Server listening on port ${port}\x1b[0m`);
     });
@@ -53,7 +53,7 @@ class Server {
 
   private async connectDatabase() {
     try {
-      const uri = process.env.MONGODB_URI as string;
+      const uri = config.mongodbUri;
       console.log('Connecting to MongoDB:', uri); // URIを確認
       await mongoose.connect(uri);
       console.log(

@@ -1,10 +1,9 @@
 import { Client } from "@notionhq/client";
+import type { BlockObjectResponse, RichTextItemResponse } from "@notionhq/client/build/src/api-endpoints";
 import { NotionClientInput } from '@shannon/common';
-import dotenv from 'dotenv';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
-
-dotenv.config();
+import { config } from '../../config/env.js';
 
 export class NotionClient extends BaseClient {
     private client: Client;
@@ -19,14 +18,14 @@ export class NotionClient extends BaseClient {
             NotionClient.instance = new NotionClient('notion', isTest);
         }
         NotionClient.instance.isTest = isTest;
-        NotionClient.instance.myUserId = process.env.TWITTER_USER_ID || null;
+        NotionClient.instance.myUserId = config.twitter.userId || null;
         return NotionClient.instance;
     }
 
     private constructor(serviceName: 'notion', isTest: boolean) {
         const eventBus = getEventBus();
         super(serviceName, eventBus);
-        const apiKey = process.env.NOTION_API_KEY;
+        const apiKey = config.notion.apiKey;
 
         if (!apiKey) {
             throw new Error('Notion APIの認証情報が設定されていません');
@@ -81,16 +80,16 @@ export class NotionClient extends BaseClient {
     /**
      * リッチテキストからプレーンテキストを抽出
      */
-    private extractRichText(richTextArray: any[]): string {
+    private extractRichText(richTextArray: RichTextItemResponse[]): string {
         if (!richTextArray || !Array.isArray(richTextArray)) return "";
-        return richTextArray.map(rt => rt?.text?.content || rt?.plain_text || "").join("");
+        return richTextArray.map(rt => ('text' in rt ? rt.text.content : null) || rt.plain_text || "").join("");
     }
 
     /**
      * 画像ブロックからURLを取得
      */
-    private getImageUrl(block: any): string | null {
-        const imageData = block.image;
+    private getImageUrl(imageBlock: Extract<BlockObjectResponse, { type: 'image' }>): string | null {
+        const imageData = imageBlock.image;
         if (!imageData) return null;
 
         if (imageData.type === 'file') {
@@ -104,66 +103,72 @@ export class NotionClient extends BaseClient {
     /**
      * ブロックをマークダウンに変換
      */
-    private blockToMarkdown(block: any, indent: number = 0): string {
+    private blockToMarkdown(block: BlockObjectResponse, indent: number = 0): string {
         const indentStr = "  ".repeat(indent);
         let content = "";
-        const type = block.type;
 
-        if (type === "paragraph") {
-            content = this.extractRichText(block.paragraph?.rich_text);
-        } else if (type === "heading_1") {
-            content = `# ${this.extractRichText(block.heading_1?.rich_text)}`;
-        } else if (type === "heading_2") {
-            content = `## ${this.extractRichText(block.heading_2?.rich_text)}`;
-        } else if (type === "heading_3") {
-            content = `### ${this.extractRichText(block.heading_3?.rich_text)}`;
-        } else if (type === "bulleted_list_item") {
-            content = `${indentStr}- ${this.extractRichText(block.bulleted_list_item?.rich_text)}`;
-        } else if (type === "numbered_list_item") {
-            content = `${indentStr}1. ${this.extractRichText(block.numbered_list_item?.rich_text)}`;
-        } else if (type === "to_do") {
-            const checked = block.to_do?.checked;
-            content = `${indentStr}- [${checked ? 'x' : ' '}] ${this.extractRichText(block.to_do?.rich_text)}`;
-        } else if (type === "toggle") {
-            content = `${indentStr}▶ ${this.extractRichText(block.toggle?.rich_text)}`;
-        } else if (type === "code") {
-            const language = block.code?.language || "";
-            content = `\`\`\`${language}\n${this.extractRichText(block.code?.rich_text)}\n\`\`\``;
-        } else if (type === "quote") {
-            content = `> ${this.extractRichText(block.quote?.rich_text)}`;
-        } else if (type === "callout") {
-            const icon = block.callout?.icon?.emoji || "💡";
-            content = `${icon} ${this.extractRichText(block.callout?.rich_text)}`;
-        } else if (type === "divider") {
+        if (block.type === "paragraph") {
+            content = this.extractRichText(block.paragraph.rich_text);
+        } else if (block.type === "heading_1") {
+            content = `# ${this.extractRichText(block.heading_1.rich_text)}`;
+        } else if (block.type === "heading_2") {
+            content = `## ${this.extractRichText(block.heading_2.rich_text)}`;
+        } else if (block.type === "heading_3") {
+            content = `### ${this.extractRichText(block.heading_3.rich_text)}`;
+        } else if (block.type === "bulleted_list_item") {
+            content = `${indentStr}- ${this.extractRichText(block.bulleted_list_item.rich_text)}`;
+        } else if (block.type === "numbered_list_item") {
+            content = `${indentStr}1. ${this.extractRichText(block.numbered_list_item.rich_text)}`;
+        } else if (block.type === "to_do") {
+            const checked = block.to_do.checked;
+            content = `${indentStr}- [${checked ? 'x' : ' '}] ${this.extractRichText(block.to_do.rich_text)}`;
+        } else if (block.type === "toggle") {
+            content = `${indentStr}▶ ${this.extractRichText(block.toggle.rich_text)}`;
+        } else if (block.type === "code") {
+            const language = block.code.language || "";
+            content = `\`\`\`${language}\n${this.extractRichText(block.code.rich_text)}\n\`\`\``;
+        } else if (block.type === "quote") {
+            content = `> ${this.extractRichText(block.quote.rich_text)}`;
+        } else if (block.type === "callout") {
+            const icon = (block.callout.icon?.type === 'emoji' ? block.callout.icon.emoji : null) || "💡";
+            content = `${icon} ${this.extractRichText(block.callout.rich_text)}`;
+        } else if (block.type === "divider") {
             content = "---";
-        } else if (type === "table_row") {
-            const cells = block.table_row?.cells || [];
-            content = `| ${cells.map((cell: any[]) => this.extractRichText(cell)).join(" | ")} |`;
-        } else if (type === "image") {
+        } else if (block.type === "table_row") {
+            const cells = block.table_row.cells;
+            content = `| ${cells.map((cell: RichTextItemResponse[]) => this.extractRichText(cell)).join(" | ")} |`;
+        } else if (block.type === "image") {
             // 画像ブロック: URLを返す（内容分析はdescribe-imageツールで行う）
             const imageUrl = this.getImageUrl(block);
-            const caption = this.extractRichText(block.image?.caption);
+            const caption = this.extractRichText(block.image.caption);
             if (imageUrl) {
                 content = `📷 [画像${caption ? `: ${caption}` : ''}] URL: ${imageUrl}`;
             } else {
                 content = "📷 [画像: URLを取得できませんでした]";
             }
-        } else if (type === "file") {
+        } else if (block.type === "file") {
             // ファイルブロック
-            const fileUrl = block.file?.file?.url || block.file?.external?.url || "";
-            const fileName = block.file?.name || "添付ファイル";
+            const fileData = block.file;
+            const fileUrl = (fileData.type === 'file' ? fileData.file.url : fileData.external.url) || "";
+            const fileName = block.file.name || "添付ファイル";
             content = `📎 [ファイル: ${fileName}] URL: ${fileUrl}`;
-        } else if (type === "pdf") {
+        } else if (block.type === "pdf") {
             // PDFブロック
-            const pdfUrl = block.pdf?.file?.url || block.pdf?.external?.url || "";
+            const pdfData = block.pdf;
+            const pdfUrl = (pdfData.type === 'file' ? pdfData.file.url : pdfData.external.url) || "";
             content = `📄 [PDF] URL: ${pdfUrl}`;
-        } else if (type === "video") {
+        } else if (block.type === "video") {
             // ビデオブロック
-            const videoUrl = block.video?.external?.url || block.video?.file?.url || "";
+            const videoData = block.video;
+            const videoUrl = (videoData.type === 'external' ? videoData.external.url : videoData.type === 'file' ? videoData.file.url : "") || "";
             content = `🎥 [動画] URL: ${videoUrl}`;
-        } else if (type === "embed" || type === "bookmark") {
+        } else if (block.type === "embed") {
             // 埋め込みブロック
-            const url = block[type]?.url || "";
+            const url = block.embed.url || "";
+            content = `🔗 [埋め込み] URL: ${url}`;
+        } else if (block.type === "bookmark") {
+            // ブックマークブロック
+            const url = block.bookmark.url || "";
             content = `🔗 [埋め込み] URL: ${url}`;
         }
 
@@ -183,16 +188,16 @@ export class NotionClient extends BaseClient {
             const markdownLines: string[] = [];
 
             for (const block of response.results) {
-                // @ts-ignore
+                // Skip PartialBlockObjectResponse (lacks 'type' field)
+                if (!('type' in block)) continue;
+
                 const content = this.blockToMarkdown(block, indent);
                 if (content) {
                     markdownLines.push(content);
                 }
 
                 // 子ブロックがある場合は再帰的に取得
-                // @ts-ignore
                 if (block.has_children) {
-                    // @ts-ignore
                     const childMarkdown = await this.getPageBlocksToMarkdown(block.id, indent + 1);
                     markdownLines.push(...childMarkdown);
                 }
@@ -210,7 +215,7 @@ export class NotionClient extends BaseClient {
             this.setupEventHandlers();
         } catch (error) {
             if (error instanceof Error && error.message.includes('429')) {
-                const apiError = error as any;
+                const apiError = error as Error & { rateLimit?: { reset?: number } };
                 if (apiError.rateLimit?.reset) {
                     const resetTime = apiError.rateLimit.reset * 1000;
                     const now = Date.now();

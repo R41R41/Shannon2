@@ -4,7 +4,6 @@ import {
   ServiceInput,
   ServiceOutput,
 } from '@shannon/common';
-import dotenv from 'dotenv';
 import pkg from 'minecrafthawkeye';
 import mineflayer from 'mineflayer';
 import { plugin as cmd } from 'mineflayer-cmd';
@@ -19,7 +18,6 @@ import { CONFIG } from './config/MinebotConfig.js';
 import { SkillAgent } from './skillAgent.js';
 import { ConstantSkills, CustomBot, InstantSkills } from './types.js';
 import { Utils } from './utils/index.js';
-dotenv.config();
 
 // 環境変数の検証
 CONFIG.validateEnvironment();
