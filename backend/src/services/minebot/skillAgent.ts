@@ -360,6 +360,11 @@ export class SkillAgent {
       const newMessage = `${currentTime} ${userName}: ${message}`;
       this.recentMessages.push(new HumanMessage(newMessage));
 
+      // メモリリーク防止: 直近50件を超えたら古いメッセージを削除
+      if (this.recentMessages.length > 50) {
+        this.recentMessages.splice(0, this.recentMessages.length - 50);
+      }
+
       await this.centralAgent.handlePlayerMessage(
         userName,
         message,

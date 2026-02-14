@@ -8,6 +8,19 @@ import { Vec3 } from 'vec3';
  * 水面を自動検出し、適切な角度で投げる
  */
 class Fish extends InstantSkill {
+  /**
+   * 世代カウンター: runImpl() の並行実行を防ぐ。
+   * 新しい runImpl() が開始されると世代が上がり、
+   * 古い runImpl() はループ内で世代の変化を検出して自発的に終了する。
+   */
+  private runGeneration = 0;
+
+  /**
+   * 現在のmonkey-patchの解除関数。
+   * 二重パッチを防ぐために保持する。
+   */
+  private unpatchFn: (() => void) | null = null;
+
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'fish';
@@ -123,6 +136,9 @@ class Fish extends InstantSkill {
    * ボットの実際の向き（Notchian形式）に差し替える。
    */
   private patchActivateItemRotation(): () => void {
+    // 既にパッチ済みならそのまま返す（二重パッチ防止）
+    if (this.unpatchFn) return this.unpatchFn;
+
     const client = (this.bot as any)._client;
     const origWrite = client.write.bind(client);
     const bot = this.bot;
@@ -143,13 +159,25 @@ class Fish extends InstantSkill {
     };
 
     // パッチ解除用の関数を返す
-    return () => {
+    this.unpatchFn = () => {
       client.write = origWrite;
+      this.unpatchFn = null;
     };
+    return this.unpatchFn;
   }
 
   async runImpl(count: number = 1) {
+    // 世代をインクリメント: 古い runImpl() がまだ動いていたら
+    // ループ内で世代変化を検出して自発的に終了する
+    const myGeneration = ++this.runGeneration;
+
     try {
+      // 前回の中断された釣り操作をキャンセル
+      try {
+        this.bot.deactivateItem();
+      } catch (_) { /* ignore */ }
+      await this.bot.waitForTicks(5);
+
       // 釣り竿を持っているかチェック
       const fishingRod = this.bot.inventory
         .items()
@@ -240,11 +268,13 @@ class Fish extends InstantSkill {
         await this.bot.lookAt(compensatedTarget, true);
         // サーバーに方向が確実に届くよう少し待つ
         await this.bot.waitForTicks(5);
-        // 中断チェック: 基底クラスのPromise.raceでrun()は即座に返るが、
-        // このチェックがないとrunImpl()のループがバックグラウンドで走り続ける
-        if (this.shouldInterrupt()) {
-          console.log(`\x1b[33m⚡ 釣りループ終了: 中断シグナル受信（${successCount}/${i}回完了）\x1b[0m`);
-          unpatch();
+        // 中断チェック1: 基底クラスの shouldInterrupt()
+        // 中断チェック2: 世代が変わった場合（新しい runImpl() が開始された）
+        if (this.shouldInterrupt() || myGeneration !== this.runGeneration) {
+          const reason = myGeneration !== this.runGeneration ? '新しいタスクにより' : 'フィードバックにより';
+          console.log(`\x1b[33m⚡ 釣りループ終了: ${reason}中断（${successCount}/${i}回完了）\x1b[0m`);
+          // 世代が変わった場合は unpatch しない（新しい runImpl が使っている）
+          if (myGeneration === this.runGeneration) unpatch();
           return {
             success: successCount > 0,
             result: successCount > 0
@@ -282,7 +312,24 @@ class Fish extends InstantSkill {
           });
 
           // bot.fish() はキャスト→待機→リールインを全自動で行う
-          await (this.bot as any).fish();
+          // ただし mineflayer の fish() にはタイムアウトがないため、
+          // ボバーが想定外の状態（プレイヤーにフック等）になると永久にハングする。
+          // 60秒タイムアウトで強制リールインする。
+          const FISH_TIMEOUT_MS = 60000;
+          const fishPromise = (this.bot as any).fish();
+          const fishTimeoutPromise = new Promise<never>((_, reject) => {
+            const timer = setTimeout(() => {
+              // タイムアウト: 釣り竿をリールインして状態をリセット
+              try {
+                this.bot.activateItem(); // リールイン（トグル）
+              } catch (_) { /* ignore */ }
+              reject(new Error('Fishing timeout (60s) - ボバーが異常状態の可能性'));
+            }, FISH_TIMEOUT_MS);
+            // fish が正常完了したらタイマーをクリア
+            fishPromise.then(() => clearTimeout(timer)).catch(() => clearTimeout(timer));
+          });
+
+          await Promise.race([fishPromise, fishTimeoutPromise]);
 
           // 釣れたアイテムを記録（少し待ってからcollectイベントを確認）
           const itemName = await Promise.race([
@@ -308,9 +355,9 @@ class Fish extends InstantSkill {
             `\x1b[33m⚠ 釣り ${i + 1}/${count}: 失敗 - ${e.message}\x1b[0m`
           );
 
-          // 中断シグナルならループを即終了
-          if (this.shouldInterrupt()) {
-            unpatch();
+          // 中断シグナルまたは世代変化ならループを即終了
+          if (this.shouldInterrupt() || myGeneration !== this.runGeneration) {
+            if (myGeneration === this.runGeneration) unpatch();
             return {
               success: successCount > 0,
               result: successCount > 0
@@ -339,8 +386,8 @@ class Fish extends InstantSkill {
         }
       }
 
-      // パッチ解除
-      unpatch();
+      // パッチ解除（世代が変わっていなければ）
+      if (myGeneration === this.runGeneration) unpatch();
 
       if (successCount === 0) {
         return {

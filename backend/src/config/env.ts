@@ -99,6 +99,11 @@ export const config = {
     proxy2: optional('TWITTER_PROXY2', ''),
     proxy3: optional('TWITTER_PROXY3', ''),
     twitterApiIoKey: optional('TWITTERAPI_IO_API_KEY', ''),
+    loginCookies: optional('TWITTER_LOGIN_COOKIES', ''),
+    /** 返信確率 (0.0〜1.0) */
+    replyProbability: parseFloat(optional('TWITTER_REPLY_PROBABILITY', '0.3')),
+    /** ポーリング間隔 (ミリ秒) */
+    monitorIntervalMs: parseInt(optional('TWITTER_MONITOR_INTERVAL_MS', '1800000'), 10),
     usernames: {
       aiminelab: optional('TWITTER_AIMINELAB_USERNAME', ''),
       yummy: optional('TWITTER_YUMMY_USERNAME', ''),

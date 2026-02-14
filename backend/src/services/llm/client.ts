@@ -13,6 +13,7 @@ import {
   SkillInfo,
   TaskContext,
   TwitterClientInput,
+  TwitterQuoteRTOutput,
   TwitterReplyOutput,
   YoutubeClientInput,
   YoutubeCommentOutput,
@@ -30,6 +31,7 @@ import { PostFortuneAgent } from './agents/postFortuneAgent.js';
 import { PostNewsAgent } from './agents/postNewsAgent.js';
 import { PostWeatherAgent } from './agents/postWeatherAgent.js';
 import { RealtimeAPIService } from './agents/realtimeApiAgent.js';
+import { QuoteTwitterCommentAgent } from './agents/quoteTwitterComment.js';
 import { ReplyTwitterCommentAgent } from './agents/replyTwitterComment.js';
 import { ReplyYoutubeCommentAgent } from './agents/replyYoutubeComment.js';
 import { ReplyYoutubeLiveCommentAgent } from './agents/replyYoutubeLiveCommentAgent.js';
@@ -47,6 +49,7 @@ export class LLMService {
   private fortuneAgent!: PostFortuneAgent;
   private newsAgent!: PostNewsAgent;
   private replyTwitterCommentAgent!: ReplyTwitterCommentAgent;
+  private quoteTwitterCommentAgent!: QuoteTwitterCommentAgent;
   private replyYoutubeCommentAgent!: ReplyYoutubeCommentAgent;
   private replyYoutubeLiveCommentAgent!: ReplyYoutubeLiveCommentAgent;
   private tools: StructuredTool[] = [];
@@ -76,6 +79,7 @@ export class LLMService {
     this.weatherAgent = await PostWeatherAgent.create();
     this.fortuneAgent = await PostFortuneAgent.create();
     this.replyTwitterCommentAgent = await ReplyTwitterCommentAgent.create();
+    this.quoteTwitterCommentAgent = QuoteTwitterCommentAgent.create();
     this.replyYoutubeCommentAgent = await ReplyYoutubeCommentAgent.create();
     this.replyYoutubeLiveCommentAgent =
       await ReplyYoutubeLiveCommentAgent.create();
@@ -100,6 +104,11 @@ export class LLMService {
     this.eventBus.subscribe('llm:post_twitter_reply', (event) => {
       if (this.isDevMode) return;
       this.processTwitterReply(event.data as TwitterReplyOutput);
+    });
+
+    this.eventBus.subscribe('llm:post_twitter_quote_rt', (event) => {
+      if (this.isDevMode) return;
+      this.processTwitterQuoteRT(event.data as TwitterQuoteRTOutput);
     });
 
     this.eventBus.subscribe('llm:reply_youtube_comment', (event) => {
@@ -242,6 +251,29 @@ export class LLMService {
       data: {
         text: response,
         replyId: replyId,
+      } as TwitterClientInput,
+    });
+  }
+
+  private async processTwitterQuoteRT(data: TwitterQuoteRTOutput) {
+    const { tweetId, tweetUrl, text, authorName, authorUserName } = data;
+
+    if (!tweetId || !tweetUrl || !text || !authorName) {
+      console.error('Twitter quote RT data is invalid');
+      return;
+    }
+
+    const quoteText = await this.quoteTwitterCommentAgent.generateQuote(
+      text,
+      authorName,
+      authorUserName
+    );
+    this.eventBus.publish({
+      type: 'twitter:post_message',
+      memoryZone: 'twitter:post',
+      data: {
+        text: quoteText,
+        quoteTweetUrl: tweetUrl,
       } as TwitterClientInput,
     });
   }

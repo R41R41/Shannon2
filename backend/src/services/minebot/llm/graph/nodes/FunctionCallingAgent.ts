@@ -64,11 +64,21 @@ export class FunctionCallingAgent {
   // ユーザーからのリアルタイムフィードバック
   private pendingFeedback: string[] = [];
 
+  // マルチターン会話: ユーザー応答待機用
+  private _waitingForResponse = false;
+  private responseResolver: ((response: string) => void) | null = null;
+  static readonly RESPONSE_TIMEOUT_MS = 90000; // 応答待機: 90秒
+
+  /** Agent がユーザーの応答を待機中かどうか（外部から参照用） */
+  public get isWaitingForResponse(): boolean {
+    return this._waitingForResponse;
+  }
+
   // === 設定 ===
   static readonly MODEL_NAME = models.functionCalling;
-  static readonly MAX_ITERATIONS = 30;
+  static readonly MAX_ITERATIONS = 50;
   static readonly LLM_TIMEOUT_MS = 30000; // 1回のLLM呼び出し: 30秒
-  static readonly MAX_TOTAL_TIME_MS = 300000; // 全体: 5分
+  static readonly MAX_TOTAL_TIME_MS = 600000; // 全体: 10分（会話タスクの待機時間含む）
 
   constructor(
     bot: CustomBot,
@@ -116,12 +126,80 @@ export class FunctionCallingAgent {
 
   /**
    * ユーザーフィードバックを追加（実行中に呼ばれる）
+   * 応答待機中の場合は待機Promiseを即座に解決する
    */
   public addFeedback(feedback: string): void {
-    this.pendingFeedback.push(feedback);
-    console.log(
-      `\x1b[33m📝 FunctionCallingAgent: フィードバック追加: ${feedback}\x1b[0m`,
-    );
+    if (this._waitingForResponse && this.responseResolver) {
+      // 応答待機中 → Promiseを解決してAgentループを再開
+      console.log(
+        `\x1b[33m📝 FunctionCallingAgent: 待機中に応答受信: ${feedback}\x1b[0m`,
+      );
+      const resolver = this.responseResolver;
+      this.responseResolver = null;
+      this._waitingForResponse = false;
+      resolver(feedback);
+    } else {
+      // 通常のフィードバック（スキル実行中の中断用など）
+      this.pendingFeedback.push(feedback);
+      console.log(
+        `\x1b[33m📝 FunctionCallingAgent: フィードバック追加: ${feedback}\x1b[0m`,
+      );
+    }
+  }
+
+  /**
+   * ユーザーの応答を待機する（マルチターン会話用）
+   * タイムアウトした場合は null を返す
+   */
+  private waitForUserResponse(
+    timeoutMs: number,
+    signal?: AbortSignal,
+  ): Promise<string | null> {
+    return new Promise((resolve) => {
+      this._waitingForResponse = true;
+
+      const timer = setTimeout(() => {
+        this._waitingForResponse = false;
+        this.responseResolver = null;
+        console.log(
+          `\x1b[33m⏱ 応答待機タイムアウト (${timeoutMs / 1000}秒)\x1b[0m`,
+        );
+        resolve(null);
+      }, timeoutMs);
+
+      // 親のabortで待機をキャンセル
+      const onAbort = () => {
+        clearTimeout(timer);
+        this._waitingForResponse = false;
+        this.responseResolver = null;
+        resolve(null);
+      };
+      if (signal) {
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
+
+      this.responseResolver = (response: string) => {
+        clearTimeout(timer);
+        if (signal) {
+          signal.removeEventListener('abort', onAbort);
+        }
+        resolve(response);
+      };
+    });
+  }
+
+  /**
+   * レスポンスが会話的（ユーザーの応答を待つべき）かどうか判定
+   */
+  private isConversationalResponse(content: string): boolean {
+    // 日本語・英語の疑問符を含む
+    if (content.includes('？') || content.includes('?')) return true;
+    // 明示的に応答を求めるフレーズ
+    if (content.includes('はい/いいえ') || content.includes('教えてください'))
+      return true;
+    if (content.includes('どちらですか') || content.includes('お答えください'))
+      return true;
+    return false;
   }
 
   /**
@@ -155,8 +233,21 @@ export class FunctionCallingAgent {
     const systemPrompt = this.buildSystemPrompt();
     const messages: BaseMessage[] = [
       new SystemMessage(systemPrompt),
-      new HumanMessage(`タスク: ${goal}`),
     ];
+
+    // チャット履歴を追加（直近の会話コンテキスト）
+    // state.messages には HumanMessage（プレイヤーの発言）と AIMessage（ボットの発言）が含まれる
+    if (state.messages && state.messages.length > 0) {
+      const recentChat = state.messages.slice(-30); // 直近30件（約15ターン分）
+      for (const msg of recentChat) {
+        if (msg instanceof HumanMessage || msg instanceof AIMessage) {
+          messages.push(msg);
+        }
+      }
+    }
+
+    // 現在のタスク指示
+    messages.push(new HumanMessage(`タスク: ${goal}`));
 
     // プロンプトサイズを計測
     const totalChars = messages.reduce(
@@ -171,6 +262,10 @@ export class FunctionCallingAgent {
     const steps: HierarchicalSubTask[] = [];
     let stepCounter = 0;
     let iteration = 0;
+    let chatToolCalled = false; // chatツールが既に呼ばれたかを追跡
+
+    // マルチターン会話: Q&A追跡（要約注入用）
+    const conversationQA: Array<{ question: string; answer: string }> = [];
 
     // 初期 UI 更新
     await sendTaskTreeToServer({
@@ -233,7 +328,26 @@ export class FunctionCallingAgent {
         const llmStart = Date.now();
         let response: AIMessage;
         try {
-          response = (await this.modelWithTools.invoke(messages, {
+          // 会話 Q&A がある場合、要約を注入した invokeMessages を構築
+          let invokeMessages: BaseMessage[];
+          if (conversationQA.length > 0) {
+            const recap = conversationQA
+              .map(
+                (qa, i) =>
+                  `Q${i + 1}: ${qa.question} → 回答: ${qa.answer}`,
+              )
+              .join('\n');
+            invokeMessages = [
+              ...messages,
+              new SystemMessage(
+                `【これまでの会話の要約 - ${conversationQA.length}問完了】\n${recap}\n\n上記の情報を必ず参照してください。既に判明した事実に矛盾する質問や候補を出さないでください。`,
+              ),
+            ];
+          } else {
+            invokeMessages = messages;
+          }
+
+          response = (await this.modelWithTools.invoke(invokeMessages, {
             signal: callAbort.signal,
           })) as AIMessage;
           clearTimeout(callTimeout);
@@ -266,11 +380,72 @@ export class FunctionCallingAgent {
         const toolCalls = response.tool_calls || [];
 
         if (toolCalls.length === 0) {
-          // ツール呼び出しなし → タスク完了
+          // ツール呼び出しなし → 会話的応答か判定
           const content =
             typeof response.content === 'string'
               ? response.content
               : '';
+
+          // Minecraftチャットに送信
+          if (content && !chatToolCalled) {
+            try {
+              this.bot.chat(content.substring(0, 250));
+            } catch (e) {
+              console.log(
+                `\x1b[33m⚠ チャット送信失敗: ${(e as Error).message}\x1b[0m`,
+              );
+            }
+          }
+
+          // 会話的応答（質問を含む）の場合はユーザーの返答を待機
+          const isConversational = this.isConversationalResponse(content);
+          if (
+            isConversational &&
+            iteration < FunctionCallingAgent.MAX_ITERATIONS - 1 &&
+            !signal?.aborted
+          ) {
+            console.log(
+              `\x1b[36m🔄 会話的応答を検出 - ユーザーの返答を待機中 (最大${FunctionCallingAgent.RESPONSE_TIMEOUT_MS / 1000}秒)...\x1b[0m`,
+            );
+            console.log(`   応答: ${content.substring(0, 200)}`);
+
+            await sendTaskTreeToServer({
+              status: 'in_progress',
+              goal,
+              strategy: '💬 ユーザーの返答を待機中...',
+              hierarchicalSubTasks: steps,
+              currentSubTaskId: null,
+            });
+
+            const userResponse = await this.waitForUserResponse(
+              FunctionCallingAgent.RESPONSE_TIMEOUT_MS,
+              signal,
+            );
+
+            if (userResponse) {
+              // Q&Aペアを記録（要約注入用）
+              conversationQA.push({
+                question: content.substring(0, 120),
+                answer: userResponse,
+              });
+
+              // ユーザーの返答を会話に追加してループ継続
+              messages.push(new HumanMessage(userResponse));
+              chatToolCalled = false; // 次のイテレーション用にリセット
+              // 注意: 応答待機はイテレーションとしてカウントしない
+              // （実際のLLM+ツール作業ではなくユーザー待機のため）
+              console.log(
+                `\x1b[32m📨 ユーザー応答受信: "${userResponse}" (Q&A ${conversationQA.length}件) - 会話を継続\x1b[0m`,
+              );
+              continue;
+            }
+            // タイムアウト → タスク完了として処理
+            console.log(
+              `\x1b[33m⏱ 応答待機タイムアウト - タスクを完了します\x1b[0m`,
+            );
+          }
+
+          // タスク完了
           console.log(
             `\x1b[32m✅ FunctionCallingAgent: タスク完了 (${iteration + 1}イテレーション, ${((Date.now() - startTime) / 1000).toFixed(1)}s)\x1b[0m`,
           );
@@ -384,6 +559,11 @@ export class FunctionCallingAgent {
                 result.includes('エラー') ||
                 result.includes('error') ||
                 result.includes('見つかりません'));
+
+            // chatツールが呼ばれたことを記録（フォールバック重複防止）
+            if (toolCall.name === 'chat' && !isError) {
+              chatToolCalled = true;
+            }
 
             // update-plan 以外のツールはステップを更新
             if (!isUpdatePlan && steps.length > 0) {
@@ -551,6 +731,7 @@ export class FunctionCallingAgent {
 
     return `あなたはMinecraftボット「シャノン」です。ツールを使ってユーザーの指示を実行してください。
 完了したら必ずchatツールで結果をユーザーに報告してください。
+**重要: タスク実行の確認のためにユーザーに聞き返してはいけない。2択・選択を含むタスクでは自分で選んで即行動する。ただし、ゲームやクイズなどユーザーとの対話が目的のタスクでは、質問・会話を積極的に行う。ユーザーの返答は自動的に届く。**
 
 ## 現在の状態
 - 位置: (${Math.round(pos.x)}, ${Math.round(pos.y)}, ${Math.round(pos.z)})
@@ -561,14 +742,15 @@ export class FunctionCallingAgent {
 - 向き: ${env.facing.direction}${entitiesStr}
 
 ## ルール
-1. 複雑なタスク（3ステップ以上）はまずupdate-planで計画を立ててから実行する。サブタスクの完了時もupdate-planでステータスを更新する
-2. 行動する前にまず状況を確認する（find-blocks, check-inventory等）
-3. ブロック/コンテナ操作は近距離(3m以内)で。遠い場合はmove-toで近づく
-4. 失敗したら同じことを繰り返さない。2回同じエラーが出たら方針転換
-5. 具体的なブロック名を使う（"log"→"oak_log", "planks"→"oak_planks"）
-6. stone(石)を掘る→cobblestone(丸石)がドロップ。cobblestoneが欲しい場合はstoneを掘る
-7. 木材の種類を合わせる（oak_log→oak_planks, birch_log→birch_planks）
-8. 農業: farmlandに種を植える。土をクワで耕すとfarmlandになる`;
+1. **タスク全体を把握してから行動する**。キーワードに反射的に反応せず、何が求められているか全体を理解した上で適切な順序で実行する。判断を求められたら自分で決めて即行動する（ユーザーに聞き返さない）
+2. 複雑なタスク（3ステップ以上）はまずupdate-planで計画を立ててから実行する。サブタスクの完了時もupdate-planでステータスを更新する
+3. 行動する前にまず状況を確認する（find-blocks, check-inventory等）
+4. ブロック/コンテナ操作は近距離(3m以内)で。遠い場合はmove-toで近づく
+5. 失敗したら同じことを繰り返さない。2回同じエラーが出たら方針転換
+6. 具体的なブロック名を使う（"log"→"oak_log", "planks"→"oak_planks"）
+7. stone(石)を掘る→cobblestone(丸石)がドロップ。cobblestoneが欲しい場合はstoneを掘る
+8. 木材の種類を合わせる（oak_log→oak_planks, birch_log→birch_planks）
+9. 農業: farmlandに種を植える。土をクワで耕すとfarmlandになる`;
   }
 
   /**
@@ -617,15 +799,16 @@ export class FunctionCallingAgent {
 
     const entity = this.bot.entity as any;
     const yaw = entity?.yaw || 0;
+    // mineflayer yaw: 0=北(Z-), π/2=西(X-), π=南(Z+), -π/2=東(X+)
     const compassDirections = [
-      'south',
-      'southwest',
-      'west',
-      'northwest',
       'north',
-      'northeast',
-      'east',
+      'northwest',
+      'west',
+      'southwest',
+      'south',
       'southeast',
+      'east',
+      'northeast',
     ];
     const normalizedYaw =
       ((yaw % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);

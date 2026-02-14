@@ -631,6 +631,11 @@ export class TaskGraph {
     }
   }
 
+  /** FunctionCallingAgent がユーザーの応答を待機中かどうか */
+  public get isAgentWaitingForResponse(): boolean {
+    return this.functionCallingAgent?.isWaitingForResponse ?? false;
+  }
+
   // humanFeedbackを更新
   public updateHumanFeedback(feedback: string) {
     console.log('updateHumanFeedback', feedback);

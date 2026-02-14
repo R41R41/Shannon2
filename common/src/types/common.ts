@@ -181,6 +181,7 @@ export type PromptType =
   | 'reply_youtube_comment'
   | 'planning'
   | 'reply_twitter_comment'
+  | 'quote_twitter_comment'
   | 'emotion'
   | 'use_tool'
   | 'reply_youtube_live_comment'

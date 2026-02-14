@@ -6,6 +6,8 @@ export interface TwitterClientInput extends ServiceInput {
     replyId?: string | null;
     imageUrl?: string | null;
     command?: TwitterSchedulePostEndpoint | null;
+    /** 引用RTする場合の元ツイートURL (e.g. https://x.com/user/status/123) */
+    quoteTweetUrl?: string | null;
 }
 export interface TwitterClientOutput extends ServiceInput {
     text: string;
@@ -26,4 +28,16 @@ export interface TwitterReplyOutput extends ServiceInput {
     repliedTweet?: string | null;
     repliedTweetAuthorName?: string | null;
 }
-export type TwitterEventType = "twitter:status" | "twitter:start" | "twitter:stop" | "twitter:post_scheduled_message" | "twitter:post_message" | "twitter:check_replies" | "twitter:get_message" | "twitter:get_tweet_content";
+export interface TwitterQuoteRTOutput extends ServiceInput {
+    /** 引用RTする元ツイートのID */
+    tweetId: string;
+    /** 引用RTする元ツイートのURL */
+    tweetUrl: string;
+    /** 元ツイートのテキスト */
+    text: string;
+    /** 元ツイートの著者名 */
+    authorName: string;
+    /** 元ツイートの著者ユーザー名 */
+    authorUserName: string;
+}
+export type TwitterEventType = "twitter:status" | "twitter:start" | "twitter:stop" | "twitter:post_scheduled_message" | "twitter:post_message" | "twitter:post_quote_tweet" | "twitter:check_replies" | "twitter:get_message" | "twitter:get_tweet_content";

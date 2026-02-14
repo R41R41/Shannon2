@@ -23,6 +23,7 @@ export interface SkillInfo {
 export type LLMEventType =
   | "llm:post_scheduled_message"
   | "llm:post_twitter_reply"
+  | "llm:post_twitter_quote_rt"
   | "llm:reply_youtube_comment"
   | "llm:get_discord_message"
   | "llm:get_web_message"

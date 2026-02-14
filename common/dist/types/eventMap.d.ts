@@ -12,7 +12,7 @@ import { MinecraftInput, MinecraftServerName } from './minecraft.js';
 import { NotionClientInput, NotionClientOutput } from './notion.js';
 import { SchedulerInput, SchedulerOutput } from './scheduler.js';
 import { EmotionType, TaskInput, TaskTreeState } from './taskGraph.js';
-import { TwitterClientInput, TwitterClientOutput, TwitterReplyOutput } from './twitter.js';
+import { TwitterClientInput, TwitterClientOutput, TwitterQuoteRTOutput, TwitterReplyOutput } from './twitter.js';
 import { OpenAIInput, OpenAIMessageOutput, WebSkillInput } from './web.js';
 import { YoutubeClientInput, YoutubeClientOutput, YoutubeCommentOutput, YoutubeLiveChatInput, YoutubeLiveChatMessageInput, YoutubeLiveChatMessageOutput, YoutubeSubscriberUpdateOutput, YoutubeVideoInfoOutput, YoutubeVideoInput } from './youtube.js';
 export interface EventPayloadMap {
@@ -29,6 +29,7 @@ export interface EventPayloadMap {
     'twitter:stop': ServiceInput;
     'twitter:post_scheduled_message': TwitterClientInput;
     'twitter:post_message': TwitterClientInput;
+    'twitter:post_quote_tweet': TwitterClientInput;
     'twitter:check_replies': TwitterClientInput;
     'twitter:get_message': TwitterClientInput;
     'twitter:get_tweet_content': TwitterClientInput;
@@ -59,6 +60,7 @@ export interface EventPayloadMap {
     'web:skill': SkillInfo[] | WebSkillInput;
     'llm:post_scheduled_message': TwitterClientInput;
     'llm:post_twitter_reply': TwitterReplyOutput;
+    'llm:post_twitter_quote_rt': TwitterQuoteRTOutput;
     'llm:reply_youtube_comment': YoutubeCommentOutput;
     'llm:get_discord_message': DiscordSendTextMessageOutput | DiscordClientInput;
     'llm:get_web_message': OpenAIInput | OpenAIMessageOutput;
