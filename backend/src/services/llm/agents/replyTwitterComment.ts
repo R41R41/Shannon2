@@ -34,14 +34,40 @@ export class ReplyTwitterCommentAgent {
     text: string,
     authorName: string,
     repliedTweet?: string | null,
-    repliedTweetAuthorName?: string | null
+    repliedTweetAuthorName?: string | null,
+    conversationThread?: Array<{ authorName: string; text: string }> | null
   ): Promise<string> {
     if (!this.systemPrompt) {
       throw new Error('systemPrompt is not set');
     }
-    console.log('reply');
     const systemContent = this.systemPrompt;
-    const humanContent = `相手のツイート:${text}\n相手のユーザー名:${authorName}\n相手が返信しているツイート（返信の場合のみ）:${repliedTweet}\n相手が返信しているツイート（返信の場合のみ）のユーザー名:${repliedTweetAuthorName}`;
+
+    // 文脈を構築
+    const lines: string[] = [];
+
+    if (conversationThread && conversationThread.length > 0) {
+      // 会話スレッド全体がある場合: 古い順に表示
+      lines.push('【会話の流れ】');
+      for (const msg of conversationThread) {
+        lines.push(`${msg.authorName}: ${msg.text}`);
+      }
+      lines.push('');
+      lines.push(`【これに対する ${authorName} の最新返信（↓あなたが返信する対象）】`);
+      lines.push(text);
+    } else if (repliedTweet) {
+      // フォールバック: 1段階の元ツイートのみ
+      lines.push(`【元ツイート（${repliedTweetAuthorName ?? '不明'}の投稿）】`);
+      lines.push(repliedTweet);
+      lines.push('');
+      lines.push(`【${authorName} からの返信】`);
+      lines.push(text);
+    } else {
+      // 元ツイートなし: 直接のリプライ
+      lines.push(`【${authorName} からのリプライ】`);
+      lines.push(text);
+    }
+
+    const humanContent = lines.join('\n');
     const response = await this.model.invoke([
       new SystemMessage(systemContent),
       new HumanMessage(humanContent),

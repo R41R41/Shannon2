@@ -27,6 +27,11 @@ export interface TwitterReplyOutput extends ServiceInput {
     authorName: string;
     repliedTweet?: string | null;
     repliedTweetAuthorName?: string | null;
+    /** 会話スレッド (古い順)。inReplyToId チェーンを遡って取得 */
+    conversationThread?: Array<{
+        authorName: string;
+        text: string;
+    }> | null;
 }
 export interface TwitterQuoteRTOutput extends ServiceInput {
     /** 引用RTする元ツイートのID */
@@ -44,5 +49,17 @@ export interface TwitterQuoteRTOutput extends ServiceInput {
 export interface TwitterActionResult extends ServiceInput {
     success: boolean;
     message: string;
+}
+/** twitterapi.io トレンドデータ */
+export interface TwitterTrendData {
+    name: string;
+    query: string;
+    rank: number;
+    metaDescription?: string;
+}
+/** 自動投稿用イベントデータ */
+export interface TwitterAutoTweetInput extends ServiceInput {
+    trends: TwitterTrendData[];
+    todayInfo: string;
 }
 export type TwitterEventType = "twitter:status" | "twitter:start" | "twitter:stop" | "twitter:post_scheduled_message" | "twitter:post_message" | "twitter:post_quote_tweet" | "twitter:like_tweet" | "twitter:retweet_tweet" | "twitter:quote_retweet" | "twitter:check_replies" | "twitter:get_message" | "twitter:get_tweet_content";

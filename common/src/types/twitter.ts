@@ -36,6 +36,8 @@ export interface TwitterReplyOutput extends ServiceInput {
   authorName: string;
   repliedTweet?: string | null;
   repliedTweetAuthorName?: string | null;
+  /** 会話スレッド (古い順)。inReplyToId チェーンを遡って取得 */
+  conversationThread?: Array<{ authorName: string; text: string }> | null;
 }
 
 export interface TwitterQuoteRTOutput extends ServiceInput {
@@ -55,6 +57,20 @@ export interface TwitterQuoteRTOutput extends ServiceInput {
 export interface TwitterActionResult extends ServiceInput {
   success: boolean;
   message: string;
+}
+
+/** twitterapi.io トレンドデータ */
+export interface TwitterTrendData {
+  name: string;
+  query: string;
+  rank: number;
+  metaDescription?: string;
+}
+
+/** 自動投稿用イベントデータ */
+export interface TwitterAutoTweetInput extends ServiceInput {
+  trends: TwitterTrendData[];
+  todayInfo: string;
 }
 
 export type TwitterEventType =

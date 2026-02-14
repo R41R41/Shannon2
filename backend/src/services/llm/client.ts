@@ -1,6 +1,5 @@
 import { BaseMessage, HumanMessage } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
-import { z } from 'zod';
 import {
   DiscordScheduledPostInput,
   DiscordSendTextMessageOutput,
@@ -12,6 +11,7 @@ import {
   OpenAITextInput,
   SkillInfo,
   TaskContext,
+  TwitterAutoTweetInput,
   TwitterClientInput,
   TwitterQuoteRTOutput,
   TwitterReplyOutput,
@@ -23,15 +23,17 @@ import {
 import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { z } from 'zod';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus/eventBus.js';
 import { getEventBus } from '../eventBus/index.js';
+import { AutoTweetAgent } from './agents/autoTweetAgent.js';
 import { PostAboutTodayAgent } from './agents/postAboutTodayAgent.js';
 import { PostFortuneAgent } from './agents/postFortuneAgent.js';
 import { PostNewsAgent } from './agents/postNewsAgent.js';
 import { PostWeatherAgent } from './agents/postWeatherAgent.js';
-import { RealtimeAPIService } from './agents/realtimeApiAgent.js';
 import { QuoteTwitterCommentAgent } from './agents/quoteTwitterComment.js';
+import { RealtimeAPIService } from './agents/realtimeApiAgent.js';
 import { ReplyTwitterCommentAgent } from './agents/replyTwitterComment.js';
 import { ReplyYoutubeCommentAgent } from './agents/replyYoutubeComment.js';
 import { ReplyYoutubeLiveCommentAgent } from './agents/replyYoutubeLiveCommentAgent.js';
@@ -52,6 +54,7 @@ export class LLMService {
   private quoteTwitterCommentAgent!: QuoteTwitterCommentAgent;
   private replyYoutubeCommentAgent!: ReplyYoutubeCommentAgent;
   private replyYoutubeLiveCommentAgent!: ReplyYoutubeLiveCommentAgent;
+  private autoTweetAgent!: AutoTweetAgent;
   private tools: StructuredTool[] = [];
   private isDevMode: boolean;
   constructor(isDevMode: boolean) {
@@ -84,6 +87,7 @@ export class LLMService {
     this.replyYoutubeLiveCommentAgent =
       await ReplyYoutubeLiveCommentAgent.create();
     this.newsAgent = await PostNewsAgent.create();
+    this.autoTweetAgent = await AutoTweetAgent.create();
     console.log('\x1b[36mLLM Service initialized\x1b[0m');
   }
 
@@ -102,13 +106,18 @@ export class LLMService {
     });
 
     this.eventBus.subscribe('llm:post_twitter_reply', (event) => {
-      if (this.isDevMode) return;
-      this.processTwitterReply(event.data as TwitterReplyOutput);
+      this.processTwitterReply(event.data as TwitterReplyOutput).catch((err) => {
+        console.error('[Twitter Reply] 未処理エラー:', err);
+      });
     });
 
     this.eventBus.subscribe('llm:post_twitter_quote_rt', (event) => {
       if (this.isDevMode) return;
       this.processTwitterQuoteRT(event.data as TwitterQuoteRTOutput);
+    });
+
+    this.eventBus.subscribe('llm:generate_auto_tweet', (event) => {
+      this.processAutoTweet(event.data as TwitterAutoTweetInput);
     });
 
     this.eventBus.subscribe('llm:reply_youtube_comment', (event) => {
@@ -233,26 +242,34 @@ export class LLMService {
     const authorName = data.authorName;
     const repliedTweet = data.repliedTweet;
     const repliedTweetAuthorName = data.repliedTweetAuthorName;
+    const conversationThread = data.conversationThread;
 
     if (!text || !replyId || !authorName) {
-      console.error('Twitter reply data is invalid');
+      console.error('Twitter reply data is invalid:', { text, replyId, authorName });
       return;
     }
 
-    const response = await this.replyTwitterCommentAgent.reply(
-      text,
-      authorName,
-      repliedTweet,
-      repliedTweetAuthorName
-    );
-    this.eventBus.publish({
-      type: 'twitter:post_message',
-      memoryZone: 'twitter:post',
-      data: {
-        text: response,
-        replyId: replyId,
-      } as TwitterClientInput,
-    });
+    try {
+      console.log(`[Twitter Reply] LLM生成開始: @${authorName} "${text.slice(0, 50)}" (スレッド: ${conversationThread?.length ?? 0}件)`);
+      const response = await this.replyTwitterCommentAgent.reply(
+        text,
+        authorName,
+        repliedTweet,
+        repliedTweetAuthorName,
+        conversationThread
+      );
+      console.log(`[Twitter Reply] LLM生成完了: "${response.slice(0, 80)}"`);
+      this.eventBus.publish({
+        type: 'twitter:post_message',
+        memoryZone: 'twitter:post',
+        data: {
+          text: response,
+          replyId: replyId,
+        } as TwitterClientInput,
+      });
+    } catch (error) {
+      console.error('[Twitter Reply] エラー:', error);
+    }
   }
 
   private async processTwitterQuoteRT(data: TwitterQuoteRTOutput) {
@@ -276,6 +293,37 @@ export class LLMService {
         quoteTweetUrl: tweetUrl,
       } as TwitterClientInput,
     });
+  }
+
+  private async processAutoTweet(data: TwitterAutoTweetInput) {
+    try {
+      const { trends, todayInfo } = data;
+      if (!trends || trends.length === 0) {
+        console.warn('🐦 processAutoTweet: トレンドデータなし');
+        return;
+      }
+
+      console.log(`🐦 AutoTweet: ツイート生成中 (トレンド${trends.length}件)...`);
+      const tweetText = await this.autoTweetAgent.generateTweet(trends, todayInfo);
+
+      if (!tweetText) {
+        console.warn('🐦 AutoTweet: ツイート生成失敗（空の結果）');
+        return;
+      }
+
+      console.log(`🐦 AutoTweet: 生成完了「${tweetText}」`);
+
+      // 既存の定期投稿フローに合流して投稿
+      this.eventBus.publish({
+        type: 'twitter:post_scheduled_message',
+        memoryZone: 'twitter:post',
+        data: {
+          text: tweetText,
+        } as TwitterClientInput,
+      });
+    } catch (error) {
+      console.error('🐦 AutoTweet エラー:', error);
+    }
   }
 
   private async processWebMessage(message: any) {

@@ -43,11 +43,18 @@ export default class DescribeImageTool extends StructuredTool {
             ],
           },
         ],
-        max_completion_tokens: 300,
+        max_tokens: 300,
       });
 
+      const choice = response.choices[0];
+      console.log(`🖼️ describe-image response: finish_reason=${choice.finish_reason}, content_length=${choice.message.content?.length ?? 'null'}, refusal=${(choice.message as any).refusal ?? 'none'}`);
+
+      if (!choice.message.content) {
+        console.warn('🖼️ describe-image: empty content. Full response:', JSON.stringify(choice, null, 2));
+      }
+
       return (
-        response.choices[0].message.content || 'Failed to analyze the image.'
+        choice.message.content || 'Failed to analyze the image.'
       );
     } catch (error) {
       console.error('Image description error:', error);

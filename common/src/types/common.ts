@@ -185,7 +185,8 @@ export type PromptType =
   | 'emotion'
   | 'use_tool'
   | 'reply_youtube_live_comment'
-  | 'emergency';
+  | 'emergency'
+  | 'auto_tweet';
 
 export type RealTimeAPIEndpoint =
   | 'realtime_text_input'

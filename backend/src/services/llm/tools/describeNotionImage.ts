@@ -83,7 +83,7 @@ export default class DescribeNotionImageTool extends StructuredTool {
                         ],
                     },
                 ],
-                max_completion_tokens: 300,
+                max_tokens: 300,
             });
 
             const description = response.choices[0].message.content || '画像の分析に失敗しました';

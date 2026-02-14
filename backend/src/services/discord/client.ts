@@ -737,6 +737,9 @@ export class DiscordBot extends BaseClient {
 
       if (message.channelId === this.aiminelabUpdateChannelId) return;
 
+      // アイマイラボ！サーバーではメンション時のみ返信
+      if (message.guildId === this.aiminelabGuildId && !isMentioned) return;
+
       const messageContent = message.content.replace(
         /<@!?(\d+)>/g,
         (match, id) => {
