@@ -1,4 +1,5 @@
 import {
+  TwitterActionResult,
   TwitterClientInput,
   TwitterClientOutput,
   TwitterQuoteRTOutput,
@@ -216,6 +217,71 @@ export class TwitterClient extends BaseClient {
         }
       } catch (error) {
         logger.error('Twitter get tweet content error:', error);
+      }
+    });
+
+    // --- LLM ツール用エンドポイント ---
+
+    this.eventBus.subscribe('twitter:like_tweet', async (event) => {
+      if (this.status !== 'running') return;
+      const { tweetId } = event.data as TwitterClientInput;
+      try {
+        if (tweetId) {
+          await this.likeTweet(tweetId);
+          this.eventBus.publish({
+            type: 'tool:like_tweet',
+            memoryZone: 'twitter:post',
+            data: { success: true, message: `ツイート ${tweetId} にいいねしました` } as TwitterActionResult,
+          });
+        }
+      } catch (error) {
+        this.eventBus.publish({
+          type: 'tool:like_tweet',
+          memoryZone: 'twitter:post',
+          data: { success: false, message: `いいね失敗: ${error instanceof Error ? error.message : String(error)}` } as TwitterActionResult,
+        });
+      }
+    });
+
+    this.eventBus.subscribe('twitter:retweet_tweet', async (event) => {
+      if (this.status !== 'running') return;
+      const { tweetId } = event.data as TwitterClientInput;
+      try {
+        if (tweetId) {
+          await this.retweetTweet(tweetId);
+          this.eventBus.publish({
+            type: 'tool:retweet_tweet',
+            memoryZone: 'twitter:post',
+            data: { success: true, message: `ツイート ${tweetId} をリツイートしました` } as TwitterActionResult,
+          });
+        }
+      } catch (error) {
+        this.eventBus.publish({
+          type: 'tool:retweet_tweet',
+          memoryZone: 'twitter:post',
+          data: { success: false, message: `リツイート失敗: ${error instanceof Error ? error.message : String(error)}` } as TwitterActionResult,
+        });
+      }
+    });
+
+    this.eventBus.subscribe('twitter:quote_retweet', async (event) => {
+      if (this.status !== 'running') return;
+      const { text, quoteTweetUrl } = event.data as TwitterClientInput;
+      try {
+        if (text && quoteTweetUrl) {
+          await this.postQuoteTweet(text, quoteTweetUrl);
+          this.eventBus.publish({
+            type: 'tool:quote_retweet',
+            memoryZone: 'twitter:post',
+            data: { success: true, message: `引用リツイートしました` } as TwitterActionResult,
+          });
+        }
+      } catch (error) {
+        this.eventBus.publish({
+          type: 'tool:quote_retweet',
+          memoryZone: 'twitter:post',
+          data: { success: false, message: `引用リツイート失敗: ${error instanceof Error ? error.message : String(error)}` } as TwitterActionResult,
+        });
       }
     });
   }

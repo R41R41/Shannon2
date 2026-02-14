@@ -51,6 +51,12 @@ export interface TwitterQuoteRTOutput extends ServiceInput {
   authorUserName: string;
 }
 
+/** ツールからの操作結果 */
+export interface TwitterActionResult extends ServiceInput {
+  success: boolean;
+  message: string;
+}
+
 export type TwitterEventType =
   | "twitter:status"
   | "twitter:start"
@@ -58,6 +64,9 @@ export type TwitterEventType =
   | "twitter:post_scheduled_message"
   | "twitter:post_message"
   | "twitter:post_quote_tweet"
+  | "twitter:like_tweet"
+  | "twitter:retweet_tweet"
+  | "twitter:quote_retweet"
   | "twitter:check_replies"
   | "twitter:get_message"
   | "twitter:get_tweet_content";

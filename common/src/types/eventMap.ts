@@ -28,6 +28,7 @@ import { NotionClientInput, NotionClientOutput } from './notion.js';
 import { SchedulerInput, SchedulerOutput } from './scheduler.js';
 import { EmotionType, TaskInput, TaskTreeState } from './taskGraph.js';
 import {
+  TwitterActionResult,
   TwitterClientInput,
   TwitterClientOutput,
   TwitterQuoteRTOutput,
@@ -71,6 +72,9 @@ export interface EventPayloadMap {
   'twitter:post_scheduled_message': TwitterClientInput;
   'twitter:post_message': TwitterClientInput;
   'twitter:post_quote_tweet': TwitterClientInput;
+  'twitter:like_tweet': TwitterClientInput;
+  'twitter:retweet_tweet': TwitterClientInput;
+  'twitter:quote_retweet': TwitterClientInput;
   'twitter:check_replies': TwitterClientInput;
   'twitter:get_message': TwitterClientInput;
   'twitter:get_tweet_content': TwitterClientInput;
@@ -132,6 +136,9 @@ export interface EventPayloadMap {
 
   // === Tool response events (common patterns) ===
   'tool:get_tweet_content': TwitterClientOutput;
+  'tool:like_tweet': TwitterActionResult;
+  'tool:retweet_tweet': TwitterActionResult;
+  'tool:quote_retweet': TwitterActionResult;
   'tool:getPageMarkdown': NotionClientOutput;
   'tool:get_video_info': YoutubeVideoInfoOutput | YoutubeClientOutput;
   'tool:get_server_emoji': DiscordGetServerEmojiOutput;
@@ -150,6 +157,7 @@ type FallbackEventData =
   | SkillResult
   | MinecraftInput
   | TwitterClientOutput
+  | TwitterActionResult
   | NotionClientOutput
   | YoutubeVideoInfoOutput
   | DiscordGetServerEmojiOutput

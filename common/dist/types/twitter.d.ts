@@ -40,4 +40,9 @@ export interface TwitterQuoteRTOutput extends ServiceInput {
     /** 元ツイートの著者ユーザー名 */
     authorUserName: string;
 }
-export type TwitterEventType = "twitter:status" | "twitter:start" | "twitter:stop" | "twitter:post_scheduled_message" | "twitter:post_message" | "twitter:post_quote_tweet" | "twitter:check_replies" | "twitter:get_message" | "twitter:get_tweet_content";
+/** ツールからの操作結果 */
+export interface TwitterActionResult extends ServiceInput {
+    success: boolean;
+    message: string;
+}
+export type TwitterEventType = "twitter:status" | "twitter:start" | "twitter:stop" | "twitter:post_scheduled_message" | "twitter:post_message" | "twitter:post_quote_tweet" | "twitter:like_tweet" | "twitter:retweet_tweet" | "twitter:quote_retweet" | "twitter:check_replies" | "twitter:get_message" | "twitter:get_tweet_content";

@@ -12,7 +12,7 @@ import { MinecraftInput, MinecraftServerName } from './minecraft.js';
 import { NotionClientInput, NotionClientOutput } from './notion.js';
 import { SchedulerInput, SchedulerOutput } from './scheduler.js';
 import { EmotionType, TaskInput, TaskTreeState } from './taskGraph.js';
-import { TwitterClientInput, TwitterClientOutput, TwitterQuoteRTOutput, TwitterReplyOutput } from './twitter.js';
+import { TwitterActionResult, TwitterClientInput, TwitterClientOutput, TwitterQuoteRTOutput, TwitterReplyOutput } from './twitter.js';
 import { OpenAIInput, OpenAIMessageOutput, WebSkillInput } from './web.js';
 import { YoutubeClientInput, YoutubeClientOutput, YoutubeCommentOutput, YoutubeLiveChatInput, YoutubeLiveChatMessageInput, YoutubeLiveChatMessageOutput, YoutubeSubscriberUpdateOutput, YoutubeVideoInfoOutput, YoutubeVideoInput } from './youtube.js';
 export interface EventPayloadMap {
@@ -30,6 +30,9 @@ export interface EventPayloadMap {
     'twitter:post_scheduled_message': TwitterClientInput;
     'twitter:post_message': TwitterClientInput;
     'twitter:post_quote_tweet': TwitterClientInput;
+    'twitter:like_tweet': TwitterClientInput;
+    'twitter:retweet_tweet': TwitterClientInput;
+    'twitter:quote_retweet': TwitterClientInput;
     'twitter:check_replies': TwitterClientInput;
     'twitter:get_message': TwitterClientInput;
     'twitter:get_tweet_content': TwitterClientInput;
@@ -75,12 +78,15 @@ export interface EventPayloadMap {
     'notion:stop': ServiceInput;
     'notion:getPageMarkdown': NotionClientInput;
     'tool:get_tweet_content': TwitterClientOutput;
+    'tool:like_tweet': TwitterActionResult;
+    'tool:retweet_tweet': TwitterActionResult;
+    'tool:quote_retweet': TwitterActionResult;
     'tool:getPageMarkdown': NotionClientOutput;
     'tool:get_video_info': YoutubeVideoInfoOutput | YoutubeClientOutput;
     'tool:get_server_emoji': DiscordGetServerEmojiOutput;
     'tool:send_server_emoji': DiscordSendServerEmojiOutput;
 }
-type FallbackEventData = MinebotInput | MinebotOutput | SkillParameters | SkillResult | MinecraftInput | TwitterClientOutput | NotionClientOutput | YoutubeVideoInfoOutput | DiscordGetServerEmojiOutput | DiscordSendServerEmojiOutput;
+type FallbackEventData = MinebotInput | MinebotOutput | SkillParameters | SkillResult | MinecraftInput | TwitterClientOutput | TwitterActionResult | NotionClientOutput | YoutubeVideoInfoOutput | DiscordGetServerEmojiOutput | DiscordSendServerEmojiOutput;
 export type EventData<T extends string> = T extends keyof EventPayloadMap ? EventPayloadMap[T] : T extends `minecraft:${MinecraftServerName}:${string}` ? MinecraftInput | ServiceInput : T extends `minebot:${string}` ? MinebotInput | MinebotOutput | SkillParameters | SkillResult : T extends `tool:${string}` ? FallbackEventData : unknown;
 export interface TypedEvent<T extends string = string> {
     type: T;
