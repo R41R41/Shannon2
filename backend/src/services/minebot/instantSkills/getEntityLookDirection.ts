@@ -104,7 +104,7 @@ class GetEntityLookDirection extends InstantSkill {
             const nextActions = [
                 `1. move-to: {"x":${moveToX},"y":${moveToY},"z":${moveToZ}} で${entityName}の横に移動`,
                 `2. look-at: {"yaw":${resultYaw},"pitch":${resultPitch}} で${entityName}と同じ方向を向く`,
-                `3. describe-bot-view で${entityName}が見ているものを確認`,
+                `3. get-block-in-sight で${entityName}が見ている先のブロックを確認`,
             ];
 
             return {

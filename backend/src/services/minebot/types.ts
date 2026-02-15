@@ -69,6 +69,7 @@ export interface CustomBot extends Omit<Bot, 'on' | 'once' | 'emit'> {
   ): boolean;
   isTest: boolean;
   chatMode: boolean;
+  connectedServerName: string;
   attackEntity: Entity | null;
   runFromEntity: Entity | null;
   goal: Goal | null;
@@ -78,6 +79,7 @@ export interface CustomBot extends Omit<Bot, 'on' | 'once' | 'emit'> {
   isInWater: boolean;
   cmd: CommandManager;
   executingSkill: boolean;
+  interruptExecution: boolean;  // フィードバック到着時にスキル実行を中断するフラグ
   environmentState: {
     senderName: string;
     senderPosition: Vec3 | null;
@@ -118,10 +120,13 @@ export abstract class ConstantSkill extends Skill {
   interval: number | null;
   args: any;
   containMovement: boolean;
+  /** trueの場合、InstantSkill実行中でもスキップされない（溺死防止など生存スキル向け） */
+  isCritical: boolean;
   constructor(bot: CustomBot) {
     super(bot);
     this.priority = 0;
     this.containMovement = false;
+    this.isCritical = false;
     this.isLocked = false;
     this.interval = null;
     this.args = {};
@@ -140,18 +145,16 @@ export abstract class ConstantSkill extends Skill {
 
     // containMovementがtrueの場合、優先度チェックとInstantSkill実行チェックを行う
     if (this.containMovement) {
-      // InstantSkillが実行中の場合は実行しない
-      if (this.bot.executingSkill) {
-        console.log(`⏸️ ConstantSkill ${this.skillName} スキップ: InstantSkill実行中`);
+      // InstantSkillが実行中の場合は実行しない（ただしisCriticalなスキルは除外）
+      if (this.bot.executingSkill && !this.isCritical) {
         return;
       }
 
-      // 優先度の高いConstantSkillが実行中の場合は実行しない
+      // 優先度の高いConstantSkillが実行中の場合は実行しない（isCriticalでも優先度チェックは行う）
       const runningSkills = this.bot.constantSkills
         .getSkills()
         .filter((skill) => skill.containMovement && skill.isLocked && skill.priority > this.priority);
       if (runningSkills.length > 0) {
-        console.log(`⏸️ ConstantSkill ${this.skillName} スキップ: 優先度の高いスキル実行中`);
         return;
       }
     }
@@ -182,10 +185,45 @@ export abstract class InstantSkill extends Skill {
 
   async run(...args: any[]): Promise<import('./types/skillParams.js').SkillResult> {
     this.bot.executingSkill = true;
+    this.bot.interruptExecution = false;
     this.status = true;
     const startTime = Date.now();
+
+    let interruptCheckInterval: ReturnType<typeof setInterval> | null = null;
+
     try {
-      const result = await this.runImpl(...args);
+      // 中断監視: 500msごとに interruptExecution フラグをチェック
+      const interruptPromise = new Promise<import('./types/skillParams.js').SkillResult>((resolve) => {
+        interruptCheckInterval = setInterval(() => {
+          if (this.bot.interruptExecution) {
+            if (interruptCheckInterval) {
+              clearInterval(interruptCheckInterval);
+              interruptCheckInterval = null;
+            }
+            // ボットの現在の動作を停止
+            try {
+              this.bot.clearControlStates();
+              const pathfinder = (this.bot as any).pathfinder;
+              if (pathfinder && typeof pathfinder.stop === 'function') {
+                pathfinder.stop();
+              }
+            } catch (_) { /* ignore */ }
+
+            console.log(`\x1b[33m⚡ ${this.skillName} を中断: フィードバック受信\x1b[0m`);
+            resolve({
+              success: false,
+              result: `フィードバックにより中断されました（${this.skillName}）。再計画します。`,
+            });
+          }
+        }, 500);
+      });
+
+      // runImpl と中断監視を競争させる
+      const result = await Promise.race([
+        this.runImpl(...args),
+        interruptPromise,
+      ]);
+
       const duration = Date.now() - startTime;
       return { ...result, duration };
     } catch (error: any) {
@@ -197,9 +235,26 @@ export abstract class InstantSkill extends Skill {
         duration,
       };
     } finally {
+      // インターバルのクリーンアップ
+      if (interruptCheckInterval) {
+        clearInterval(interruptCheckInterval);
+      }
       this.bot.executingSkill = false;
+      // 注意: interruptExecution はここでリセットしない
+      // Promise.race で run() が先に返っても、バックグラウンドの runImpl() が
+      // shouldInterrupt() でフラグを検出してループを抜ける必要があるため。
+      // フラグは次の run() 開始時にリセットされる (行187)。
       this.status = false;
     }
+  }
+
+  /**
+   * スキルを中断すべきか判定する。
+   * 長時間ループを持つスキルは、各イテレーション間でこれを呼ぶことで
+   * 500msのポーリングより早く中断できる。
+   */
+  protected shouldInterrupt(): boolean {
+    return this.bot.interruptExecution === true;
   }
 
   abstract runImpl(

@@ -1,27 +1,42 @@
 @use "@styles/variables.scss" as *;
 
-.emotion {
-  padding: 1rem;
-  background-color: color(background, primary);
-  color: color(text, secondary);
-  width: 50%;
+.card {
+  @include card(spacing(lg));
+  display: flex;
+  flex-direction: column;
   height: 100%;
+  overflow: hidden;
 
   &.mobile {
-    width: 100%;
+    height: auto;
+    min-height: 300px;
   }
+}
 
-  .emotionName {
-    margin-bottom: 1rem;
-  }
+.cardHeader {
+  @include flex-between;
+  margin-bottom: spacing(sm);
+  flex-shrink: 0;
+}
 
-  .chart {
-    height: 300px;
-    width: 100%;
-    position: relative;
+.cardTitle {
+  @include section-title;
+}
 
-    canvas {
-      transition: all 2s linear;
-    }
+.emotionBadge {
+  font-size: font-size(xxs);
+  font-weight: font-weight(semibold);
+  padding: spacing(xxs) spacing(sm);
+  border-radius: radius(xl);
+  line-height: 1;
+}
+
+.chartWrapper {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+
+  canvas {
+    transition: all 2s linear;
   }
 }

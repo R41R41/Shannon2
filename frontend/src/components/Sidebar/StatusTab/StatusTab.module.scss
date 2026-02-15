@@ -1,18 +1,42 @@
-@use "../../../styles/variables" as *;
+@use "@styles/variables.scss" as *;
 
 .container {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding-bottom: 0.5rem;
+  padding: spacing(md);
+  overflow-y: auto;
+  @include custom-scrollbar;
 }
 
 .title {
-  padding: 0.5rem;
-  font-size: 12px;
+  @include section-title;
+  padding-bottom: spacing(md);
+}
+
+.categoryList {
+  display: flex;
+  flex-direction: column;
+  gap: spacing(lg);
+}
+
+.category {
+  display: flex;
+  flex-direction: column;
+  gap: spacing(xs);
+}
+
+.categoryLabel {
+  font-size: font-size(xxs);
+  font-weight: font-weight(semibold);
+  color: color(text, disabled);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-left: spacing(md);
 }
 
 .serviceList {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: spacing(xxs);
 }

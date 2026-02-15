@@ -1,11 +1,11 @@
 import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { z } from 'zod';
-import dotenv from 'dotenv';
 import { loadPrompt } from '../config/prompts.js';
+import { config } from '../../../config/env.js';
+import { models } from '../../../config/models.js';
 
-dotenv.config();
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_KEY = config.openaiApiKey;
 if (!OPENAI_API_KEY) {
   throw new Error('OPENAI_API_KEY is not set');
 }
@@ -61,7 +61,7 @@ export class PostFortuneAgent {
       '競争', '忠実', '知性', '夢',
     ];
     this.model = new ChatOpenAI({
-      modelName: 'gpt-4o',
+      modelName: models.contentGeneration,
       temperature: 0.7,
     });
   }

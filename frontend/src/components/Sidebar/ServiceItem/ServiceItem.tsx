@@ -1,9 +1,8 @@
-import React from 'react';
-import { ServiceStatus } from '@common/types/common';
-import { StatusAgent } from '@/services/agents/statusAgent';
-import styles from './ServiceItem.module.scss';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import StopIcon from '@mui/icons-material/Stop';
+import React from "react";
+import { ServiceStatus } from "@common/types/common";
+import { StatusAgent } from "@/services/agents/statusAgent";
+import styles from "./ServiceItem.module.scss";
+import classNames from "classnames";
 
 interface ServiceItemProps {
   name: string;
@@ -18,22 +17,34 @@ export const ServiceItem: React.FC<ServiceItemProps> = ({
   status,
   serviceId,
   onToggle,
-}) => (
-  <div className={styles.serviceItem}>
-    <div className={styles.info}>
-      <span className={styles.name}>{name}</span>
-      <span className={`${styles.status} ${styles[status]}`}>
-        {status}
-      </span>
-    </div>
-    <button
-      className={`${styles.toggleButton} ${
-        status === 'stopped' ? styles.start : styles.stop
-      }`}
-      onClick={() => onToggle(serviceId)}
-      disabled={status === 'connecting'}
+}) => {
+  const isRunning = status === "running";
+  const isConnecting = status === "connecting";
+
+  return (
+    <div
+      className={classNames(styles.serviceItem, {
+        [styles.stopped]: !isRunning && !isConnecting,
+      })}
     >
-      {status === 'running' ? <StopIcon /> : <PlayArrowIcon />}
-    </button>
-  </div>
-); 
+      <div className={styles.info}>
+        <span className={styles.name}>{name}</span>
+        <span className={classNames(styles.statusText, styles[status])}>
+          <span className={styles.statusDot} />
+          {status}
+        </span>
+      </div>
+
+      <button
+        className={classNames(styles.toggle, {
+          [styles.active]: isRunning,
+        })}
+        onClick={() => onToggle(serviceId)}
+        disabled={isConnecting}
+        title={isRunning ? "停止" : "起動"}
+      >
+        <span className={styles.toggleThumb} />
+      </button>
+    </div>
+  );
+};

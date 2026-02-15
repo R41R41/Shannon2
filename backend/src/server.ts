@@ -1,8 +1,11 @@
-import dotenv from 'dotenv';
 import express from 'express';
+import http from 'http';
 import mongoose from 'mongoose';
+import { TwitterReplyOutput } from '@shannon/common';
 import { PORTS } from './config/ports.js';
+import { config } from './config/env.js';
 import { DiscordBot } from './services/discord/client.js';
+import { getEventBus } from './services/eventBus/index.js';
 import { LLMService } from './services/llm/client.js';
 import { MinebotClient } from './services/minebot/client.js';
 import { MinecraftClient } from './services/minecraft/client.js';
@@ -11,7 +14,6 @@ import { Scheduler } from './services/scheduler/client.js';
 import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
 import { YoutubeClient } from './services/youtube/client.js';
-dotenv.config();
 
 class Server {
   private llmService: LLMService;
@@ -23,7 +25,7 @@ class Server {
   private minecraftClient: MinecraftClient;
   private minebotClient: MinebotClient;
   private notionClient: NotionClient;
-  private httpServer: any;
+  private httpServer: http.Server | null = null;
 
   constructor() {
     const isDevMode = process.argv.includes('--dev');
@@ -41,11 +43,192 @@ class Server {
 
   private startHTTPServer() {
     const app = express();
+    app.use(express.json());
+
     app.get('/health', (req, res) => {
       res.json({ status: 'ok', timestamp: new Date().toISOString() });
     });
 
-    const port = process.env.PORT || PORTS.HTTP_SERVER;
+    // -----------------------------------------------------------------
+    // Twitter Webhook: twitterapi.io からのリアルタイム返信通知を受信
+    // -----------------------------------------------------------------
+
+    // GET: twitterapi.io が Webhook URL 保存時に検証リクエストを送る
+    app.get('/api/webhook/twitter', (_req, res) => {
+      res.status(200).json({ ok: true });
+    });
+
+    // POST: ツイート生成テスト (LLMのみ、投稿しない)
+    app.post('/api/test/auto-post', async (req, res) => {
+      const key = req.headers['x-api-key'] as string | undefined;
+      if (!key || key !== config.twitter.twitterApiIoKey) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      try {
+        const axios = (await import('axios')).default;
+        const { AutoTweetAgent } = await import('./services/llm/agents/autoTweetAgent.js');
+        const agent = await AutoTweetAgent.create();
+
+        const trendsRes = await axios.get('https://api.twitterapi.io/twitter/trends', {
+          headers: { 'X-API-Key': config.twitter.twitterApiIoKey },
+          params: { woeid: '23424856' },
+        });
+        const trends = (trendsRes.data?.trends ?? []).map((t: any, i: number) => ({
+          name: t.name ?? t.trend ?? '',
+          query: t.query ?? t.name ?? '',
+          rank: t.rank ?? i + 1,
+          metaDescription: t.meta_description ?? t.metaDescription ?? undefined,
+        }));
+
+        const now = new Date();
+        const month = now.getMonth() + 1;
+        const day = now.getDate();
+        const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][now.getDay()];
+        const todayInfo = `今日: ${now.getFullYear()}年${month}月${day}日(${dayOfWeek})\nイベント: バレンタインデー`;
+
+        console.log(`[Test] トレンド ${trends.length}件、LLM生成のみ`);
+        const tweet = await agent.generateTweet(trends, todayInfo);
+        console.log(`[Test] 生成結果: ${tweet}`);
+        res.status(200).json({ ok: true, tweet, trendsUsed: trends.length });
+      } catch (err) {
+        console.error('[Test] エラー:', err);
+        res.status(500).json({ error: String(err) });
+      }
+    });
+
+    // POST: 実際の Webhook ペイロード受信
+    app.post('/api/webhook/twitter', (req, res) => {
+      try {
+        // X-API-Key ヘッダーで送信元を検証
+        const receivedKey = req.headers['x-api-key'] as string | undefined;
+        if (!receivedKey || receivedKey !== config.twitter.twitterApiIoKey) {
+          console.warn('[Webhook] Twitter webhook: 不正な API Key');
+          res.status(401).json({ error: 'Unauthorized' });
+          return;
+        }
+
+        const body = req.body as {
+          event_type?: string;
+          rule_id?: string;
+          rule_tag?: string;
+          tweets?: Array<Record<string, any>>;
+          timestamp?: number;
+        };
+
+        const { tweets, rule_tag } = body;
+
+        if (!tweets || tweets.length === 0) {
+          res.status(200).json({ ok: true, processed: 0 });
+          return;
+        }
+
+        // デバッグ: 初回はペイロード構造を確認
+        console.log(
+          `[Webhook] Twitter webhook 受信: ${tweets.length}件 (rule: ${rule_tag})`
+        );
+        if (tweets.length > 0) {
+          console.log('[Webhook] ペイロード例:', JSON.stringify(tweets[0], null, 2).slice(0, 500));
+        }
+
+        const eventBus = getEventBus();
+        const myUserId = config.twitter.userId;
+        let processed = 0;
+
+        for (const tweet of tweets) {
+          const author = tweet.author ?? {};
+          const authorId = author.id ?? '';
+          const authorUserName = author.userName ?? author.username ?? author.screenName ?? '';
+          const authorName = author.name ?? authorUserName;
+          const tweetId = tweet.id ?? '';
+          const tweetText = tweet.text ?? '';
+
+          // 自分自身のツイートは無視
+          if (authorId === myUserId) continue;
+
+          // 処理済みチェック (ポーリングとの二重返信防止)
+          if (this.twitterClient.processedTweetIds.has(tweetId)) {
+            console.log(`[Webhook] 既に処理済み: ${tweetId}`);
+            continue;
+          }
+
+          // 処理済みとしてマーク & ファイル永続化
+          this.twitterClient.processedTweetIds.add(tweetId);
+          this.twitterClient.saveProcessedIds();
+
+          // 日次返信上限チェック
+          if (this.twitterClient.isReplyLimitReached()) {
+            console.log(`[Webhook] 日次返信上限に到達: ${tweetId} (by @${authorUserName}) をスキップ`);
+            continue;
+          }
+
+          // 返信先の元ツイートID
+          const inReplyToId =
+            tweet.inReplyToId ?? tweet.in_reply_to_status_id ?? tweet.in_reply_to_tweet_id ?? null;
+
+          console.log(
+            `[Webhook] リプライ検知: @${authorUserName} "${tweetText.slice(0, 50)}..." (返信先: ${inReplyToId})`
+          );
+
+          // 会話スレッドを非同期で遡って取得してから LLM に渡す
+          (async () => {
+            const thread: Array<{ authorName: string; text: string }> = [];
+            const MAX_CHAIN_DEPTH = 5;
+
+            try {
+              let currentReplyToId = inReplyToId;
+              for (let depth = 0; depth < MAX_CHAIN_DEPTH && currentReplyToId; depth++) {
+                const tweetRes = await fetch(
+                  `https://api.twitterapi.io/twitter/tweets?tweet_ids=${currentReplyToId}`,
+                  { headers: { 'X-API-Key': config.twitter.twitterApiIoKey } }
+                );
+                const tweetData = await tweetRes.json() as any;
+                const t = tweetData?.tweets?.[0];
+                if (!t) break;
+
+                const tAuthor = t.author?.name ?? t.author?.userName ?? t.author?.username ?? '不明';
+                thread.unshift({ authorName: tAuthor, text: t.text ?? '' });
+
+                // さらに上の親ツイートを辿る
+                currentReplyToId = t.inReplyToId ?? t.in_reply_to_status_id ?? null;
+              }
+            } catch (err) {
+              console.warn('[Webhook] 会話スレッド取得失敗:', err);
+            }
+
+            console.log(`[Webhook] 会話スレッド: ${thread.length}件取得 (最大${MAX_CHAIN_DEPTH})`);
+
+            // 返信カウンタをインクリメント
+            this.twitterClient.incrementReplyCount();
+
+            // 後方互換: thread[0] を repliedTweet として渡す
+            const rootTweet = thread.length > 0 ? thread[0] : null;
+
+            eventBus.publish({
+              type: 'llm:post_twitter_reply',
+              memoryZone: 'twitter:post',
+              data: {
+                replyId: tweetId,
+                text: tweetText,
+                authorName,
+                repliedTweet: rootTweet?.text ?? null,
+                repliedTweetAuthorName: rootTweet?.authorName ?? null,
+                conversationThread: thread.length > 0 ? thread : null,
+              } as TwitterReplyOutput,
+            });
+          })();
+
+          processed++;
+        }
+
+        res.status(200).json({ ok: true, processed });
+      } catch (error) {
+        console.error('[Webhook] Twitter webhook エラー:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+      }
+    });
+
+    const port = config.port;
     this.httpServer = app.listen(port, () => {
       console.log(`\x1b[34mHTTP Server listening on port ${port}\x1b[0m`);
     });
@@ -53,7 +236,7 @@ class Server {
 
   private async connectDatabase() {
     try {
-      const uri = process.env.MONGODB_URI as string;
+      const uri = config.mongodbUri;
       console.log('Connecting to MongoDB:', uri); // URIを確認
       await mongoose.connect(uri);
       console.log(
@@ -141,6 +324,13 @@ class Server {
   }
 
   public async shutdown() {
+    console.log('\x1b[33m[Shutdown] グレースフルシャットダウン開始...\x1b[0m');
+
+    // 注意: Webhook ルールはシャットダウン時に無効化しない。
+    // deactivate → reactivate するとカーソル (last_tweet_id) がリセットされ、
+    // 古いツイートが再配信されて無駄な課金が発生するため。
+    // ルールは常時有効のままにしておく。
+
     // 各サービスのクリーンアップ処理
     await mongoose.disconnect();
     console.log('\x1b[31mMongoDB disconnected\x1b[0m');

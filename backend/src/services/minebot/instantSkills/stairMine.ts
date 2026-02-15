@@ -91,6 +91,14 @@ class StairMine extends InstantSkill {
             console.log(`\x1b[36m⛏️ 階段${isDescending ? '下降' : '上昇'}開始: Y=${currentY} → Y=${targetY} (${steps}段, 最大60秒)\x1b[0m`);
 
             for (let i = 0; i < steps; i++) {
+                // 中断チェック
+                if (this.shouldInterrupt()) {
+                    return {
+                        success: successSteps > 0,
+                        result: `中断: ${successSteps}段${isDescending ? '下降' : '上昇'}しました（Y=${Math.floor(this.bot.entity.position.y)}）`,
+                    };
+                }
+
                 // タイムアウトチェック
                 if (Date.now() - startTime > TIMEOUT_MS) {
                     const elapsed = Math.round((Date.now() - startTime) / 1000);

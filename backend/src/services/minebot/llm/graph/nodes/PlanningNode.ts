@@ -1,8 +1,11 @@
 import { ChatOpenAI } from '@langchain/openai';
 import { HierarchicalSubTask, TaskTreeState } from '@shannon/common';
+import { Vec3 } from 'vec3';
 import { z } from 'zod';
 import { CentralLogManager, LogManager } from '../logging/index.js';
 import { Prompt } from '../prompt.js';
+import { config } from '../../../../../config/env.js';
+import { models } from '../../../../../config/models.js';
 
 // 失敗したサブタスクの情報
 interface FailedSubTaskInfo {
@@ -60,12 +63,25 @@ export class PlanningNode {
     this.centralLogManager = centralLogManager || CentralLogManager.getInstance();
     this.logManager = this.centralLogManager.getLogManager('planning_node');
 
-    // gpt-4oを使用（高速 & Structured Outputs対応）
+    // === モデル設定 ===
+    // 切り替え用: 'o3-mini'(最速), 'gpt-5-mini'(安い), 'o3'(高品質), 'gpt-5'(バランス)
+    // reasoning_effort: 'low'(高速), 'medium'(バランス), 'high'(高品質)
+    const modelName = models.planning;
+    const reasoningEffort = 'low';
+
     this.model = new ChatOpenAI({
-      modelName: 'gpt-4o',
-      apiKey: process.env.OPENAI_API_KEY!,
-      temperature: 0,
+      modelName,
+      apiKey: config.openaiApiKey,
+      timeout: 45000, // 45秒タイムアウト
+      // reasoning modelはtemperature非対応、max_tokensではなくmax_completion_tokensを使う。
+      // o3系はLangChainのisReasoningModel()が認識するのでmodelKwargsでの回避は不要だが、
+      // 統一性のためmodelKwargsで直接指定。
+      modelKwargs: {
+        max_completion_tokens: 4096,
+        reasoning_effort: reasoningEffort,
+      },
     });
+    console.log(`\x1b[36m🧠 PlanningNode: model=${modelName}, reasoning_effort=${reasoningEffort}\x1b[0m`);
   }
 
   /**
@@ -103,10 +119,14 @@ export class PlanningNode {
       name: 'DecomposeSubTask',
     });
 
-    const response = await structuredLLM.invoke([
-      {
-        role: 'system',
-        content: `あなたはMinecraftタスク分解アシスタントです。
+    // AbortControllerでタイムアウト時にHTTPリクエストも確実にキャンセル
+    const decomposeAbort = new AbortController();
+    const decomposeTimeout = setTimeout(() => decomposeAbort.abort(), 45000);
+    try {
+      const response = await structuredLLM.invoke([
+        {
+          role: 'system',
+          content: `あなたはMinecraftタスク分解アシスタントです。
 失敗したサブタスクを、より小さく具体的なサブタスクに分解してください。
 
 失敗理由を分析し、その問題を解決するために必要な前提タスクを追加してください。
@@ -117,38 +137,46 @@ export class PlanningNode {
 
 - 「アイテムをクラフト」が「材料不足」で失敗した場合
   → 「材料Aを集める」「材料Bを集める」を前に追加`
-      },
-      {
-        role: 'user',
-        content: `失敗したサブタスク:
+        },
+        {
+          role: 'user',
+          content: `失敗したサブタスク:
 目標: ${failedInfo.goal}
 失敗理由: ${failedInfo.failureReason}
 実行されたアクション: ${failedInfo.executedActions?.join(', ') || 'なし'}
 
 このサブタスクを、成功するために必要な小さなサブタスクに分解してください。`
+        }
+      ], { signal: decomposeAbort.signal } as any);
+      clearTimeout(decomposeTimeout);
+
+      console.log(`\x1b[32m✓ 分解完了: ${response.newSubTasks.length}個のサブタスクに分解\x1b[0m`);
+      console.log(`   理由: ${response.decompositionReason}`);
+
+      // HierarchicalSubTask形式に変換
+      const parentId = failedInfo.subTaskId;
+      const newSubTasks: HierarchicalSubTask[] = response.newSubTasks.map((st, index) => ({
+        id: this.generateSubTaskId(),
+        goal: st.goal,
+        strategy: st.strategy,
+        status: 'pending' as const,
+        parentId,
+        depth: 1,
+        actionSequence: st.actionSequence?.map(a => ({
+          toolName: a.toolName,
+          args: a.args ? JSON.parse(a.args) : null,
+          expectedResult: a.expectedResult,
+        })) || null,
+      }));
+
+      return newSubTasks;
+    } catch (e: any) {
+      clearTimeout(decomposeTimeout);
+      if (e.name === 'AbortError' || decomposeAbort.signal.aborted) {
+        throw new Error('Decompose LLM timeout (45s)');
       }
-    ]);
-
-    console.log(`\x1b[32m✓ 分解完了: ${response.newSubTasks.length}個のサブタスクに分解\x1b[0m`);
-    console.log(`   理由: ${response.decompositionReason}`);
-
-    // HierarchicalSubTask形式に変換
-    const parentId = failedInfo.subTaskId;
-    const newSubTasks: HierarchicalSubTask[] = response.newSubTasks.map((st, index) => ({
-      id: this.generateSubTaskId(),
-      goal: st.goal,
-      strategy: st.strategy,
-      status: 'pending' as const,
-      parentId,
-      depth: 1,
-      actionSequence: st.actionSequence?.map(a => ({
-        toolName: a.toolName,
-        args: a.args ? JSON.parse(a.args) : null,
-        expectedResult: a.expectedResult,
-      })) || null,
-    }));
-
-    return newSubTasks;
+      throw e;
+    }
   }
 
   /**
@@ -214,6 +242,8 @@ export class PlanningNode {
       // === Understanding統合: 環境情報を追加 ===
       environment: environmentContext.environment,
       nearbyEntities: environmentContext.nearbyEntities,
+      facing: environmentContext.facing,
+      nearbyBlocks: environmentContext.nearbyBlocks,
     };
 
     // 前回の実行結果があればログに表示
@@ -236,15 +266,15 @@ export class PlanningNode {
     }
 
     // === 1. 階層的サブタスク（表示用・自然言語） ===
-    // 再帰的な構造（子タスクが子タスクを持てる）
-    const HierarchicalSubTaskSchema: z.ZodType<any> = z.lazy(() => z.object({
-      id: z.string().describe('サブタスクID'),
+    // フラット構造でparentIdにより親子関係を表現（再帰スキーマ回避）
+    const HierarchicalSubTaskSchema = z.object({
+      id: z.string().describe('サブタスクID（例: "1", "1-1", "1-1-1"）'),
+      parentId: z.string().nullable().describe('親サブタスクのID（トップレベルはnull）'),
       goal: z.string().describe('やること（自然言語）'),
       status: z.enum(['pending', 'in_progress', 'completed', 'error']).describe('ステータス'),
-      result: z.string().nullable().optional().describe('結果（完了時）'),
-      failureReason: z.string().nullable().optional().describe('エラー理由（失敗時）'),
-      children: z.array(HierarchicalSubTaskSchema).nullable().optional().describe('子タスク（階層的）'),
-    }));
+      result: z.string().nullable().describe('結果（完了時）'),
+      failureReason: z.string().nullable().describe('エラー理由（失敗時）'),
+    });
 
     // === 2. 次に実行するアクション（実行用・引数完全指定） ===
     const ActionItemSchema = z.object({
@@ -265,11 +295,10 @@ export class PlanningNode {
         '緊急時(isEmergency=true)のみ使用。緊急解決=true、緊急未解決=false。通常時は必ずnull。'
       ),
 
-      // === 表示用: タスクの全体像（階層的・自然言語） ===
+      // === 表示用: タスクの全体像（フラットリスト・parentIdで階層表現） ===
       hierarchicalSubTasks: z.array(HierarchicalSubTaskSchema).nullable().describe(
-        'タスクの全体像を階層的に表現。各サブタスクは自然言語で「やること」を記述。' +
-        '子タスクを持つことで階層構造を表現できる。' +
-        '例: [{id:"1", goal:"丸石を集める", status:"in_progress", children:[{id:"1-1", goal:"丸石を探す", status:"completed"}]}]'
+        'タスクの全体像をフラットリストで表現。parentIdで親子関係を表す。' +
+        '例: [{id:"1", parentId:null, goal:"丸石を集める", status:"in_progress"}, {id:"1-1", parentId:"1", goal:"丸石を探す", status:"completed"}]'
       ),
 
       // 現在実行中のサブタスクID
@@ -297,6 +326,10 @@ export class PlanningNode {
 
     const messages = this.prompt.getMessages(state, 'planning', true);
 
+    // デバッグ: メッセージサイズを計測
+    const totalChars = messages.reduce((sum, m) => sum + String(m.content).length, 0);
+    console.log(`\x1b[36m📏 Planning messages: ${messages.length}個, 合計${totalChars}文字, isEmergency=${state.isEmergency}\x1b[0m`);
+
     try {
       // Planning開始ログ
       this.logManager.addLog({
@@ -309,9 +342,27 @@ export class PlanningNode {
         },
       });
 
-      // console.log('messages', JSON.stringify(messages, null, 2));
-
-      const response = await structuredLLM.invoke(messages);
+      // AbortControllerでタイムアウト時にHTTPリクエストも確実にキャンセル
+      // Promise.raceだとHTTPリクエストがバックグラウンドで走り続けてしまうため
+      const timeoutMs = state.isEmergency ? 30000 : 60000; // 通常60秒、緊急30秒
+      const planningAbort = new AbortController();
+      const planningTimeout = setTimeout(() => {
+        console.log(`\x1b[31m⏱ Planning LLM タイムアウト (${timeoutMs / 1000}s) - リクエストを中断\x1b[0m`);
+        planningAbort.abort();
+      }, timeoutMs);
+      const startTime = Date.now();
+      let response;
+      try {
+        response = await structuredLLM.invoke(messages, { signal: planningAbort.signal } as any);
+        clearTimeout(planningTimeout);
+        console.log(`\x1b[32m⏱ LLM応答: ${Date.now() - startTime}ms\x1b[0m`);
+      } catch (e: any) {
+        clearTimeout(planningTimeout);
+        if (e.name === 'AbortError' || planningAbort.signal.aborted) {
+          throw new Error(`Planning LLM timeout (${timeoutMs / 1000}s)`);
+        }
+        throw e;
+      }
 
       // 詳細なプランニング結果をログ出力
       console.log('\x1b[36m═══════════════════════════════════════════════════════════════\x1b[0m');
@@ -483,10 +534,9 @@ export class PlanningNode {
   }
 
   /**
-   * 階層的サブタスクを再帰的に表示
+   * 階層的サブタスクを表示（フラットリスト + parentIdベース）
    */
   private printHierarchicalSubTasks(tasks: any[], depth: number): void {
-    const indent = '   '.repeat(depth);
     const statusIcon = (status: string) => {
       switch (status) {
         case 'completed': return '✓';
@@ -496,7 +546,8 @@ export class PlanningNode {
       }
     };
 
-    tasks.forEach((task, i) => {
+    const printTask = (task: any, level: number) => {
+      const indent = '   '.repeat(level);
       const icon = statusIcon(task.status);
       console.log(`${indent}${icon} \x1b[35m${task.goal}\x1b[0m [${task.status}]`);
       if (task.result) {
@@ -505,10 +556,23 @@ export class PlanningNode {
       if (task.failureReason) {
         console.log(`${indent}  \x1b[31m✗ ${task.failureReason}\x1b[0m`);
       }
+      // parentIdベースの子タスク表示
+      const children = tasks.filter((t: any) => t.parentId === task.id);
+      children.forEach((child: any) => printTask(child, level + 1));
+      // 後方互換: childrenプロパティがある場合も対応
       if (task.children && task.children.length > 0) {
-        this.printHierarchicalSubTasks(task.children, depth + 1);
+        task.children.forEach((child: any) => printTask(child, level + 1));
       }
-    });
+    };
+
+    // トップレベル（parentIdがnullまたは未定義）から開始
+    const topLevel = tasks.filter((t: any) => !t.parentId);
+    // topLevelが空の場合はフォールバック（全て表示）
+    if (topLevel.length === 0) {
+      tasks.forEach((task: any) => printTask(task, depth));
+    } else {
+      topLevel.forEach((task: any) => printTask(task, depth));
+    }
   }
 
   getLogs() {
@@ -535,6 +599,14 @@ export class PlanningNode {
       type: string;
       distance: number;
     }>;
+    facing: {
+      direction: string;
+      yaw: number;
+      pitch: number;
+      blockInSight?: string;
+      blockInSightPos?: { x: number; y: number; z: number };
+    };
+    nearbyBlocks: Record<string, number>;
   } {
     // 1. 周辺エンティティを収集
     const botPosition = this.bot.entity?.position;
@@ -584,6 +656,90 @@ export class PlanningNode {
       biome: this.bot.environmentState?.biome || undefined,
     };
 
-    return { environment, nearbyEntities };
+    // 3. 向いている方角と視線先ブロック
+    const entity = this.bot.entity as any;
+    const yaw = entity?.yaw || 0;
+    const pitch = entity?.pitch || 0;
+
+    // yawから方角を計算（mineflayer: yaw=0→南, yaw=π/2→西, yaw=π→北, yaw=-π/2→東）
+    const compassDirections = ['south', 'southwest', 'west', 'northwest', 'north', 'northeast', 'east', 'southeast'];
+    // yawを0-2πの範囲に正規化
+    const normalizedYaw = ((yaw % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    const dirIndex = Math.round(normalizedYaw / (Math.PI / 4)) % 8;
+    const compassDirection = compassDirections[dirIndex];
+
+    // 視線先ブロック（レイキャスト）
+    let blockInSight: string | undefined;
+    let blockInSightPos: { x: number; y: number; z: number } | undefined;
+    try {
+      const block = (this.bot as any).blockAtCursor?.(10);
+      if (block && block.name !== 'air') {
+        blockInSight = block.name;
+        blockInSightPos = { x: block.position.x, y: block.position.y, z: block.position.z };
+      }
+    } catch (_) {
+      // blockAtCursor が使えない場合はフォールバック: 手動レイキャスト
+      if (botPosition) {
+        const eyePos = botPosition.offset(0, 1.62, 0);
+        // mineflayer: yaw=0→北(-Z), pitch>0→上向き
+        const dirX = -Math.sin(yaw) * Math.cos(pitch);
+        const dirY = Math.sin(pitch);
+        const dirZ = -Math.cos(yaw) * Math.cos(pitch);
+        for (let dist = 1; dist <= 8; dist += 0.5) {
+          const checkPos = eyePos.offset(dirX * dist, dirY * dist, dirZ * dist);
+          const block = this.bot.blockAt(checkPos);
+          if (block && block.name !== 'air') {
+            blockInSight = block.name;
+            blockInSightPos = { x: block.position.x, y: block.position.y, z: block.position.z };
+            break;
+          }
+        }
+      }
+    }
+
+    const facing = {
+      direction: compassDirection,
+      yaw: Math.round(yaw * 180 / Math.PI),
+      pitch: Math.round(pitch * 180 / Math.PI),
+      blockInSight,
+      blockInSightPos,
+    };
+
+    // 4. 周囲ブロック概要（半径5ブロック、air/cave_air/void_airを除外）
+    const nearbyBlocks: Record<string, number> = {};
+    const SKIP_BLOCKS = new Set(['air', 'cave_air', 'void_air']);
+    const SCAN_RADIUS = 5;
+
+    if (botPosition) {
+      const cx = Math.floor(botPosition.x);
+      const cy = Math.floor(botPosition.y);
+      const cz = Math.floor(botPosition.z);
+
+      for (let dx = -SCAN_RADIUS; dx <= SCAN_RADIUS; dx++) {
+        for (let dy = -SCAN_RADIUS; dy <= SCAN_RADIUS; dy++) {
+          for (let dz = -SCAN_RADIUS; dz <= SCAN_RADIUS; dz++) {
+            try {
+              const block = this.bot.blockAt(new Vec3(cx + dx, cy + dy, cz + dz));
+              if (block && !SKIP_BLOCKS.has(block.name)) {
+                nearbyBlocks[block.name] = (nearbyBlocks[block.name] || 0) + 1;
+              }
+            } catch (_) {
+              // ブロック取得失敗は無視
+            }
+          }
+        }
+      }
+    }
+
+    // 多いものから上位15種に絞る
+    const sortedBlocks: Record<string, number> = {};
+    Object.entries(nearbyBlocks)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 15)
+      .forEach(([name, count]) => {
+        sortedBlocks[name] = count;
+      });
+
+    return { environment, nearbyEntities, facing, nearbyBlocks: sortedBlocks };
   }
 }

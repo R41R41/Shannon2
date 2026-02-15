@@ -4,7 +4,6 @@ import {
   ServiceInput,
   ServiceOutput,
 } from '@shannon/common';
-import dotenv from 'dotenv';
 import pkg from 'minecrafthawkeye';
 import mineflayer from 'mineflayer';
 import { plugin as cmd } from 'mineflayer-cmd';
@@ -19,7 +18,6 @@ import { CONFIG } from './config/MinebotConfig.js';
 import { SkillAgent } from './skillAgent.js';
 import { ConstantSkills, CustomBot, InstantSkills } from './types.js';
 import { Utils } from './utils/index.js';
-dotenv.config();
 
 // 環境変数の検証
 CONFIG.validateEnvironment();
@@ -106,9 +104,11 @@ export class MinebotClient extends BaseClient {
 
     this.bot.isTest = CONFIG.IS_DEV;
     this.bot.chatMode = true;
+    this.bot.connectedServerName = serverName as string;
     this.bot.attackEntity = null;
     this.bot.runFromEntity = null;
     this.bot.goal = null;
+    this.bot.interruptExecution = false;
     this.bot.instantSkills = new InstantSkills();
     this.bot.constantSkills = new ConstantSkills();
     this.bot.utils = new Utils(this.bot);

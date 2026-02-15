@@ -225,34 +225,6 @@ class InvestigateTerrain extends InstantSkill {
           },
         },
       },
-      {
-        type: 'function' as const,
-        function: {
-          name: 'describe_bot_view',
-          description:
-            'ボットの視点（Minecraftクライアントの画面）を取得し、何が見えているかをAIが分析します。方向を指定するとその方向を向いてからスクリーンショットを撮影します。建築物の外観、モブの存在、地形の視覚的特徴を把握するのに有効です。',
-          parameters: {
-            type: 'object',
-            properties: {
-              context: {
-                type: 'string',
-                description:
-                  '分析の観点（例: "建築物を分析して", "敵がいるか確認", "周囲の地形を説明して"）',
-              },
-              direction: {
-                type: 'string',
-                description:
-                  '見る方向。"north", "south", "east", "west", "northeast", "northwest", "southeast", "southwest", "up", "down", "current"（現在の方向）、または角度（例: "45"でyaw=45°）。デフォルトは"current"',
-              },
-              pitch: {
-                type: 'number',
-                description:
-                  '上下の角度（-90〜90）。-90で真上、0で水平、90で真下。デフォルトは0',
-              },
-            },
-          },
-        },
-      },
     ];
   }
 
@@ -282,11 +254,6 @@ class InvestigateTerrain extends InstantSkill {
 2. get_bot_position: ボットの現在位置を確認
 
 3. find_blocks: 特定のブロックタイプを検索
-
-4. describe_bot_view: ボットの視点をAIが分析
-   - 視覚的な情報が必要な場合に使用
-   - 建築物の外観、モブの存在、地形の視覚的特徴を把握
-   - ブロックデータだけでは分かりにくい状況で有効
 
 **調査の進め方:**
 1. まず、調査目的に応じて適切な範囲とフォーマットでget_blocks_in_areaを呼び出す
@@ -357,24 +324,6 @@ class InvestigateTerrain extends InstantSkill {
             args.blockName,
             args.maxDistance || 64,
             args.count || 10
-          );
-
-          return result;
-        }
-
-        case 'describe_bot_view': {
-          const skill = this.bot.instantSkills.getSkill('describe-bot-view');
-          if (!skill) {
-            return {
-              success: false,
-              result: 'describe-bot-viewスキルが見つかりません',
-            };
-          }
-
-          const result = await skill.run(
-            args.context || '',
-            args.direction || 'current',
-            args.pitch || 0
           );
 
           return result;

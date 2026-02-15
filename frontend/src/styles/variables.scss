@@ -1,95 +1,115 @@
 @use 'sass:map';
 
+// ============================================================
+// Design Tokens - Shannon UI v3.0
+// ============================================================
+
 // Colors
 $colors: (
-  // Base colors
-  primary: #1a73e8,
-  primary-dark: #1557b0,
-  secondary: #6c757d,
-  success: #28a745,
-  danger: #dc3545,
-  danger-light: #ff0000,
-  danger-dark: #800000,
-  warning: #ffc107,
-  info: #17a2b8,
+  // Brand
+  primary: #3b82f6,
+  primary-dark: #2563eb,
+  primary-light: #60a5fa,
+  secondary: #64748b,
 
-  // Dark theme specific
+  // Semantic
+  success: #22c55e,
+  success-dim: rgba(34, 197, 94, 0.15),
+  danger: #ef4444,
+  danger-dim: rgba(239, 68, 68, 0.1),
+  danger-light: #f87171,
+  danger-dark: #991b1b,
+  warning: #f59e0b,
+  warning-dim: rgba(245, 158, 11, 0.15),
+  info: #06b6d4,
+
+  // Dark theme
   background:
     (
-      primary: #121212,
-      secondary: #1e1e1e,
-      tertiary: #2d2d2d,
+      primary: #0a0a0a,
+      secondary: #111111,
+      tertiary: #1a1a1a,
     ),
 
   surface: (
-    primary: #242424,
-    secondary: #323232,
-    tertiary: #404040,
-    hover: #404040,
-    active: #484848,
+    primary: #161616,
+    secondary: #1e1e1e,
+    tertiary: #262626,
+    hover: #2a2a2a,
+    active: #333333,
   ),
 
   text: (
-    primary: rgba(255, 255, 255, 0.87),
-    secondary: rgba(255, 255, 255, 0.6),
-    disabled: rgba(255, 255, 255, 0.38),
+    primary: rgba(255, 255, 255, 0.92),
+    secondary: rgba(255, 255, 255, 0.55),
+    disabled: rgba(255, 255, 255, 0.3),
     white: #ffffff,
-    red: #ff4444,
-    green: #4caf50,
-    blue: #2196f3,
-    yellow: #ffeb3b,
-    magenta: #e91e63,
-    cyan: #00bcd4,
+    red: #f87171,
+    green: #4ade80,
+    blue: #60a5fa,
+    yellow: #fbbf24,
+    magenta: #f472b6,
+    cyan: #22d3ee,
   ),
 
   border: (
-    primary: rgba(255, 255, 255, 0.12),
-    secondary: rgba(255, 255, 255, 0.08),
+    primary: rgba(255, 255, 255, 0.08),
+    secondary: rgba(255, 255, 255, 0.04),
+    subtle: rgba(255, 255, 255, 0.06),
   )
 );
 
-// Spacing
+// Spacing (8px base grid)
 $spacing: (
+  xxs: 2px,
   xs: 4px,
   sm: 8px,
-  md: 16px,
-  lg: 24px,
-  xl: 32px,
-  xxl: 48px,
+  md: 12px,
+  lg: 16px,
+  xl: 24px,
+  xxl: 32px,
+  xxxl: 48px,
 );
 
 // Typography
 $font: (
   family: (
+    'Inter',
     -apple-system,
     BlinkMacSystemFont,
     'Segoe UI',
     Roboto,
-    Oxygen,
-    Ubuntu,
-    Cantarell,
-    'Open Sans',
-    'Helvetica Neue',
     sans-serif,
   ),
+  mono: (
+    'JetBrains Mono',
+    'Fira Code',
+    'SF Mono',
+    Consolas,
+    monospace,
+  ),
   size: (
-    xs: 12px,
-    sm: 14px,
-    md: 16px,
-    lg: 18px,
-    xl: 20px,
-    xxl: 24px,
+    xxs: 10px,
+    xs: 11px,
+    sm: 12px,
+    md: 13px,
+    lg: 14px,
+    xl: 16px,
+    xxl: 20px,
+    xxxl: 24px,
   ),
   weight: (
     regular: 400,
     medium: 500,
+    semibold: 600,
     bold: 700,
   ),
 );
 
 // Borders
 $border-radius: (
-  sm: 4px,
+  xs: 4px,
+  sm: 6px,
   md: 8px,
   lg: 12px,
   xl: 16px,
@@ -98,29 +118,34 @@ $border-radius: (
 
 // Shadows
 $shadows: (
-  sm: 0 2px 4px rgba(0, 0, 0, 0.5),
-  md: 0 4px 8px rgba(0, 0, 0, 0.5),
-  lg: 0 8px 16px rgba(0, 0, 0, 0.5),
+  xs: 0 1px 2px rgba(0, 0, 0, 0.3),
+  sm: 0 2px 4px rgba(0, 0, 0, 0.4),
+  md: 0 4px 12px rgba(0, 0, 0, 0.5),
+  lg: 0 8px 24px rgba(0, 0, 0, 0.6),
+  glow-primary: 0 0 12px rgba(59, 130, 246, 0.3),
+  glow-success: 0 0 8px rgba(34, 197, 94, 0.25),
+  glow-danger: 0 0 8px rgba(239, 68, 68, 0.25),
 );
 
 // Z-index
 $z-index: (
-  modal: 1000,
-  dropdown: 900,
+  dropdown: 100,
+  sticky: 200,
   header: 800,
-  footer: 700,
+  modal: 1000,
+  tooltip: 1100,
 );
 
 // Transitions
 $transitions: (
-  fast: 0.15s ease-in-out,
-  normal: 0.25s ease-in-out,
-  slow: 0.35s ease-in-out,
+  fast: 0.12s ease-out,
+  normal: 0.2s ease-out,
+  slow: 0.3s ease-out,
+  spring: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
 );
 
 // Breakpoints
 $breakpoints: (
-  xs: 0,
   sm: 576px,
   md: 768px,
   lg: 992px,
@@ -128,7 +153,10 @@ $breakpoints: (
   xxl: 1400px,
 );
 
-// Functions to access variables
+// ============================================================
+// Functions
+// ============================================================
+
 @function color($key, $subkey: null) {
   @if $subkey {
     @return map.get(map.get($colors, $key), $subkey);
@@ -144,11 +172,30 @@ $breakpoints: (
   @return map.get(map.get($font, size), $key);
 }
 
+@function font-weight($key) {
+  @return map.get(map.get($font, weight), $key);
+}
+
+@function radius($key) {
+  @return map.get($border-radius, $key);
+}
+
 @function shadow($key) {
   @return map.get($shadows, $key);
 }
 
+@function transition($key) {
+  @return map.get($transitions, $key);
+}
+
+@function z($key) {
+  @return map.get($z-index, $key);
+}
+
+// ============================================================
 // Mixins
+// ============================================================
+
 @mixin responsive($breakpoint) {
   @media (min-width: map.get($breakpoints, $breakpoint)) {
     @content;
@@ -161,8 +208,74 @@ $breakpoints: (
   justify-content: center;
 }
 
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 @mixin text-truncate {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+// Card component mixin
+@mixin card($padding: spacing(lg)) {
+  background-color: color(surface, primary);
+  border: 1px solid color(border, primary);
+  border-radius: radius(lg);
+  padding: $padding;
+}
+
+// Card with hover effect
+@mixin card-interactive($padding: spacing(lg)) {
+  @include card($padding);
+  transition: all transition(normal);
+
+  &:hover {
+    background-color: color(surface, secondary);
+    border-color: color(border, subtle);
+  }
+}
+
+// Scrollbar styling
+@mixin custom-scrollbar {
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: color(border, primary);
+    border-radius: 3px;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+  }
+}
+
+// Section title
+@mixin section-title {
+  font-size: font-size(xs);
+  font-weight: font-weight(semibold);
+  color: color(text, disabled);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+// Status dot
+@mixin status-dot($size: 8px) {
+  width: $size;
+  height: $size;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+// Glass effect
+@mixin glass($opacity: 0.6) {
+  background-color: rgba(22, 22, 22, $opacity);
+  backdrop-filter: blur(12px);
 }

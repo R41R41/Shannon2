@@ -21,8 +21,9 @@ export interface HierarchicalSubTask {
     status: TaskStatus;
     result?: string | null;
     failureReason?: string | null;
+    parentId?: string | null;
     children?: HierarchicalSubTask[] | null;
-    depth: number;
+    depth?: number;
 }
 export interface ActionItem {
     toolName: string;

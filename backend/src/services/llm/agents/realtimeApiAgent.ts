@@ -1,4 +1,6 @@
 import WebSocket from 'ws';
+import { config } from '../../../config/env.js';
+import { models } from '../../../config/models.js';
 import { getEventBus } from '../../eventBus/index.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 
@@ -45,7 +47,7 @@ export class RealtimeAPIService {
         modalities: ['text', 'audio'],
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
-        input_audio_transcription: { model: 'whisper-1' },
+        input_audio_transcription: { model: models.whisper },
         instructions:
           'あなたは優秀なアシスタントAI「シャノン」です。敬語を使って日本語で丁寧に簡潔に答えてください。',
         tool_choice: 'none', // オプション：function callingを使用する場合に必要
@@ -61,7 +63,7 @@ export class RealtimeAPIService {
         modalities: ['text', 'audio'],
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
-        input_audio_transcription: { model: 'whisper-1' },
+        input_audio_transcription: { model: models.whisper },
         instructions:
           'あなたは優秀なアシスタントAI「シャノン」です。敬語を使って日本語で丁寧に簡潔に答えてください。',
         tool_choice: 'none', // オプション：function callingを使用する場合に必要
@@ -163,13 +165,12 @@ export class RealtimeAPIService {
     if (this.initialized) return;
     console.log('\x1b[36mRealtimeAPI initialized\x1b[0m');
 
-    const url =
-      'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17';
+    const url = `wss://api.openai.com/v1/realtime?model=${models.realtime}`;
 
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(url, {
         headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          Authorization: `Bearer ${config.openaiApiKey}`,
           'OpenAI-Beta': 'realtime=v1',
         },
       });
@@ -400,12 +401,11 @@ export class RealtimeAPIService {
 
   private async connect() {
     try {
-      const url =
-        'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17';
+      const url = `wss://api.openai.com/v1/realtime?model=${models.realtime}`;
 
       this.ws = new WebSocket(url, {
         headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          Authorization: `Bearer ${config.openaiApiKey}`,
           'OpenAI-Beta': 'realtime=v1',
         },
       });
@@ -452,7 +452,7 @@ export class RealtimeAPIService {
         modalities: ['text', 'audio'],
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
-        input_audio_transcription: { model: 'whisper-1' },
+        input_audio_transcription: { model: models.whisper },
         instructions:
           'あなたは優秀なアシスタントAI「シャノン」です。敬語を使って日本語で丁寧に簡潔に答えてください。',
         voice: 'sage',

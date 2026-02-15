@@ -7,12 +7,11 @@ import {
   YoutubeSubscriberUpdateOutput,
   YoutubeVideoInput,
 } from '@shannon/common';
-import dotenv from 'dotenv';
 import { OAuth2Client } from 'google-auth-library';
 import { google, youtube_v3 } from 'googleapis';
 import { BaseClient } from '../common/BaseClient.js';
+import { config } from '../../config/env.js';
 import { getEventBus } from '../eventBus/index.js';
-dotenv.config();
 
 export class YoutubeClient extends BaseClient {
   private static instance: YoutubeClient;
@@ -39,8 +38,8 @@ export class YoutubeClient extends BaseClient {
     super(serviceName, eventBus);
     this.client = null;
     this.oauth2Client = null;
-    this.channelId = process.env.YOUTUBE_CHANNEL_ID || null;
-    this.authCode = process.env.YOUTUBE_AUTH_CODE || null;
+    this.channelId = config.youtube.channelId || null;
+    this.authCode = config.youtube.authCode || null;
     this.lastSubscriberCount = 0;
   }
 
@@ -169,8 +168,8 @@ export class YoutubeClient extends BaseClient {
   private async getAuthUrl() {
     try {
       const oauth2Client = new google.auth.OAuth2(
-        process.env.YOUTUBE_CLIENT_ID,
-        process.env.YOUTUBE_CLIENT_SECRET,
+        config.youtube.clientId,
+        config.youtube.clientSecret,
         'http://localhost'
       );
       const authUrl = oauth2Client.generateAuthUrl({
@@ -189,8 +188,8 @@ export class YoutubeClient extends BaseClient {
   private async getRefreshToken() {
     try {
       const oauth2Client = new google.auth.OAuth2(
-        process.env.YOUTUBE_CLIENT_ID,
-        process.env.YOUTUBE_CLIENT_SECRET,
+        config.youtube.clientId,
+        config.youtube.clientSecret,
         'http://localhost'
       );
       // await this.getAuthUrl(oauth2Client);
@@ -361,9 +360,9 @@ export class YoutubeClient extends BaseClient {
 
   private async setUpConnection() {
     try {
-      const clientId = process.env.YOUTUBE_CLIENT_ID;
-      const clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
-      this.refreshToken = process.env.YOUTUBE_REFRESH_TOKEN || null;
+      const clientId = config.youtube.clientId;
+      const clientSecret = config.youtube.clientSecret;
+      this.refreshToken = config.youtube.refreshToken || null;
       console.log(clientId, clientSecret, this.refreshToken);
 
       if (!clientId || !clientSecret || !this.refreshToken) {
@@ -602,7 +601,7 @@ export class YoutubeClient extends BaseClient {
 
   async getCurrentLiveVideoId(): Promise<string | null> {
     // .envからURL取得/
-    const liveUrl = process.env.YOUTUBE_LIVE_URL;
+    const liveUrl = config.youtube.liveUrl;
     if (liveUrl) {
       // 正規表現で動画ID抽出（v=, /video/, /watch/, youtu.be/ など対応）
       const match = liveUrl.match(/(?:v=|\/(?:video|live)\/|youtu\.be\/|watch\?v=)([a-zA-Z0-9_-]{11})/);
