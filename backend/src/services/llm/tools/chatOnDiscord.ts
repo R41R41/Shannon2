@@ -6,20 +6,20 @@ import { getEventBus } from '../../eventBus/index.js';
 
 export default class ChatOnDiscordTool extends StructuredTool {
   name = 'chat-on-discord';
-  description = 'A tool to send a message to Discord.';
+  description = 'Discordにメッセージを送信するツール。調査結果を報告する際は、見出し・箇条書き等のDiscord Markdownで整形すること。画像URLがあれば imageUrl に設定して添付できる。';
   schema = z.object({
-    message: z.string().describe('The message you want to send.'),
-    channelId: z.string().describe('The channel ID you want to send to.'),
-    guildId: z.string().describe('The server ID you want to send to.'),
+    message: z.string().describe('送信するメッセージ。Discord Markdown（**太字**, - 箇条書き 等）を使って読みやすく整形する'),
+    channelId: z.string().describe('送信先のチャンネルID'),
+    guildId: z.string().describe('送信先のサーバーID'),
     memoryZone: z
       .string()
       .optional()
-      .describe('The value of MemoryZone. Optional, defaults to discord:general.'),
+      .describe('MemoryZone値。省略時は discord:general'),
     imageUrl: z
       .string()
       .optional()
       .describe(
-        'The image URL you want to send. Optional - only set if you want to send an image.'
+        '添付する画像のURL（og:image等から取得したもの）。人物や作品について報告する際はできるだけ画像を添付する'
       ),
   });
   private eventBus: EventBus;
@@ -49,8 +49,8 @@ export default class ChatOnDiscordTool extends StructuredTool {
       });
       return `${currentTime} Sent a message to Discord: ${data.message}`;
     } catch (error) {
-      console.error('Bing search error:', error);
-      return `An error occurred while searching: ${error}`;
+      console.error('Discord send error:', error);
+      return `Discordへの送信中にエラーが発生しました: ${error}`;
     }
   }
 }

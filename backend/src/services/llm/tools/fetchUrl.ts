@@ -62,7 +62,9 @@ export default class FetchUrlTool extends StructuredTool {
             // 大きなレスポンスを制限するための設定
             const response = await axios.get(data.url, {
                 headers: {
-                    'User-Agent': 'Shannon AI Assistant/1.0',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
                 },
                 maxContentLength: this.MAX_RESPONSE_SIZE,
                 timeout: 10000, // 10秒のタイムアウト
@@ -104,6 +106,7 @@ export default class FetchUrlTool extends StructuredTool {
                             const title = $('title').text();
                             const description = $('meta[name="description"]').attr('content') ||
                                 $('meta[property="og:description"]').attr('content') || '';
+                            const ogImage = $('meta[property="og:image"]').attr('content') || '';
 
                             // 本文テキストの抽出（HTMLタグを除去）
                             $('script, style, noscript, iframe, img').remove(); // 不要な要素を削除
@@ -112,11 +115,15 @@ export default class FetchUrlTool extends StructuredTool {
                                 .trim();
 
                             // 長すぎる場合は切り詰め
-                            if (bodyText.length > this.MAX_RETURN_TEXT_LENGTH - 100) {
-                                bodyText = bodyText.substring(0, this.MAX_RETURN_TEXT_LENGTH - 100) + '...';
+                            const metaSize = 200 + title.length + description.length + ogImage.length;
+                            const maxBody = this.MAX_RETURN_TEXT_LENGTH - metaSize;
+                            if (bodyText.length > maxBody) {
+                                bodyText = bodyText.substring(0, maxBody) + '...';
                             }
 
-                            const result = `URL: ${data.url}\nタイトル: ${title}\n説明: ${description}\n\n内容:\n${bodyText}`;
+                            let result = `URL: ${data.url}\nタイトル: ${title}\n説明: ${description}`;
+                            if (ogImage) result += `\n画像: ${ogImage}`;
+                            result += `\n\n内容:\n${bodyText}`;
                             return result.substring(0, this.MAX_RETURN_TEXT_LENGTH);
                         } catch (error) {
                             return `HTMLの解析に失敗しました: ${error}\n生のレスポンス: ${String(response.data).substring(0, 500)}...`;
