@@ -20,6 +20,8 @@ import { logger } from '../../utils/logger.js';
 const PROCESSED_IDS_FILE = path.resolve('saves/processed_tweet_ids.json');
 // 日次返信カウンタの永続化ファイルパス
 const DAILY_REPLY_COUNT_FILE = path.resolve('saves/daily_reply_count.json');
+// 自動投稿カウンタの永続化ファイルパス
+const AUTO_POST_COUNT_FILE = path.resolve('saves/auto_post_count.json');
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
 
@@ -151,6 +153,56 @@ export class TwitterClient extends BaseClient {
     }
   }
 
+  /** 自動投稿カウンタをファイルから読み込む */
+  private loadAutoPostCount(): void {
+    try {
+      if (fs.existsSync(AUTO_POST_COUNT_FILE)) {
+        const data = JSON.parse(fs.readFileSync(AUTO_POST_COUNT_FILE, 'utf-8'));
+        const todayJST = this.getTodayJST();
+        if (data.date === todayJST) {
+          this.autoPostCount = data.count ?? 0;
+          this.autoPostDate = data.date;
+          this.lastAutoPostAt = data.lastPostAt ?? 0;
+          logger.info(
+            `📋 自動投稿カウンタ: ${this.autoPostCount}/${this.maxAutoPostsPerDay} (${todayJST})`,
+            'cyan'
+          );
+        } else {
+          this.autoPostCount = 0;
+          this.autoPostDate = todayJST;
+          this.lastAutoPostAt = 0;
+          logger.info(
+            `📋 自動投稿カウンタ: 新しい日付のためリセット (${todayJST})`,
+            'cyan'
+          );
+        }
+      } else {
+        this.autoPostDate = this.getTodayJST();
+      }
+    } catch (err) {
+      logger.warn(`📋 自動投稿カウンタ読み込み失敗: ${err}`);
+      this.autoPostDate = this.getTodayJST();
+    }
+  }
+
+  /** 自動投稿カウンタをファイルに保存する */
+  private saveAutoPostCount(): void {
+    try {
+      const dir = path.dirname(AUTO_POST_COUNT_FILE);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        AUTO_POST_COUNT_FILE,
+        JSON.stringify({
+          date: this.autoPostDate,
+          count: this.autoPostCount,
+          lastPostAt: this.lastAutoPostAt,
+        }, null, 2)
+      );
+    } catch (err) {
+      logger.warn(`📋 自動投稿カウンタ保存失敗: ${err}`);
+    }
+  }
+
   /** JST の今日の日付文字列を返す (YYYY-MM-DD) */
   private getTodayJST(): string {
     const now = new Date();
@@ -212,6 +264,10 @@ export class TwitterClient extends BaseClient {
   // --- 自動投稿関連 ---
   /** 当日の自動投稿カウンター */
   private autoPostCount: number = 0;
+  /** カウンタの日付 (YYYY-MM-DD JST) */
+  private autoPostDate: string = '';
+  /** 最後に自動投稿した時刻 (ms) */
+  private lastAutoPostAt: number = 0;
   /** 1日あたりの自動投稿上限 */
   private maxAutoPostsPerDay: number;
   /** 自動投稿の活動開始時間 (JST, 0-23) */
@@ -1016,6 +1072,8 @@ export class TwitterClient extends BaseClient {
       });
 
       this.autoPostCount++;
+      this.lastAutoPostAt = Date.now();
+      this.saveAutoPostCount();
       logger.info(
         `🐦 AutoPost: リクエスト送信完了 (本日 ${this.autoPostCount}/${this.maxAutoPostsPerDay})`,
         'green'
@@ -1048,6 +1106,21 @@ export class TwitterClient extends BaseClient {
     const baseDelay = 2 * 60 * 60 * 1000 + Math.random() * 2 * 60 * 60 * 1000;
     const jitter = (Math.random() - 0.5) * 2 * 30 * 60 * 1000;
     let delay = Math.max(baseDelay + jitter, 30 * 60 * 1000); // 最低30分
+
+    // 最後の投稿からの経過時間を考慮（再起動対策）
+    // 前回投稿から2時間未満なら、2時間経過まで待つ
+    if (this.lastAutoPostAt > 0) {
+      const elapsed = Date.now() - this.lastAutoPostAt;
+      const minInterval = 2 * 60 * 60 * 1000; // 最低2時間
+      if (elapsed < minInterval) {
+        const remaining = minInterval - elapsed;
+        delay = Math.max(delay, remaining + Math.random() * 30 * 60 * 1000);
+        logger.info(
+          `🐦 AutoPost: 前回投稿から${Math.round(elapsed / 60000)}分しか経過していないため、間隔を調整`,
+          'cyan'
+        );
+      }
+    }
 
     // 現在が活動時間前なら、活動開始まで待つ
     const currentHour = this.getJSTHour();
@@ -1096,6 +1169,9 @@ export class TwitterClient extends BaseClient {
 
       this.dailyResetTimer = setTimeout(() => {
         this.autoPostCount = 0;
+        this.autoPostDate = this.getTodayJST();
+        this.lastAutoPostAt = 0;
+        this.saveAutoPostCount();
         logger.info('🐦 AutoPost: 日次カウンターリセット (0)', 'green');
         // リセット後に自動投稿を再スケジュール
         this.scheduleNextAutoPost();
@@ -1271,20 +1347,18 @@ export class TwitterClient extends BaseClient {
         this.autoMonitorAccounts();
       }
 
+      // 自動投稿カウンタをファイルから復元
+      this.loadAutoPostCount();
+
       // 自動投稿スケジューラ起動 (dev/test モードでもテスト可能)
       this.scheduleDailyReset();
       logger.info(
-        `🐦 AutoPost: 初期化完了 (上限${this.maxAutoPostsPerDay}/日, ${this.autoPostStartHour}時-${this.autoPostEndHour}時 JST)`,
+        `🐦 AutoPost: 初期化完了 (上限${this.maxAutoPostsPerDay}/日, ${this.autoPostStartHour}時-${this.autoPostEndHour}時 JST, 本日${this.autoPostCount}件投稿済み)`,
         'green'
       );
 
-      if (this.isTest) {
-        // テスト環境: 30秒後に初回投稿を実行
-        logger.info('🐦 AutoPost [TEST]: 30秒後にテスト投稿を実行します', 'cyan');
-        this.autoPostTimer = setTimeout(() => this.autoPostTweet(), 30 * 1000);
-      } else {
-        this.scheduleNextAutoPost();
-      }
+      // test/dev/prod 共通: scheduleNextAutoPost で前回投稿時刻を考慮してスケジュール
+      this.scheduleNextAutoPost();
       this.setupEventHandlers();
     } catch (error) {
       if (error instanceof Error && error.message.includes('429')) {
