@@ -25,8 +25,8 @@ export const models = {
   /** Scheduled posting agents (weather, news, about-today) */
   scheduledPost: 'gpt-5-mini',
 
-  /** Auto-tweet generation (fine-tuned for Shannon's tweet style) */
-  autoTweet: 'ft:gpt-4.1-mini-2025-04-14:personal:shannon-tweet-v3:D9Ffkj4d',
+  /** Auto-tweet generation (prompt-based, using few-shot examples) */
+  autoTweet: 'gpt-4.1-mini',
 
   /** Vision / image description (gpt-4.1-mini: no thinking tokens, good vision support) */
   vision: 'gpt-4.1-mini',

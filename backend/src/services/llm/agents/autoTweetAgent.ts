@@ -5,7 +5,7 @@ import { generateTweetForAutoPost } from '../tools/generateTweetText.js';
 
 /**
  * AutoTweetAgent: トレンド情報を元にシャノンのキャラでツイートを自動生成する
- * 内部で generateTweetForAutoPost（FTモデル）を使用
+ * 内部で generateTweetForAutoPost（プロンプト + few-shot例ベース）を使用
  */
 export class AutoTweetAgent {
   private systemPrompt: string;
