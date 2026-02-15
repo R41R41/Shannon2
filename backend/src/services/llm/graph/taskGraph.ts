@@ -134,7 +134,7 @@ export class TaskGraph {
   public async invoke(partialState: TaskStateInput) {
     // 排他制御
     if (this.isExecuting) {
-      console.log('\x1b[33m⚠️ タスク実行中のため、新しいタスクをスキップします\x1b[0m');
+      console.log(`\x1b[33m⚠️ タスク実行中のため、新しいタスクをスキップします (message: ${partialState.userMessage?.substring(0, 50)})\x1b[0m`);
       return null;
     }
 
@@ -265,6 +265,40 @@ export class TaskGraph {
         messageCount: result.messages.length,
         finalEmotion: emotionState.current?.emotion,
       });
+
+      // === Fallback: FCA がチャットツールを呼ばずにテキスト応答で終了した場合 ===
+      if (
+        context?.platform === 'discord' &&
+        state.channelId &&
+        result.taskTree?.strategy &&
+        result.taskTree.strategy !== 'タスク完了'
+      ) {
+        // chat-on-discord が呼ばれたか確認
+        const chatToolCalled = (agentResult.messages || []).some(
+          (m: BaseMessage) => {
+            if (m instanceof AIMessage && m.tool_calls) {
+              return m.tool_calls.some(
+                (tc: any) => tc.name === 'chat-on-discord'
+              );
+            }
+            return false;
+          }
+        );
+        if (!chatToolCalled) {
+          console.log(
+            '\x1b[33m⚠️ FCA が chat-on-discord を呼ばなかったため、フォールバック送信\x1b[0m'
+          );
+          this.eventBus.publish({
+            type: 'discord:post_message',
+            memoryZone: partialState.memoryZone || 'web',
+            data: {
+              text: result.taskTree.strategy,
+              channelId: state.channelId,
+              guildId: context.discord?.guildId || '',
+            },
+          });
+        }
+      }
 
       // === Step 4: MemoryNode.postProcess (非同期 fire-and-forget) ===
       if (this.memoryNode && state.userMessage) {

@@ -47,7 +47,7 @@ export interface PostProcessInput {
   exchanges: IExchange[];
 }
 
-// キーワードパターン (recall-experience をトリガー)
+// キーワードパターン (recall-experience をトリガー: キーワード検索)
 const EXPERIENCE_PATTERNS = [
   /前に/,
   /あの時/,
@@ -58,6 +58,23 @@ const EXPERIENCE_PATTERNS = [
   /昔/,
   /この前/,
   /初めて/,
+];
+
+// 「今日/昨日/最近 何した？」系 (日付ベースで最新の体験を返す)
+const RECENT_ACTIVITY_PATTERNS = [
+  /今日.*何.*し/,
+  /今日.*何してた/,
+  /今日.*何した/,
+  /今日.*どう/,
+  /昨日.*何.*し/,
+  /最近.*何.*し/,
+  /最近.*どう/,
+  /何してた/,
+  /何した(の|？|\?|$)/,
+  /何やってた/,
+  /どうだった/,
+  /どうしてた/,
+  /何があった/,
 ];
 
 // キーワードパターン (recall-knowledge をトリガー)
@@ -137,17 +154,35 @@ export class MemoryNode {
       }
 
       // 2. recall-experience: メッセージパターンで判断
-      if (input.userMessage && shouldRecallExperience(input.userMessage)) {
-        const keywords = extractKeywords(input.userMessage);
-        if (keywords) {
-          state.experiences = await this.shannonService.searchExperiences(
-            keywords,
-            3,
+      if (input.userMessage) {
+        if (isRecentActivityQuestion(input.userMessage)) {
+          // 「今日何した？」系 → 日付ベースで最新の体験を取得
+          state.experiences = await this.shannonService.getRecentImportant(
+            'experience',
+            5,
           );
           if (state.experiences.length > 0) {
             console.log(
-              `💭 MemoryNode: 関連する体験 ${state.experiences.length}件を取得`,
+              `💭 MemoryNode: 最近の体験 ${state.experiences.length}件を取得（日付ベース）`,
             );
+          } else {
+            console.log(
+              '💭 MemoryNode: 最近の体験が見つかりませんでした',
+            );
+          }
+        } else if (shouldRecallExperience(input.userMessage)) {
+          // 「前にもこんなことあったよね？」系 → キーワード検索
+          const keywords = extractKeywords(input.userMessage);
+          if (keywords) {
+            state.experiences = await this.shannonService.searchExperiences(
+              keywords,
+              3,
+            );
+            if (state.experiences.length > 0) {
+              console.log(
+                `💭 MemoryNode: 関連する体験 ${state.experiences.length}件を取得`,
+              );
+            }
           }
         }
       }
@@ -337,6 +372,10 @@ export class MemoryNode {
 
 function shouldRecallExperience(message: string): boolean {
   return EXPERIENCE_PATTERNS.some((p) => p.test(message));
+}
+
+function isRecentActivityQuestion(message: string): boolean {
+  return RECENT_ACTIVITY_PATTERNS.some((p) => p.test(message));
 }
 
 function shouldRecallKnowledge(message: string): boolean {

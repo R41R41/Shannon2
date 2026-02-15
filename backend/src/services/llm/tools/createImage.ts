@@ -46,7 +46,7 @@ export default class CreateImageTool extends StructuredTool {
         size: '1024x1024',
       });
 
-      // gpt-image-1 はbase64のみ返す（URLは非対応）
+      // gpt-image-1/1.5 はbase64のみ返す（URLは非対応）
       const b64Json = response.data?.[0]?.b64_json;
       if (b64Json) {
         const filename = `img_${Date.now()}.png`;
