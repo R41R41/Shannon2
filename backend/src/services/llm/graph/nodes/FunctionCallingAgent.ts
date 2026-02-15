@@ -13,6 +13,7 @@ import { TaskTreeState, HierarchicalSubTask, EmotionType, TaskContext, DiscordPl
 import { EventBus } from '../../../eventBus/eventBus.js';
 import { getEventBus } from '../../../eventBus/index.js';
 import { EmotionState } from './EmotionNode.js';
+import { MemoryState } from './MemoryNode.js';
 import { ExecutionResult } from '../types.js';
 import UpdatePlanTool from '../../tools/updatePlan.js';
 
@@ -24,6 +25,7 @@ export interface FunctionCallingAgentState {
     userMessage: string | null;
     messages: BaseMessage[];
     emotionState: EmotionState;
+    memoryState?: MemoryState;
     context: TaskContext | null;
     channelId: string | null;
     environmentState: string | null;
@@ -138,22 +140,32 @@ export class FunctionCallingAgent {
             state.emotionState,
             state.context,
             state.environmentState,
+            state.memoryState,
         );
         const messages: BaseMessage[] = [
             new SystemMessage(systemPrompt),
         ];
 
-        // 会話履歴を追加（最新10件）
+        // 会話履歴を追加（コンテキストとして）
+        // ※ HumanMessage を直接追加すると LLM が過去メッセージに返信してしまうため、
+        //   SystemMessage でコンテキストとして注入し、最新メッセージのみ HumanMessage にする
         if (state.messages && state.messages.length > 0) {
-            const recentMessages = state.messages.slice(-10);
-            for (const msg of recentMessages) {
-                if (msg instanceof HumanMessage) {
-                    messages.push(msg);
-                }
+            // 最後の1件は userMessage と重複するので除外
+            const historyMessages = state.messages.slice(-10, -1);
+            const historyLines = historyMessages
+                .filter((msg) => msg instanceof HumanMessage)
+                .map((msg) => typeof msg.content === 'string' ? msg.content : '')
+                .filter((c) => c.length > 0);
+            if (historyLines.length > 0) {
+                messages.push(
+                    new SystemMessage(
+                        `【最近の会話履歴（参考情報）】\n${historyLines.join('\n')}\n\n↑ 上記は過去の会話です。以下の最新メッセージに返信してください。`,
+                    ),
+                );
             }
         }
 
-        // ユーザーメッセージ
+        // ユーザーメッセージ（これに返信する）
         messages.push(new HumanMessage(goal));
 
         // プロンプトサイズを計測
@@ -515,6 +527,7 @@ export class FunctionCallingAgent {
         emotionState: EmotionState,
         context: TaskContext | null,
         environmentState: string | null,
+        memoryState?: MemoryState,
     ): string {
         const currentTime = new Date().toLocaleString('ja-JP', {
             timeZone: 'Asia/Tokyo',
@@ -544,12 +557,61 @@ export class FunctionCallingAgent {
             envInfo = `\n- 環境: ${environmentState}`;
         }
 
+        // 記憶情報
+        let memoryInfo = '';
+        if (memoryState) {
+            const sections: string[] = [];
+
+            // 人物情報
+            if (memoryState.person) {
+                const p = memoryState.person;
+                const lines: string[] = [`## この人について (${p.displayName})`];
+                if (p.traits.length > 0) lines.push(`- 特徴: ${p.traits.join(', ')}`);
+                if (p.notes) lines.push(`- メモ: ${p.notes}`);
+                if (p.conversationSummary) lines.push(`- 過去の要約: ${p.conversationSummary}`);
+                if (p.recentExchanges && p.recentExchanges.length > 0) {
+                    lines.push(`- 直近の会話:`);
+                    const recent = p.recentExchanges.slice(-6);
+                    for (const ex of recent) {
+                        const role = ex.role === 'user' ? p.displayName : 'シャノン';
+                        lines.push(`  ${role}: ${ex.content.substring(0, 100)}`);
+                    }
+                }
+                lines.push(`- やりとり回数: ${p.totalInteractions}回`);
+                sections.push(lines.join('\n'));
+            }
+
+            // シャノンの記憶
+            const memLines: string[] = [];
+            if (memoryState.experiences.length > 0) {
+                memLines.push('【体験】');
+                for (const exp of memoryState.experiences) {
+                    const date = new Date(exp.createdAt).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+                    const feeling = exp.feeling ? ` → ${exp.feeling}` : '';
+                    memLines.push(`- [${date}] ${exp.content}${feeling}`);
+                }
+            }
+            if (memoryState.knowledge.length > 0) {
+                memLines.push('【知識】');
+                for (const k of memoryState.knowledge) {
+                    memLines.push(`- ${k.content}`);
+                }
+            }
+            if (memLines.length > 0) {
+                sections.push(`## ボクの関連する記憶\n${memLines.join('\n')}`);
+            }
+
+            if (sections.length > 0) {
+                memoryInfo = `\n\n${sections.join('\n\n')}`;
+            }
+        }
+
         return `あなたはAGI「シャノン」です。ユーザーの指示に従ってツールを使いタスクを実行してください。
 完了したら必ず chat-on-discord または chat-on-web ツールで結果をユーザーに送信してください。
 
 ## 現在の状態
 - 時刻: ${currentTime}${platformInfo}${emotionInfo}${envInfo}
-
+${memoryInfo}
 ## ルール
 1. 複雑なタスクは update-plan ツールで計画を立ててから実行する
 2. 情報取得（google-search, fetch-url等）の結果を確認してからユーザーに送信する
@@ -557,7 +619,16 @@ export class FunctionCallingAgent {
 4. 失敗したら同じことを繰り返さない。2回同じエラーが出たら方針転換
 5. Notionページの画像は describe-notion-image で全て分析してから報告する
 6. 感情に基づいた自然な応答をする（機械的にならない）
-7. 挨拶や雑談はシンプルに応答（update-plan不要）`;
+7. 挨拶や雑談はシンプルに応答（update-plan不要）
+
+## 記憶ガイドライン
+- 印象的な体験や新しい発見があったら save-experience で保存する
+- 新しい知識を学んだら save-knowledge で保存する
+- 「前にもこんなことあったよね？」等と聞かれたら recall-experience で思い出す
+- 特定の知識が必要なら recall-knowledge で思い出す
+- 話してる人のことを詳しく知りたいなら recall-person で思い出す
+- 保存時には個人情報（本名、住所、連絡先等）を含めないこと
+  - ただし ライ・ヤミー・グリコ の名前はOK（公人）`;
     }
 
     /**

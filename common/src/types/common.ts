@@ -186,7 +186,9 @@ export type PromptType =
   | 'use_tool'
   | 'reply_youtube_live_comment'
   | 'emergency'
-  | 'auto_tweet';
+  | 'auto_tweet'
+  | 'extract_person_traits'
+  | 'extract_memories';
 
 export type RealTimeAPIEndpoint =
   | 'realtime_text_input'

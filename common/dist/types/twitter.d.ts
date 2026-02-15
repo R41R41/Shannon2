@@ -25,6 +25,8 @@ export interface TwitterReplyOutput extends ServiceInput {
     replyId: string;
     text: string;
     authorName: string;
+    /** リプライ主の Twitter ユーザーID (記憶システム用) */
+    authorId?: string | null;
     repliedTweet?: string | null;
     repliedTweetAuthorName?: string | null;
     /** 会話スレッド (古い順)。inReplyToId チェーンを遡って取得 */

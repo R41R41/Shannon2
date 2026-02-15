@@ -196,7 +196,8 @@ export class LLMService {
       comment,
       videoTitle,
       videoDescription,
-      authorName
+      authorName,
+      data.authorChannelId,
     );
     this.eventBus.publish({
       type: 'youtube:reply_comment',
@@ -225,7 +226,8 @@ export class LLMService {
       minutesSinceStart,
       history,
       liveTitle,
-      liveDescription
+      liveDescription,
+      data.authorChannelId,
     );
     this.eventBus.publish({
       type: 'youtube:live_chat:post_message',
@@ -256,7 +258,8 @@ export class LLMService {
         authorName,
         repliedTweet,
         repliedTweetAuthorName,
-        conversationThread
+        conversationThread,
+        data.authorId,
       );
       console.log(`[Twitter Reply] LLM生成完了: "${response.slice(0, 80)}"`);
       this.eventBus.publish({

@@ -1,4 +1,4 @@
-import { BaseMessage } from '@langchain/core/messages';
+import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
 import {
   EmotionType,
@@ -14,6 +14,9 @@ import { EventBus } from '../../eventBus/eventBus.js';
 import { getEventBus } from '../../eventBus/index.js';
 import { EmotionNode, EmotionState } from './nodes/EmotionNode.js';
 import { FunctionCallingAgent } from './nodes/FunctionCallingAgent.js';
+import { MemoryNode, MemoryState } from './nodes/MemoryNode.js';
+import { createMemoryTools } from '../tools/memory/memoryToolFactory.js';
+import { IExchange } from '../../../models/PersonMemory.js';
 import {
   ExecutionResult,
   GRAPH_CONFIG,
@@ -44,6 +47,7 @@ export class TaskGraph {
   private static instance: TaskGraph;
   private tools: StructuredTool[] = [];
   private emotionNode: EmotionNode | null = null;
+  private memoryNode: MemoryNode | null = null;
   private functionCallingAgent: FunctionCallingAgent | null = null;
   private eventBus: EventBus;
   public currentState: any = null;
@@ -79,10 +83,18 @@ export class TaskGraph {
     // EmotionNode 初期化（Prompt依存を除去）
     this.emotionNode = new EmotionNode();
 
+    // MemoryNode 初期化
+    this.memoryNode = new MemoryNode();
+    await this.memoryNode.initialize();
+
+    // 記憶ツールを追加（サービスインスタンスを注入）
+    const memoryTools = createMemoryTools();
+    this.tools.push(...memoryTools);
+
     // FunctionCallingAgent 初期化（ツール群を渡す）
     this.functionCallingAgent = new FunctionCallingAgent(this.tools);
 
-    console.log('\x1b[36m✅ TaskGraph initialized (FunctionCalling mode)\x1b[0m');
+    console.log('\x1b[36m✅ TaskGraph initialized (FunctionCalling + Memory mode)\x1b[0m');
   }
 
   /**
@@ -113,9 +125,11 @@ export class TaskGraph {
    * 
    * 新フロー:
    * 1. EmotionNode で初回感情分析 (同期)
-   * 2. FunctionCallingAgent.run() でタスク実行
+   * 2. MemoryNode.preProcess で記憶取得 (同期)
+   * 3. FunctionCallingAgent.run() でタスク実行
    *    - 各イテレーションで emotionState.current を読み込み
    *    - ツール実行後に onToolsExecuted で非同期感情再評価をトリガー
+   * 4. MemoryNode.postProcess で記憶保存 + 人物更新 (非同期)
    */
   public async invoke(partialState: TaskStateInput) {
     // 排他制御
@@ -182,7 +196,21 @@ export class TaskGraph {
         }
       }
 
-      // === Step 2: FunctionCallingAgent 実行 ===
+      // === Step 2: MemoryNode.preProcess (同期) ===
+      let memoryState: MemoryState = { person: null, experiences: [], knowledge: [] };
+      if (this.memoryNode) {
+        try {
+          memoryState = await this.memoryNode.preProcess({
+            userMessage: state.userMessage,
+            context,
+          });
+        } catch (error) {
+          console.error('❌ MemoryNode preProcess エラー:', error);
+          // エラーでも続行（記憶なしでFCAを実行）
+        }
+      }
+
+      // === Step 3: FunctionCallingAgent 実行 ===
       if (!this.functionCallingAgent) {
         throw new Error('FunctionCallingAgent not initialized');
       }
@@ -193,6 +221,7 @@ export class TaskGraph {
           userMessage: state.userMessage,
           messages: state.messages,
           emotionState,
+          memoryState,
           context,
           channelId: state.channelId,
           environmentState: state.environmentState,
@@ -236,6 +265,41 @@ export class TaskGraph {
         messageCount: result.messages.length,
         finalEmotion: emotionState.current?.emotion,
       });
+
+      // === Step 4: MemoryNode.postProcess (非同期 fire-and-forget) ===
+      if (this.memoryNode && state.userMessage) {
+        const exchanges: IExchange[] = [];
+        // ユーザーメッセージ
+        exchanges.push({
+          role: 'user',
+          content: state.userMessage,
+          timestamp: new Date(),
+        });
+        // シャノンの応答を抽出
+        const assistantMessages = agentResult.messages
+          ?.filter((m: BaseMessage) => m instanceof AIMessage)
+          ?.map((m: BaseMessage) => typeof m.content === 'string' ? m.content : '')
+          ?.filter((c: string) => c.length > 0) ?? [];
+        for (const msg of assistantMessages) {
+          exchanges.push({
+            role: 'assistant',
+            content: msg.substring(0, 500),
+            timestamp: new Date(),
+          });
+        }
+
+        const conversationText = exchanges
+          .map((e) => `${e.role}: ${e.content}`)
+          .join('\n');
+
+        this.memoryNode.postProcess({
+          context,
+          conversationText,
+          exchanges,
+        }).catch((err) => {
+          console.error('❌ MemoryNode postProcess エラー:', err);
+        });
+      }
 
       this.currentState = result;
       return result;

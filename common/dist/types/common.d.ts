@@ -57,7 +57,7 @@ export declare function memoryZoneToContext(memoryZone: MemoryZone, channelId?: 
 export declare function contextToMemoryZone(context: TaskContext): MemoryZone;
 export type ConversationType = 'text' | 'audio' | 'realtime_text' | 'realtime_audio' | 'command' | 'log' | 'user_transcript';
 export declare const promptTypes: PromptType[];
-export type PromptType = TwitterSchedulePostEndpoint | 'base_text' | 'base_voice' | 'discord' | 'minecraft' | 'weather_to_emoji' | 'forecast_for_toyama_server' | 'reply_youtube_comment' | 'planning' | 'reply_twitter_comment' | 'quote_twitter_comment' | 'emotion' | 'use_tool' | 'reply_youtube_live_comment' | 'emergency' | 'auto_tweet';
+export type PromptType = TwitterSchedulePostEndpoint | 'base_text' | 'base_voice' | 'discord' | 'minecraft' | 'weather_to_emoji' | 'forecast_for_toyama_server' | 'reply_youtube_comment' | 'planning' | 'reply_twitter_comment' | 'quote_twitter_comment' | 'emotion' | 'use_tool' | 'reply_youtube_live_comment' | 'emergency' | 'auto_tweet' | 'extract_person_traits' | 'extract_memories';
 export type RealTimeAPIEndpoint = 'realtime_text_input' | 'realtime_text_commit' | 'realtime_audio_append' | 'realtime_audio_commit' | 'realtime_vad_on' | 'realtime_vad_off' | 'text_done' | 'audio_done';
 export type ServiceStatus = 'running' | 'stopped' | 'connecting';
 export type ServiceCommand = 'start' | 'stop' | 'status';
