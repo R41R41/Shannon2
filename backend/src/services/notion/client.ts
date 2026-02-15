@@ -12,12 +12,15 @@ export class NotionClient extends BaseClient {
 
     private static instance: NotionClient;
 
-    public static getInstance(isTest: boolean = false) {
+    public static getInstance(isTest?: boolean) {
         const eventBus = getEventBus();
         if (!NotionClient.instance) {
-            NotionClient.instance = new NotionClient('notion', isTest);
+            NotionClient.instance = new NotionClient('notion', isTest ?? false);
         }
-        NotionClient.instance.isTest = isTest;
+        // isTest は初期化時にのみ設定。以降の呼び出しでは上書きしない
+        if (isTest !== undefined) {
+            NotionClient.instance.isTest = isTest;
+        }
         NotionClient.instance.myUserId = config.twitter.userId || null;
         return NotionClient.instance;
     }
@@ -54,16 +57,55 @@ export class NotionClient extends BaseClient {
         });
         this.eventBus.subscribe('notion:getPageMarkdown', async (event) => {
             const { pageId } = event.data as NotionClientInput;
-            const markdown = await this.getPageBlocksToMarkdown(pageId);
-            const title = await this.getPageTitle(pageId);
-            this.eventBus.publish({
-                type: 'tool:getPageMarkdown',
-                memoryZone: 'notion',
-                data: {
-                    title: title,
-                    content: markdown,
-                },
-            });
+            try {
+                // まずページとして取得を試みる
+                const markdown = await this.getPageBlocksToMarkdown(pageId);
+                const title = await this.getPageTitle(pageId);
+                this.eventBus.publish({
+                    type: 'tool:getPageMarkdown',
+                    memoryZone: 'notion',
+                    data: {
+                        title: title,
+                        content: markdown,
+                    },
+                });
+            } catch (error: any) {
+                // ページとして見つからない場合、データベースとして取得を試みる
+                if (error?.code === 'object_not_found') {
+                    console.log(`[Notion] ページとして見つからないため、データベースとして取得: ${pageId}`);
+                    try {
+                        const dbResult = await this.queryDatabase(pageId);
+                        this.eventBus.publish({
+                            type: 'tool:getPageMarkdown',
+                            memoryZone: 'notion',
+                            data: {
+                                title: dbResult.title,
+                                content: dbResult.content,
+                            },
+                        });
+                    } catch (dbError: any) {
+                        console.error('[Notion] データベース取得エラー:', dbError?.message || dbError);
+                        this.eventBus.publish({
+                            type: 'tool:getPageMarkdown',
+                            memoryZone: 'notion',
+                            data: {
+                                title: 'エラー',
+                                content: [`Notionのページ/データベースを取得できませんでした。\nエラー: ${dbError?.message || dbError}\n\n対象のページまたはデータベースがNotion Integrationと共有されているか確認してください。\nNotion > ページ右上の「...」 > 接続 > シャノンのIntegrationを追加`],
+                            },
+                        });
+                    }
+                } else {
+                    console.error('[Notion] ページ取得エラー:', error?.message || error);
+                    this.eventBus.publish({
+                        type: 'tool:getPageMarkdown',
+                        memoryZone: 'notion',
+                        data: {
+                            title: 'エラー',
+                            content: [`Notionのページ取得中にエラーが発生しました。\nエラー: ${error?.message || error}`],
+                        },
+                    });
+                }
+            }
         });
     }
 
@@ -75,6 +117,129 @@ export class NotionClient extends BaseClient {
             || response?.property_item?.title?.plain_text
             || '';
         return title;
+    }
+
+    /**
+     * データベースの情報とエントリをクエリして返す
+     */
+    async queryDatabase(databaseId: string, pageSize: number = 50): Promise<{ title: string; content: string[] }> {
+        const uuid = this.toUuid(databaseId);
+        console.log(`[Notion] データベースクエリ: ${uuid}`);
+
+        // データベースのメタデータを取得
+        const dbMeta = await this.client.databases.retrieve({ database_id: uuid });
+
+        // データベースタイトルを取得
+        // @ts-ignore
+        const dbTitle = dbMeta.title?.map((t: any) => t.plain_text).join('') || 'Untitled Database';
+
+        // プロパティ名一覧を取得
+        const properties = Object.entries(dbMeta.properties);
+        const propertyNames = properties.map(([name]) => name);
+
+        // データベースのエントリを取得
+        const queryResponse = await this.client.databases.query({
+            database_id: uuid,
+            page_size: pageSize,
+        });
+
+        const content: string[] = [];
+        content.push(`## データベース: ${dbTitle}`);
+        content.push(`プロパティ: ${propertyNames.join(', ')}`);
+        content.push(`エントリ数: ${queryResponse.results.length}件`);
+        content.push('---');
+
+        for (const page of queryResponse.results) {
+            if (!('properties' in page)) continue;
+            const entry: string[] = [];
+
+            for (const [propName, propValue] of Object.entries(page.properties)) {
+                const value = this.extractPropertyValue(propValue as any);
+                if (value) {
+                    entry.push(`${propName}: ${value}`);
+                }
+            }
+
+            if (entry.length > 0) {
+                content.push(entry.join(' | '));
+            }
+        }
+
+        return { title: dbTitle, content };
+    }
+
+    /**
+     * Notionプロパティ値を文字列に変換
+     */
+    private extractPropertyValue(prop: any): string {
+        if (!prop) return '';
+        switch (prop.type) {
+            case 'title':
+                return prop.title?.map((t: any) => t.plain_text).join('') || '';
+            case 'rich_text':
+                return prop.rich_text?.map((t: any) => t.plain_text).join('') || '';
+            case 'number':
+                return prop.number != null ? String(prop.number) : '';
+            case 'select':
+                return prop.select?.name || '';
+            case 'multi_select':
+                return prop.multi_select?.map((s: any) => s.name).join(', ') || '';
+            case 'date':
+                if (!prop.date) return '';
+                const start = prop.date.start || '';
+                const end = prop.date.end ? ` → ${prop.date.end}` : '';
+                return `${start}${end}`;
+            case 'checkbox':
+                return prop.checkbox ? '✅' : '❌';
+            case 'url':
+                return prop.url || '';
+            case 'email':
+                return prop.email || '';
+            case 'phone_number':
+                return prop.phone_number || '';
+            case 'status':
+                return prop.status?.name || '';
+            case 'people':
+                return prop.people?.map((p: any) => p.name || 'Unknown').join(', ') || '';
+            case 'relation':
+                return prop.relation?.length ? `(${prop.relation.length}件のリレーション)` : '';
+            case 'formula':
+                if (prop.formula?.type === 'string') return prop.formula.string || '';
+                if (prop.formula?.type === 'number') return String(prop.formula.number ?? '');
+                if (prop.formula?.type === 'boolean') return prop.formula.boolean ? 'true' : 'false';
+                if (prop.formula?.type === 'date') return prop.formula.date?.start || '';
+                return '';
+            case 'rollup':
+                if (prop.rollup?.type === 'number') return String(prop.rollup.number ?? '');
+                if (prop.rollup?.type === 'array') return `(${prop.rollup.array?.length || 0}件)`;
+                return '';
+            case 'created_time':
+                return prop.created_time || '';
+            case 'last_edited_time':
+                return prop.last_edited_time || '';
+            case 'created_by':
+                return prop.created_by?.name || '';
+            case 'last_edited_by':
+                return prop.last_edited_by?.name || '';
+            case 'files':
+                return prop.files?.map((f: any) => f.name || f.file?.url || f.external?.url || '').join(', ') || '';
+            default:
+                return '';
+        }
+    }
+
+    /**
+     * IDをUUID形式に変換
+     */
+    private toUuid(id: string): string {
+        if (id.includes('-')) return id;
+        return [
+            id.substring(0, 8),
+            id.substring(8, 12),
+            id.substring(12, 16),
+            id.substring(16, 20),
+            id.substring(20)
+        ].join('-');
     }
 
     /**
