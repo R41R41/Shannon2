@@ -16,15 +16,19 @@ import {
 } from '@shannon/common';
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
+  ChannelType,
   ChatInputCommandInteraction,
   Client,
   ComponentType,
   EmbedBuilder,
   GatewayIntentBits,
+  Partials,
   SlashCommandBuilder,
   TextChannel,
+  ThreadChannel,
   User,
 } from 'discord.js';
 import fs from 'fs';
@@ -49,6 +53,48 @@ const voteDurations: { [key: string]: number } = {
   '1d': 24 * 60 * 60 * 1000,
   '1w': 7 * 24 * 60 * 60 * 1000,
 };
+/**
+ * Discord の 2000 文字制限に対応してメッセージを分割する
+ * 改行位置で自然に区切る
+ */
+function splitDiscordMessage(text: string, maxLength = 2000): string[] {
+  if (text.length <= maxLength) return [text];
+  const chunks: string[] = [];
+  let remaining = text;
+  while (remaining.length > 0) {
+    if (remaining.length <= maxLength) {
+      chunks.push(remaining);
+      break;
+    }
+    // 改行で区切れる位置を探す
+    let splitAt = remaining.lastIndexOf('\n', maxLength);
+    if (splitAt <= 0) {
+      // 改行がなければスペースで
+      splitAt = remaining.lastIndexOf(' ', maxLength);
+    }
+    if (splitAt <= 0) {
+      // それでもなければ強制分割
+      splitAt = maxLength;
+    }
+    chunks.push(remaining.slice(0, splitAt));
+    remaining = remaining.slice(splitAt).replace(/^\n/, '');
+  }
+  return chunks;
+}
+
+/**
+ * テキストチャンネルに分割送信する
+ */
+async function sendLongMessage(
+  channel: { send: (content: string) => Promise<unknown> },
+  text: string
+): Promise<void> {
+  const chunks = splitDiscordMessage(text);
+  for (const chunk of chunks) {
+    await channel.send(chunk);
+  }
+}
+
 export class DiscordBot extends BaseClient {
   private client: Client;
   private toyamaGuildId: string | null = null;
@@ -65,11 +111,14 @@ export class DiscordBot extends BaseClient {
   private colabChannelId: string | null = null;
   private static instance: DiscordBot;
   public isDev: boolean = false;
-  public static getInstance(isDev: boolean = false) {
+  public static getInstance(isDev?: boolean) {
     if (!DiscordBot.instance) {
-      DiscordBot.instance = new DiscordBot('discord', isDev);
+      DiscordBot.instance = new DiscordBot('discord', isDev ?? false);
     }
-    DiscordBot.instance.isDev = isDev;
+    // isDev は初期化時にのみ設定。以降の呼び出しでは上書きしない
+    if (isDev !== undefined) {
+      DiscordBot.instance.isDev = isDev;
+    }
     return DiscordBot.instance;
   }
 
@@ -86,11 +135,31 @@ export class DiscordBot extends BaseClient {
         GatewayIntentBits.GuildIntegrations,
         GatewayIntentBits.GuildModeration,
       ],
+      partials: [
+        Partials.Channel,
+        Partials.Message,
+        Partials.ThreadMember,
+      ],
     });
     this.eventBus = eventBus;
 
-    this.client.once('ready', () => {
+    this.client.once('ready', async () => {
       this.setupSlashCommands();
+
+      // 既存のアクティブスレッドに参加
+      for (const [, guild] of this.client.guilds.cache) {
+        try {
+          const threads = await guild.channels.fetchActiveThreads();
+          for (const [, thread] of threads.threads) {
+            if (thread.joinable && !thread.joined) {
+              await thread.join();
+              console.log(`[Discord] 既存スレッドに参加: ${thread.name}`);
+            }
+          }
+        } catch (err) {
+          console.warn(`[Discord] ${guild.name} のスレッド取得失敗:`, err);
+        }
+      }
     });
 
     this.setUpChannels();
@@ -687,6 +756,9 @@ export class DiscordBot extends BaseClient {
     if (channel instanceof TextChannel) {
       return channel.name;
     }
+    if (channel instanceof ThreadChannel) {
+      return `${channel.parent?.name ?? 'unknown'}/${channel.name}`;
+    }
     return channelId;
   }
 
@@ -716,10 +788,44 @@ export class DiscordBot extends BaseClient {
         });
       }
     });
+    // スレッドが作成されたら自動参加（メッセージ受信のため）
+    this.client.on('threadCreate', async (thread) => {
+      if (!thread.joinable) return;
+      try {
+        await thread.join();
+        console.log(`[Discord] スレッドに参加: ${thread.name} (${thread.id})`);
+      } catch (err) {
+        console.warn(`[Discord] スレッド参加失敗: ${thread.name}`, err);
+      }
+    });
+
     this.client.on('messageCreate', async (message) => {
-      if (this.status !== 'running') return;
+      try {
+      // 全メッセージのデバッグログ（スレッド問題調査用）
+      const isThread = message.channel?.isThread?.();
+      if (isThread) {
+        console.log(`[Discord] スレッド内メッセージ受信: ch=${message.channelId} author=${message.author?.username} content="${message.content?.substring(0, 50)}"`);
+      }
+
+      if (this.status !== 'running') {
+        if (isThread) console.log(`[Discord] スレッドメッセージスキップ: status=${this.status}`);
+        return;
+      }
+      // Partial メッセージの場合はfetchして完全なデータを取得
+      if (message.partial) {
+        try {
+          message = await message.fetch();
+        } catch (err) {
+          console.warn('[Discord] Partial メッセージのfetch失敗:', err);
+          return;
+        }
+      }
       const isDevGuild = message.guildId === config.discord.guilds.test.guildId;
-      if (this.isDev !== isDevGuild) return;
+      if (this.isDev !== isDevGuild) {
+        if (isThread) console.log(`[Discord] スレッドメッセージスキップ: isDev=${this.isDev} isDevGuild=${isDevGuild}`);
+        return;
+      }
+
       console.log(message.content);
 
       if (message.author.bot) return;
@@ -733,7 +839,10 @@ export class DiscordBot extends BaseClient {
       const isMentioned = mentions.some(
         (mention) => mention.id === this.client.user?.id
       );
-      if (mentions.length > 0 && !isMentioned) return;
+      if (mentions.length > 0 && !isMentioned) {
+        if (isThread) console.log(`[Discord] スレッドメッセージスキップ: 他ユーザーへのメンション`);
+        return;
+      }
 
       if (message.channelId === this.aiminelabUpdateChannelId) return;
 
@@ -764,25 +873,85 @@ export class DiscordBot extends BaseClient {
         .filter((attachment) => attachment.contentType?.startsWith('image/'))
         .map((attachment) => attachment.url);
 
+      // 返信先メッセージの画像URLを取得
+      let replyContext = '';
+      if (message.reference?.messageId) {
+        try {
+          const refMsg = await message.fetchReference();
+          const refNickname = this.getUserNickname(refMsg.author, refMsg.guildId ?? '');
+          const refImageUrls = refMsg.attachments
+            .filter((att) => att.contentType?.startsWith('image/'))
+            .map((att) => att.url);
+          const refEmbedImages = refMsg.embeds
+            .filter((e) => e.image?.url)
+            .map((e) => e.image!.url);
+          const allRefImages = [...refImageUrls, ...refEmbedImages];
+
+          replyContext = `[返信先: ${refNickname}「${refMsg.content?.substring(0, 100) || ''}」`;
+          if (allRefImages.length > 0) {
+            replyContext += `\n返信先の画像: ${allRefImages.join('\n')}`;
+          }
+          replyContext += ']\n';
+        } catch (err) {
+          console.warn('[Discord] 返信先メッセージの取得に失敗:', err);
+        }
+      }
+
+      // スレッドの場合、スレッドの元投稿（スターターメッセージ）の画像をコンテキストに含める
+      let threadStarterContext = '';
+      const channelObj = this.client.channels.cache.get(message.channelId);
+      if (channelObj instanceof ThreadChannel) {
+        try {
+          const starterMessage = await channelObj.fetchStarterMessage();
+          if (starterMessage) {
+            const starterImageUrls = starterMessage.attachments
+              .filter((att) => att.contentType?.startsWith('image/'))
+              .map((att) => att.url);
+            const starterEmbedImages = starterMessage.embeds
+              .filter((e) => e.image?.url)
+              .map((e) => e.image!.url);
+            const allStarterImages = [...starterImageUrls, ...starterEmbedImages];
+            if (allStarterImages.length > 0) {
+              const starterNickname = this.getUserNickname(starterMessage.author, starterMessage.guildId ?? '');
+              threadStarterContext = `[スレッド元投稿: ${starterNickname}「${starterMessage.content?.substring(0, 100) || ''}」\nスレッド元投稿の画像: ${allStarterImages.join('\n')}]\n`;
+            }
+          }
+        } catch (err) {
+          console.warn('[Discord] スレッドスターターメッセージの取得に失敗:', err);
+        }
+      }
+
       // テキストと画像URLを結合
-      const contentWithImages =
-        imageUrls.length > 0
-          ? `${messageContent}\n画像: ${imageUrls.join('\n')}`
-          : messageContent;
+      let contentWithImages = messageContent;
+      if (imageUrls.length > 0) {
+        contentWithImages += `\n画像: ${imageUrls.join('\n')}`;
+      }
+      if (replyContext) {
+        contentWithImages = replyContext + contentWithImages;
+      }
+      if (threadStarterContext) {
+        contentWithImages = threadStarterContext + contentWithImages;
+      }
+
+      // スレッドの場合は親チャンネルIDでフィルタリング
+      const channel = this.client.channels.cache.get(message.channelId);
+      const parentChannelId = (channel instanceof ThreadChannel)
+        ? channel.parentId ?? message.channelId
+        : message.channelId;
 
       if (
         guildId === this.toyamaGuildId &&
-        message.channelId !== this.toyamaChannelId
+        parentChannelId !== this.toyamaChannelId
       )
         return;
       if (
         guildId === this.doukiGuildId &&
-        message.channelId !== this.doukiChannelId
+        parentChannelId !== this.doukiChannelId
       )
         return;
       if (
         guildId === this.colabGuildId &&
-        message.channelId !== this.colabChannelId
+        parentChannelId !== this.colabChannelId
       )
         return;
       this.eventBus.log(
@@ -809,6 +978,9 @@ export class DiscordBot extends BaseClient {
           recentMessages: recentMessages,
         } as DiscordSendTextMessageOutput,
       });
+      } catch (err) {
+        console.error('[Discord] messageCreate ハンドラエラー:', err);
+      }
     });
     this.client.on('speech', async (speech) => {
       if (this.status !== 'running') return;
@@ -859,14 +1031,30 @@ export class DiscordBot extends BaseClient {
         console.log('\x1b[34m' + guildName + ' ' + channelName + '\x1b[0m');
         console.log('\x1b[34m' + 'shannon: ' + text + '\x1b[0m');
         if (imageUrl) {
-          const embed = {
-            image: {
-              url: imageUrl,
-            },
-          };
-          channel.send({ content: text ?? '', embeds: [embed] });
+          const content = (text ?? '').slice(0, 2000);
+          try {
+            // ローカルファイルパスの場合はAttachmentBuilderで添付
+            if (imageUrl.startsWith('/') || imageUrl.startsWith('./') || imageUrl.startsWith('../')) {
+              if (fs.existsSync(imageUrl)) {
+                const fileName = path.basename(imageUrl);
+                const attachment = new AttachmentBuilder(imageUrl, { name: fileName });
+                await channel.send({ content, files: [attachment] });
+              } else {
+                console.warn(`[Discord] 画像ファイルが見つかりません: ${imageUrl}`);
+                await channel.send({ content: content + '\n(画像ファイルが見つかりませんでした)' });
+              }
+            } else {
+              // 外部URLの場合はembed
+              const embed = { image: { url: imageUrl } };
+              await channel.send({ content, embeds: [embed] });
+            }
+          } catch (imgError) {
+            console.error('[Discord] 画像送信エラー:', imgError);
+            // 画像送信失敗時はテキストだけ送信（クラッシュ防止）
+            await sendLongMessage(channel as TextChannel, text ?? '');
+          }
         } else {
-          channel.send(text ?? '');
+          await sendLongMessage(channel as TextChannel, text ?? '');
         }
       }
     });
@@ -879,11 +1067,12 @@ export class DiscordBot extends BaseClient {
         command === 'about_today' ||
         command === 'news_today'
       ) {
+        const message = text ?? '';
         if (this.isDev) {
           const xChannelId = this.testXChannelId ?? '';
           const channel = this.client.channels.cache.get(xChannelId);
           if (channel?.isTextBased() && 'send' in channel) {
-            channel.send(text ?? '');
+            await sendLongMessage(channel as TextChannel, message);
           }
         } else {
           if (event.memoryZone === 'discord:colab_server') {
@@ -891,33 +1080,33 @@ export class DiscordBot extends BaseClient {
               this.colabChannelId ?? ''
             );
             if (colabChannel?.isTextBased() && 'send' in colabChannel) {
-              colabChannel.send(text ?? '');
+              await sendLongMessage(colabChannel as TextChannel, message);
             }
           } else if (event.memoryZone === 'discord:douki_server') {
             const doukiChannel = this.client.channels.cache.get(
               this.doukiChannelId ?? ''
             );
             if (doukiChannel?.isTextBased() && 'send' in doukiChannel) {
-              doukiChannel.send(text ?? '');
+              await sendLongMessage(doukiChannel as TextChannel, message);
             }
           } else if (event.memoryZone === 'discord:toyama_server') {
             const toyamaChannel = this.client.channels.cache.get(
               this.toyamaChannelId ?? ''
             );
             if (toyamaChannel?.isTextBased() && 'send' in toyamaChannel) {
-              toyamaChannel.send(text ?? '');
+              await sendLongMessage(toyamaChannel as TextChannel, message);
             }
           } else if (event.memoryZone === 'discord:test_server') {
             const testChannelId = this.testXChannelId ?? '';
             const channel = this.client.channels.cache.get(testChannelId);
             if (channel?.isTextBased() && 'send' in channel) {
-              channel.send(text ?? '');
+              await sendLongMessage(channel as TextChannel, message);
             }
           } else {
             const xChannelId = this.aiminelabXChannelId ?? '';
             const channel = this.client.channels.cache.get(xChannelId);
             if (channel?.isTextBased() && 'send' in channel) {
-              channel.send(text ?? '');
+              await sendLongMessage(channel as TextChannel, message);
             }
           }
         }
@@ -950,10 +1139,14 @@ export class DiscordBot extends BaseClient {
         const channel = this.client.channels.cache.get(channelId);
         if (!channel?.isTextBased() || !('messages' in channel)) return;
         const message = await channel.messages.fetch(messageId);
-        if (guild && message) {
-          const emoji = guild.emojis.cache.get(emojiId);
-          if (emoji) {
-            await message.react(emoji);
+        if (message) {
+          // サーバーカスタム絵文字を探す
+          const serverEmoji = guild?.emojis.cache.get(emojiId);
+          if (serverEmoji) {
+            await message.react(serverEmoji);
+          } else {
+            // Unicode 絵文字としてそのまま使う（例: "😂", "👍"）
+            await message.react(emojiId);
           }
         }
         this.eventBus.publish({
@@ -1086,7 +1279,11 @@ export class DiscordBot extends BaseClient {
     limit: number = 10
   ): Promise<BaseMessage[]> {
     try {
-      const channel = this.client.channels.cache.get(channelId);
+      let channel = this.client.channels.cache.get(channelId);
+      // キャッシュにない場合はfetchを試みる（スレッドチャンネル等）
+      if (!channel) {
+        try { channel = await this.client.channels.fetch(channelId) ?? undefined; } catch { /* ignore */ }
+      }
       if (!channel?.isTextBased() || !('messages' in channel)) {
         throw new Error('Invalid channel or not a text channel');
       }

@@ -1,5 +1,6 @@
 import { StructuredTool } from '@langchain/core/tools';
 import OpenAI from 'openai';
+import fs from 'fs';
 import { z } from 'zod';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
@@ -7,12 +8,11 @@ import { models } from '../../../config/models.js';
 export default class DescribeImageTool extends StructuredTool {
   name = 'describe-image';
   description =
-    'A tool to analyze and describe the content of images from URLs. Use this when you need to understand what is in an image.';
+    '画像の内容を分析・説明するツール。URLまたはローカルファイルパスを受け付ける。get-discord-images で取得したURLをそのまま渡せる。';
   schema = z.object({
     image_url: z
       .string()
-      .url()
-      .describe('The URL of the image you want to analyze'),
+      .describe('画像のURL、またはローカルファイルパス'),
   });
   private openai: OpenAI;
 
@@ -27,6 +27,17 @@ export default class DescribeImageTool extends StructuredTool {
 
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
     try {
+      // ローカルファイルパスの場合は base64 に変換
+      let imageUrl = data.image_url;
+      if (imageUrl.startsWith('/') || imageUrl.startsWith('./') || imageUrl.startsWith('../')) {
+        if (!fs.existsSync(imageUrl)) {
+          return `エラー: 画像ファイルが見つかりません: ${imageUrl}`;
+        }
+        const imageBuffer = fs.readFileSync(imageUrl);
+        const base64 = imageBuffer.toString('base64');
+        imageUrl = `data:image/png;base64,${base64}`;
+      }
+
       const response = await this.openai.chat.completions.create({
         model: models.vision,
         messages: [
@@ -37,7 +48,7 @@ export default class DescribeImageTool extends StructuredTool {
               {
                 type: 'image_url',
                 image_url: {
-                  url: data.image_url,
+                  url: imageUrl,
                 },
               },
             ],
