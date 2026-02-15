@@ -14,7 +14,7 @@ export const models = {
   functionCalling: 'gpt-4.1-mini',
 
   /** Emotion analysis model (lightweight, fast) */
-  emotion: 'gpt-5-mini',
+  emotion: 'gpt-4.1-nano',
 
   /** Minebot planning model (reasoning-focused) */
   planning: 'o4-mini',
@@ -32,7 +32,7 @@ export const models = {
   vision: 'gpt-4.1-mini',
 
   /** Image generation */
-  imageGeneration: 'gpt-image-1',
+  imageGeneration: 'gpt-image-1.5',
 
   /** Blueprint creation (minebot) */
   blueprint: 'gpt-4.1-mini',

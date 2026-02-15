@@ -10,7 +10,7 @@ import { EventBus } from '../../eventBus/eventBus.js';
 export default class ReactByServerEmojiOnDiscordTool extends StructuredTool {
   name = 'react-by-server-emoji-on-discord';
   description =
-    'A tool to react to specific messages with server-specific emojis on Discord.';
+    'Discordのメッセージに絵文字でリアクションするツール。emojiには Unicode絵文字（例: "😂", "👍", "🎉"）またはサーバーカスタム絵文字のID を指定できる。';
   schema = z.object({
     guildId: z
       .string()
@@ -21,7 +21,7 @@ export default class ReactByServerEmojiOnDiscordTool extends StructuredTool {
     messageId: z
       .string()
       .describe('MessageId of the message you want to react to'),
-    emojiId: z.string().describe('EmojiId of the emoji you want to react with'),
+    emojiId: z.string().describe('Unicode絵文字（例: "😂"）またはサーバーカスタム絵文字のID'),
   });
 
   private eventBus: EventBus;

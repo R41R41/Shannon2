@@ -2,6 +2,9 @@ import { StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import wikipedia from 'wikipedia';
 
+// Wikipedia API は User-Agent 必須（ないと 403）
+wikipedia.setUserAgent('ShannonBot/1.0 (https://sh4nnon.com)');
+
 export default class SearchByWikipediaTool extends StructuredTool {
     name = 'search-by-wikipedia';
     description = 'Wikipediaで対象を検索し、内容を返すツール。日本語・英語どちらも対応。';

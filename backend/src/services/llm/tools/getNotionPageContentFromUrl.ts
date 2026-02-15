@@ -10,11 +10,11 @@ import { cacheNotionImageUrls } from './describeNotionImage.js';
 
 export default class GetNotionPageContentFromUrlTool extends StructuredTool {
     name = 'get-notion-page-content-from-url';
-    description = 'NotionのページURLからタイトルと内容を取得するツール。';
+    description = 'NotionのページまたはデータベースのURLからタイトルと内容を取得するツール。通常のページもデータベース（カレンダーやテーブル等）も対応。';
     schema = z.object({
         url: z
             .string()
-            .describe('取得したいNotionのページのURL。有効なURLを指定してください。'),
+            .describe('取得したいNotionのページまたはデータベースのURL。有効なURLを指定してください。'),
     });
     private eventBus: EventBus;
 
@@ -94,13 +94,19 @@ export default class GetNotionPageContentFromUrlTool extends StructuredTool {
             }
 
             console.log('get-notion-page-content-from-url', pageId);
-            // emojiIdを取得するPromiseを作成
-            const getContent = new Promise<NotionClientOutput>(async (resolve) => {
+            // Notionクライアントにイベント経由でリクエストし、レスポンスを待つ
+            const getContent = new Promise<NotionClientOutput>((resolve, reject) => {
+                // タイムアウト: 30秒
+                const timeout = setTimeout(() => {
+                    reject(new Error('Notionからの応答がタイムアウトしました（30秒）'));
+                }, 30000);
+
                 this.eventBus.subscribe('tool:getPageMarkdown', (event) => {
+                    clearTimeout(timeout);
                     const { title, content } = event.data as NotionClientOutput;
                     resolve({ title, content });
                 });
-                await this.eventBus.publish({
+                this.eventBus.publish({
                     type: 'notion:getPageMarkdown',
                     memoryZone: 'notion',
                     data: {

@@ -89,6 +89,7 @@ export const config = {
     email: optional('TWITTER_EMAIL', ''),
     password: optional('TWITTER_PASSWORD', ''),
     twoFaCode: optional('TWITTER_TWO_FA_CODE', ''),
+    totpSecret: optional('TWITTER_TOTP_SECRET', ''),
     loginData: optional('TWITTER_LOGIN_DATA', ''),
     authSession: optional('TWITTER_AUTH_SESSION', ''),
     apiKey: optional('TWITTER_API_KEY', ''),
