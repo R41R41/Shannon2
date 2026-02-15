@@ -78,8 +78,10 @@ export class TwitterClient extends BaseClient {
   private password: string;
   private login_data: string;
   private two_fa_code: string;
+  private totp_secret: string;
   private auth_session: string;
   private login_cookies: string;
+  private userName: string;
   private proxy1: string;
   private proxy2: string;
   private proxy3: string;
@@ -303,8 +305,10 @@ export class TwitterClient extends BaseClient {
     this.password = config.twitter.password;
     this.login_data = config.twitter.loginData;
     this.two_fa_code = config.twitter.twoFaCode;
+    this.totp_secret = config.twitter.totpSecret;
     this.auth_session = config.twitter.authSession;
-    this.login_cookies = config.twitter.loginCookies || config.twitter.authSession;
+    this.login_cookies = config.twitter.loginCookies || '';
+    this.userName = config.twitter.userName || '';
     this.proxy1 = config.twitter.proxy1;
     this.proxy2 = config.twitter.proxy2;
     this.proxy3 = config.twitter.proxy3;
@@ -382,7 +386,7 @@ export class TwitterClient extends BaseClient {
       const { text } = event.data as TwitterClientInput;
       try {
         if (text) {
-          await this.postTweetByApi(text);
+          await this.postTweet(text, null, null);
         }
       } catch (error) {
         logger.error('Twitter post error:', error);
@@ -392,6 +396,11 @@ export class TwitterClient extends BaseClient {
     this.eventBus.subscribe('twitter:post_message', async (event) => {
       if (this.status !== 'running') {
         logger.warn(`[twitter:post_message] status="${this.status}" のためスキップ`);
+        this.eventBus.publish({
+          type: 'tool:post_tweet_result',
+          memoryZone: 'twitter:post',
+          data: { isSuccess: false, errorMessage: 'Twitter service is not running' },
+        });
         return;
       }
       const { replyId, text, imageUrl, quoteTweetUrl } = event.data as TwitterClientInput;
@@ -401,11 +410,22 @@ export class TwitterClient extends BaseClient {
           // 引用RTとしてツイート投稿
           await this.postQuoteTweet(text, quoteTweetUrl);
         } else {
-          // OAuth 1.0a (twitter-api-v2) で投稿 (返信対応)
-          await this.postTweetByApi(text, replyId);
+          // twitterapi.io 経由で投稿 (返信対応)
+          await this.postTweet(text, null, replyId ?? null);
         }
+        this.eventBus.publish({
+          type: 'tool:post_tweet_result',
+          memoryZone: 'twitter:post',
+          data: { isSuccess: true, errorMessage: '' },
+        });
       } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error);
         logger.error('Twitter post error:', error);
+        this.eventBus.publish({
+          type: 'tool:post_tweet_result',
+          memoryZone: 'twitter:post',
+          data: { isSuccess: false, errorMessage: errMsg },
+        });
       }
     });
 
@@ -562,6 +582,45 @@ export class TwitterClient extends BaseClient {
     }
   }
 
+  /**
+   * twitterapi.io V2 ログイン
+   * totp_secret を使って login_cookies を取得する（推奨フロー）
+   */
+  private async loginV2(): Promise<void> {
+    const endpoint = 'https://api.twitterapi.io/twitter/user_login_v2';
+    const data = {
+      user_name: this.userName,
+      email: this.email,
+      password: this.password,
+      totp_secret: this.totp_secret,
+      proxy: this.proxy1,
+    };
+    const reqConfig = { headers: { 'X-API-Key': this.apiKey } };
+    try {
+      logger.info(`[loginV2] ログイン中... user_name=${this.userName}, email=${this.email}, totp_secret=${this.totp_secret ? '***' : '(empty)'}`, 'cyan');
+      const response = await axios.post(endpoint, data, reqConfig);
+      const resData = response.data;
+      logger.info(`[loginV2] レスポンス全体: ${JSON.stringify(resData).slice(0, 500)}`, 'cyan');
+
+      if (resData?.status === 'error') {
+        throw new Error(`loginV2 failed: ${resData?.msg || resData?.message || JSON.stringify(resData).slice(0, 200)}`);
+      }
+
+      const cookies = resData?.login_cookie || resData?.login_cookies;
+      if (!cookies) {
+        throw new Error(`loginV2: login_cookie が返されませんでした。レスポンス: ${JSON.stringify(resData).slice(0, 300)}`);
+      }
+      this.login_cookies = cookies;
+      logger.success(`[loginV2] ログイン成功。login_cookies 取得完了 (${cookies.length}文字)`);
+    } catch (error: unknown) {
+      logger.error(`[loginV2] エラー: ${error instanceof Error ? error.message : String(error)}`);
+      if (isAxiosError(error)) {
+        logger.error(`[loginV2] レスポンス: ${JSON.stringify(error.response?.data).slice(0, 300)}`);
+      }
+      throw error;
+    }
+  }
+
   // =========================================================================
   // Tweet Posting
   // =========================================================================
@@ -584,33 +643,85 @@ export class TwitterClient extends BaseClient {
     }
   }
 
-  /** twitterapi.io v1 経由でツイート (返信含む) */
+  /**
+   * twitterapi.io v2 経由でツイート (返信含む)
+   * create_tweet_v2 + login_cookies を使用（226エラー回避）
+   */
   private async postTweet(
     content: string,
     mediaUrl: string | null,
     replyId: string | null
-  ) {
+  ): Promise<import('axios').AxiosResponse | undefined> {
     if (this.status !== 'running') return;
+
+    // login_cookies が未取得なら自動ログイン
+    if (!this.login_cookies) {
+      logger.warn('[postTweet] login_cookies が未取得。loginV2 を実行します...');
+      await this.loginV2();
+    }
+
     try {
-      const endpoint = 'https://api.twitterapi.io/twitter/create_tweet';
-      const data = {
-        auth_session: this.auth_session,
+      const endpoint = 'https://api.twitterapi.io/twitter/create_tweet_v2';
+      const data: Record<string, unknown> = {
+        login_cookies: this.login_cookies,
         tweet_text: content,
-        media_id: mediaUrl ?? null,
-        in_reply_to_tweet_id: replyId ?? null,
         proxy: this.proxy1,
       };
+      // prod（Premium）は長文ツイート対応
+      if (!this.isTest) {
+        data.is_note_tweet = true;
+      }
+      if (replyId) {
+        data.reply_to_tweet_id = replyId;
+      }
+      if (mediaUrl) {
+        data.media_ids = [mediaUrl];
+      }
       const reqConfig = { headers: { 'X-API-Key': this.apiKey } };
-      logger.info(`[postTweet] 投稿中... replyId=${replyId}`, 'cyan');
+      logger.info(`[postTweet] 投稿中 (v2)... replyId=${replyId}`, 'cyan');
       const response = await axios.post(endpoint, data, reqConfig);
-      logger.success(`[postTweet] 成功: ${JSON.stringify(response.data).slice(0, 200)}`);
+      const resData = response.data;
+      logger.info(`[postTweet] レスポンス: ${JSON.stringify(resData).slice(0, 500)}`, 'cyan');
+
+      // --- エラー判定 ---
+      // v2 形式: { status: 'error', msg: '...' }
+      if (resData?.status === 'error') {
+        const errMsg = resData?.msg || 'Unknown error';
+        logger.error(`[postTweet] APIエラー: ${errMsg}`);
+        // login_cookies が無効になった場合は再ログインしてリトライ
+        if (errMsg.includes('cookie') || errMsg.includes('login') || errMsg.includes('auth')) {
+          logger.warn('[postTweet] セッション無効の可能性。再ログインしてリトライします...');
+          await this.loginV2();
+          return this.postTweet(content, mediaUrl, replyId);
+        }
+        throw new Error(`Twitter API error: ${errMsg}`);
+      }
+
+      // GraphQL 形式のエラー（v1からの互換性チェック）
+      if (resData?.errors && Array.isArray(resData.errors) && resData.errors.length > 0) {
+        const err = resData.errors[0];
+        const errCode = err?.code ?? err?.extensions?.code;
+        const errMsg = err?.message || err?.kind || 'Unknown';
+        logger.error(`[postTweet] APIエラー: code=${errCode} ${errMsg}`);
+        throw new Error(`Twitter API error: code=${errCode} - ${errMsg}`);
+      }
+
+      // --- 成功判定 ---
+      const tweetId = resData?.tweet_id;
+      if (tweetId) {
+        logger.success(`[postTweet] 成功: tweet_id=${tweetId}`);
+      } else if (resData?.status === 'success') {
+        logger.success(`[postTweet] 成功（tweet_idなし）`);
+      } else {
+        logger.warn(`[postTweet] 成功判定不明: ${JSON.stringify(resData).slice(0, 300)}`);
+      }
       return response;
     } catch (error: unknown) {
       logger.error(`[postTweet] エラー: ${error instanceof Error ? error.message : String(error)}`);
       if (isAxiosError(error)) {
         logger.error(`[postTweet] レスポンス: ${JSON.stringify(error.response?.data).slice(0, 300)}`);
       }
-      return error;
+      throw error;
     }
   }
 
@@ -630,11 +741,17 @@ export class TwitterClient extends BaseClient {
       };
       const reqConfig = { headers: { 'X-API-Key': this.apiKey } };
       const response = await axios.post(endpoint, data, reqConfig);
-      logger.success(`引用RT投稿成功: ${response.data?.tweet_id ?? 'OK'}`);
+      const resData = response.data;
+      // v2 レスポンス形式: { tweet_id, status, msg }
+      if (resData?.status === 'error') {
+        logger.error(`引用RT投稿失敗: ${resData?.msg || 'Unknown error'}`);
+        throw new Error(`Twitter API error: ${resData?.msg || 'Unknown'}`);
+      }
+      logger.success(`引用RT投稿成功: tweet_id=${resData?.tweet_id ?? 'OK'}`);
       return response;
     } catch (error: unknown) {
       logger.error(`引用RT投稿失敗: ${error instanceof Error ? error.message : String(error)}`);
-      return error;
+      throw error;
     }
   }
 
@@ -1328,8 +1445,13 @@ export class TwitterClient extends BaseClient {
 
   public async initialize() {
     try {
-      // await this.login1Step();
-      // await this.login2Step();
+      // V2 ログイン: login_cookies を取得（投稿に必要）
+      try {
+        await this.loginV2();
+      } catch (loginError) {
+        logger.warn(`[initialize] V2ログイン失敗（投稿時に再試行します）: ${loginError instanceof Error ? loginError.message : String(loginError)}`);
+      }
+
       // Webhook ルールをセットアップ (dev/prod 共通)
       await this.setupWebhookRule();
 
