@@ -944,12 +944,19 @@ export class TwitterClient extends BaseClient {
           }
         );
 
-        if (res.data.status !== 'success') {
-          logger.error(`advanced_search エラー: ${res.data.message}`);
+        // エラーレスポンスチェック（API がエラーを返す場合は status や message が含まれる）
+        if (res.data.status && res.data.status !== 'success') {
+          logger.error(`advanced_search エラー: ${JSON.stringify(res.data)}`);
           break;
         }
 
-        const tweets = (res.data.tweets ?? []) as TweetData[];
+        // 正常レスポンス: { tweets: [...], has_next_page, next_cursor }
+        if (!Array.isArray(res.data.tweets)) {
+          logger.error(`advanced_search 予期しないレスポンス形式: ${JSON.stringify(res.data).substring(0, 300)}`);
+          break;
+        }
+
+        const tweets = res.data.tweets as TweetData[];
         allTweets.push(...tweets);
 
         if (res.data.has_next_page && res.data.next_cursor) {
