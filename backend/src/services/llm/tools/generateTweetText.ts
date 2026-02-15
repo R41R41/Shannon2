@@ -10,7 +10,7 @@ const isPremium = !config.isDev;
 const charLimit = isPremium ? null : 140; // prod(Premium): 制限なし, dev: 140文字
 
 /**
- * FTモデルを使ってシャノンらしいツイート文を生成するツール。
+ * プロンプト + few-shot例でシャノンらしいツイート文を生成するツール。
  * AutoTweet（自動投稿）や FCA（Discord経由の手動投稿）で使用する。
  *
  * 生成するだけで投稿はしない。投稿は post-on-twitter ツールで行う。
@@ -18,8 +18,8 @@ const charLimit = isPremium ? null : 140; // prod(Premium): 制限なし, dev: 1
 export default class GenerateTweetTextTool extends StructuredTool {
   name = 'generate-tweet-text';
   description = isPremium
-    ? 'シャノンのキャラクターでTwitter投稿文を生成するツール。ファインチューニングモデルを使い、人間のツイッタラーっぽい自然な文章を生成する。Premium対応のため長文も可能。投稿はしない（投稿は post-on-twitter で行う）。topicに「テーマ」や「こんな感じで」という指示を渡す。'
-    : 'シャノンのキャラクターでTwitter投稿文を生成するツール。ファインチューニングモデルを使い、人間のツイッタラーっぽい自然な文章を生成する。投稿はしない（投稿は post-on-twitter で行う）。topicに「テーマ」や「こんな感じで」という指示を渡す。';
+    ? 'シャノンのキャラクターでTwitter投稿文を生成するツール。人間のツイッタラーっぽい自然な文章を生成する。Premium対応のため長文も可能。投稿はしない（投稿は post-on-twitter で行う）。topicに「テーマ」や「こんな感じで」という指示を渡す。'
+    : 'シャノンのキャラクターでTwitter投稿文を生成するツール。人間のツイッタラーっぽい自然な文章を生成する。投稿はしない（投稿は post-on-twitter で行う）。topicに「テーマ」や「こんな感じで」という指示を渡す。';
   schema = z.object({
     topic: z
       .string()
