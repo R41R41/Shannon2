@@ -29,27 +29,46 @@ class GetEntityLookDirection extends InstantSkill {
                 };
             }
 
-            // まずプレイヤーを検索
             let entity = null;
-            const player = this.bot.players[entityName];
-            if (player && player.entity) {
-                entity = player.entity;
+            let resolvedName = entityName;
+
+            // "player" が指定された場合は最も近いプレイヤーを探す
+            if (entityName.toLowerCase() === 'player') {
+                const nearestPlayer = this.findNearestPlayer();
+                if (nearestPlayer) {
+                    entity = nearestPlayer.entity;
+                    resolvedName = nearestPlayer.name;
+                }
+            } else {
+                // まず指定された名前でプレイヤーを検索
+                const player = this.bot.players[entityName];
+                if (player && player.entity) {
+                    entity = player.entity;
+                }
+
+                // プレイヤーが見つからなければ、その他のエンティティを検索
+                if (!entity) {
+                    entity = Object.values(this.bot.entities).find((e) => {
+                        const name = e.username || e.name || '';
+                        return name.toLowerCase() === entityName.toLowerCase();
+                    });
+                }
             }
 
-            // プレイヤーが見つからなければ、その他のエンティティを検索
             if (!entity) {
-                entity = Object.values(this.bot.entities).find((e) => {
-                    const name = e.username || e.name || '';
-                    return name.toLowerCase() === entityName.toLowerCase();
-                });
-            }
+                // 利用可能なプレイヤー名を表示
+                const availablePlayers = Object.keys(this.bot.players)
+                    .filter(name => name !== this.bot.username && this.bot.players[name].entity)
+                    .join(', ');
 
-            if (!entity) {
                 return {
                     success: false,
-                    result: `エンティティ「${entityName}」が見つかりません`,
+                    result: `エンティティ「${entityName}」が見つかりません。${availablePlayers ? `利用可能なプレイヤー: ${availablePlayers}` : '近くにプレイヤーがいません'}`,
                 };
             }
+
+            // 以降、resolvedNameを使用
+            entityName = resolvedName;
 
             // 位置
             const pos = entity.position;
@@ -85,7 +104,7 @@ class GetEntityLookDirection extends InstantSkill {
             const nextActions = [
                 `1. move-to: {"x":${moveToX},"y":${moveToY},"z":${moveToZ}} で${entityName}の横に移動`,
                 `2. look-at: {"yaw":${resultYaw},"pitch":${resultPitch}} で${entityName}と同じ方向を向く`,
-                `3. describe-bot-view で${entityName}が見ているものを確認`,
+                `3. get-block-in-sight で${entityName}が見ている先のブロックを確認`,
             ];
 
             return {
@@ -98,6 +117,30 @@ class GetEntityLookDirection extends InstantSkill {
                 result: `エラー: ${error.message}`,
             };
         }
+    }
+
+    /**
+     * 最も近いプレイヤーを探す（自分以外）
+     */
+    private findNearestPlayer(): { entity: any; name: string } | null {
+        let nearestPlayer = null;
+        let nearestDistance = Infinity;
+
+        for (const [name, player] of Object.entries(this.bot.players)) {
+            // 自分自身は除外
+            if (name === this.bot.username) continue;
+
+            // エンティティが存在するプレイヤーのみ
+            if (!player.entity) continue;
+
+            const distance = this.bot.entity.position.distanceTo(player.entity.position);
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestPlayer = { entity: player.entity, name };
+            }
+        }
+
+        return nearestPlayer;
     }
 
     /**

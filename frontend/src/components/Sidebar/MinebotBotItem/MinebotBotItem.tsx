@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ServiceStatus } from "@common/types/common";
 import styles from "./MinebotBotItem.module.scss";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import StopIcon from "@mui/icons-material/Stop";
+import classNames from "classnames";
 
 interface MinebotBotItemProps {
   status: ServiceStatus;
@@ -10,85 +9,85 @@ interface MinebotBotItemProps {
   onServerSelect: (serverName: string) => void;
 }
 
+const SERVERS = [
+  { id: "1.21.4-test", label: "1.21.4-test" },
+  { id: "1.19.0-youtube", label: "1.19.0-youtube" },
+  { id: "1.21.1-play", label: "1.21.1-play" },
+];
+
 export const MinebotBotItem: React.FC<MinebotBotItemProps> = ({
   status,
   onToggle,
   onServerSelect,
 }) => {
-  const [showServerList, setShowServerList] = useState<boolean>(false);
+  const [showServerList, setShowServerList] = useState(false);
+  const isRunning = status === "running";
+  const isConnecting = status === "connecting";
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
+    if (!showServerList) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
       if (
-        !target.closest(`.${styles.serverList}`) &&
-        !target.closest(`.${styles.toggleButton}`)
+        !target.closest(`.${styles.serverDropdown}`) &&
+        !target.closest(`.${styles.toggle}`)
       ) {
         setShowServerList(false);
       }
     };
-
-    if (showServerList) {
-      document.addEventListener("click", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
   }, [showServerList]);
 
-  const handleServerSelect = (serverName: string) => {
-    onServerSelect(serverName);
-    setShowServerList(false);
+  const handleToggleClick = () => {
+    if (isRunning) {
+      onToggle("minebot:bot");
+    } else {
+      setShowServerList(!showServerList);
+    }
   };
 
   return (
-    <div className={styles.serviceItem}>
+    <div
+      className={classNames(styles.serviceItem, {
+        [styles.stopped]: !isRunning && !isConnecting,
+      })}
+    >
       <div className={styles.info}>
         <span className={styles.name}>Minebot Bot</span>
-        <span className={`${styles.status} ${styles[status]}`}>{status}</span>
+        <span className={classNames(styles.statusText, styles[status])}>
+          <span className={styles.statusDot} />
+          {status}
+        </span>
       </div>
-      <div className={styles.controlContainer}>
-        {status === "running" ? (
-          <button
-            className={`${styles.toggleButton} ${styles.stop}`}
-            onClick={() => onToggle("minebot:bot")}
-            disabled={status !== "running"}
-          >
-            <StopIcon />
-          </button>
-        ) : (
-          <>
-            <button
-              className={`${styles.toggleButton} ${styles.start}`}
-              onClick={() => setShowServerList(!showServerList)}
-              disabled={status !== "stopped"}
-            >
-              <PlayArrowIcon />
-            </button>
-            {showServerList && (
-              <div className={styles.serverList}>
-                <button
-                  className={styles.serverButton}
-                  onClick={() => handleServerSelect("1.21.4-test")}
-                >
-                  1.21.4-test
-                </button>
-                <button
-                  className={styles.serverButton}
-                  onClick={() => handleServerSelect("1.19.0-youtube")}
-                >
-                  1.19.0-youtube
-                </button>
-                <button
-                  className={styles.serverButton}
-                  onClick={() => handleServerSelect("1.21.1-play")}
-                >
-                  1.21.1-play
-                </button>
-              </div>
-            )}
-          </>
+
+      <div className={styles.controlWrapper}>
+        <button
+          className={classNames(styles.toggle, {
+            [styles.active]: isRunning,
+          })}
+          onClick={handleToggleClick}
+          disabled={isConnecting}
+          title={isRunning ? "停止" : "サーバー選択"}
+        >
+          <span className={styles.toggleThumb} />
+        </button>
+
+        {showServerList && (
+          <div className={styles.serverDropdown}>
+            {SERVERS.map((server) => (
+              <button
+                key={server.id}
+                className={styles.serverOption}
+                onClick={() => {
+                  onServerSelect(server.id);
+                  setShowServerList(false);
+                }}
+              >
+                {server.label}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>

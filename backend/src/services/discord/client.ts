@@ -1,15 +1,17 @@
+import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import {
   DiscordClientInput,
-  MinecraftServerName,
-  ServiceInput,
-  DiscordScheduledPostInput,
-  DiscordSendTextMessageInput,
   DiscordGetServerEmojiInput,
   DiscordGetServerEmojiOutput,
+  DiscordPlanningInput,
+  DiscordScheduledPostInput,
   DiscordSendServerEmojiInput,
   DiscordSendServerEmojiOutput,
+  DiscordSendTextMessageInput,
   DiscordSendTextMessageOutput,
-  DiscordPlanningInput,
+  MinebotInput,
+  MinecraftServerName,
+  ServiceInput,
   YoutubeSubscriberUpdateOutput,
 } from '@shannon/common';
 import {
@@ -17,24 +19,22 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ChatInputCommandInteraction,
-  ComponentType,
   Client,
+  ComponentType,
+  EmbedBuilder,
   GatewayIntentBits,
   SlashCommandBuilder,
   TextChannel,
   User,
-  EmbedBuilder,
 } from 'discord.js';
-import dotenv from 'dotenv';
+import fs from 'fs';
+import * as Jimp from 'jimp';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { config } from '../../config/env.js';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
-import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
-import path from 'path';
-import * as Jimp from 'jimp';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,25 +98,25 @@ export class DiscordBot extends BaseClient {
   }
 
   private setUpChannels() {
-    this.toyamaGuildId = process.env.TOYAMA_GUILD_ID ?? '';
-    this.doukiGuildId = process.env.DOUKI_GUILD_ID ?? '';
-    this.colabGuildId = process.env.COLAB_GUILD_ID ?? '';
-    this.toyamaChannelId = process.env.TOYAMA_CHANNEL_ID ?? '';
-    this.doukiChannelId = process.env.DOUKI_CHANNEL_ID ?? '';
-    this.colabChannelId = process.env.COLAB_CHANNEL_ID ?? '';
-    this.aiminelabGuildId = process.env.AIMINE_GUILD_ID ?? '';
-    this.aiminelabXChannelId = process.env.AIMINE_X_CHANNEL_ID ?? '';
+    this.toyamaGuildId = config.discord.guilds.toyama.guildId;
+    this.doukiGuildId = config.discord.guilds.douki.guildId;
+    this.colabGuildId = config.discord.guilds.colab.guildId;
+    this.toyamaChannelId = config.discord.guilds.toyama.channelId;
+    this.doukiChannelId = config.discord.guilds.douki.channelId;
+    this.colabChannelId = config.discord.guilds.colab.channelId;
+    this.aiminelabGuildId = config.discord.guilds.aimine.guildId;
+    this.aiminelabXChannelId = config.discord.guilds.aimine.xChannelId;
     this.aiminelabAnnounceChannelId =
-      process.env.AIMINE_ANNOUNCE_CHANNEL_ID ?? '';
+      config.discord.guilds.aimine.announceChannelId;
     this.aiminelabUpdateChannelId =
-      process.env.AIMINE_UPDATE_CHANNEL_ID ?? '';
-    this.testGuildId = process.env.TEST_GUILD_ID ?? '';
-    this.testXChannelId = process.env.TEST_X_CHANNEL_ID ?? '';
+      config.discord.guilds.aimine.updateChannelId;
+    this.testGuildId = config.discord.guilds.test.guildId;
+    this.testXChannelId = config.discord.guilds.test.xChannelId;
   }
 
   public initialize() {
     try {
-      this.client.login(process.env.DISCORD_TOKEN);
+      this.client.login(config.discord.token);
       console.log('\x1b[34mDiscord bot started\x1b[0m');
       this.eventBus.log(
         'discord:aiminelab_server',
@@ -135,6 +135,12 @@ export class DiscordBot extends BaseClient {
 
   private async setupSlashCommands() {
     try {
+      const serverChoices = [
+        { name: 'YouTube配信用', value: '1.21.4-fabric-youtube' },
+        { name: 'テスト用', value: '1.21.4-test' },
+        { name: 'プレイ用', value: '1.21.1-play' },
+      ];
+
       const commands = [
         new SlashCommandBuilder()
           .setName('minecraft_server_status')
@@ -144,11 +150,41 @@ export class DiscordBot extends BaseClient {
               .setName('server_name')
               .setDescription('サーバー名')
               .setRequired(true)
-              .addChoices(
-                { name: 'ワールド1', value: 'world1' },
-                { name: 'ワールド2', value: 'world2' }
-              )
+              .addChoices(...serverChoices)
           ),
+        new SlashCommandBuilder()
+          .setName('minecraft_server_start')
+          .setDescription('Minecraftサーバーを起動する')
+          .addStringOption((option) =>
+            option
+              .setName('server_name')
+              .setDescription('サーバー名')
+              .setRequired(true)
+              .addChoices(...serverChoices)
+          ),
+        new SlashCommandBuilder()
+          .setName('minecraft_server_stop')
+          .setDescription('Minecraftサーバーを停止する')
+          .addStringOption((option) =>
+            option
+              .setName('server_name')
+              .setDescription('サーバー名')
+              .setRequired(true)
+              .addChoices(...serverChoices)
+          ),
+        new SlashCommandBuilder()
+          .setName('minebot_login')
+          .setDescription('MinebotをMinecraftサーバーにログインさせる')
+          .addStringOption((option) =>
+            option
+              .setName('server_name')
+              .setDescription('サーバー名')
+              .setRequired(true)
+              .addChoices(...serverChoices)
+          ),
+        new SlashCommandBuilder()
+          .setName('minebot_logout')
+          .setDescription('MinebotをMinecraftサーバーからログアウトさせる'),
         new SlashCommandBuilder()
           .setName('vote')
           .setDescription('投票を開始します')
@@ -198,10 +234,26 @@ export class DiscordBot extends BaseClient {
       // コマンドをJSON形式に変換
       const commandsJson = commands.map((command) => command.toJSON());
 
-      // コマンドを登録
-      if (this.client.application) {
+      // コマンドを特定のギルドに登録（即時反映）
+      const targetGuildId = this.isDev
+        ? config.discord.guilds.test.guildId
+        : config.discord.guilds.aimine.guildId;
+
+      if (targetGuildId) {
+        const guild = this.client.guilds.cache.get(targetGuildId);
+        if (guild) {
+          await guild.commands.set(commandsJson);
+          console.log(`\x1b[32mSlash commands registered to guild: ${guild.name}\x1b[0m`);
+        } else {
+          console.log(`\x1b[33mGuild ${targetGuildId} not found, falling back to global\x1b[0m`);
+          if (this.client.application) {
+            await this.client.application.commands.set(commandsJson);
+            console.log('\x1b[32mSlash commands registered globally\x1b[0m');
+          }
+        }
+      } else if (this.client.application) {
         await this.client.application.commands.set(commandsJson);
-        console.log('\x1b[32mSlash commands registered successfully\x1b[0m');
+        console.log('\x1b[32mSlash commands registered globally\x1b[0m');
       }
 
       this.client.on('interactionCreate', async (interaction) => {
@@ -215,24 +267,226 @@ export class DiscordBot extends BaseClient {
                   'server_name',
                   true
                 ) as MinecraftServerName;
-              const data = {
-                type: 'command',
-                serverName: serverName,
-                command: 'status',
-              } as ServiceInput;
+              await interaction.deferReply();
               try {
+                // ステータス取得のためにリスナーを設定
+                const statusPromise = new Promise<string>((resolve) => {
+                  const unsubscribe = this.eventBus.subscribe('web:status', (event) => {
+                    const data = event.data as { service: string; status: string };
+                    if (data.service === `minecraft:${serverName}`) {
+                      unsubscribe();
+                      resolve(data.status);
+                    }
+                  });
+                  // 10秒でタイムアウト
+                  setTimeout(() => {
+                    unsubscribe();
+                    resolve('timeout');
+                  }, 10000);
+                });
+
                 this.eventBus.publish({
                   type: `minecraft:${serverName}:status`,
                   memoryZone: 'minecraft',
-                  data: data,
+                  data: { serviceCommand: 'status' } as ServiceInput,
                 });
-                await interaction.reply('ツイートを送信しました！');
+
+                const status = await statusPromise;
+                const statusEmoji = status === 'running' ? '🟢' : status === 'stopped' ? '🔴' : '⚪';
+                await interaction.editReply(`${statusEmoji} **${serverName}**: ${status}`);
               } catch (error) {
-                await interaction.reply('ツイートの送信に失敗しました。');
-                console.error('Tweet error:', error);
+                await interaction.editReply('ステータスの取得に失敗しました。');
+                console.error('Status error:', error);
               }
             }
             break;
+
+          case 'minecraft_server_start':
+            if (interaction.isChatInputCommand()) {
+              const serverName: MinecraftServerName =
+                interaction.options.getString(
+                  'server_name',
+                  true
+                ) as MinecraftServerName;
+              await interaction.deferReply();
+              try {
+                // ステータス取得のためにリスナーを設定
+                const statusPromise = new Promise<string>((resolve) => {
+                  const unsubscribe = this.eventBus.subscribe('web:status', (event) => {
+                    const data = event.data as { service: string; status: string };
+                    if (data.service === `minecraft:${serverName}`) {
+                      unsubscribe();
+                      resolve(data.status);
+                    }
+                  });
+                  // 30秒でタイムアウト（起動に時間がかかる）
+                  setTimeout(() => {
+                    unsubscribe();
+                    resolve('timeout');
+                  }, 30000);
+                });
+
+                this.eventBus.publish({
+                  type: `minecraft:${serverName}:status`,
+                  memoryZone: 'minecraft',
+                  data: { serviceCommand: 'start' } as ServiceInput,
+                });
+
+                const status = await statusPromise;
+                if (status === 'running') {
+                  await interaction.editReply(`🟢 **${serverName}** を起動しました！`);
+                } else if (status === 'timeout') {
+                  await interaction.editReply(`⏰ **${serverName}** の起動がタイムアウトしました。`);
+                } else {
+                  await interaction.editReply(`⚠️ **${serverName}** の起動に問題が発生しました。ステータス: ${status}`);
+                }
+              } catch (error) {
+                await interaction.editReply('サーバーの起動に失敗しました。');
+                console.error('Start error:', error);
+              }
+            }
+            break;
+
+          case 'minecraft_server_stop':
+            if (interaction.isChatInputCommand()) {
+              const serverName: MinecraftServerName =
+                interaction.options.getString(
+                  'server_name',
+                  true
+                ) as MinecraftServerName;
+              await interaction.deferReply();
+              try {
+                // 停止開始を通知
+                await interaction.editReply(`⏳ **${serverName}** を停止中...\n（ワールド保存に時間がかかる場合があります）`);
+
+                // ステータス取得のためにリスナーを設定
+                const statusPromise = new Promise<string>((resolve) => {
+                  const unsubscribe = this.eventBus.subscribe('web:status', (event) => {
+                    const data = event.data as { service: string; status: string };
+                    if (data.service === `minecraft:${serverName}`) {
+                      unsubscribe();
+                      resolve(data.status);
+                    }
+                  });
+                  // 90秒でタイムアウト（ワールド保存に時間がかかる）
+                  setTimeout(() => {
+                    unsubscribe();
+                    resolve('timeout');
+                  }, 90000);
+                });
+
+                this.eventBus.publish({
+                  type: `minecraft:${serverName}:status`,
+                  memoryZone: 'minecraft',
+                  data: { serviceCommand: 'stop' } as ServiceInput,
+                });
+
+                const status = await statusPromise;
+                if (status === 'stopped') {
+                  await interaction.editReply(`🔴 **${serverName}** を停止しました！`);
+                } else if (status === 'timeout') {
+                  await interaction.editReply(`⏰ **${serverName}** の停止がタイムアウトしました。`);
+                } else {
+                  await interaction.editReply(`⚠️ **${serverName}** の停止に問題が発生しました。ステータス: ${status}`);
+                }
+              } catch (error) {
+                await interaction.editReply('サーバーの停止に失敗しました。');
+                console.error('Stop error:', error);
+              }
+            }
+            break;
+
+          case 'minebot_login':
+            if (interaction.isChatInputCommand()) {
+              const serverName: MinecraftServerName =
+                interaction.options.getString(
+                  'server_name',
+                  true
+                ) as MinecraftServerName;
+              await interaction.deferReply();
+              try {
+                // spawn イベントを待つ（実際にログイン完了まで）
+                const spawnPromise = new Promise<{ success: boolean; message?: string }>((resolve) => {
+                  // spawnイベントのリスナー
+                  const unsubscribeSpawn = this.eventBus.subscribe('minebot:spawned', () => {
+                    unsubscribeSpawn();
+                    resolve({ success: true });
+                  });
+                  // エラーイベントのリスナー
+                  const unsubscribeError = this.eventBus.subscribe('minebot:error', (event) => {
+                    unsubscribeError();
+                    resolve({ success: false, message: (event.data as { message?: string })?.message });
+                  });
+                  // 120秒でタイムアウト（Microsoft認証に時間がかかる場合）
+                  setTimeout(() => {
+                    unsubscribeSpawn();
+                    unsubscribeError();
+                    resolve({ success: false, message: 'timeout' });
+                  }, 120000);
+                });
+
+                // ログイン開始を通知
+                await interaction.editReply(`⏳ Minebotを **${serverName}** にログイン中...\n（Microsoft認証が必要な場合、コンソールでコードを確認してください）`);
+
+                this.eventBus.publish({
+                  type: 'minebot:bot:status',
+                  memoryZone: 'minebot',
+                  data: { serviceCommand: 'start', serverName } as MinebotInput,
+                });
+
+                const result = await spawnPromise;
+                if (result.success) {
+                  await interaction.editReply(`🤖 Minebotが **${serverName}** にログインしました！`);
+                } else if (result.message === 'timeout') {
+                  await interaction.editReply(`⏰ Minebotのログインがタイムアウトしました（120秒）。\nMicrosoft認証が必要な場合はコンソールを確認してください。`);
+                } else {
+                  await interaction.editReply(`⚠️ Minebotのログインに失敗しました: ${result.message}`);
+                }
+              } catch (error) {
+                await interaction.editReply('Minebotのログインに失敗しました。');
+                console.error('Minebot login error:', error);
+              }
+            }
+            break;
+
+          case 'minebot_logout':
+            if (interaction.isChatInputCommand()) {
+              await interaction.deferReply();
+              try {
+                // 完了イベントを待つ
+                const logoutPromise = new Promise<{ success: boolean; message?: string }>((resolve) => {
+                  const unsubscribe = this.eventBus.subscribe('minebot:stopped', () => {
+                    unsubscribe();
+                    resolve({ success: true });
+                  });
+                  // 30秒でタイムアウト
+                  setTimeout(() => {
+                    unsubscribe();
+                    resolve({ success: false, message: 'timeout' });
+                  }, 30000);
+                });
+
+                this.eventBus.publish({
+                  type: 'minebot:bot:status',
+                  memoryZone: 'minebot',
+                  data: { serviceCommand: 'stop' } as MinebotInput,
+                });
+
+                const result = await logoutPromise;
+                if (result.success) {
+                  await interaction.editReply(`👋 Minebotがログアウトしました！`);
+                } else if (result.message === 'timeout') {
+                  await interaction.editReply(`⏰ Minebotのログアウトがタイムアウトしました。`);
+                } else {
+                  await interaction.editReply(`⚠️ Minebotのログアウトに問題が発生しました: ${result.message}`);
+                }
+              } catch (error) {
+                await interaction.editReply('Minebotのログアウトに失敗しました。');
+                console.error('Minebot logout error:', error);
+              }
+            }
+            break;
+
           case 'vote':
             if (interaction.isChatInputCommand()) {
               const description = interaction.options.getString('description', true);
@@ -464,7 +718,7 @@ export class DiscordBot extends BaseClient {
     });
     this.client.on('messageCreate', async (message) => {
       if (this.status !== 'running') return;
-      const isDevGuild = message.guildId === process.env.TEST_GUILD_ID;
+      const isDevGuild = message.guildId === config.discord.guilds.test.guildId;
       if (this.isDev !== isDevGuild) return;
       console.log(message.content);
 
@@ -482,6 +736,9 @@ export class DiscordBot extends BaseClient {
       if (mentions.length > 0 && !isMentioned) return;
 
       if (message.channelId === this.aiminelabUpdateChannelId) return;
+
+      // アイマイラボ！サーバーではメンション時のみ返信
+      if (message.guildId === this.aiminelabGuildId && !isMentioned) return;
 
       const messageContent = message.content.replace(
         /<@!?(\d+)>/g,
@@ -559,7 +816,7 @@ export class DiscordBot extends BaseClient {
       const channel = this.client.channels.cache.get(speech.channelId);
       if (!channel || !('guild' in channel)) return;
 
-      const isDevGuild = channel.guild.id === process.env.TEST_GUILD_ID;
+      const isDevGuild = channel.guild.id === config.discord.guilds.test.guildId;
       if (this.isDev !== isDevGuild) return;
 
       const memoryZone = await getDiscordMemoryZone(channel.guildId);
@@ -764,7 +1021,22 @@ export class DiscordBot extends BaseClient {
             planning.status
           )} ${planning.goal}\n${planning.strategy}\n`;
 
-          // サブタスクがある場合は追加
+          // hierarchicalSubTasks（新フォーマット）がある場合は追加
+          if (planning.hierarchicalSubTasks && planning.hierarchicalSubTasks.length > 0) {
+            planning.hierarchicalSubTasks.forEach((subTask) => {
+              const depth = subTask.depth ?? 0;
+              const indent = '  '.repeat(depth + 1);
+              formattedContent += `${indent}${getStatusEmoji(subTask.status)} ${subTask.goal}\n`;
+              if (subTask.result) {
+                formattedContent += `${indent}  → ${subTask.result.substring(0, 100)}\n`;
+              }
+              if (subTask.failureReason) {
+                formattedContent += `${indent}  ✗ ${subTask.failureReason.substring(0, 100)}\n`;
+              }
+            });
+          }
+
+          // subTasks（旧フォーマット互換）がある場合は追加
           if (planning.subTasks && planning.subTasks.length > 0) {
             planning.subTasks.forEach((subTask) => {
               formattedContent += `  ${getStatusEmoji(subTask.subTaskStatus)} ${subTask.subTaskGoal
@@ -790,7 +1062,7 @@ export class DiscordBot extends BaseClient {
       if (this.status !== 'running') return;
       const data = event.data as YoutubeSubscriberUpdateOutput;
       const { subscriberCount } = data;
-      const guildId = process.env.aiminelabGuildId ?? '';
+      const guildId = config.discord.guilds.aimine.guildId;
       const guild = this.client.guilds.cache.get(guildId);
       if (guild) {
         const channel = guild.channels.cache.get(

@@ -9,3 +9,12 @@
 package-lock.json
 node_modules
 .env
+
+# Runtime data (persisted state, finetune data)
+/backend/saves/processed_tweet_ids.json
+/backend/saves/daily_reply_count.json
+/backend/saves/auto_post_count.json
+/backend/saves/finetune/
+
+/backend/tsconfig.tsbuildinfo
+/common/tsconfig.tsbuildinfo

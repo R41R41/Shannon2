@@ -24,8 +24,6 @@ const ResizeHandle = () => (
 
 const MainContent: React.FC<MainContentProps> = ({
   monitoring,
-  openai,
-  status,
   planning,
   emotion,
   isMobile = false,
@@ -33,24 +31,11 @@ const MainContent: React.FC<MainContentProps> = ({
   return (
     <div className={styles.container}>
       {isMobile ? (
-        <StatusLog
-          monitoring={monitoring}
-          openai={openai}
-          status={status}
-          planning={planning}
-          emotion={emotion}
-          isMobile={true}
-        />
+        <StatusLog planning={planning} emotion={emotion} isMobile={true} />
       ) : (
         <PanelGroup direction="vertical">
           <Panel defaultSize={40} minSize={20}>
-            <StatusLog
-              monitoring={monitoring}
-              openai={openai}
-              status={status}
-              planning={planning}
-              emotion={emotion}
-            />
+            <StatusLog planning={planning} emotion={emotion} />
           </Panel>
           <ResizeHandle />
           <Panel defaultSize={60} minSize={30}>

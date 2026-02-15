@@ -18,6 +18,8 @@ export interface YoutubeCommentOutput extends ServiceInput {
     commentId: string;
     text: string;
     authorName: string;
+    /** コメント投稿者の YouTube チャンネルID (記憶システム用) */
+    authorChannelId?: string | null;
     publishedAt: string;
     videoTitle: string;
     videoDescription: string;
@@ -38,6 +40,8 @@ export interface YoutubeSubscriberUpdateOutput extends ServiceInput {
 export interface YoutubeLiveChatMessageOutput extends ServiceInput {
     message: string;
     author: string;
+    /** コメント投稿者の YouTube チャンネルID (記憶システム用) */
+    authorChannelId?: string | null;
     jstNow: string;
     minutesSinceStart: number | null;
     history: string[];

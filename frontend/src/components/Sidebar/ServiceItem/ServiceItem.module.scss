@@ -1,102 +1,29 @@
-@use "../../../styles/variables" as *;
+@use "../service-common" as *;
 
 .serviceItem {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px;
-  background-color: color(surface, primary);
-  border-radius: 8px;
+  @include service-item;
 }
 
 .info {
-  display: grid;
-  gap: 4px;
+  @include service-info;
 }
 
 .name {
-  font-weight: bold;
-  font-size: 14px;
+  @include service-name;
 }
 
-.status {
-  color: color(text, disabled);
-  font-size: 12px;
-  text-transform: capitalize;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-
-  &::before {
-    content: "";
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-  }
-
-  &.running::before {
-    background-color: color(success);
-  }
-
-  &.stopped::before {
-    background-color: color(danger);
-  }
-
-  &.connecting::before {
-    background-color: color(warning);
-    animation: pulse 1.5s infinite;
-  }
+.statusText {
+  @include service-status-text;
 }
 
-.toggleButton {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: color(primary);
-  border: none;
-  border-radius: 8px;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: color(text, primary);
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  &.start {
-    background-color: color(primary);
-    &:hover:not(:disabled) {
-      background-color: rgba(color(primary), 0.8);
-    }
-  }
-
-  &.stop {
-    background-color: color(danger);
-    &:hover:not(:disabled) {
-      background-color: rgba(color(danger), 0.8);
-    }
-  }
-
-  svg {
-    width: 20px;
-    height: 20px;
-  }
+.statusDot {
+  @include service-status-dot;
 }
 
-@keyframes pulse {
-  0% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.5;
-  }
+.toggle {
+  @include toggle-switch;
+}
+
+.toggleThumb {
+  @include toggle-thumb;
 }

@@ -1,104 +1,187 @@
 @use "@styles/variables.scss" as *;
 
-.taskTree {
-  color: color(text, primary);
-  width: 50%;
+.card {
+  @include card(spacing(lg));
+  display: flex;
+  flex-direction: column;
   height: 100%;
+  overflow-y: auto;
+  @include custom-scrollbar;
 
   &.mobile {
-    width: 100%;
+    height: auto;
   }
+}
 
-  .plan {
-    background-color: color(background, primary);
-    padding: 1rem;
-    color: color(text, primary);
-    width: 100%;
-  }
+// Header
+.cardHeader {
+  @include flex-between;
+  margin-bottom: spacing(md);
+  flex-shrink: 0;
+}
 
-  .taskTitle,
-  .taskGoal,
-  .taskPlan,
-  .taskError {
-    margin-bottom: 0.5rem;
-  }
+.cardTitle {
+  @include section-title;
+}
 
-  .taskTitle {
-    display: flex;
-    flex-direction: row;
-    gap: 0.5rem;
-  }
+.statusBadge {
+  font-size: font-size(xxs);
+  font-weight: font-weight(medium);
+  padding: spacing(xxs) spacing(sm);
+  border-radius: radius(xl);
+  line-height: 1;
 
-  @keyframes pulse {
-    0% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.4;
-    }
-    100% {
-      opacity: 1;
-    }
+  &.pending {
+    background-color: color(warning-dim);
+    color: color(warning);
   }
+  &.in_progress {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: color(primary-light);
+  }
+  &.completed {
+    background-color: color(success-dim);
+    color: color(success);
+  }
+  &.error {
+    background-color: color(danger-dim);
+    color: color(danger);
+  }
+}
 
-  .status {
-    font-size: 0.8rem;
-    margin-right: 0.5rem;
-    margin-top: 3px;
-    padding: 0.4rem 0.4rem;
-    border-radius: 8px;
-    width: 16px;
-    height: 16px;
-    margin-bottom: 0.5rem;
-  }
+// Content
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: spacing(md);
+}
 
-  .pending {
-    background-color: color(warning);
-    animation: pulse 2s infinite;
-  }
-  .in_progress {
-    background-color: color(primary);
-    animation: pulse 2s infinite;
-  }
-  .completed {
-    background-color: color(success);
-  }
-  .error {
-    background-color: color(danger);
-  }
+.goalSection {
+  display: flex;
+  align-items: flex-start;
+  gap: spacing(sm);
+}
 
-  .subTasks {
-    margin-left: 1rem;
-  }
-  .subTask {
-    margin-bottom: 0.5rem;
-  }
-  .subTaskTitle {
-    display: flex;
-  }
+.goalText {
+  font-size: font-size(lg);
+  font-weight: font-weight(medium);
+  color: color(text, primary);
+  line-height: 1.4;
+}
 
-  .taskPlan {
-    margin-left: 0.5rem;
-    font-size: 0.9rem;
-    color: color(text, secondary);
+.strategyText {
+  font-size: font-size(sm);
+  color: color(text, secondary);
+  line-height: 1.5;
+  padding-left: spacing(xl);
+}
+
+// Error
+.errorBox {
+  display: flex;
+  align-items: flex-start;
+  gap: spacing(sm);
+  padding: spacing(sm) spacing(md);
+  background-color: color(danger-dim);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: radius(md);
+  font-size: font-size(sm);
+  color: color(danger-light);
+}
+
+.errorIcon {
+  width: 16px !important;
+  height: 16px !important;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: color(danger);
+}
+
+// Status icon
+.statusIcon {
+  width: 18px !important;
+  height: 18px !important;
+  flex-shrink: 0;
+  margin-top: 2px;
+
+  &.pending {
+    color: color(warning);
+    opacity: 0.7;
   }
-  .subTaskStrategy {
-    margin-left: 24px;
-    font-size: 0.8rem;
-    color: color(text, secondary);
+  &.inProgress {
+    color: color(primary-light);
+    animation: spin 1.5s linear infinite;
   }
-  .legend {
-    padding: 1rem;
-    display: flex;
-    flex-direction: row;
-    gap: 30px;
+  &.completed {
+    color: color(success);
   }
-  .legendItem {
-    display: flex;
-    flex-direction: row;
+  &.error {
+    color: color(danger);
   }
-  .legendItemText {
-    font-size: 0.8rem;
-    color: color(text, secondary);
+}
+
+// Sub-tasks
+.subTaskList {
+  display: flex;
+  flex-direction: column;
+  gap: spacing(sm);
+  padding-left: spacing(sm);
+  border-left: 2px solid color(border, primary);
+  margin-left: spacing(sm);
+}
+
+.subTaskItem {
+  display: flex;
+  align-items: flex-start;
+  gap: spacing(sm);
+  padding: spacing(sm);
+  border-radius: radius(sm);
+  transition: background-color transition(fast);
+
+  &:hover {
+    background-color: color(surface, secondary);
+  }
+}
+
+.subTaskContent {
+  display: flex;
+  flex-direction: column;
+  gap: spacing(xxs);
+}
+
+.subTaskGoal {
+  font-size: font-size(md);
+  color: color(text, primary);
+  line-height: 1.3;
+}
+
+.subTaskStrategy {
+  font-size: font-size(xs);
+  color: color(text, disabled);
+  line-height: 1.4;
+}
+
+// Empty state
+.emptyState {
+  @include flex-center;
+  flex-direction: column;
+  gap: spacing(sm);
+  flex: 1;
+  color: color(text, disabled);
+  font-size: font-size(sm);
+}
+
+.emptyIcon {
+  width: 32px !important;
+  height: 32px !important;
+  opacity: 0.3;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }

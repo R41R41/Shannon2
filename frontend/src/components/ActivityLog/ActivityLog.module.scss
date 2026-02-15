@@ -1,50 +1,162 @@
-@use '@styles/variables.scss' as *;
+@use "@styles/variables.scss" as *;
 
 .container {
   height: 100%;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   background-color: color(background, primary);
-  padding-right: 0.5rem;
-  padding-left: 0.5rem;
-  padding-bottom: 0.5rem;
+  padding: 0 spacing(md) spacing(md);
 }
+
+// ============================================================
+// Tab bar
+// ============================================================
+
+.tabBar {
+  display: flex;
+  align-items: center;
+  gap: spacing(xxs);
+  padding: spacing(sm) 0;
+  flex-shrink: 0;
+  border-bottom: 1px solid color(border, secondary);
+}
+
+.tab {
+  padding: spacing(xs) spacing(md);
+  border: none;
+  border-radius: radius(sm);
+  background: none;
+  color: color(text, disabled);
+  font-size: font-size(xs);
+  font-weight: font-weight(medium);
+  cursor: pointer;
+  transition: all transition(fast);
+  white-space: nowrap;
+  position: relative;
+
+  &:hover {
+    color: color(text, secondary);
+    background-color: color(surface, secondary);
+  }
+
+  &.active {
+    color: color(text, primary);
+    background-color: color(surface, tertiary);
+  }
+}
+
+// Discord dropdown
+.dropdownWrapper {
+  position: relative;
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + spacing(xs));
+  left: 0;
+  min-width: 180px;
+  background-color: color(surface, secondary);
+  border: 1px solid color(border, primary);
+  border-radius: radius(md);
+  padding: spacing(xs);
+  z-index: z(dropdown);
+  box-shadow: shadow(md);
+  display: flex;
+  flex-direction: column;
+  gap: spacing(xxs);
+}
+
+.dropdownItem {
+  width: 100%;
+  padding: spacing(sm) spacing(md);
+  text-align: left;
+  font-size: font-size(xs);
+  background: none;
+  border: none;
+  border-radius: radius(sm);
+  color: color(text, secondary);
+  cursor: pointer;
+  transition: all transition(fast);
+
+  &:hover {
+    background-color: color(surface, hover);
+    color: color(text, primary);
+  }
+
+  &.active {
+    background-color: color(surface, tertiary);
+    color: color(text, primary);
+  }
+}
+
+// ============================================================
+// Log list
+// ============================================================
 
 .logList {
   display: flex;
-  width: 100%;
-  height: calc(100% - 2rem);
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  @include custom-scrollbar;
 }
 
 .logEntry {
   display: grid;
-  grid-template-columns: auto auto auto 1fr;
-  gap: 1rem;
-  border-radius: 4px;
-  font-size: 0.875rem;
+  grid-template-columns: auto auto 1fr;
+  gap: spacing(md);
+  padding: spacing(xxs) spacing(sm);
+  border-radius: radius(xs);
+  font-size: font-size(sm);
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+  line-height: 1.5;
+  border-left: 2px solid transparent;
+  transition: background-color transition(fast);
 
   &:hover {
     background-color: color(surface, secondary);
   }
+
+  // Error highlight
+  &.errorEntry {
+    background-color: color(danger-dim);
+    border-left-color: color(danger);
+
+    &:hover {
+      background-color: rgba(239, 68, 68, 0.15);
+    }
+  }
+
+  // Warning highlight
+  &.warningEntry {
+    border-left-color: color(warning);
+
+    &:hover {
+      background-color: color(warning-dim);
+    }
+  }
 }
 
 .timestamp {
-  color: color(text, secondary);
+  color: color(text, disabled);
+  font-size: font-size(xs);
+  white-space: nowrap;
 }
 
 .memoryZone {
-  color: color(primary);
-  font-weight: 500;
+  color: color(primary-light);
+  font-weight: font-weight(medium);
+  font-size: font-size(xs);
+  white-space: nowrap;
 }
 
-.type {
-  color: color(text, secondary);
-}
-
+// Content color variants
 .content {
   color: color(text, primary);
   word-break: break-word;
+
   &.white {
     color: color(text, white);
   }
@@ -65,79 +177,5 @@
   }
   &.cyan {
     color: color(text, cyan);
-  }
-}
-
-.tabs {
-  position: sticky;
-  top: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  display: flex;
-  height: 2rem;
-  background-color: color(background, primary);
-  z-index: 100;
-}
-
-.tab {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  background: none;
-  color: color(text, disabled);
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-
-  &:hover {
-    color: color(text, primary);
-  }
-
-  &.active {
-    color: color(text, white);
-  }
-}
-
-.dropdownTab {
-  position: relative;
-  display: inline-block;
-
-  &:hover .dropdownContent {
-    display: block;
-  }
-}
-
-.dropdownContent {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  background-color: color(background, secondary);
-  min-width: 200px;
-  box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.2);
-  z-index: 1;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.dropdownItem {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  text-align: left;
-  font-size: 0.7rem;
-  background: none;
-  border: none;
-  color: color(text, white);
-  cursor: pointer;
-  transition: background 0.2s;
-
-  &:hover {
-    background-color: color(background, tertiary);
-  }
-
-  &.active {
-    background-color: color(background, tertiary);
   }
 }

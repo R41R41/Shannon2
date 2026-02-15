@@ -1,16 +1,18 @@
+import { config } from './env.js';
+
 export const PORTS = {
-  HTTP_SERVER: process.env.HTTP_PORT || 5000,
-  FRONTEND: process.env.FRONTEND_PORT || 5000,
+  HTTP_SERVER: config.ports.http,
+  FRONTEND: config.ports.frontend,
   WEBSOCKET: {
-    OPENAI: process.env.WS_OPENAI_PORT || 5010,
-    VOICE: process.env.WS_VOICE_PORT || 5020,
-    MINECRAFT: process.env.WS_MINECRAFT_PORT || 5030,
-    MONITORING: process.env.WS_MONITORING_PORT || 5011,
-    SCHEDULE: process.env.WS_SCHEDULE_PORT || 5018,
-    STATUS: process.env.WS_STATUS_PORT || 5013,
-    PLANNING: process.env.WS_PLANNING_PORT || 5019,
-    EMOTION: process.env.WS_EMOTION_PORT || 5020,
-    SKILL: process.env.WS_SKILL_PORT || 5016,
-    AUTH: process.env.WS_AUTH_PORT || 5017,
+    OPENAI: config.ports.ws.openai,
+    VOICE: config.ports.ws.voice,
+    MINECRAFT: config.ports.ws.minecraft,
+    MONITORING: config.ports.ws.monitoring,
+    SCHEDULE: config.ports.ws.schedule,
+    STATUS: config.ports.ws.status,
+    PLANNING: config.ports.ws.planning,
+    EMOTION: config.ports.ws.emotion,
+    SKILL: config.ports.ws.skill,
+    AUTH: config.ports.ws.auth,
   },
 } as const;

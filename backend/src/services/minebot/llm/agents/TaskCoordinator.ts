@@ -164,6 +164,16 @@ export class TaskCoordinator {
     ): Promise<TaskAction> {
         // タスクが実行中の場合のみアクション判定
         if (this.isTaskInProgress()) {
+            // FunctionCallingAgent がユーザーの応答を待機中の場合は
+            // ActionJudge をバイパスして直接 feedback として処理する
+            // （マルチターン会話のため）
+            if (this.taskGraph?.isAgentWaitingForResponse) {
+                console.log(
+                    '\x1b[33m🔄 Agent応答待機中 → ActionJudge をスキップして feedback として処理\x1b[0m',
+                );
+                return 'feedback';
+            }
+
             const currentContext = this.taskGraph?.currentState?.taskTree;
             const result = await this.actionJudge.judge(message, recentMessages, currentContext);
             return result.action;

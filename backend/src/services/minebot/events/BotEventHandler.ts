@@ -92,16 +92,28 @@ export class BotEventHandler {
                 const damage = this.lastHealth - currentHealth;
                 const damagePercent = (damage / 20) * 100;
 
-                // ダメージを検知したらEventReactionSystemに通知
-                if (this.eventReactionSystem) {
-                    // 大きなダメージ（20%以上）または連続ダメージを検知
-                    if (damagePercent >= 20 || (currentTime - this.lastDamageTime < 3000)) {
-                        this.consecutiveDamageCount++;
-                    } else {
-                        this.consecutiveDamageCount = 0;
-                    }
+                // 連続ダメージ判定（3秒以内のダメージはカウント）
+                if (currentTime - this.lastDamageTime < 3000) {
+                    this.consecutiveDamageCount++;
+                } else {
+                    this.consecutiveDamageCount = 1; // 新しいダメージ系列の開始
+                }
 
-                    console.log(`\x1b[33m⚠️ ダメージ検知 (-${damage.toFixed(1)} HP, ${damagePercent.toFixed(1)}%) 連続: ${this.consecutiveDamageCount}\x1b[0m`);
+                console.log(`\x1b[33m⚠️ ダメージ検知 (-${damage.toFixed(1)} HP, 残HP=${currentHealth.toFixed(1)}/20, ${damagePercent.toFixed(1)}%) 連続: ${this.consecutiveDamageCount}\x1b[0m`);
+
+                // 緊急対応が必要かの判定
+                // 以下の場合のみEventReactionSystemに通知（緊急タスク生成）:
+                //   1. HPが危険域（10以下 = 50%以下）
+                //   2. 連続ダメージ3回以上（何かに攻撃されている可能性）
+                //   3. 一撃で大ダメージ（40%以上 = 8HP以上）
+                // それ以外（HP 15/20で落下ダメージ等）は autoEat に任せる
+                const isCriticalHP = currentHealth <= 10;
+                const isUnderAttack = this.consecutiveDamageCount >= 3;
+                const isMassiveDamage = damagePercent >= 40;
+
+                if (this.eventReactionSystem && (isCriticalHP || isUnderAttack || isMassiveDamage)) {
+                    const reason = isCriticalHP ? 'HP危険域' : isUnderAttack ? '連続攻撃' : '大ダメージ';
+                    console.log(`\x1b[31m🚨 緊急対応トリガー: ${reason}\x1b[0m`);
 
                     await this.eventReactionSystem.handleDamage({
                         damage,
@@ -109,6 +121,9 @@ export class BotEventHandler {
                         currentHealth,
                         consecutiveCount: this.consecutiveDamageCount,
                     });
+                } else {
+                    // 軽微なダメージ → autoEat に任せる（このメソッドの後半で呼ばれる）
+                    console.log(`\x1b[33mℹ️ 軽微ダメージ - autoEatに委任（HP=${currentHealth.toFixed(1)}/20）\x1b[0m`);
                 }
 
                 this.lastDamageTime = currentTime;

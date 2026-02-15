@@ -16,7 +16,7 @@ import { ConstantSkillInfo, LLMError, SkillExecutionError } from './types/index.
 
 /**
  * SkillAgent
- * Minecraftボットのスキル管理とイベント処理を統括するメインクラス
+ * Minecraftボットのスキル管理とイベント処理を統括するメインクラスあ
  * 
  * 責任:
  * - 各コンポーネントの初期化と調整
@@ -359,6 +359,11 @@ export class SkillAgent {
       });
       const newMessage = `${currentTime} ${userName}: ${message}`;
       this.recentMessages.push(new HumanMessage(newMessage));
+
+      // メモリリーク防止: 直近50件を超えたら古いメッセージを削除
+      if (this.recentMessages.length > 50) {
+        this.recentMessages.splice(0, this.recentMessages.length - 50);
+      }
 
       await this.centralAgent.handlePlayerMessage(
         userName,

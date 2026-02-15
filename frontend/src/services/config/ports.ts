@@ -8,12 +8,8 @@ const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 // 実際のホスト名を使用
 const hostname = window.location.hostname; // 'sh4nnon.com' など
 
-// モードに応じてポートを設定
-const host = isTest
-  ? `${hostname}:14000`
-  : isDev
-    ? `${hostname}:13000`
-    : window.location.host;
+// 常にブラウザのURLホストを使用（Nginxでプロキシされるため）
+const host = window.location.host;
 
 // WebSocketポート設定
 const wsBasePorts = isDev
@@ -40,34 +36,19 @@ const wsBasePorts = isDev
     }
     : null; // 本番はパスベース
 
+// 常にパスベースのWebSocketを使用（Nginxでプロキシ）
 export const URLS = {
   HTTP_SERVER: `${protocol}//${host}`,
   FRONTEND: `${protocol}//${host}`,
   WEBSOCKET: {
-    OPENAI: (isDev || isTest)
-      ? `${wsProtocol}//${hostname}:${wsBasePorts!.openai}`
-      : `${wsProtocol}//${host}/ws/openai`,
-    MONITORING: (isDev || isTest)
-      ? `${wsProtocol}//${hostname}:${wsBasePorts!.monitoring}`
-      : `${wsProtocol}//${host}/ws/monitoring`,
-    SCHEDULER: (isDev || isTest)
-      ? `${wsProtocol}//${hostname}:${wsBasePorts!.scheduler}`
-      : `${wsProtocol}//${host}/ws/scheduler`,
-    STATUS: (isDev || isTest)
-      ? `${wsProtocol}//${hostname}:${wsBasePorts!.status}`
-      : `${wsProtocol}//${host}/ws/status`,
-    PLANNING: (isDev || isTest)
-      ? `${wsProtocol}//${hostname}:${wsBasePorts!.planning}`
-      : `${wsProtocol}//${host}/ws/planning`,
-    EMOTION: (isDev || isTest)
-      ? `${wsProtocol}//${hostname}:${wsBasePorts!.emotion}`
-      : `${wsProtocol}//${host}/ws/emotion`,
-    SKILL: (isDev || isTest)
-      ? `${wsProtocol}//${hostname}:${wsBasePorts!.skill}`
-      : `${wsProtocol}//${host}/ws/skill`,
-    AUTH: (isDev || isTest)
-      ? `${wsProtocol}//${hostname}:${wsBasePorts!.auth}`
-      : `${wsProtocol}//${host}/ws/auth`,
+    OPENAI: `${wsProtocol}//${host}/ws/openai`,
+    MONITORING: `${wsProtocol}//${host}/ws/monitoring`,
+    SCHEDULER: `${wsProtocol}//${host}/ws/scheduler`,
+    STATUS: `${wsProtocol}//${host}/ws/status`,
+    PLANNING: `${wsProtocol}//${host}/ws/planning`,
+    EMOTION: `${wsProtocol}//${host}/ws/emotion`,
+    SKILL: `${wsProtocol}//${host}/ws/skill`,
+    AUTH: `${wsProtocol}//${host}/ws/auth`,
   },
 } as const;
 

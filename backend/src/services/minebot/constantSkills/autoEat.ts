@@ -23,8 +23,9 @@ class AutoEat extends ConstantSkill {
     const health = this.bot.health;
     const food = this.bot.food;
 
-    // 満腹度が15以下、または体力が15以下で食べ物がある場合
-    if (food < 15 || (health < 15 && food < 20)) {
+    // 満腹度が15以下、または体力が18未満（ダメージ後の回復促進）で食べ物がある場合
+    // Minecraftでは満腹度が18以上で自然回復するため、HPが減っていたら積極的に食べる
+    if (food < 15 || (health < 18 && food < 20)) {
       // 食べられるアイテムを探す（mineflayer-auto-eatの情報を使用）
       const foodItems = this.bot.inventory
         .items()

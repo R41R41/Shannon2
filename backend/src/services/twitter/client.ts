@@ -1,15 +1,72 @@
 import {
+  TwitterActionResult,
+  TwitterAutoTweetInput,
   TwitterClientInput,
   TwitterClientOutput,
+  TwitterQuoteRTOutput,
   TwitterReplyOutput,
+  TwitterTrendData,
 } from '@shannon/common';
-import axios from 'axios';
-import dotenv from 'dotenv';
+import axios, { isAxiosError } from 'axios';
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
+import fs from 'fs';
+import path from 'path';
 import { TwitterApi } from 'twitter-api-v2';
+import { config } from '../../config/env.js';
+import { logger } from '../../utils/logger.js';
+
+// 処理済みツイートID の永続化ファイルパス
+const PROCESSED_IDS_FILE = path.resolve('saves/processed_tweet_ids.json');
+// 日次返信カウンタの永続化ファイルパス
+const DAILY_REPLY_COUNT_FILE = path.resolve('saves/daily_reply_count.json');
+// 自動投稿カウンタの永続化ファイルパス
+const AUTO_POST_COUNT_FILE = path.resolve('saves/auto_post_count.json');
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
 
-dotenv.config();
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+/** advanced_search から返されるツイートの型 */
+interface TweetData {
+  id: string;
+  text: string;
+  url: string;
+  createdAt: string;
+  created_at?: string;
+  likeCount: number;
+  retweetCount: number;
+  replyCount: number;
+  quoteCount: number;
+  isReply: boolean;
+  inReplyToId?: string;
+  inReplyToUserId?: string;
+  in_reply_to_status_id?: string;
+  in_reply_to_tweet_id?: string;
+  in_reply_to_user_id?: string;
+  author: {
+    id: string;
+    userName: string;
+    name: string;
+  };
+}
+
+/** 監視対象アカウントの設定 */
+interface MonitoredAccountConfig {
+  userName: string;
+  /** 必ずいいねするか */
+  alwaysLike: boolean;
+  /** 返信するか (確率制御) */
+  reply: boolean;
+  /** 必ず引用RTするか */
+  alwaysQuoteRT: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// TwitterClient
+// ---------------------------------------------------------------------------
 
 export class TwitterClient extends BaseClient {
   private myUserId: string | null = null;
@@ -22,17 +79,211 @@ export class TwitterClient extends BaseClient {
   private login_data: string;
   private two_fa_code: string;
   private auth_session: string;
+  private login_cookies: string;
   private proxy1: string;
   private proxy2: string;
   private proxy3: string;
+
+  /** 自分のツイートへの返信チェック用 (既存機能) */
   private lastCheckedReplyIds: Set<string> = new Set();
-  private officialAccountUserName =
-    process.env.TWITTER_AIMINELAB_USERNAME || '';
-  private friendAccountUserNames = [
-    process.env.TWITTER_YUMMY_USERNAME,
-    process.env.TWITTER_RAI_USERNAME,
-    process.env.TWITTER_GURIKO_USERNAME,
-  ].filter(Boolean) as string[];
+
+  /** 処理済みツイートID (重複アクション防止、ファイル永続化) */
+  public processedTweetIds: Set<string> = new Set();
+
+  /** 1日あたりの返信カウンタ */
+  private dailyReplyCount = 0;
+  /** カウンタの日付 (YYYY-MM-DD JST) */
+  private dailyReplyDate = '';
+  /** 1日の返信上限 */
+  private maxRepliesPerDay: number;
+
+  /** 処理済みIDをファイルから読み込む */
+  private loadProcessedIds(): void {
+    try {
+      if (fs.existsSync(PROCESSED_IDS_FILE)) {
+        const data = JSON.parse(fs.readFileSync(PROCESSED_IDS_FILE, 'utf-8'));
+        if (Array.isArray(data)) {
+          // 最新500件のみ保持
+          const recent = data.slice(-500);
+          this.processedTweetIds = new Set(recent);
+          logger.info(`📋 処理済みID: ${this.processedTweetIds.size}件をファイルから復元`, 'cyan');
+        }
+      }
+    } catch (err) {
+      logger.warn(`📋 処理済みIDファイル読み込み失敗: ${err}`);
+    }
+  }
+
+  /** 日次返信カウンタをファイルから読み込む */
+  private loadDailyReplyCount(): void {
+    try {
+      if (fs.existsSync(DAILY_REPLY_COUNT_FILE)) {
+        const data = JSON.parse(fs.readFileSync(DAILY_REPLY_COUNT_FILE, 'utf-8'));
+        const todayJST = this.getTodayJST();
+        if (data.date === todayJST) {
+          this.dailyReplyCount = data.count ?? 0;
+          this.dailyReplyDate = data.date;
+          logger.info(`📋 日次返信カウンタ: ${this.dailyReplyCount}/${this.maxRepliesPerDay} (${todayJST})`, 'cyan');
+        } else {
+          // 日付が違う → リセット
+          this.dailyReplyCount = 0;
+          this.dailyReplyDate = todayJST;
+          logger.info(`📋 日次返信カウンタ: 新しい日付のためリセット (${todayJST})`, 'cyan');
+        }
+      } else {
+        this.dailyReplyDate = this.getTodayJST();
+      }
+    } catch (err) {
+      logger.warn(`📋 日次返信カウンタ読み込み失敗: ${err}`);
+      this.dailyReplyDate = this.getTodayJST();
+    }
+  }
+
+  /** 日次返信カウンタをファイルに保存する */
+  private saveDailyReplyCount(): void {
+    try {
+      const dir = path.dirname(DAILY_REPLY_COUNT_FILE);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        DAILY_REPLY_COUNT_FILE,
+        JSON.stringify({ date: this.dailyReplyDate, count: this.dailyReplyCount }, null, 2)
+      );
+    } catch (err) {
+      logger.warn(`📋 日次返信カウンタ保存失敗: ${err}`);
+    }
+  }
+
+  /** 自動投稿カウンタをファイルから読み込む */
+  private loadAutoPostCount(): void {
+    try {
+      if (fs.existsSync(AUTO_POST_COUNT_FILE)) {
+        const data = JSON.parse(fs.readFileSync(AUTO_POST_COUNT_FILE, 'utf-8'));
+        const todayJST = this.getTodayJST();
+        if (data.date === todayJST) {
+          this.autoPostCount = data.count ?? 0;
+          this.autoPostDate = data.date;
+          this.lastAutoPostAt = data.lastPostAt ?? 0;
+          logger.info(
+            `📋 自動投稿カウンタ: ${this.autoPostCount}/${this.maxAutoPostsPerDay} (${todayJST})`,
+            'cyan'
+          );
+        } else {
+          this.autoPostCount = 0;
+          this.autoPostDate = todayJST;
+          this.lastAutoPostAt = 0;
+          logger.info(
+            `📋 自動投稿カウンタ: 新しい日付のためリセット (${todayJST})`,
+            'cyan'
+          );
+        }
+      } else {
+        this.autoPostDate = this.getTodayJST();
+      }
+    } catch (err) {
+      logger.warn(`📋 自動投稿カウンタ読み込み失敗: ${err}`);
+      this.autoPostDate = this.getTodayJST();
+    }
+  }
+
+  /** 自動投稿カウンタをファイルに保存する */
+  private saveAutoPostCount(): void {
+    try {
+      const dir = path.dirname(AUTO_POST_COUNT_FILE);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        AUTO_POST_COUNT_FILE,
+        JSON.stringify({
+          date: this.autoPostDate,
+          count: this.autoPostCount,
+          lastPostAt: this.lastAutoPostAt,
+        }, null, 2)
+      );
+    } catch (err) {
+      logger.warn(`📋 自動投稿カウンタ保存失敗: ${err}`);
+    }
+  }
+
+  /** JST の今日の日付文字列を返す (YYYY-MM-DD) */
+  private getTodayJST(): string {
+    const now = new Date();
+    const jst = toZonedTime(now, 'Asia/Tokyo');
+    return format(jst, 'yyyy-MM-dd');
+  }
+
+  /**
+   * 返信上限チェック。上限に達していたら true を返す。
+   * 日付が変わっていたら自動リセット。
+   */
+  public isReplyLimitReached(): boolean {
+    const todayJST = this.getTodayJST();
+    if (this.dailyReplyDate !== todayJST) {
+      // 日付リセット
+      this.dailyReplyCount = 0;
+      this.dailyReplyDate = todayJST;
+      this.saveDailyReplyCount();
+    }
+    return this.dailyReplyCount >= this.maxRepliesPerDay;
+  }
+
+  /**
+   * 返信カウンタをインクリメントして保存する。
+   */
+  public incrementReplyCount(): void {
+    const todayJST = this.getTodayJST();
+    if (this.dailyReplyDate !== todayJST) {
+      this.dailyReplyCount = 0;
+      this.dailyReplyDate = todayJST;
+    }
+    this.dailyReplyCount++;
+    this.saveDailyReplyCount();
+    logger.info(`📋 返信カウンタ: ${this.dailyReplyCount}/${this.maxRepliesPerDay}`, 'cyan');
+  }
+
+  /** 処理済みIDをファイルに保存する */
+  public saveProcessedIds(): void {
+    try {
+      const dir = path.dirname(PROCESSED_IDS_FILE);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      // 最新500件のみ保存
+      const ids = Array.from(this.processedTweetIds).slice(-500);
+      fs.writeFileSync(PROCESSED_IDS_FILE, JSON.stringify(ids, null, 2));
+    } catch (err) {
+      logger.warn(`📋 処理済みIDファイル保存失敗: ${err}`);
+    }
+  }
+
+  /** advanced_search 用の最終チェック時刻 */
+  private lastCheckedTime: Date = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+  /** 返信確率 (0.0〜1.0) */
+  private replyProbability: number;
+
+  /** ポーリング間隔 (ミリ秒) */
+  private monitorIntervalMs: number;
+
+  // --- 自動投稿関連 ---
+  /** 当日の自動投稿カウンター */
+  private autoPostCount: number = 0;
+  /** カウンタの日付 (YYYY-MM-DD JST) */
+  private autoPostDate: string = '';
+  /** 最後に自動投稿した時刻 (ms) */
+  private lastAutoPostAt: number = 0;
+  /** 1日あたりの自動投稿上限 */
+  private maxAutoPostsPerDay: number;
+  /** 自動投稿の活動開始時間 (JST, 0-23) */
+  private autoPostStartHour: number;
+  /** 自動投稿の活動終了時間 (JST, 0-24) */
+  private autoPostEndHour: number;
+  /** 次回自動投稿のタイマー */
+  private autoPostTimer: ReturnType<typeof setTimeout> | null = null;
+  /** 日次リセットのタイマー */
+  private dailyResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** 監視対象アカウント設定 */
+  private monitoredAccounts: MonitoredAccountConfig[];
+
+  /** ai_mine_lab のユーザー名 */
+  private officialAccountUserName: string;
 
   public static getInstance(isTest: boolean = false) {
     const eventBus = getEventBus();
@@ -40,26 +291,52 @@ export class TwitterClient extends BaseClient {
       TwitterClient.instance = new TwitterClient('twitter', isTest);
     }
     TwitterClient.instance.isTest = isTest;
-    TwitterClient.instance.myUserId = process.env.TWITTER_USER_ID || null;
+    TwitterClient.instance.myUserId = config.twitter.userId || null;
     return TwitterClient.instance;
   }
 
   private constructor(serviceName: 'twitter', isTest: boolean) {
     const eventBus = getEventBus();
     super(serviceName, eventBus);
-    this.apiKey = process.env.TWITTERAPI_IO_API_KEY || '';
-    this.email = process.env.TWITTER_EMAIL || '';
-    this.password = process.env.TWITTER_PASSWORD || '';
-    this.login_data = process.env.TWITTER_LOGIN_DATA || '';
-    this.two_fa_code = process.env.TWITTER_TWO_FA_CODE || '';
-    this.auth_session = process.env.TWITTER_AUTH_SESSION || '';
-    this.proxy1 = process.env.TWITTER_PROXY1 || '';
-    this.proxy2 = process.env.TWITTER_PROXY2 || '';
-    this.proxy3 = process.env.TWITTER_PROXY3 || '';
-    const apiKey = process.env.TWITTER_API_KEY;
-    const apiKeySecret = process.env.TWITTER_API_KEY_SECRET;
-    const accessToken = process.env.TWITTER_ACCESS_TOKEN;
-    const accessTokenSecret = process.env.TWITTER_ACCESS_TOKEN_SECRET;
+    this.apiKey = config.twitter.twitterApiIoKey;
+    this.email = config.twitter.email;
+    this.password = config.twitter.password;
+    this.login_data = config.twitter.loginData;
+    this.two_fa_code = config.twitter.twoFaCode;
+    this.auth_session = config.twitter.authSession;
+    this.login_cookies = config.twitter.loginCookies || config.twitter.authSession;
+    this.proxy1 = config.twitter.proxy1;
+    this.proxy2 = config.twitter.proxy2;
+    this.proxy3 = config.twitter.proxy3;
+    this.replyProbability = config.twitter.replyProbability;
+    this.monitorIntervalMs = config.twitter.monitorIntervalMs;
+    this.maxAutoPostsPerDay = config.twitter.maxAutoPostsPerDay;
+    this.autoPostStartHour = config.twitter.autoPostStartHour;
+    this.autoPostEndHour = config.twitter.autoPostEndHour;
+    this.maxRepliesPerDay = config.twitter.maxRepliesPerDay;
+
+    this.officialAccountUserName = config.twitter.usernames.aiminelab;
+
+    // 監視対象アカウント設定 (4アカウント統一)
+    const allUserNames = [
+      config.twitter.usernames.rai,
+      config.twitter.usernames.yummy,
+      config.twitter.usernames.guriko,
+      config.twitter.usernames.aiminelab,
+    ].filter(Boolean) as string[];
+
+    this.monitoredAccounts = allUserNames.map((userName) => ({
+      userName,
+      alwaysLike: true,
+      reply: true,
+      // ai_mine_lab のみ引用RT
+      alwaysQuoteRT: userName === this.officialAccountUserName,
+    }));
+
+    const apiKey = config.twitter.apiKey;
+    const apiKeySecret = config.twitter.apiKeySecret;
+    const accessToken = config.twitter.accessToken;
+    const accessTokenSecret = config.twitter.accessTokenSecret;
 
     if (!apiKey || !apiKeySecret || !accessToken || !accessTokenSecret) {
       throw new Error('Twitter APIの認証情報が設定されていません');
@@ -71,7 +348,15 @@ export class TwitterClient extends BaseClient {
       accessToken: accessToken,
       accessSecret: accessTokenSecret,
     });
+
+    // コンストラクタ段階で処理済みIDを復元 (webhook は initialize() 前に届く可能性がある)
+    this.loadProcessedIds();
+    this.loadDailyReplyCount();
   }
+
+  // =========================================================================
+  // Event Handlers
+  // =========================================================================
 
   private setupEventHandlers() {
     this.eventBus.subscribe('twitter:status', async (event) => {
@@ -91,121 +376,174 @@ export class TwitterClient extends BaseClient {
         });
       }
     });
+
     this.eventBus.subscribe('twitter:post_scheduled_message', async (event) => {
       if (this.status !== 'running') return;
-      const { text, imageUrl } = event.data as TwitterClientInput;
+      const { text } = event.data as TwitterClientInput;
       try {
         if (text) {
           await this.postTweetByApi(text);
         }
       } catch (error) {
-        console.error('Twitter post error:', error);
+        logger.error('Twitter post error:', error);
       }
     });
+
     this.eventBus.subscribe('twitter:post_message', async (event) => {
-      if (this.status !== 'running') return;
-      const { replyId, text, imageUrl } = event.data as TwitterClientInput;
+      if (this.status !== 'running') {
+        logger.warn(`[twitter:post_message] status="${this.status}" のためスキップ`);
+        return;
+      }
+      const { replyId, text, imageUrl, quoteTweetUrl } = event.data as TwitterClientInput;
+      logger.info(`[twitter:post_message] 受信: text="${text?.slice(0, 50)}" replyId=${replyId}`, 'cyan');
       try {
-        await this.postTweet(text, imageUrl ?? null, replyId ?? null);
+        if (quoteTweetUrl) {
+          // 引用RTとしてツイート投稿
+          await this.postQuoteTweet(text, quoteTweetUrl);
+        } else {
+          // OAuth 1.0a (twitter-api-v2) で投稿 (返信対応)
+          await this.postTweetByApi(text, replyId);
+        }
       } catch (error) {
-        console.error(`\x1b[31mTwitter post error: ${error}\x1b[0m`);
+        logger.error('Twitter post error:', error);
       }
     });
+
     this.eventBus.subscribe('twitter:get_tweet_content', async (event) => {
       if (this.status !== 'running') return;
       const { tweetId } = event.data as TwitterClientInput;
       try {
         if (tweetId) {
-          const {
-            text,
-            createdAt,
-            retweetCount,
-            replyCount,
-            likeCount,
-            authorId,
-            authorName,
-            mediaUrl,
-          } = await this.fetchTweetContent(tweetId);
+          const tweetContent = await this.fetchTweetContent(tweetId);
           this.eventBus.publish({
             type: 'tool:get_tweet_content',
             memoryZone: 'twitter:get',
-            data: {
-              text,
-              createdAt,
-              retweetCount,
-              replyCount,
-              likeCount,
-              authorId,
-              authorName,
-              mediaUrl,
-            } as TwitterClientOutput,
+            data: tweetContent as TwitterClientOutput,
           });
         }
       } catch (error) {
-        console.error('Twitter get tweet content error:', error);
+        logger.error('Twitter get tweet content error:', error);
+      }
+    });
+
+    // --- LLM ツール用エンドポイント ---
+
+    this.eventBus.subscribe('twitter:like_tweet', async (event) => {
+      if (this.status !== 'running') return;
+      const { tweetId } = event.data as TwitterClientInput;
+      try {
+        if (tweetId) {
+          await this.likeTweet(tweetId);
+          this.eventBus.publish({
+            type: 'tool:like_tweet',
+            memoryZone: 'twitter:post',
+            data: { success: true, message: `ツイート ${tweetId} にいいねしました` } as TwitterActionResult,
+          });
+        }
+      } catch (error) {
+        this.eventBus.publish({
+          type: 'tool:like_tweet',
+          memoryZone: 'twitter:post',
+          data: { success: false, message: `いいね失敗: ${error instanceof Error ? error.message : String(error)}` } as TwitterActionResult,
+        });
+      }
+    });
+
+    this.eventBus.subscribe('twitter:retweet_tweet', async (event) => {
+      if (this.status !== 'running') return;
+      const { tweetId } = event.data as TwitterClientInput;
+      try {
+        if (tweetId) {
+          await this.retweetTweet(tweetId);
+          this.eventBus.publish({
+            type: 'tool:retweet_tweet',
+            memoryZone: 'twitter:post',
+            data: { success: true, message: `ツイート ${tweetId} をリツイートしました` } as TwitterActionResult,
+          });
+        }
+      } catch (error) {
+        this.eventBus.publish({
+          type: 'tool:retweet_tweet',
+          memoryZone: 'twitter:post',
+          data: { success: false, message: `リツイート失敗: ${error instanceof Error ? error.message : String(error)}` } as TwitterActionResult,
+        });
+      }
+    });
+
+    this.eventBus.subscribe('twitter:quote_retweet', async (event) => {
+      if (this.status !== 'running') return;
+      const { text, quoteTweetUrl } = event.data as TwitterClientInput;
+      try {
+        if (text && quoteTweetUrl) {
+          await this.postQuoteTweet(text, quoteTweetUrl);
+          this.eventBus.publish({
+            type: 'tool:quote_retweet',
+            memoryZone: 'twitter:post',
+            data: { success: true, message: `引用リツイートしました` } as TwitterActionResult,
+          });
+        }
+      } catch (error) {
+        this.eventBus.publish({
+          type: 'tool:quote_retweet',
+          memoryZone: 'twitter:post',
+          data: { success: false, message: `引用リツイート失敗: ${error instanceof Error ? error.message : String(error)}` } as TwitterActionResult,
+        });
       }
     });
   }
 
+  // =========================================================================
+  // Tweet Fetching
+  // =========================================================================
+
   private async fetchTweetContent(tweetId: string) {
     const endpoint = 'https://api.twitterapi.io/twitter/tweets';
-    console.log('tweetId: ', tweetId);
 
     try {
       const options = {
-        method: 'GET',
+        method: 'GET' as const,
         headers: { 'X-API-Key': this.apiKey },
         params: { tweet_ids: tweetId },
       };
 
       const response = await axios.get(endpoint, options);
-      const text = response.data.tweets?.[0]?.text;
-      const createdAt = response.data.tweets?.[0]?.createdAt;
-      const retweetCount = response.data.tweets?.[0]?.retweetCount;
-      const replyCount = response.data.tweets?.[0]?.replyCount;
-      const likeCount = response.data.tweets?.[0]?.likeCount;
-      const authorId = response.data.tweets?.[0]?.author?.id;
-      const authorName = response.data.tweets?.[0]?.author?.name;
-      const mediaUrl =
-        response.data.tweets?.[0]?.extendedEntities?.media?.[0]
-          ?.media_url_https;
-      console.log('tweetContent: ', response.data.tweets?.[0]);
+      const tweet = response.data.tweets?.[0];
       return {
-        text,
-        createdAt,
-        retweetCount,
-        replyCount,
-        likeCount,
-        authorId,
-        authorName,
-        mediaUrl,
+        text: tweet?.text,
+        createdAt: tweet?.createdAt,
+        retweetCount: tweet?.retweetCount,
+        replyCount: tweet?.replyCount,
+        likeCount: tweet?.likeCount,
+        authorId: tweet?.author?.id,
+        authorName: tweet?.author?.name,
+        mediaUrl: tweet?.extendedEntities?.media?.[0]?.media_url_https,
       };
-    } catch (error: any) {
-      console.error(
-        'API呼び出しエラー:',
-        error.response?.data || error.message
-      );
+    } catch (error: unknown) {
+      const errMsg = isAxiosError(error)
+        ? (error.response?.data ?? error.message)
+        : error instanceof Error ? error.message : String(error);
+      logger.error('API呼び出しエラー:', errMsg);
       throw error;
     }
   }
+
+  // =========================================================================
+  // Login
+  // =========================================================================
 
   private async login1Step() {
     const endpoint =
       'https://api.twitterapi.io/twitter/login_by_email_or_username';
     const data = { username_or_email: this.email, password: this.password };
-    const config = {
-      headers: { 'X-API-Key': this.apiKey },
-    };
+    const reqConfig = { headers: { 'X-API-Key': this.apiKey } };
     try {
-      const response = await axios.post(endpoint, data, config);
-      console.log(response.data);
+      const response = await axios.post(endpoint, data, reqConfig);
       const login_data = response.data.login_data;
       const status = response.data.status;
-      console.log('login_data: ', login_data);
-      console.log('status: ', status);
+      logger.info(`Login step 1: ${status}`, 'cyan');
       return { login_data, status };
-    } catch (error: any) {
-      console.error(`\x1b[31mLogin error: ${error.message}\x1b[0m`);
+    } catch (error: unknown) {
+      logger.error(`Login error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -213,109 +551,40 @@ export class TwitterClient extends BaseClient {
   private async login2Step() {
     const endpoint = 'https://api.twitterapi.io/twitter/login_by_2fa';
     const data = { login_data: this.login_data, '2fa_code': this.two_fa_code };
-    const config = {
-      headers: { 'X-API-Key': this.apiKey },
-    };
+    const reqConfig = { headers: { 'X-API-Key': this.apiKey } };
     try {
-      const response = await axios.post(endpoint, data, config);
-      console.log('response: ', response.data);
+      const response = await axios.post(endpoint, data, reqConfig);
       this.auth_session = response.data.auth_session;
-    } catch (error: any) {
-      console.error(`\x1b[31mLogin error: ${error.message}\x1b[0m`);
+      logger.success('Login step 2 completed');
+    } catch (error: unknown) {
+      logger.error(`Login error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
 
-  private async postTweetByApi(content: string) {
+  // =========================================================================
+  // Tweet Posting
+  // =========================================================================
+
+  /** twitter-api-v2 (OAuth 1.0a) 経由でツイート (返信対応) */
+  private async postTweetByApi(content: string, replyToId?: string | null) {
     if (this.status !== 'running') return;
     try {
-      const response = await this.client.v2.tweet(content);
-      console.log(
-        `\x1b[32mTweet posted successfully ${response.data.id}\x1b[0m`
-      );
-    } catch (error: any) {
-      console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
+      const options: { text: string; reply?: { in_reply_to_tweet_id: string } } = {
+        text: content,
+      };
+      if (replyToId) {
+        options.reply = { in_reply_to_tweet_id: replyToId };
+      }
+      const response = await this.client.v2.tweet(options);
+      logger.success(`[postTweetByApi] 投稿成功: ${response.data.id}`);
+    } catch (error: unknown) {
+      logger.error(`[postTweetByApi] エラー: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
 
-  private async getLatestTweets() {
-    try {
-      const endpoint = 'https://api.twitterapi.io/twitter/user/last_tweets';
-      const options = {
-        method: 'GET',
-        headers: { 'X-API-Key': this.apiKey },
-        params: { userName: 'I_am_Shannon' },
-      };
-      const res = await axios.get(endpoint, options);
-      if (res.data.status === 'success') {
-        const tweets = res.data.data.tweets;
-        const filteredTweets = tweets.filter((tweet: any) => !tweet.is_reply);
-        return filteredTweets.slice(0, 3);
-      } else {
-        console.error(`\x1b[31mTweet error: ${res.data.data.message}\x1b[0m`);
-        return [];
-      }
-    } catch (error: any) {
-      console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
-      throw error;
-    }
-  }
-
-  private async getReplies(tweet: any) {
-    const endpoint = 'https://api.twitterapi.io/twitter/tweet/replies';
-    const options = {
-      method: 'GET',
-      headers: { 'X-API-Key': this.apiKey },
-      params: { tweetId: tweet.id },
-    };
-    const res = await axios.get(endpoint, options);
-    if (res.data.status === 'success') {
-      const replies = res.data.tweets;
-      const filteredReplies = replies.filter(
-        (reply: any) =>
-          reply.replyCount === 0 && reply.author.id !== this.myUserId
-      );
-      return {
-        reply: filteredReplies[0],
-        myTweet: tweet.text,
-      };
-    } else {
-      console.error(`\x1b[31mTweet error: ${res.data.data.message}\x1b[0m`);
-      return {};
-    }
-  }
-
-  private async checkRepliesAndRespond() {
-    try {
-      const tweets = await this.getLatestTweets();
-      if (tweets.length === 0) return;
-
-      const replies: { reply: any; myTweet: any }[] = [];
-      for (const tweet of tweets) {
-        const { reply, myTweet } = await this.getReplies(tweet);
-        if (reply) {
-          replies.push({ reply, myTweet });
-        }
-      }
-      if (replies.length === 0) return;
-      console.log('replies: ', replies[0]);
-      this.eventBus.publish({
-        type: 'llm:post_twitter_reply',
-        memoryZone: 'twitter:post',
-        data: {
-          replyId: replies[0].reply.id,
-          text: replies[0].reply.text,
-          authorName: replies[0].reply.author.name,
-          repliedTweet: replies[0].myTweet,
-          repliedTweetAuthorName: replies[0].reply.author.name,
-        } as TwitterReplyOutput,
-      });
-    } catch (err: any) {
-      console.error('❌ エラー:', err.response?.data || err.message);
-    }
-  }
-
+  /** twitterapi.io v1 経由でツイート (返信含む) */
   private async postTweet(
     content: string,
     mediaUrl: string | null,
@@ -331,137 +600,49 @@ export class TwitterClient extends BaseClient {
         in_reply_to_tweet_id: replyId ?? null,
         proxy: this.proxy1,
       };
-      const config = {
-        headers: {
-          'X-API-Key': this.apiKey,
-        },
-      };
-      const response = await axios.post(endpoint, data, config);
+      const reqConfig = { headers: { 'X-API-Key': this.apiKey } };
+      logger.info(`[postTweet] 投稿中... replyId=${replyId}`, 'cyan');
+      const response = await axios.post(endpoint, data, reqConfig);
+      logger.success(`[postTweet] 成功: ${JSON.stringify(response.data).slice(0, 200)}`);
       return response;
-    } catch (error: any) {
-      console.error(`\x1b[31mTweet error: ${error.message}\x1b[0m`);
+    } catch (error: unknown) {
+      logger.error(`[postTweet] エラー: ${error instanceof Error ? error.message : String(error)}`);
+      if (isAxiosError(error)) {
+        logger.error(`[postTweet] レスポンス: ${JSON.stringify(error.response?.data).slice(0, 300)}`);
+      }
       return error;
     }
   }
 
   /**
-   * 公式アカウントの1時間以内のツイートに自動でいいね・リツイート
+   * twitterapi.io v2 経由で引用リツイート
+   * create_tweet_v2 の attachment_url パラメータを使用
    */
-  private async autoLikeAndRetweetOfficialTweets() {
-    if (!this.officialAccountUserName) return;
+  private async postQuoteTweet(content: string, quoteTweetUrl: string) {
+    if (this.status !== 'running') return;
     try {
-      const endpoint = 'https://api.twitterapi.io/twitter/user/last_tweets';
-      const options = {
-        method: 'GET',
-        headers: { 'X-API-Key': this.apiKey },
-        params: { userName: this.officialAccountUserName },
+      const endpoint = 'https://api.twitterapi.io/twitter/create_tweet_v2';
+      const data = {
+        login_cookies: this.login_cookies,
+        tweet_text: content,
+        attachment_url: quoteTweetUrl,
+        proxy: this.proxy1,
       };
-      const res = await axios.get(endpoint, options);
-      if (res.data.status !== 'success') return;
-      const tweets = res.data.data.tweets;
-      const now = Date.now();
-      for (const tweet of tweets) {
-        const createdAt = new Date(
-          tweet.created_at || tweet.createdAt
-        ).getTime();
-        if (now - createdAt > 60 * 60 * 1000) continue; // 1時間以内のみ
-        if (tweet.likeCount === 0) {
-          await this.likeTweet(tweet.id);
-        }
-        if (tweet.retweetCount === 0) {
-          await this.retweetTweet(tweet.id);
-        }
-        const replied = await this.hasRepliedToTweet(tweet.id);
-        if (replied) continue; // 自分が返信している場合はスキップ
-        this.eventBus.publish({
-          type: 'llm:post_twitter_reply',
-          memoryZone: 'twitter:post',
-          data: {
-            replyId: tweet.id,
-            text: tweet.text,
-            authorName: tweet.author.name,
-          } as TwitterReplyOutput,
-        });
-      }
-    } catch (e) {
-      console.error('公式アカウント自動いいね・リツイート・返信失敗:', e);
+      const reqConfig = { headers: { 'X-API-Key': this.apiKey } };
+      const response = await axios.post(endpoint, data, reqConfig);
+      logger.success(`引用RT投稿成功: ${response.data?.tweet_id ?? 'OK'}`);
+      return response;
+    } catch (error: unknown) {
+      logger.error(`引用RT投稿失敗: ${error instanceof Error ? error.message : String(error)}`);
+      return error;
     }
   }
 
-  /**
-   * 友達アカウントの1時間以内のツイートに自動でいいね・返信
-   */
-  private async autoLikeAndReplyFriendTweets() {
-    if (!this.friendAccountUserNames.length) return;
-    try {
-      const now = Date.now();
-      for (const friendUserName of this.friendAccountUserNames) {
-        const endpoint = 'https://api.twitterapi.io/twitter/user/last_tweets';
-        const options = {
-          method: 'GET',
-          headers: { 'X-API-Key': this.apiKey },
-          params: { userName: friendUserName },
-        };
-        const res = await axios.get(endpoint, options);
-        if (res.data.status !== 'success') continue;
-        const tweets = res.data.data.tweets;
-        // 1時間以内 & 自分が返信していないツイートを抽出
-        const notRepliedTweets = [];
-        for (const tweet of tweets) {
-          const createdAt = new Date(
-            tweet.created_at || tweet.createdAt
-          ).getTime();
-          if (now - createdAt > 60 * 60 * 1000) continue;
-          // 返信済み判定: 自分のリプライがあるか
-          const replied = await this.hasRepliedToTweet(tweet.id);
-          if (!replied && tweet.likeCount === 0) {
-            await this.likeTweet(tweet.id);
-            notRepliedTweets.push(tweet);
-          }
-        }
-        // ランダムに1件選んで返信
-        if (notRepliedTweets.length > 0) {
-          const randomTweet =
-            notRepliedTweets[
-            Math.floor(Math.random() * notRepliedTweets.length)
-            ];
+  // =========================================================================
+  // Tweet Actions (いいね・リツイート)
+  // =========================================================================
 
-          let repliedTweetText = '';
-          let repliedTweetAuthorName = '';
-
-          // in_reply_to_user_idが自分のIDかどうかで分岐
-          if (randomTweet.in_reply_to_user_id) {
-            // 元ツイートIDを取得
-            const originalTweetId =
-              randomTweet.in_reply_to_status_id ||
-              randomTweet.in_reply_to_tweet_id;
-            if (originalTweetId) {
-              const original = await this.fetchTweetContent(originalTweetId);
-              repliedTweetText = original.text;
-              repliedTweetAuthorName = original.authorName;
-            }
-          }
-          this.eventBus.publish({
-            type: 'llm:post_twitter_reply',
-            memoryZone: 'twitter:post',
-            data: {
-              replyId: randomTweet.id,
-              text: randomTweet.text,
-              authorName: randomTweet.author.name,
-              repliedTweet: repliedTweetText,
-              repliedTweetAuthorName: repliedTweetAuthorName,
-            } as TwitterReplyOutput,
-          });
-        }
-      }
-    } catch (e) {
-      console.error('友達アカウント自動いいね・返信失敗:', e);
-    }
-  }
-
-  /**
-   * ツイートにいいね
-   */
+  /** ツイートにいいね */
   private async likeTweet(tweetId: string) {
     try {
       const endpoint = 'https://api.twitterapi.io/twitter/like_tweet';
@@ -470,17 +651,15 @@ export class TwitterClient extends BaseClient {
         tweet_id: tweetId,
         proxy: this.proxy2,
       };
-      const config = { headers: { 'X-API-Key': this.apiKey } };
-      await axios.post(endpoint, data, config);
-      console.log(`ツイート ${tweetId} にいいねしました`);
+      const reqConfig = { headers: { 'X-API-Key': this.apiKey } };
+      await axios.post(endpoint, data, reqConfig);
+      logger.info(`♥ ツイート ${tweetId} にいいねしました`, 'green');
     } catch (e) {
-      console.error('いいね失敗:', e);
+      logger.error('いいね失敗:', e);
     }
   }
 
-  /**
-   * ツイートをリツイート
-   */
+  /** ツイートをリツイート */
   private async retweetTweet(tweetId: string) {
     try {
       const endpoint = 'https://api.twitterapi.io/twitter/retweet_tweet';
@@ -489,87 +668,721 @@ export class TwitterClient extends BaseClient {
         tweet_id: tweetId,
         proxy: this.proxy3,
       };
-      const config = { headers: { 'X-API-Key': this.apiKey } };
-      await axios.post(endpoint, data, config);
-      console.log(`ツイート ${tweetId} をリツイートしました`);
+      const reqConfig = { headers: { 'X-API-Key': this.apiKey } };
+      await axios.post(endpoint, data, reqConfig);
+      logger.info(`🔁 ツイート ${tweetId} をリツイートしました`, 'green');
     } catch (e) {
-      console.error('リツイート失敗:', e);
+      logger.error('リツイート失敗:', e);
     }
   }
 
-  /**
-   * 既に自分が返信しているか判定
-   */
-  private async hasRepliedToTweet(tweetId: string): Promise<boolean> {
+  // =========================================================================
+  // 自分のツイートへのリプライ検知 (既存機能)
+  // =========================================================================
+
+  private async getLatestTweets(): Promise<TweetData[]> {
     try {
-      const endpoint = 'https://api.twitterapi.io/twitter/tweet/replies';
+      const endpoint = 'https://api.twitterapi.io/twitter/user/last_tweets';
       const options = {
-        method: 'GET',
+        method: 'GET' as const,
         headers: { 'X-API-Key': this.apiKey },
-        params: { tweetId },
+        params: { userName: 'I_am_Shannon' },
       };
       const res = await axios.get(endpoint, options);
-      if (res.data.status !== 'success') return false;
-      const replies = res.data.tweets;
-      return replies.some((reply: any) => reply.author?.id === this.myUserId);
+      if (res.data.status === 'success') {
+        const tweets = res.data.data.tweets as TweetData[];
+        return tweets.filter((tweet) => !tweet.isReply).slice(0, 3);
+      } else {
+        logger.error(`Tweet error: ${res.data.data?.message}`);
+        return [];
+      }
+    } catch (error: unknown) {
+      logger.error(`Tweet error: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
+  private async getReplies(tweet: TweetData) {
+    const endpoint = 'https://api.twitterapi.io/twitter/tweet/replies';
+    const options = {
+      method: 'GET' as const,
+      headers: { 'X-API-Key': this.apiKey },
+      params: { tweetId: tweet.id },
+    };
+    const res = await axios.get(endpoint, options);
+    if (res.data.status === 'success') {
+      const replies = res.data.tweets as TweetData[];
+      const filteredReplies = replies.filter(
+        (reply) =>
+          reply.replyCount === 0 && reply.author.id !== this.myUserId
+      );
+      return {
+        reply: filteredReplies[0],
+        myTweet: tweet.text,
+      };
+    } else {
+      logger.error(`Tweet error: ${res.data.data?.message}`);
+      return {};
+    }
+  }
+
+  private async checkRepliesAndRespond() {
+    try {
+      const tweets = await this.getLatestTweets();
+      if (tweets.length === 0) return;
+
+      const replies: { reply: TweetData; myTweet: string }[] = [];
+      for (const tweet of tweets) {
+        const { reply, myTweet } = await this.getReplies(tweet);
+        if (reply && myTweet) {
+          replies.push({ reply, myTweet });
+        }
+      }
+      if (replies.length === 0) return;
+
+      // 日次返信上限チェック
+      if (this.isReplyLimitReached()) {
+        logger.info(`📋 [Polling] 日次返信上限に到達。スキップ`, 'yellow');
+        return;
+      }
+
+      this.incrementReplyCount();
+      this.eventBus.publish({
+        type: 'llm:post_twitter_reply',
+        memoryZone: 'twitter:post',
+        data: {
+          replyId: replies[0].reply.id,
+          text: replies[0].reply.text,
+          authorName: replies[0].reply.author.name,
+          repliedTweet: replies[0].myTweet,
+          repliedTweetAuthorName: replies[0].reply.author.name,
+        } as TwitterReplyOutput,
+      });
+    } catch (err: unknown) {
+      const errMsg = isAxiosError(err)
+        ? (err.response?.data ?? err.message)
+        : err instanceof Error ? err.message : String(err);
+      logger.error(`リプライ検知エラー: ${JSON.stringify(errMsg)}`);
+    }
+  }
+
+  // =========================================================================
+  // 統合監視: advanced_search による一括ポーリング
+  // =========================================================================
+
+  /**
+   * UTC形式の時刻文字列を返す (advanced_search の since/until 用)
+   * 形式: "YYYY-MM-DD_HH:MM:SS_UTC"
+   */
+  private formatTimeForSearch(date: Date): string {
+    const y = date.getUTCFullYear();
+    const mo = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(date.getUTCDate()).padStart(2, '0');
+    const h = String(date.getUTCHours()).padStart(2, '0');
+    const mi = String(date.getUTCMinutes()).padStart(2, '0');
+    const s = String(date.getUTCSeconds()).padStart(2, '0');
+    return `${y}-${mo}-${d}_${h}:${mi}:${s}_UTC`;
+  }
+
+  /**
+   * 全監視対象アカウントの新着ツイートを advanced_search で一括取得し、
+   * アカウントごとのルールに従ってアクションを実行する。
+   *
+   * - 全アカウント: 必ずいいね
+   * - 全アカウント: 確率で返信 (replyProbability)
+   * - ai_mine_lab: 必ず引用RT
+   */
+  private async autoMonitorAccounts() {
+    if (this.monitoredAccounts.length === 0) return;
+
+    try {
+      const now = new Date();
+      const sinceStr = this.formatTimeForSearch(this.lastCheckedTime);
+      const untilStr = this.formatTimeForSearch(now);
+
+      // 全アカウントを OR で結合した検索クエリ
+      const fromClauses = this.monitoredAccounts
+        .map((a) => `from:${a.userName}`)
+        .join(' OR ');
+      const query = `(${fromClauses}) since:${sinceStr} until:${untilStr}`;
+
+      logger.info(`🔍 Twitter監視: ${query}`, 'cyan');
+
+      // advanced_search でツイート取得 (ページネーション対応)
+      const allTweets: TweetData[] = [];
+      let nextCursor: string | null = null;
+
+      do {
+        const params: Record<string, string> = {
+          query,
+          queryType: 'Latest',
+        };
+        if (nextCursor) params.cursor = nextCursor;
+
+        const res = await axios.get(
+          'https://api.twitterapi.io/twitter/tweet/advanced_search',
+          {
+            headers: { 'X-API-Key': this.apiKey },
+            params,
+          }
+        );
+
+        if (res.data.status !== 'success') {
+          logger.error(`advanced_search エラー: ${res.data.message}`);
+          break;
+        }
+
+        const tweets = (res.data.tweets ?? []) as TweetData[];
+        allTweets.push(...tweets);
+
+        if (res.data.has_next_page && res.data.next_cursor) {
+          nextCursor = res.data.next_cursor;
+        } else {
+          nextCursor = null;
+        }
+      } while (nextCursor);
+
+      // 最終チェック時刻を更新
+      this.lastCheckedTime = now;
+
+      if (allTweets.length === 0) {
+        logger.info('📭 新着ツイートなし', 'cyan');
+        return;
+      }
+
+      logger.info(`📬 ${allTweets.length}件の新着ツイートを検出`, 'green');
+
+      // 各ツイートに対してアクション実行
+      for (const tweet of allTweets) {
+        // 既に処理済みならスキップ
+        if (this.processedTweetIds.has(tweet.id)) continue;
+        this.processedTweetIds.add(tweet.id);
+        this.saveProcessedIds();
+
+        const authorUserName = tweet.author?.userName;
+        if (!authorUserName) continue;
+
+        // このツイートのアカウント設定を取得
+        const accountConfig = this.monitoredAccounts.find(
+          (a) => a.userName.toLowerCase() === authorUserName.toLowerCase()
+        );
+        if (!accountConfig) continue;
+
+        logger.info(
+          `📝 @${authorUserName}: "${tweet.text.slice(0, 50)}..."`,
+          'cyan'
+        );
+
+        // 1) 必ずいいね
+        if (accountConfig.alwaysLike) {
+          await this.likeTweet(tweet.id);
+        }
+
+        // 2) 必ず引用RT (ai_mine_lab のみ)
+        if (accountConfig.alwaysQuoteRT) {
+          const tweetUrl = tweet.url || `https://x.com/${authorUserName}/status/${tweet.id}`;
+          this.eventBus.publish({
+            type: 'llm:post_twitter_quote_rt',
+            memoryZone: 'twitter:post',
+            data: {
+              tweetId: tweet.id,
+              tweetUrl,
+              text: tweet.text,
+              authorName: tweet.author.name,
+              authorUserName,
+            } as TwitterQuoteRTOutput,
+          });
+        }
+
+        // 3) 確率で返信
+        if (accountConfig.reply && Math.random() < this.replyProbability) {
+          let repliedTweetText = '';
+          let repliedTweetAuthorName = '';
+
+          // 返信ツイートの場合は元ツイートの情報も取得
+          if (tweet.inReplyToId || tweet.in_reply_to_status_id || tweet.in_reply_to_tweet_id) {
+            const originalTweetId =
+              tweet.inReplyToId ||
+              tweet.in_reply_to_status_id ||
+              tweet.in_reply_to_tweet_id;
+            if (originalTweetId) {
+              try {
+                const original = await this.fetchTweetContent(originalTweetId);
+                repliedTweetText = original.text ?? '';
+                repliedTweetAuthorName = original.authorName ?? '';
+              } catch {
+                // 元ツイート取得失敗は無視
+              }
+            }
+          }
+
+          this.eventBus.publish({
+            type: 'llm:post_twitter_reply',
+            memoryZone: 'twitter:post',
+            data: {
+              replyId: tweet.id,
+              text: tweet.text,
+              authorName: tweet.author.name,
+              repliedTweet: repliedTweetText,
+              repliedTweetAuthorName,
+            } as TwitterReplyOutput,
+          });
+        }
+      }
+
+      // processedTweetIds が際限なく増えるのを防ぐ (最大1000件保持)
+      if (this.processedTweetIds.size > 1000) {
+        const idsArray = Array.from(this.processedTweetIds);
+        this.processedTweetIds = new Set(idsArray.slice(-500));
+      }
     } catch (e) {
-      console.error('返信判定失敗:', e);
-      return false;
+      logger.error('Twitter監視エラー:', e);
+    }
+  }
+
+  // =========================================================================
+  // 自動投稿 (Auto-Post)
+  // =========================================================================
+
+  /**
+   * twitterapi.io からトレンドデータを取得 (日本: woeid=23424856)
+   */
+  private async fetchTrends(): Promise<TwitterTrendData[]> {
+    try {
+      const res = await axios.get(
+        'https://api.twitterapi.io/twitter/trends',
+        {
+          headers: { 'X-API-Key': this.apiKey },
+          params: { woeid: '23424856' },
+        }
+      );
+
+      if (res.data?.trends && Array.isArray(res.data.trends)) {
+        return res.data.trends.map((t: any, i: number) => ({
+          name: t.name ?? t.trend ?? '',
+          query: t.query ?? t.name ?? '',
+          rank: t.rank ?? i + 1,
+          metaDescription: t.meta_description ?? t.metaDescription ?? undefined,
+        }));
+      }
+
+      logger.warn('🐦 fetchTrends: 予期しないレスポンス形式');
+      return [];
+    } catch (error) {
+      logger.error('🐦 fetchTrends エラー:', error);
+      return [];
     }
   }
 
   /**
-   * ツイートに返信
+   * 現在JSTの時間 (0-23) を返す
    */
-  private async replyToTweet(tweetId: string, text: string) {
+  private getJSTHour(): number {
+    const now = new Date();
+    const jstNow = toZonedTime(now, 'Asia/Tokyo');
+    return jstNow.getHours();
+  }
+
+  /**
+   * 今日の日付情報を組み立てる
+   */
+  private getTodayInfo(): string {
+    const now = new Date();
+    const jstNow = toZonedTime(now, 'Asia/Tokyo');
+    const dateStr = format(jstNow, 'yyyy年M月d日(E)', { locale: undefined });
+    const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][jstNow.getDay()];
+    const month = jstNow.getMonth() + 1;
+    const day = jstNow.getDate();
+
+    const lines = [`今日: ${jstNow.getFullYear()}年${month}月${day}日(${dayOfWeek})`];
+
+    // 季節イベントのヒント
+    if (month === 1 && day === 1) lines.push('イベント: 元旦');
+    else if (month === 2 && day === 3) lines.push('イベント: 節分');
+    else if (month === 2 && day === 14) lines.push('イベント: バレンタインデー');
+    else if (month === 3 && day === 3) lines.push('イベント: ひな祭り');
+    else if (month === 3 && day === 14) lines.push('イベント: ホワイトデー');
+    else if (month === 4 && day >= 1 && day <= 10) lines.push('季節: 桜の季節');
+    else if (month === 5 && day === 5) lines.push('イベント: こどもの日');
+    else if (month === 7 && day === 7) lines.push('イベント: 七夕');
+    else if (month === 8 && day >= 13 && day <= 16) lines.push('イベント: お盆');
+    else if (month === 10 && day === 31) lines.push('イベント: ハロウィン');
+    else if (month === 12 && day === 24) lines.push('イベント: クリスマスイブ');
+    else if (month === 12 && day === 25) lines.push('イベント: クリスマス');
+    else if (month === 12 && day === 31) lines.push('イベント: 大晦日');
+
+    return lines.join('\n');
+  }
+
+  /**
+   * 自動投稿を実行する
+   */
+  private async autoPostTweet(): Promise<void> {
+    if (this.status !== 'running') {
+      logger.info('🐦 AutoPost: Twitter未起動、スキップ');
+      this.scheduleNextAutoPost();
+      return;
+    }
+
+    // 活動時間チェック
+    const currentHour = this.getJSTHour();
+    if (currentHour < this.autoPostStartHour || currentHour >= this.autoPostEndHour) {
+      logger.info(
+        `🐦 AutoPost: 活動時間外 (現在JST ${currentHour}時、${this.autoPostStartHour}-${this.autoPostEndHour}時)`,
+        'cyan'
+      );
+      this.scheduleNextAutoPost();
+      return;
+    }
+
+    // 日次上限チェック
+    if (this.autoPostCount >= this.maxAutoPostsPerDay) {
+      logger.info(
+        `🐦 AutoPost: 本日の上限に到達 (${this.autoPostCount}/${this.maxAutoPostsPerDay})`,
+        'cyan'
+      );
+      // 翌日まで停止 (resetDailyCounter で再開)
+      return;
+    }
+
     try {
-      await this.postTweet(text, null, tweetId);
-      console.log(`ツイート ${tweetId} に返信しました`);
-    } catch (e) {
-      console.error('返信失敗:', e);
+      logger.info(`🐦 AutoPost: トレンド取得中...`, 'cyan');
+      const trends = await this.fetchTrends();
+      if (trends.length === 0) {
+        logger.warn('🐦 AutoPost: トレンド取得失敗、スキップ');
+        this.scheduleNextAutoPost();
+        return;
+      }
+
+      const todayInfo = this.getTodayInfo();
+
+      logger.info(
+        `🐦 AutoPost: LLMにツイート生成をリクエスト (トレンド${trends.length}件)`,
+        'cyan'
+      );
+
+      // LLM にツイート生成を依頼
+      this.eventBus.publish({
+        type: 'llm:generate_auto_tweet',
+        memoryZone: 'twitter:post',
+        data: {
+          trends,
+          todayInfo,
+        } as TwitterAutoTweetInput,
+      });
+
+      this.autoPostCount++;
+      this.lastAutoPostAt = Date.now();
+      this.saveAutoPostCount();
+      logger.info(
+        `🐦 AutoPost: リクエスト送信完了 (本日 ${this.autoPostCount}/${this.maxAutoPostsPerDay})`,
+        'green'
+      );
+    } catch (error) {
+      logger.error('🐦 AutoPost エラー:', error);
+    }
+
+    // 次回をスケジュール
+    this.scheduleNextAutoPost();
+  }
+
+  /**
+   * 次回の自動投稿をランダムタイミングでスケジュール
+   */
+  private scheduleNextAutoPost(): void {
+    // 既存タイマーをクリア
+    if (this.autoPostTimer) {
+      clearTimeout(this.autoPostTimer);
+      this.autoPostTimer = null;
+    }
+
+    // 日次上限に達していたらスケジュールしない
+    if (this.autoPostCount >= this.maxAutoPostsPerDay) {
+      logger.info('🐦 AutoPost: 本日の上限に到達。翌日リセットまで待機', 'cyan');
+      return;
+    }
+
+    // 2-4時間 (7,200,000 - 14,400,000ms) + jitter (±30分 = ±1,800,000ms)
+    const baseDelay = 2 * 60 * 60 * 1000 + Math.random() * 2 * 60 * 60 * 1000;
+    const jitter = (Math.random() - 0.5) * 2 * 30 * 60 * 1000;
+    let delay = Math.max(baseDelay + jitter, 30 * 60 * 1000); // 最低30分
+
+    // 最後の投稿からの経過時間を考慮（再起動対策）
+    // 前回投稿から2時間未満なら、2時間経過まで待つ
+    if (this.lastAutoPostAt > 0) {
+      const elapsed = Date.now() - this.lastAutoPostAt;
+      const minInterval = 2 * 60 * 60 * 1000; // 最低2時間
+      if (elapsed < minInterval) {
+        const remaining = minInterval - elapsed;
+        delay = Math.max(delay, remaining + Math.random() * 30 * 60 * 1000);
+        logger.info(
+          `🐦 AutoPost: 前回投稿から${Math.round(elapsed / 60000)}分しか経過していないため、間隔を調整`,
+          'cyan'
+        );
+      }
+    }
+
+    // 現在が活動時間前なら、活動開始まで待つ
+    const currentHour = this.getJSTHour();
+    if (currentHour < this.autoPostStartHour) {
+      const hoursUntilStart = this.autoPostStartHour - currentHour;
+      const msUntilStart = hoursUntilStart * 60 * 60 * 1000;
+      // 活動開始後にランダムな時間を加える (0-60分)
+      delay = msUntilStart + Math.random() * 60 * 60 * 1000;
+    } else if (currentHour >= this.autoPostEndHour) {
+      // 活動時間後なら翌日の活動開始まで
+      const hoursUntilStart = 24 - currentHour + this.autoPostStartHour;
+      const msUntilStart = hoursUntilStart * 60 * 60 * 1000;
+      delay = msUntilStart + Math.random() * 60 * 60 * 1000;
+    }
+
+    const delayMinutes = Math.round(delay / 60000);
+    logger.info(
+      `🐦 AutoPost: 次回投稿を ${delayMinutes}分後にスケジュール`,
+      'cyan'
+    );
+
+    this.autoPostTimer = setTimeout(() => this.autoPostTweet(), delay);
+  }
+
+  /**
+   * 毎日 0:00 JST に自動投稿カウンターをリセット
+   */
+  private scheduleDailyReset(): void {
+    const scheduleNext = () => {
+      const now = new Date();
+      const jstNow = toZonedTime(now, 'Asia/Tokyo');
+
+      // 次の0:00 JST までのmsを計算
+      const nextMidnight = new Date(jstNow);
+      nextMidnight.setDate(nextMidnight.getDate() + 1);
+      nextMidnight.setHours(0, 0, 0, 0);
+
+      // JST → UTC 変換 (JST = UTC+9)
+      const msUntilMidnight =
+        nextMidnight.getTime() - jstNow.getTime();
+
+      logger.info(
+        `🐦 AutoPost: 日次リセットを ${Math.round(msUntilMidnight / 60000)}分後にスケジュール`,
+        'cyan'
+      );
+
+      this.dailyResetTimer = setTimeout(() => {
+        this.autoPostCount = 0;
+        this.autoPostDate = this.getTodayJST();
+        this.lastAutoPostAt = 0;
+        this.saveAutoPostCount();
+        logger.info('🐦 AutoPost: 日次カウンターリセット (0)', 'green');
+        // リセット後に自動投稿を再スケジュール
+        this.scheduleNextAutoPost();
+        // 翌日のリセットもスケジュール
+        scheduleNext();
+      }, msUntilMidnight);
+    };
+
+    scheduleNext();
+  }
+
+  // =========================================================================
+  // Webhook ルール管理
+  // =========================================================================
+
+  /** 現在のWebhookルールID (起動中のみ保持) */
+  private webhookRuleId: string | null = null;
+
+  /**
+   * twitterapi.io の Webhook フィルタルールをセットアップし有効化する。
+   * - 既存ルール (タグ一致) があればそれを再利用 & 有効化
+   * - なければ新規作成 & 有効化
+   */
+  public async setupWebhookRule(): Promise<void> {
+    const baseUrl = config.twitter.webhookBaseUrl;
+    const userName = config.twitter.userName;
+    if (!baseUrl || !userName) {
+      logger.warn('🔔 Webhook: webhookBaseUrl または userName が未設定。スキップ');
+      return;
+    }
+
+    const tag = `shannon-reply-${this.isTest ? 'dev' : 'prod'}`;
+    const filterValue = `to:${userName}`;
+    const interval = config.twitter.webhookInterval;
+
+    try {
+      // 1. 既存ルールを取得
+      const rulesRes = await axios.get(
+        'https://api.twitterapi.io/oapi/tweet_filter/get_rules',
+        { headers: { 'X-API-Key': this.apiKey } }
+      );
+
+      const existingRules: Array<{
+        rule_id: string;
+        tag: string;
+        value: string;
+        interval_seconds: number;
+        is_effect?: number;
+      }> = rulesRes.data?.rules ?? [];
+
+      const existing = existingRules.find((r) => r.tag === tag);
+
+      if (existing) {
+        this.webhookRuleId = existing.rule_id;
+        const alreadyActive = existing.is_effect === 1;
+        logger.info(
+          `🔔 Webhook: 既存ルールを再利用 (id=${existing.rule_id}, tag=${tag}, active=${alreadyActive})`,
+          'cyan'
+        );
+        // 既に有効なら update_rule を呼ばない (カーソルリセット防止)
+        if (alreadyActive) {
+          logger.info(
+            `🔔 Webhook: ルールは既に有効。再有効化スキップ (interval=${interval}秒, filter="${filterValue}")`,
+            'green'
+          );
+          return;
+        }
+      } else {
+        // 2. 新規ルール作成
+        const addRes = await axios.post(
+          'https://api.twitterapi.io/oapi/tweet_filter/add_rule',
+          { tag, value: filterValue, interval_seconds: interval },
+          { headers: { 'X-API-Key': this.apiKey } }
+        );
+
+        if (addRes.data?.status !== 'success') {
+          logger.error(`🔔 Webhook: ルール作成失敗: ${addRes.data?.msg}`);
+          return;
+        }
+
+        this.webhookRuleId = addRes.data.rule_id;
+        logger.info(
+          `🔔 Webhook: 新規ルール作成 (id=${this.webhookRuleId}, tag=${tag}, filter="${filterValue}")`,
+          'green'
+        );
+      }
+
+      // 3. ルールを有効化
+      const updateRes = await axios.post(
+        'https://api.twitterapi.io/oapi/tweet_filter/update_rule',
+        {
+          rule_id: this.webhookRuleId,
+          tag,
+          value: filterValue,
+          interval_seconds: interval,
+          is_effect: 1,
+        },
+        { headers: { 'X-API-Key': this.apiKey } }
+      );
+
+      if (updateRes.data?.status === 'success') {
+        logger.info(
+          `🔔 Webhook: ルール有効化完了 (interval=${interval}秒, filter="${filterValue}")`,
+          'green'
+        );
+      } else {
+        logger.error(`🔔 Webhook: ルール有効化失敗: ${updateRes.data?.msg}`);
+      }
+    } catch (error) {
+      logger.error('🔔 Webhook: セットアップエラー:', error);
     }
   }
+
+  /**
+   * twitterapi.io の Webhook フィルタルールを無効化する (is_effect: 0)。
+   * ルール自体は削除しない (再起動時に再利用)。
+   */
+  public async deactivateWebhookRule(): Promise<void> {
+    if (!this.webhookRuleId) {
+      return;
+    }
+
+    const tag = `shannon-reply-${this.isTest ? 'dev' : 'prod'}`;
+    const userName = config.twitter.userName;
+    const filterValue = userName ? `to:${userName}` : '';
+    const interval = config.twitter.webhookInterval;
+
+    try {
+      const res = await axios.post(
+        'https://api.twitterapi.io/oapi/tweet_filter/update_rule',
+        {
+          rule_id: this.webhookRuleId,
+          tag,
+          value: filterValue,
+          interval_seconds: interval,
+          is_effect: 0,
+        },
+        { headers: { 'X-API-Key': this.apiKey } }
+      );
+
+      if (res.data?.status === 'success') {
+        logger.info('🔔 Webhook: ルール無効化完了', 'green');
+      } else {
+        logger.error(`🔔 Webhook: ルール無効化失敗: ${res.data?.msg}`);
+      }
+    } catch (error) {
+      logger.error('🔔 Webhook: 無効化エラー:', error);
+    }
+  }
+
+  // =========================================================================
+  // Initialization
+  // =========================================================================
 
   public async initialize() {
     try {
       // await this.login1Step();
       // await this.login2Step();
+      // Webhook ルールをセットアップ (dev/prod 共通)
+      await this.setupWebhookRule();
+
       if (!this.isTest) {
-        setInterval(() => this.checkRepliesAndRespond(), 10 * 60 * 1000);
+        // リプライ検知: Webhook がメイン。ポーリングはフォールバック (2時間間隔)
+        setInterval(() => this.checkRepliesAndRespond(), 2 * 60 * 60 * 1000);
+
+        // 統合監視: 全アカウントの新着ツイートを一括チェック
         setInterval(
-          () => this.autoLikeAndRetweetOfficialTweets(),
-          60 * 60 * 1000
+          () => this.autoMonitorAccounts(),
+          this.monitorIntervalMs
         );
-        setInterval(() => this.autoLikeAndReplyFriendTweets(), 60 * 60 * 1000);
-        this.autoLikeAndRetweetOfficialTweets();
-        this.autoLikeAndReplyFriendTweets();
+
+        // 初回実行
+        this.autoMonitorAccounts();
       }
+
+      // 自動投稿カウンタをファイルから復元
+      this.loadAutoPostCount();
+
+      // 自動投稿スケジューラ起動 (dev/test モードでもテスト可能)
+      this.scheduleDailyReset();
+      logger.info(
+        `🐦 AutoPost: 初期化完了 (上限${this.maxAutoPostsPerDay}/日, ${this.autoPostStartHour}時-${this.autoPostEndHour}時 JST, 本日${this.autoPostCount}件投稿済み)`,
+        'green'
+      );
+
+      // test/dev/prod 共通: scheduleNextAutoPost で前回投稿時刻を考慮してスケジュール
+      this.scheduleNextAutoPost();
       this.setupEventHandlers();
     } catch (error) {
       if (error instanceof Error && error.message.includes('429')) {
-        const apiError = error as any;
+        const apiError = error as { rateLimit?: { reset: number } };
         if (apiError.rateLimit?.reset) {
           const resetTime = apiError.rateLimit.reset * 1000;
           const now = Date.now();
           const waitTime = resetTime - now + 10000;
 
-          console.warn(
-            `\x1b[33mTwitter rate limit reached, waiting until ${new Date(
+          logger.warn(
+            `Twitter rate limit reached, waiting until ${new Date(
               resetTime
-            ).toISOString()} (${waitTime / 1000}s)\x1b[0m`
+            ).toISOString()} (${waitTime / 1000}s)`
           );
 
           await new Promise((resolve) => setTimeout(resolve, waitTime));
           await this.initialize();
         } else {
-          console.warn(
-            '\x1b[33mTwitter rate limit reached, waiting before retry...\x1b[0m'
-          );
+          logger.warn('Twitter rate limit reached, waiting before retry...');
           await new Promise((resolve) => setTimeout(resolve, 5000));
           await this.initialize();
         }
       } else {
-        console.error(`\x1b[31mTwitter initialization error: ${error}\x1b[0m`);
+        logger.error(`Twitter initialization error: ${error}`);
         throw error;
       }
     }

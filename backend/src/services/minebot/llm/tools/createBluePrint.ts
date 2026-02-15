@@ -1,11 +1,10 @@
 import { StructuredTool } from '@langchain/core/tools';
-import { z } from 'zod';
-import OpenAI from 'openai';
+import { config } from '../../../../config/env.js';
+import { models } from '../../../../config/models.js';
 import fs from 'fs';
+import OpenAI from 'openai';
 import path from 'path';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import { z } from 'zod';
 
 // buildArchitecture.tsのArchitecture型に合わせたzodスキーマ
 const ArchitectureBlockSchema = z.object({
@@ -15,7 +14,7 @@ const ArchitectureBlockSchema = z.object({
     y: z.number(),
     z: z.number(),
   }),
-  facing: z.string().optional(),
+  facing: z.string().nullable(),
 });
 
 const ArchitectureSchema = z.object({
@@ -35,21 +34,17 @@ export default class CreateBluePrintTool extends StructuredTool {
 
   constructor() {
     super();
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-    if (!openaiApiKey) {
-      throw new Error('OPENAI_API_KEY environment variable is not set.');
-    }
-    this.openai = new OpenAI({ apiKey: openaiApiKey });
+    this.openai = new OpenAI({ apiKey: config.openaiApiKey });
   }
 
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
-    // GPT-4oに投げるプロンプト
+    // LLMに投げるプロンプト
     const systemPrompt = `あなたはMinecraftの設計図自動生成AIです。以下の条件でJSONを出力してください：\n\n- JSONは必ず以下の形式\n{\n  "name": string,\n  "blocks": [\n    { "name": string, "position": {"x": number, "y": number, "z": number}, "facing"?: string }\n  ]\n}\n- blocksは原点(0,0,0)からの相対座標で、建築物の全ブロックを列挙してください。\n- 必ず有効なJSONのみを出力し、説明文やコードブロック記号は不要です。\n- nameは${data.architectureName}としてください。`;
 
     let jsonText = '';
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: models.blueprint,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: data.prompt },

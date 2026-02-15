@@ -1,24 +1,22 @@
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { Runnable } from '@langchain/core/runnables';
+import { StructuredTool } from '@langchain/core/tools';
 import { ChatOpenAI } from '@langchain/openai';
 import { PromptType } from '@shannon/common';
 import axios from 'axios';
 import { addDays, format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import dotenv from 'dotenv';
-import { loadPrompt } from '../config/prompts.js';
-import { AgentExecutor } from 'langchain/agents';
+import { AgentExecutor, createOpenAIToolsAgent } from 'langchain/agents';
 import { pull } from 'langchain/hub';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { createOpenAIToolsAgent } from 'langchain/agents';
-import WolframAlphaTool from '../tools/wolframAlpha.js';
-import GoogleSearchTool from '../tools/googleSearch.js';
 import { z } from 'zod';
+import { config } from '../../../config/env.js';
+import { models } from '../../../config/models.js';
+import { loadPrompt } from '../config/prompts.js';
+import GoogleSearchTool from '../tools/googleSearch.js';
+import WolframAlphaTool from '../tools/wolframAlpha.js';
 
-dotenv.config();
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-if (!OPENAI_API_KEY) {
-  throw new Error('OPENAI_API_KEY is not set');
-}
+const OPENAI_API_KEY = config.openaiApiKey;
 const jst = 'Asia/Tokyo';
 
 // 天気予報のスキーマ定義
@@ -65,6 +63,31 @@ const ToyamaWeatherSchema = z.object({
 type WeatherResult = z.infer<typeof WeatherSchema>;
 type ToyamaWeatherResult = z.infer<typeof ToyamaWeatherSchema>;
 
+interface CityForecast {
+  city: string;
+  telop: string;
+  temperature: string;
+  chanceOfRain: string;
+  weather: string;
+  hourlyEmojis: string[];
+}
+
+interface WeatherApiForecastItem {
+  telop: string;
+  temperature: {
+    min: { celsius: string };
+    max: { celsius: string };
+  };
+  chanceOfRain: Record<string, string>;
+  detail: {
+    weather: string;
+  };
+}
+
+interface WeatherApiResponse {
+  forecasts: WeatherApiForecastItem[];
+}
+
 interface Forecast {
   date: string;
   forecasts: string;
@@ -78,7 +101,7 @@ export class PostWeatherAgent {
   private searchCities: string[];
   private url: string;
   private systemPrompts: Map<PromptType, string>;
-  private cityForecasts: any[] | null = null;
+  private cityForecasts: CityForecast[] | null = null;
   private forecasts: Forecast[] = [];
   private forecastObservations: string[] = [
     'city',
@@ -86,8 +109,8 @@ export class PostWeatherAgent {
     'weather',
     'chanceOfRain',
   ];
-  private tools: any[];
-  private agent: any;
+  private tools: StructuredTool[];
+  private agent: Runnable | null;
   private executor: AgentExecutor | null;
 
   constructor(
@@ -95,9 +118,10 @@ export class PostWeatherAgent {
     cities: string[] = ['仙台', '東京', '名古屋', '大阪', '福岡']
   ) {
     this.model = new ChatOpenAI({
-      modelName: 'o4-mini',
+      modelName: models.scheduledPost,
       apiKey: OPENAI_API_KEY,
     });
+    this.agent = null;
     this.executor = null;
     this.tools = [];
     this.setTools();
@@ -234,24 +258,24 @@ export class PostWeatherAgent {
     }
   }
 
-  private async getUrl(city: string): Promise<any> {
-    const response = await axios.get(`${this.url}${city}`);
+  private async getUrl(city: string): Promise<WeatherApiResponse> {
+    const response = await axios.get<WeatherApiResponse>(`${this.url}${city}`);
     return response.data;
   }
 
-  private async getTelop(forecastData: any): Promise<string> {
-    return forecastData['telop'];
+  private async getTelop(forecastData: WeatherApiForecastItem): Promise<string> {
+    return forecastData.telop;
   }
 
-  private getTemperature(forecastData: any): string {
-    const temperatureData = forecastData['temperature'];
-    const min = temperatureData['min']['celsius'];
-    const max = temperatureData['max']['celsius'];
+  private getTemperature(forecastData: WeatherApiForecastItem): string {
+    const temperatureData = forecastData.temperature;
+    const min = temperatureData.min.celsius;
+    const max = temperatureData.max.celsius;
     return `${min}-${max}℃`;
   }
 
-  private getChanceOfRain(forecastData: any): string {
-    const chanceOfRainData = forecastData['chanceOfRain'];
+  private getChanceOfRain(forecastData: WeatherApiForecastItem): string {
+    const chanceOfRainData = forecastData.chanceOfRain;
     console.log('chanceOfRainData:', chanceOfRainData);
     const t00_06 = chanceOfRainData['T00_06'] || '0%';
     const t06_12 = chanceOfRainData['T06_12'] || '0%';
@@ -262,13 +286,13 @@ export class PostWeatherAgent {
     return result;
   }
 
-  private getWeather(forecastData: any): string {
-    const weatherData = forecastData['detail']['weather'];
+  private getWeather(forecastData: WeatherApiForecastItem): string {
+    const weatherData = forecastData.detail.weather;
     return weatherData.replace('\u3000', '');
   }
 
   private async setCityForecasts(): Promise<void> {
-    const forecasts: any[] = [];
+    const forecasts: CityForecast[] = [];
     for (const city of this.cities) {
       if (this.searchCities.includes(city[0])) {
         const data = await this.getUrl(city[1]);

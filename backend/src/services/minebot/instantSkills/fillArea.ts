@@ -126,6 +126,14 @@ class FillArea extends InstantSkill {
       let placedCount = 0;
 
       for (let x = minX; x <= maxX; x++) {
+        // 中断チェック（外側ループで確認）
+        if (this.shouldInterrupt()) {
+          return {
+            success: placedCount > 0,
+            result: `中断: ${placedCount}個のブロックを設置しました`,
+          };
+        }
+
         for (let y = minY; y <= maxY; y++) {
           for (let z = minZ; z <= maxZ; z++) {
             const pos = new Vec3(x, y, z);

@@ -1,6 +1,5 @@
-import { BaseMessage } from '@langchain/core/messages';
+import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
-import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import {
   EmotionType,
   MemoryZone,
@@ -8,14 +7,16 @@ import {
   TaskTreeState,
   memoryZoneToContext,
 } from '@shannon/common';
-import dotenv from 'dotenv';
-import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { loadToolsFromDirectory } from '../../../utils/toolLoader.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { getEventBus } from '../../eventBus/index.js';
-import { EmotionNode, ExecutionNode, PlanningNode } from './nodes/index.js';
-import { Prompt } from './prompt.js';
+import { EmotionNode, EmotionState } from './nodes/EmotionNode.js';
+import { FunctionCallingAgent } from './nodes/FunctionCallingAgent.js';
+import { MemoryNode, MemoryState } from './nodes/MemoryNode.js';
+import { createMemoryTools } from '../tools/memory/memoryToolFactory.js';
+import { IExchange } from '../../../models/PersonMemory.js';
 import {
   ExecutionResult,
   GRAPH_CONFIG,
@@ -27,28 +28,28 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-dotenv.config();
-
 /**
- * TaskGraph: 3ノード構成のタスク実行グラフ
+ * TaskGraph: EmotionNode(擬似並列) + FunctionCallingAgent 構成
  * 
- * フロー: emotion → planning → execution → planning → ...
+ * フロー:
+ * 1. EmotionNode で初回感情分析 (同期)
+ * 2. FunctionCallingAgent でタスク実行 (反復ループ)
+ * 3. ツール実行後、EmotionNode で非同期感情再評価 (fire-and-forget)
+ * 4. FunctionCallingAgent は各イテレーションで最新の感情を読み込み
  * 
  * 特徴:
- * - 階層的サブタスク対応
+ * - 感情と行動の擬似並列: 双方向に影響を与え合う
+ * - update-plan ツールでLLMが自発的に計画 + 自動ステップ記録 (hybrid)
  * - タスクキュー（最大3つ + 緊急1つ）
- * - 再試行・デッドループ検出
- * - EventBus経由のログ
+ * - EventBus経由のUI通知
  */
 export class TaskGraph {
   private static instance: TaskGraph;
   private tools: StructuredTool[] = [];
   private emotionNode: EmotionNode | null = null;
-  private planningNode: PlanningNode | null = null;
-  private executionNode: ExecutionNode | null = null;
-  private graph: any;
+  private memoryNode: MemoryNode | null = null;
+  private functionCallingAgent: FunctionCallingAgent | null = null;
   private eventBus: EventBus;
-  private prompt: Prompt | null = null;
   public currentState: any = null;
 
   // タスクキュー
@@ -56,9 +57,7 @@ export class TaskGraph {
   private emergencyTask: TaskQueueEntry | null = null;
   private isEmergencyMode = false;
   private isExecuting = false;
-
-  // 直近の成功アクション履歴（デッドループ検出用）
-  private recentSuccessfulActions: string[] = [];
+  private abortController: AbortController | null = null;
 
   // タスクリスト更新コールバック
   private onTaskListUpdate: ((tasks: TaskListState) => void) | null = null;
@@ -80,15 +79,22 @@ export class TaskGraph {
    */
   public async initialize() {
     await this.initializeTools();
-    this.prompt = new Prompt(this.tools);
 
-    // ノードを初期化
-    this.emotionNode = new EmotionNode(this.prompt);
-    this.planningNode = new PlanningNode(this.prompt);
-    this.executionNode = new ExecutionNode(this.tools);
+    // EmotionNode 初期化（Prompt依存を除去）
+    this.emotionNode = new EmotionNode();
 
-    this.graph = this.createGraph();
-    console.log('\x1b[36m✅ TaskGraph initialized\x1b[0m');
+    // MemoryNode 初期化
+    this.memoryNode = new MemoryNode();
+    await this.memoryNode.initialize();
+
+    // 記憶ツールを追加（サービスインスタンスを注入）
+    const memoryTools = createMemoryTools();
+    this.tools.push(...memoryTools);
+
+    // FunctionCallingAgent 初期化（ツール群を渡す）
+    this.functionCallingAgent = new FunctionCallingAgent(this.tools);
+
+    console.log('\x1b[36m✅ TaskGraph initialized (FunctionCalling + Memory mode)\x1b[0m');
   }
 
   /**
@@ -111,279 +117,19 @@ export class TaskGraph {
    */
   private async initializeTools() {
     const toolsDir = join(__dirname, '../tools');
-    const toolFiles = readdirSync(toolsDir).filter(
-      (file) =>
-        (file.endsWith('.ts') || file.endsWith('.js')) &&
-        !file.includes('.d.ts')
-    );
-
-    this.tools = [];
-
-    for (const file of toolFiles) {
-      if (file === 'index.ts' || file === 'index.js') continue;
-
-      try {
-        const toolModule = await import(join(toolsDir, file));
-        const ToolClass = toolModule.default;
-        if (ToolClass?.prototype?.constructor) {
-          this.tools.push(new ToolClass());
-        }
-      } catch (error) {
-        console.error(`ツール読み込みエラー: ${file}`, error);
-      }
-    }
-    console.log(`✅ ${this.tools.length} tools loaded`);
-  }
-
-  /**
-   * State定義
-   */
-  private TaskState = Annotation.Root({
-    taskId: Annotation<string>({
-      reducer: (_, next) => next,
-      default: () => '',
-    }),
-    // コンテキスト情報
-    context: Annotation<TaskContext | null>({
-      reducer: (_, next) => next,
-      default: () => null,
-    }),
-    /** @deprecated contextを使用してください */
-    memoryZone: Annotation<MemoryZone>({
-      reducer: (_, next) => next,
-      default: () => 'web',
-    }),
-    channelId: Annotation<string | null>({
-      reducer: (_, next) => next,
-      default: () => null,
-    }),
-    // 環境・状態
-    environmentState: Annotation<string | null>({
-      reducer: (_, next) => next,
-      default: () => null,
-    }),
-    selfState: Annotation<string | null>({
-      reducer: (_, next) => next,
-      default: () => null,
-    }),
-    // フィードバック
-    humanFeedback: Annotation<string | null>({
-      reducer: (_, next) => next,
-      default: () => null,
-    }),
-    selfFeedback: Annotation<string | null>({
-      reducer: (_, next) => next,
-      default: () => null,
-    }),
-    // メッセージ
-    messages: Annotation<BaseMessage[]>({
-      reducer: (prev, next) => {
-        if (next === null) {
-          return prev;
-        } else {
-          return prev?.concat(next) ?? next;
-        }
-      },
-      default: () => [],
-    }),
-    userMessage: Annotation<string | null>({
-      reducer: (_, next) => next,
-      default: () => null,
-    }),
-    // 感情
-    emotion: Annotation<EmotionType | null>({
-      reducer: (_, next) => next,
-      default: () => null,
-    }),
-    // タスク
-    taskTree: Annotation<TaskTreeState | null>({
-      reducer: (_, next) => next,
-      default: () => null,
-    }),
-    // 制御
-    humanFeedbackPending: Annotation<boolean>({
-      reducer: (_, next) => next,
-      default: () => false,
-    }),
-    retryCount: Annotation<number>({
-      reducer: (prev, next) => (next === undefined ? prev : next),
-      default: () => 0,
-    }),
-    forceStop: Annotation<boolean>({
-      reducer: (_, next) => next,
-      default: () => false,
-    }),
-    // 実行結果
-    executionResults: Annotation<ExecutionResult[] | null>({
-      reducer: (_, next) => next,
-      default: () => null,
-    }),
-    // 緊急フラグ
-    isEmergency: Annotation<boolean>({
-      reducer: (_, next) => next,
-      default: () => false,
-    }),
-  });
-
-  /**
-   * グラフを作成
-   */
-  private createGraph() {
-    if (!this.emotionNode || !this.planningNode || !this.executionNode) {
-      throw new Error('Nodes not initialized');
-    }
-
-    const workflow = new StateGraph(this.TaskState)
-      // Emotion Node
-      .addNode('feel_emotion', async (state) => {
-        return await this.emotionNode!.invoke(state);
-      })
-      // Planning Node
-      .addNode('planning', async (state) => {
-        // humanFeedbackとretryCountを現在の状態から取得
-        state.humanFeedback =
-          this.currentState?.humanFeedback || state.humanFeedback;
-        state.retryCount = this.currentState?.retryCount || state.retryCount || 0;
-
-        // 前回の実行結果を引き継ぎ
-        if (this.currentState?.executionResults) {
-          state.executionResults = this.currentState.executionResults;
-        }
-
-        return await this.planningNode!.invoke(state);
-      })
-      // Execution Node
-      .addNode('execution', async (state) => {
-        const result = await this.executionNode!.invoke(state);
-
-        // 実行結果を処理
-        const hasError = result.hasError || false;
-        let newRetryCount = state.retryCount || 0;
-
-        if (hasError) {
-          newRetryCount = newRetryCount + 1;
-          this.currentState.retryCount = newRetryCount;
-          console.log(`\x1b[33m⚠ エラー発生（再試行回数: ${newRetryCount}/${GRAPH_CONFIG.MAX_RETRY_COUNT}）\x1b[0m`);
-        } else {
-          newRetryCount = 0;
-          this.currentState.retryCount = 0;
-        }
-
-        // 実行結果をcurrentStateに保存
-        this.currentState.executionResults = result.executionResults;
-
-        return {
-          ...result,
-          retryCount: newRetryCount,
-          executionResults: result.executionResults,
-        };
-      })
-      // エッジ
-      .addEdge(START, 'feel_emotion')
-      .addEdge('feel_emotion', 'planning')
-      .addConditionalEdges('planning', (state) => {
-        if (this.currentState?.forceStop) {
-          return END;
-        }
-
-        // status: completed/error の場合は終了
-        if (state.taskTree?.status === 'completed') {
-          console.log('\x1b[32m✅ タスク完了\x1b[0m');
-          return END;
-        }
-        if (state.taskTree?.status === 'error') {
-          console.log('\x1b[31m❌ タスクエラー\x1b[0m');
-          return END;
-        }
-
-        // nextActionSequenceがあるかチェック
-        const hasActions =
-          (state.taskTree?.nextActionSequence && state.taskTree.nextActionSequence.length > 0) ||
-          (state.taskTree?.actionSequence && state.taskTree.actionSequence.length > 0);
-
-        if (hasActions) {
-          return 'execution';
-        }
-
-        console.log('\x1b[33m⚠ アクションなし、終了\x1b[0m');
-        return END;
-      })
-      .addConditionalEdges('execution', (state) => {
-        if (this.currentState?.forceStop) {
-          return END;
-        }
-
-        // 再試行回数チェック
-        const retryCount = state.retryCount || 0;
-        if (retryCount >= GRAPH_CONFIG.MAX_RETRY_COUNT) {
-          console.log(
-            `\x1b[31m✗ 最大再試行回数（${GRAPH_CONFIG.MAX_RETRY_COUNT}回）に達しました。\x1b[0m`
-          );
-          return END;
-        }
-
-        // デッドループ検出
-        const execResults = state.executionResults || [];
-        const successfulActions = execResults
-          .filter((r: any) => r.success)
-          .map((r: any) => {
-            const args = r.args || {};
-            if (r.toolName === 'chat-on-web' || r.toolName === 'chat-on-discord') {
-              // チャットはメッセージの先頭50文字で区別
-              const msgKey = (args.message || '').substring(0, 50);
-              return `${r.toolName}@${msgKey}`;
-            } else if (r.toolName === 'describe-image') {
-              // 画像分析はURLで区別（異なるURLなら別アクション）
-              const urlKey = (args.image_url || '').substring(0, 80);
-              return `${r.toolName}@${urlKey}`;
-            } else if (r.toolName === 'describe-notion-image') {
-              // Notion画像は番号で区別
-              return `${r.toolName}@${args.image_number || 0}`;
-            } else if (r.toolName === 'fetch-url' || r.toolName === 'google-search') {
-              // 検索系もURLやクエリで区別
-              const key = (args.url || args.query || '').substring(0, 50);
-              return `${r.toolName}@${key}`;
-            }
-            return r.toolName;
-          });
-
-        if (successfulActions.length > 0) {
-          this.recentSuccessfulActions = [
-            ...this.recentSuccessfulActions,
-            ...successfulActions
-          ].slice(-15);
-        }
-
-        // 同じアクションの繰り返し検出
-        const actionHistory = this.recentSuccessfulActions;
-        if (actionHistory.length >= 2) {
-          const lastAction = actionHistory[actionHistory.length - 1];
-          const toolName = lastAction.split('@')[0];
-
-          const threshold = (toolName === 'chat-on-web' || toolName === 'chat-on-discord')
-            ? GRAPH_CONFIG.REPEAT_CHAT_THRESHOLD
-            : GRAPH_CONFIG.REPEAT_ACTION_THRESHOLD;
-
-          if (actionHistory.length >= threshold) {
-            const repeatCount = actionHistory.slice(-threshold).filter((a: string) => a === lastAction).length;
-            if (repeatCount >= threshold) {
-              console.log(
-                `\x1b[33m⚠ 同じアクション（${toolName}）が${repeatCount}回連続で成功。終了します。\x1b[0m`
-              );
-              return END;
-            }
-          }
-        }
-
-        // planningに戻る
-        return 'planning';
-      });
-
-    return workflow.compile();
+    this.tools = await loadToolsFromDirectory(toolsDir, 'LLM');
   }
 
   /**
    * タスクを実行
+   * 
+   * 新フロー:
+   * 1. EmotionNode で初回感情分析 (同期)
+   * 2. MemoryNode.preProcess で記憶取得 (同期)
+   * 3. FunctionCallingAgent.run() でタスク実行
+   *    - 各イテレーションで emotionState.current を読み込み
+   *    - ツール実行後に onToolsExecuted で非同期感情再評価をトリガー
+   * 4. MemoryNode.postProcess で記憶保存 + 人物更新 (非同期)
    */
   public async invoke(partialState: TaskStateInput) {
     // 排他制御
@@ -393,78 +139,194 @@ export class TaskGraph {
     }
 
     this.isExecuting = true;
-    this.recentSuccessfulActions = [];
+    this.abortController = new AbortController();
 
     // コンテキストの正規化
-    let context = partialState.context;
+    let context = partialState.context || null;
     if (!context && partialState.memoryZone) {
       context = memoryZoneToContext(partialState.memoryZone, partialState.channelId || undefined);
     }
 
-    let state: typeof this.TaskState.State = {
-      taskId: crypto.randomUUID(),
-      context: context || null,
-      memoryZone: partialState.memoryZone ?? 'web',
+    const taskId = crypto.randomUUID();
+
+    // 共有感情状態
+    const emotionState: EmotionState = {
+      current: partialState.emotion || null,
+    };
+
+    // 簡易 state（FunctionCallingAgent に渡すため）
+    const state = {
+      taskId,
+      context,
       channelId: partialState.channelId ?? null,
       environmentState: partialState.environmentState ?? null,
-      selfState: partialState.selfState ?? null,
-      humanFeedback: partialState.humanFeedback ?? null,
-      selfFeedback: partialState.selfFeedback ?? null,
       messages: partialState.messages ?? [],
       userMessage: partialState.userMessage ?? null,
-      emotion: partialState.emotion ?? null,
-      taskTree: partialState.taskTree ?? {
+      isEmergency: partialState.isEmergency ?? false,
+    };
+
+    this.currentState = {
+      ...state,
+      forceStop: false,
+      taskTree: {
         status: 'in_progress',
         goal: '',
         strategy: '',
         subTasks: null,
       },
-      humanFeedbackPending: false,
-      forceStop: false,
-      retryCount: partialState.retryCount ?? 0,
-      executionResults: null,
-      isEmergency: partialState.isEmergency ?? false,
     };
 
-    this.currentState = state;
-
     try {
-      console.log('🚀 タスクグラフ実行開始 ID:', state.taskId);
-      const result = await this.graph.invoke(state, {
-        recursionLimit: GRAPH_CONFIG.RECURSION_LIMIT,
-      });
+      console.log('🚀 タスク実行開始 ID:', taskId);
+
+      // === Step 1: EmotionNode 初回評価 (同期) ===
+      if (this.emotionNode) {
+        try {
+          const emotionResult = await this.emotionNode.invoke({
+            userMessage: state.userMessage,
+            messages: state.messages,
+            environmentState: state.environmentState,
+            emotion: emotionState.current,
+          });
+          emotionState.current = emotionResult.emotion;
+          console.log(`💭 初回感情: ${emotionState.current?.emotion}`);
+        } catch (error) {
+          console.error('❌ 初回感情分析エラー:', error);
+          // エラーでも続行（感情なしでFunctionCallingAgentを実行）
+        }
+      }
+
+      // === Step 2: MemoryNode.preProcess (同期) ===
+      let memoryState: MemoryState = { person: null, experiences: [], knowledge: [] };
+      if (this.memoryNode) {
+        try {
+          memoryState = await this.memoryNode.preProcess({
+            userMessage: state.userMessage,
+            context,
+          });
+        } catch (error) {
+          console.error('❌ MemoryNode preProcess エラー:', error);
+          // エラーでも続行（記憶なしでFCAを実行）
+        }
+      }
+
+      // === Step 3: FunctionCallingAgent 実行 ===
+      if (!this.functionCallingAgent) {
+        throw new Error('FunctionCallingAgent not initialized');
+      }
+
+      const agentResult = await this.functionCallingAgent.run(
+        {
+          taskId,
+          userMessage: state.userMessage,
+          messages: state.messages,
+          emotionState,
+          memoryState,
+          context,
+          channelId: state.channelId,
+          environmentState: state.environmentState,
+          isEmergency: state.isEmergency,
+
+          // ツール実行後のコールバック: 非同期感情再評価
+          onToolsExecuted: (messages: BaseMessage[], results: ExecutionResult[]) => {
+            if (this.emotionNode) {
+              this.emotionNode
+                .evaluateAsync(messages, results, emotionState.current)
+                .then((newEmotion) => {
+                  emotionState.current = newEmotion;
+                  console.log(`💭 感情更新(非同期): ${newEmotion.emotion}`);
+                })
+                .catch((err) => {
+                  console.error('❌ 非同期感情再評価エラー:', err);
+                });
+            }
+          },
+        },
+        this.abortController?.signal,
+      );
+
+      // 結果を整形
+      const result = {
+        taskId,
+        taskTree: agentResult.taskTree,
+        messages: agentResult.messages || [],
+        forceStop: agentResult.forceStop,
+        isEmergency: agentResult.isEmergency,
+        emotion: emotionState.current,
+      };
 
       if (result.taskTree?.status === 'in_progress') {
         result.taskTree.status = 'error';
       }
 
-      console.log('✅ タスクグラフ完了:', {
+      console.log('✅ タスク完了:', {
         taskId: result.taskId,
         status: result.taskTree?.status,
         messageCount: result.messages.length,
+        finalEmotion: emotionState.current?.emotion,
       });
+
+      // === Step 4: MemoryNode.postProcess (非同期 fire-and-forget) ===
+      if (this.memoryNode && state.userMessage) {
+        const exchanges: IExchange[] = [];
+        // ユーザーメッセージ
+        exchanges.push({
+          role: 'user',
+          content: state.userMessage,
+          timestamp: new Date(),
+        });
+        // シャノンの応答を抽出
+        const assistantMessages = agentResult.messages
+          ?.filter((m: BaseMessage) => m instanceof AIMessage)
+          ?.map((m: BaseMessage) => typeof m.content === 'string' ? m.content : '')
+          ?.filter((c: string) => c.length > 0) ?? [];
+        for (const msg of assistantMessages) {
+          exchanges.push({
+            role: 'assistant',
+            content: msg.substring(0, 500),
+            timestamp: new Date(),
+          });
+        }
+
+        const conversationText = exchanges
+          .map((e) => `${e.role}: ${e.content}`)
+          .join('\n');
+
+        this.memoryNode.postProcess({
+          context,
+          conversationText,
+          exchanges,
+        }).catch((err) => {
+          console.error('❌ MemoryNode postProcess エラー:', err);
+        });
+      }
 
       this.currentState = result;
       return result;
     } catch (error) {
-      if (error instanceof Error && 'lc_error_code' in error) {
-        if ((error as any).lc_error_code === 'GRAPH_RECURSION_LIMIT') {
-          console.warn('再帰制限に達しました。タスクを強制終了します。');
-          return {
-            ...state,
-            taskTree: {
-              status: 'error',
-              goal: '再帰制限エラーにより強制終了',
-              strategy: '',
-              subTasks: null,
-            },
-          };
-        }
+      // AbortError
+      if (
+        error instanceof Error &&
+        (error.name === 'AbortError' ||
+          error.message?.includes('aborted') ||
+          error.message?.includes('abort'))
+      ) {
+        console.log('\x1b[33m⚠️ タスクが強制停止されました\x1b[0m');
+        return {
+          taskId,
+          forceStop: true,
+          taskTree: {
+            status: 'error',
+            goal: '強制停止',
+            strategy: '',
+            subTasks: null,
+          },
+        };
       }
 
-      console.error('タスクグラフ実行エラー:', error);
+      console.error('タスク実行エラー:', error);
       return {
-        ...state,
+        taskId,
         taskTree: {
           status: 'error',
           goal: `エラー: ${error instanceof Error ? error.message : '不明なエラー'}`,
@@ -474,11 +336,20 @@ export class TaskGraph {
       };
     } finally {
       this.isExecuting = false;
+      this.abortController = null;
 
       if (partialState.isEmergency || this.isEmergencyMode) {
         console.log('\x1b[33m🚨 緊急タスク終了\x1b[0m');
         this.isEmergencyMode = false;
         this.emergencyTask = null;
+      }
+
+      // キューに待機中のタスクがあれば次を実行
+      const hasPendingTasks = this.taskQueue.some(
+        (t) => t.status === 'pending' || t.status === 'paused'
+      );
+      if (hasPendingTasks && !this.isEmergencyMode) {
+        setTimeout(() => this.executeNextTask(), 500);
       }
     }
   }
@@ -490,12 +361,21 @@ export class TaskGraph {
     if (this.currentState) {
       this.currentState.forceStop = true;
     }
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
   }
 
   /**
    * humanFeedbackを更新
    */
   public updateHumanFeedback(feedback: string) {
+    // FunctionCallingAgent に直接フィードバック
+    if (this.functionCallingAgent) {
+      this.functionCallingAgent.addFeedback(feedback);
+    }
+
     if (this.currentState) {
       this.currentState.humanFeedback = feedback;
       this.currentState.humanFeedbackPending = true;
@@ -514,29 +394,38 @@ export class TaskGraph {
   /**
    * タスクをキューに追加
    */
-  public addTaskToQueue(taskInput: TaskStateInput): { success: boolean; reason?: string; taskId?: string } {
+  public addTaskToQueue(
+    taskInput: TaskStateInput
+  ): { success: boolean; reason?: string; taskId?: string } {
     if (this.taskQueue.length >= GRAPH_CONFIG.MAX_QUEUE_SIZE) {
       return {
         success: false,
-        reason: 'タスクキューがいっぱいです。'
+        reason: 'タスクキューがいっぱいです。',
       };
     }
 
     const taskId = crypto.randomUUID();
     const task: TaskQueueEntry = {
       id: taskId,
-      taskTree: taskInput.taskTree || { goal: taskInput.userMessage || 'New Task', status: 'pending' } as any,
+      taskTree: taskInput.taskTree ||
+        ({ goal: taskInput.userMessage || 'New Task', status: 'pending' } as any),
       state: taskInput,
       createdAt: Date.now(),
       status: 'pending',
     };
 
     this.taskQueue.push(task);
-    console.log(`\x1b[32m📥 タスクをキューに追加: "${task.taskTree?.goal}" (${this.taskQueue.length}/${GRAPH_CONFIG.MAX_QUEUE_SIZE})\x1b[0m`);
+    console.log(
+      `\x1b[32m📥 タスクをキューに追加: "${task.taskTree?.goal}" (${this.taskQueue.length}/${GRAPH_CONFIG.MAX_QUEUE_SIZE})\x1b[0m`
+    );
 
     this.notifyTaskListUpdate();
 
-    if (this.taskQueue.length === 1 && !this.isExecuting && !this.isEmergencyMode) {
+    if (
+      this.taskQueue.length === 1 &&
+      !this.isExecuting &&
+      !this.isEmergencyMode
+    ) {
       this.executeNextTask();
     }
 
@@ -547,7 +436,7 @@ export class TaskGraph {
    * タスクを削除
    */
   public removeTask(taskId: string): { success: boolean; reason?: string } {
-    const taskIndex = this.taskQueue.findIndex(t => t.id === taskId);
+    const taskIndex = this.taskQueue.findIndex((t) => t.id === taskId);
     if (taskIndex === -1) {
       return { success: false, reason: 'タスクが見つかりません' };
     }
@@ -578,7 +467,9 @@ export class TaskGraph {
       return;
     }
 
-    const nextTask = this.taskQueue.find(t => t.status === 'pending' || t.status === 'paused');
+    const nextTask = this.taskQueue.find(
+      (t) => t.status === 'pending' || t.status === 'paused'
+    );
     if (!nextTask) {
       console.log('\x1b[33m📭 実行するタスクがありません\x1b[0m');
       return;
@@ -587,7 +478,9 @@ export class TaskGraph {
     nextTask.status = 'executing';
     this.notifyTaskListUpdate();
 
-    console.log(`\x1b[32m▶️ タスク実行開始: "${nextTask.taskTree?.goal}"\x1b[0m`);
+    console.log(
+      `\x1b[32m▶️ タスク実行開始: "${nextTask.taskTree?.goal}"\x1b[0m`
+    );
 
     await this.invoke(nextTask.state);
     this.handleTaskCompletion(nextTask.id);
@@ -597,7 +490,7 @@ export class TaskGraph {
    * タスク完了時の処理
    */
   private handleTaskCompletion(taskId: string): void {
-    const taskIndex = this.taskQueue.findIndex(t => t.id === taskId);
+    const taskIndex = this.taskQueue.findIndex((t) => t.id === taskId);
     if (taskIndex !== -1) {
       const task = this.taskQueue[taskIndex];
       const taskStatus = this.currentState?.taskTree?.status;
@@ -623,19 +516,21 @@ export class TaskGraph {
    */
   public getTaskListState(): TaskListState {
     return {
-      tasks: this.taskQueue.map(t => ({
+      tasks: this.taskQueue.map((t) => ({
         id: t.id,
         goal: t.taskTree?.goal || 'Unknown',
         status: t.status,
         createdAt: t.createdAt,
       })),
-      emergencyTask: this.emergencyTask ? {
-        id: this.emergencyTask.id,
-        goal: this.emergencyTask.taskTree?.goal || 'Emergency',
-        createdAt: this.emergencyTask.createdAt,
-      } : null,
+      emergencyTask: this.emergencyTask
+        ? {
+            id: this.emergencyTask.id,
+            goal: this.emergencyTask.taskTree?.goal || 'Emergency',
+            createdAt: this.emergencyTask.createdAt,
+          }
+        : null,
       currentTaskId: this.isExecuting
-        ? (this.taskQueue.find(t => t.status === 'executing')?.id || null)
+        ? this.taskQueue.find((t) => t.status === 'executing')?.id || null
         : null,
     };
   }
@@ -643,7 +538,9 @@ export class TaskGraph {
   /**
    * タスクリスト更新コールバックを設定
    */
-  public setTaskListUpdateCallback(callback: (tasks: TaskListState) => void): void {
+  public setTaskListUpdateCallback(
+    callback: (tasks: TaskListState) => void
+  ): void {
     this.onTaskListUpdate = callback;
   }
 

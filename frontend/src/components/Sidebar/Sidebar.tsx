@@ -107,13 +107,11 @@ const Sidebar: React.FC<SidebarProps> = ({
               setSearchResults={setSearchResults}
             />
           )}
-          {activeTab === "skills" && <div></div>}
-          {activeTab === "tasks" && <div></div>}
+          {activeTab === "skills" && <SkillsTab skill={skill} />}
           {activeTab === "schedule" && <ScheduleTab scheduler={scheduler} />}
           {activeTab === "status" && (
             <StatusTab status={status} userInfo={userInfo} isTest={isTest} />
           )}
-          {activeTab === "skills" && <SkillsTab skill={skill} />}
         </div>
       )}
     </div>

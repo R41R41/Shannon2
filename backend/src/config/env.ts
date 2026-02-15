@@ -1,0 +1,160 @@
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+/**
+ * Helper to read a required env var, throwing if missing.
+ */
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
+/**
+ * Helper to read an optional env var with a default.
+ */
+function optional(name: string, fallback: string): string {
+  return process.env[name] || fallback;
+}
+
+/**
+ * Centralized application configuration.
+ *
+ * All environment variables are read here and exported as a typed object.
+ * Services should import `config` instead of reading `process.env` directly.
+ */
+export const config = {
+  /** Whether the app is running in dev mode */
+  isDev: process.argv.includes('--dev') || process.env.IS_DEV === 'True',
+
+  /** OpenAI API key (required, used by all LLM-related services) */
+  openaiApiKey: required('OPENAI_API_KEY'),
+
+  /** MongoDB connection URI */
+  mongodbUri: required('MONGODB_URI'),
+
+  /** Main HTTP server port */
+  port: optional('PORT', '5000'),
+
+  discord: {
+    token: optional('DISCORD_TOKEN', ''),
+    guilds: {
+      toyama: {
+        guildId: optional('TOYAMA_GUILD_ID', ''),
+        channelId: optional('TOYAMA_CHANNEL_ID', ''),
+      },
+      douki: {
+        guildId: optional('DOUKI_GUILD_ID', ''),
+        channelId: optional('DOUKI_CHANNEL_ID', ''),
+      },
+      colab: {
+        guildId: optional('COLAB_GUILD_ID', ''),
+        channelId: optional('COLAB_CHANNEL_ID', ''),
+      },
+      aimine: {
+        guildId: optional('AIMINE_GUILD_ID', ''),
+        xChannelId: optional('AIMINE_X_CHANNEL_ID', ''),
+        announceChannelId: optional('AIMINE_ANNOUNCE_CHANNEL_ID', ''),
+        updateChannelId: optional('AIMINE_UPDATE_CHANNEL_ID', ''),
+      },
+      test: {
+        guildId: optional('TEST_GUILD_ID', ''),
+        xChannelId: optional('TEST_X_CHANNEL_ID', ''),
+      },
+    },
+  },
+
+  minecraft: {
+    baseDir: optional('MINECRAFT_BASE_DIR', '/home/azureuser/minecraft'),
+    serverBasePath: optional('SERVER_BASE_PATH', ''),
+    botUserName: optional('MINECRAFT_BOT_USER_NAME', ''),
+    botPassword: optional('MINECRAFT_BOT_PASSWORD', ''),
+    uiModHost: optional('UI_MOD_HOST', 'localhost'),
+  },
+
+  youtube: {
+    channelId: optional('YOUTUBE_CHANNEL_ID', ''),
+    authCode: optional('YOUTUBE_AUTH_CODE', ''),
+    clientId: optional('YOUTUBE_CLIENT_ID', ''),
+    clientSecret: optional('YOUTUBE_CLIENT_SECRET', ''),
+    refreshToken: optional('YOUTUBE_REFRESH_TOKEN', ''),
+    liveUrl: optional('YOUTUBE_LIVE_URL', ''),
+  },
+
+  twitter: {
+    userId: optional('TWITTER_USER_ID', ''),
+    email: optional('TWITTER_EMAIL', ''),
+    password: optional('TWITTER_PASSWORD', ''),
+    twoFaCode: optional('TWITTER_TWO_FA_CODE', ''),
+    loginData: optional('TWITTER_LOGIN_DATA', ''),
+    authSession: optional('TWITTER_AUTH_SESSION', ''),
+    apiKey: optional('TWITTER_API_KEY', ''),
+    apiKeySecret: optional('TWITTER_API_KEY_SECRET', ''),
+    accessToken: optional('TWITTER_ACCESS_TOKEN', ''),
+    accessTokenSecret: optional('TWITTER_ACCESS_TOKEN_SECRET', ''),
+    proxy1: optional('TWITTER_PROXY1', ''),
+    proxy2: optional('TWITTER_PROXY2', ''),
+    proxy3: optional('TWITTER_PROXY3', ''),
+    twitterApiIoKey: optional('TWITTERAPI_IO_API_KEY', ''),
+    loginCookies: optional('TWITTER_LOGIN_COOKIES', ''),
+    /** 返信確率 (0.0〜1.0) */
+    replyProbability: parseFloat(optional('TWITTER_REPLY_PROBABILITY', '0.3')),
+    /** ポーリング間隔 (ミリ秒) */
+    monitorIntervalMs: parseInt(optional('TWITTER_MONITOR_INTERVAL_MS', '1800000'), 10),
+    /** 自動投稿: 1日あたりの最大投稿数 */
+    maxAutoPostsPerDay: parseInt(optional('TWITTER_MAX_AUTO_POSTS_PER_DAY', '5'), 10),
+    /** 自動投稿: 活動開始時間 (JST, 0-23) */
+    autoPostStartHour: parseInt(optional('TWITTER_AUTO_POST_START_HOUR', '8'), 10),
+    /** 自動投稿: 活動終了時間 (JST, 0-24) */
+    autoPostEndHour: parseInt(optional('TWITTER_AUTO_POST_END_HOUR', '24'), 10),
+    /** Webhook: コールバック URL のベース (例: https://sh4nnon.com) */
+    webhookBaseUrl: optional('TWITTER_WEBHOOK_BASE_URL', ''),
+    /** Webhook: チェック間隔秒 (デフォルト 100) */
+    webhookInterval: parseInt(optional('TWITTER_WEBHOOK_INTERVAL', '100'), 10),
+    /** 1日あたりの最大返信数 (Webhook + ポーリング合計) */
+    maxRepliesPerDay: parseInt(optional('TWITTER_MAX_REPLIES_PER_DAY', '20'), 10),
+    /** Twitter ユーザー名 (Webhook フィルタ用) */
+    userName: optional('TWITTER_USER_NAME', ''),
+    usernames: {
+      aiminelab: optional('TWITTER_AIMINELAB_USERNAME', ''),
+      yummy: optional('TWITTER_YUMMY_USERNAME', ''),
+      rai: optional('TWITTER_RAI_USERNAME', ''),
+      guriko: optional('TWITTER_GURIKO_USERNAME', ''),
+    },
+  },
+
+  notion: {
+    apiKey: optional('NOTION_API_KEY', ''),
+  },
+
+  google: {
+    apiKey: optional('GOOGLE_API_KEY', ''),
+    searchEngineId: optional('SEARCH_ENGINE_ID', ''),
+  },
+
+  wolframAlpha: {
+    appId: optional('WOLFRAM_ALPHA_APPID', ''),
+  },
+
+  ports: {
+    http: optional('HTTP_PORT', '5000'),
+    frontend: optional('FRONTEND_PORT', '5000'),
+    ws: {
+      openai: optional('WS_OPENAI_PORT', '5010'),
+      voice: optional('WS_VOICE_PORT', '5020'),
+      minecraft: optional('WS_MINECRAFT_PORT', '5030'),
+      monitoring: optional('WS_MONITORING_PORT', '5011'),
+      schedule: optional('WS_SCHEDULE_PORT', '5018'),
+      status: optional('WS_STATUS_PORT', '5013'),
+      planning: optional('WS_PLANNING_PORT', '5019'),
+      emotion: optional('WS_EMOTION_PORT', '5020'),
+      skill: optional('WS_SKILL_PORT', '5016'),
+      auth: optional('WS_AUTH_PORT', '5017'),
+    },
+  },
+} as const;
+
+export type AppConfig = typeof config;

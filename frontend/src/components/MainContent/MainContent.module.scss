@@ -1,4 +1,3 @@
-@use "sass:map";
 @use "@styles/variables.scss" as *;
 
 .container {
@@ -8,29 +7,10 @@
   background-color: color(background, primary);
 }
 
-.statusSection {
-  flex: 0 0 200px;
-  border-bottom: 1px solid color(surface, primary);
-  resize: vertical;
-  overflow: auto;
-  padding: 16px;
-
-  &:hover {
-    cursor: row-resize;
-  }
-}
-
-.logSection {
-  flex: 1;
-  padding: 16px;
-  overflow-y: auto;
-  border-top: 1px solid color(surface, primary);
-}
-
 .resizeHandle {
   height: 1px;
-  background-color: color(surface, primary);
-  transition: background-color map.get($transitions, fast);
+  background-color: color(border, primary);
+  transition: background-color transition(fast);
 
   &:hover {
     background-color: color(primary);

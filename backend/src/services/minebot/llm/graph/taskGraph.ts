@@ -1,35 +1,40 @@
 import { AIMessage, BaseMessage } from '@langchain/core/messages';
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { TaskTreeState } from '@shannon/common';
-import dotenv from 'dotenv';
-import { readdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { loadToolsFromDirectory } from '../../../../utils/toolLoader.js';
 import { CONFIG } from '../../config/MinebotConfig.js';
 import { CustomBot } from '../../types.js';
 import { CentralLogManager } from './logging/index.js';
 import { ExecutionNode } from './nodes/ExecutionNode.js';
+import { FunctionCallingAgent } from './nodes/FunctionCallingAgent.js';
 import { PlanningNode } from './nodes/PlanningNode.js';
 import { Prompt } from './prompt.js';
 import { InstantSkillTool } from './tools/InstantSkillTool.js';
+import { UpdatePlanTool } from './tools/UpdatePlanTool.js';
 import { TaskStateInput } from './types.js';
 import { convertToToolCalls } from './utils/argsParser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-dotenv.config();
-
 export class TaskGraph {
   private static instance: TaskGraph;
   private tools: any[] = [];
   private planningNode: PlanningNode | null = null;
   private executionNode: ExecutionNode | null = null;
+  private functionCallingAgent: FunctionCallingAgent | null = null;
   private centralLogManager: CentralLogManager;
   private graph: any;
   private prompt: Prompt | null = null;
   private bot: CustomBot | null = null;
   public currentState: any = null;
+
+  // Function Calling モード切替フラグ
+  // true: 新方式（Function Calling Agent）- 高速・省コンテキスト
+  // false: 旧方式（LangGraph PlanningNode + ExecutionNode）
+  private useFunctionCalling: boolean = CONFIG.USE_FUNCTION_CALLING;
 
   // タスクスタック（緊急中断時に使用 - 非推奨、taskQueueに移行）
   private taskStack: Array<{
@@ -57,6 +62,7 @@ export class TaskGraph {
 
   private isEmergencyMode = false;
   private isExecuting = false; // タスク実行中フラグ（排他制御用）
+  private abortController: AbortController | null = null; // LLM呼び出しキャンセル用
 
   // 直近の成功アクション履歴（同じアクションの繰り返し検出用）
   private recentSuccessfulActions: string[] = [];
@@ -81,8 +87,19 @@ export class TaskGraph {
     this.planningNode = new PlanningNode(this.bot, this.prompt, this.centralLogManager);
     this.executionNode = new ExecutionNode(this.tools, this.centralLogManager);
 
+    // Function Calling Agent を初期化
+    this.functionCallingAgent = new FunctionCallingAgent(
+      this.bot,
+      this.tools,
+      this.centralLogManager,
+    );
+
     this.graph = this.createGraph();
     this.currentState = null;
+
+    console.log(
+      `\x1b[36m📦 TaskGraph: mode=${this.useFunctionCalling ? 'FunctionCalling' : 'LangGraph'}\x1b[0m`,
+    );
   }
 
   /**
@@ -92,6 +109,19 @@ export class TaskGraph {
     if (this.planningNode) {
       this.planningNode.setEmergencyResolvedHandler(handler);
     }
+    if (this.functionCallingAgent) {
+      this.functionCallingAgent.setEmergencyResolvedHandler(handler);
+    }
+  }
+
+  /**
+   * Function Calling モードの切り替え
+   */
+  public setUseFunctionCalling(value: boolean): void {
+    this.useFunctionCalling = value;
+    console.log(
+      `\x1b[36m📦 TaskGraph: mode=${value ? 'FunctionCalling' : 'LangGraph'}\x1b[0m`,
+    );
   }
 
   public static getInstance(): TaskGraph {
@@ -114,25 +144,12 @@ export class TaskGraph {
       this.tools.push(skillTool);
     }
     const toolsDir = join(__dirname, '../tools');
-    const toolFiles = readdirSync(toolsDir).filter(
-      (file) =>
-        (file.endsWith('.ts') || file.endsWith('.js')) &&
-        !file.includes('.d.ts')
-    );
+    const fileTools = await loadToolsFromDirectory(toolsDir, 'Minebot');
+    this.tools.push(...fileTools);
 
-    for (const file of toolFiles) {
-      if (file === 'index.ts' || file === 'index.js') continue;
+    // update-plan ツールを追加（Function Calling Agent 用）
+    this.tools.push(new UpdatePlanTool());
 
-      try {
-        const toolModule = await import(join(toolsDir, file));
-        const ToolClass = toolModule.default;
-        if (ToolClass?.prototype?.constructor) {
-          this.tools.push(new ToolClass());
-        }
-      } catch (error) {
-        console.error(`ツール読み込みエラー: ${file}`, error);
-      }
-    }
     console.log('tools', this.tools.length);
   }
 
@@ -319,21 +336,28 @@ export class TaskGraph {
           return 'planning';
         }
 
-        // status: completed/error の場合は終了（nextActionSequenceがあっても無視）
-        // LLMがstatus: completedにしたなら、報告chatはその前に実行すべき
-        if (state.taskTree?.status === 'completed') {
-          console.log('\x1b[32m✅ タスク完了\x1b[0m');
-          return END;
-        }
-        if (state.taskTree?.status === 'error') {
-          console.log('\x1b[31m❌ タスクエラー\x1b[0m');
-          return END;
-        }
-
         // nextActionSequenceがあるかチェック
         const hasActions =
           (state.taskTree?.nextActionSequence && state.taskTree.nextActionSequence.length > 0) ||
           (state.taskTree?.actionSequence && state.taskTree.actionSequence.length > 0);
+
+        // status: completed/error でも残りアクション（chat報告等）があれば先に実行
+        if (state.taskTree?.status === 'completed') {
+          if (hasActions) {
+            console.log('\x1b[32m✅ タスク完了（残りアクションを実行してから終了）\x1b[0m');
+            return 'execution';
+          }
+          console.log('\x1b[32m✅ タスク完了\x1b[0m');
+          return END;
+        }
+        if (state.taskTree?.status === 'error') {
+          if (hasActions) {
+            console.log('\x1b[31m❌ タスクエラー（残りアクションを実行してから終了）\x1b[0m');
+            return 'execution';
+          }
+          console.log('\x1b[31m❌ タスクエラー\x1b[0m');
+          return END;
+        }
 
         if (hasActions) {
           return 'execution';
@@ -369,8 +393,10 @@ export class TaskGraph {
             let actionKey: string;
 
             // 座標を含む引数がある場合は、ツール名+座標で識別
+            // deposit/withdraw/tradeなど、アイテム名がある場合はそれも含める
             if (args.x !== undefined && args.y !== undefined && args.z !== undefined) {
-              actionKey = `${r.toolName}@${args.x},${args.y},${args.z}`;
+              const itemSuffix = args.itemName ? `:${args.itemName}` : '';
+              actionKey = `${r.toolName}@${args.x},${args.y},${args.z}${itemSuffix}`;
             }
             // chatアクションの場合は、メッセージ内容のハッシュで識別
             else if (r.toolName === 'chat' && args.message) {
@@ -408,6 +434,16 @@ export class TaskGraph {
           }
         }
 
+        // completed/error 状態で残りアクションを実行した後は終了
+        if (state.taskTree?.status === 'completed') {
+          console.log('\x1b[32m✅ タスク完了（最終アクション実行済み）\x1b[0m');
+          return END;
+        }
+        if (state.taskTree?.status === 'error') {
+          console.log('\x1b[31m❌ タスクエラー（最終アクション実行済み）\x1b[0m');
+          return END;
+        }
+
         if (this.currentState.humanFeedbackPending) {
           this.currentState.humanFeedbackPending = false;
           return 'planning';
@@ -428,6 +464,7 @@ export class TaskGraph {
     }
 
     this.isExecuting = true;
+    this.abortController = new AbortController();
 
     // 新しいタスク開始時にアクション履歴をリセット
     this.recentSuccessfulActions = [];
@@ -474,7 +511,32 @@ export class TaskGraph {
 
     try {
       console.log('タスクグラフ実行開始 ID:', state.taskId);
-      const result = await this.graph.invoke(state, { recursionLimit: CONFIG.LANGGRAPH_RECURSION_LIMIT });
+
+      let result;
+
+      if (this.useFunctionCalling && this.functionCallingAgent) {
+        // === Function Calling モード ===
+        console.log('\x1b[36m🤖 Function Calling モードで実行\x1b[0m');
+        const agentResult = await this.functionCallingAgent.run(
+          state,
+          this.abortController?.signal,
+        );
+        result = {
+          ...state,
+          taskTree: agentResult.taskTree,
+          messages: agentResult.messages || state.messages || [],
+          forceStop: agentResult.forceStop,
+          isEmergency: agentResult.isEmergency,
+        };
+      } else {
+        // === 旧方式: LangGraph モード ===
+        console.log('\x1b[36m📊 LangGraph モードで実行\x1b[0m');
+        result = await this.graph.invoke(state, {
+          recursionLimit: CONFIG.LANGGRAPH_RECURSION_LIMIT,
+          signal: this.abortController?.signal,
+        });
+      }
+
       if (result.taskTree?.status === 'in_progress') {
         result.taskTree.status = 'error';
       }
@@ -484,16 +546,31 @@ export class TaskGraph {
         taskId: result.taskId,
         status: result.taskTree?.status,
         wasForceStop: result.forceStop,
-        messageCount: result.messages.length,
+        messageCount: result.messages?.length || 0,
       });
 
       this.currentState = result;
 
       return result;
     } catch (error) {
+      // AbortError（forceStopによるキャンセル）の場合
+      if (error instanceof Error && (error.name === 'AbortError' || error.message?.includes('aborted') || error.message?.includes('abort'))) {
+        console.log('\x1b[33m⚠️ タスクが強制停止されました（AbortError）\x1b[0m');
+        return {
+          ...state,
+          forceStop: true,
+          taskTree: {
+            status: 'error',
+            goal: state.taskTree?.goal || '強制停止',
+            strategy: '',
+            subTasks: null,
+          },
+        };
+      }
+
       // 再帰制限エラーの場合
       if (error instanceof Error && 'lc_error_code' in error) {
-        if (error.lc_error_code === 'GRAPH_RECURSION_LIMIT') {
+        if ((error as any).lc_error_code === 'GRAPH_RECURSION_LIMIT') {
           console.warn('再帰制限に達しました。タスクを強制終了します。');
           return {
             ...state,
@@ -522,6 +599,7 @@ export class TaskGraph {
     } finally {
       // 排他制御を解除
       this.isExecuting = false;
+      this.abortController = null;
 
       // 緊急タスク完了時はemergencyModeをリセット
       // partialState.isEmergency または this.isEmergencyMode がtrueなら緊急タスク
@@ -542,16 +620,40 @@ export class TaskGraph {
           }, 1000);
         }
       }
+
+      // キューに待機中のタスクがあれば次を実行
+      const hasPendingTasks = this.taskQueue.some(t => t.status === 'pending' || t.status === 'paused');
+      if (hasPendingTasks && !this.isEmergencyMode) {
+        console.log('\x1b[36m📋 キューに待機中タスクあり、次のタスクを実行\x1b[0m');
+        // 少し遅延して次のタスクを開始（現在のスタックを抜けてから）
+        setTimeout(() => this.executeNextTask(), 100);
+      }
     }
+  }
+
+  /** FunctionCallingAgent がユーザーの応答を待機中かどうか */
+  public get isAgentWaitingForResponse(): boolean {
+    return this.functionCallingAgent?.isWaitingForResponse ?? false;
   }
 
   // humanFeedbackを更新
   public updateHumanFeedback(feedback: string) {
     console.log('updateHumanFeedback', feedback);
+
+    // Function Calling モードの場合はエージェントに直接フィードバック
+    if (this.useFunctionCalling && this.functionCallingAgent) {
+      this.functionCallingAgent.addFeedback(feedback);
+    }
+
     if (this.currentState) {
       this.currentState.humanFeedback = feedback;
       this.currentState.humanFeedbackPending = true;
       console.log('humanFeedbackが更新されました:', feedback);
+    }
+    // 実行中のスキルに中断シグナルを送る
+    if (this.bot && this.bot.executingSkill) {
+      this.bot.interruptExecution = true;
+      console.log('⚡ 実行中スキルに中断シグナルを送信');
     }
   }
 
@@ -560,6 +662,11 @@ export class TaskGraph {
     console.log('forceStop');
     if (this.currentState) {
       this.currentState.forceStop = true;
+    }
+    // 進行中のLLM呼び出しをキャンセル
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
     }
   }
 
@@ -753,21 +860,29 @@ export class TaskGraph {
 
   /**
    * 緊急タスク完了後、元のタスクに復帰（キュー管理対応）
+   * 注意: この関数はPlanningNode内（invoke実行中）から呼ばれる場合がある。
+   * isExecuting は invoke() の finally ブロックで自動的にリセットされるため、
+   * ここでは手動設定しない（二重実行の原因になる）。
    */
   public async resumePreviousTask(): Promise<void> {
     // 緊急タスクをクリア
     this.emergencyTask = null;
     this.isEmergencyMode = false;
-    this.isExecuting = false;
+    // 注意: this.isExecuting = false はここでしない！
+    // invoke() の finally ブロックが自動的にリセットし、
+    // そこで executeNextTask() も呼ばれる。
 
     console.log('\x1b[32m✅ 緊急タスク完了、通常タスクを再開\x1b[0m');
     this.notifyTaskListUpdate();
 
-    // 少し待機してから再開
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // キューの次のタスクを実行
-    this.executeNextTask();
+    // invoke() が完了した後に finally ブロックが executeNextTask() を呼ぶので、
+    // ここでの明示的な呼び出しは不要。
+    // ただし、invoke() 外から呼ばれた場合のフォールバック:
+    // isExecuting が既に false なら次のタスクを開始する
+    if (!this.isExecuting) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      this.executeNextTask();
+    }
   }
 
   /**
@@ -906,13 +1021,22 @@ export class TaskGraph {
     if (wasExecuting && this.isExecuting) {
       this.clearBotControls(); // pathfinderと制御状態をクリア
       this.forceStop();
+      // 注意: ここで executeNextTask() は呼ばない。
+      // forceStop() → AbortError → invoke().finally が isExecuting = false にした後、
+      // finally ブロック内で hasPendingTasks をチェックして executeNextTask() を呼ぶ。
+      // 同期的に呼ぶと、isExecuting がまだ true のため無意味であり、
+      // finally からも呼ばれて二重実行のリスクがある。
     }
 
     this.notifyTaskListUpdate();
 
-    // 次のタスクを実行
-    if (wasExecuting && !this.isEmergencyMode) {
-      this.executeNextTask();
+    // 実行中でなかった（paused等）タスクの削除後、
+    // まだ実行していないタスクがあれば開始
+    if (!wasExecuting && !this.isExecuting && !this.isEmergencyMode) {
+      const hasPending = this.taskQueue.some(t => t.status === 'pending' || t.status === 'paused');
+      if (hasPending) {
+        this.executeNextTask();
+      }
     }
 
     return { success: true };
@@ -951,7 +1075,9 @@ export class TaskGraph {
     this.notifyTaskListUpdate();
 
     // 緊急モードでなければ実行
-    if (!this.isEmergencyMode) {
+    // forceStop() が呼ばれた場合、invoke().finally で isExecuting = false になった後に
+    // executeNextTask() が呼ばれるので、ここでは isExecuting が false の場合のみ呼ぶ
+    if (!this.isEmergencyMode && !this.isExecuting) {
       this.executeNextTask();
     }
 

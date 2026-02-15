@@ -1,128 +1,114 @@
-@use "sass:map";
 @use "@styles/variables.scss" as *;
 
 .header {
   display: flex;
-  position: relative;
-  justify-content: space-between;
   align-items: center;
-  padding: 0 spacing(md);
-  height: 40px;
+  justify-content: space-between;
+  padding: 0 spacing(lg);
+  height: 44px;
   background-color: color(surface, primary);
   border-bottom: 1px solid color(border, primary);
+  flex-shrink: 0;
 }
 
+// Left: Logo + Version
 .leftSection {
   display: flex;
   align-items: center;
+  gap: spacing(md);
 }
 
 .logo {
-  height: 28px;
+  height: 24px;
   width: auto;
 }
 
 .version {
   font-family: "kunai";
-  font-size: 0.8rem;
-  color: color(text, primary);
-  margin-left: 16px;
+  font-size: font-size(sm);
+  color: color(text, secondary);
+  letter-spacing: 0.02em;
 }
 
+// Center: Connection indicators
+.centerSection {
+  display: flex;
+  align-items: center;
+  gap: spacing(lg);
+}
+
+.connectionItem {
+  display: flex;
+  align-items: center;
+  gap: spacing(xs);
+}
+
+.connectionDot {
+  @include status-dot(6px);
+  transition: all transition(normal);
+
+  &.connected {
+    background-color: color(success);
+    box-shadow: shadow(glow-success);
+  }
+
+  &.connecting {
+    background-color: color(warning);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  &.disconnected {
+    background-color: color(text, disabled);
+  }
+}
+
+.connectionLabel {
+  font-size: font-size(xs);
+  color: color(text, disabled);
+  user-select: none;
+}
+
+// Right: User + Settings
 .rightSection {
   display: flex;
   align-items: center;
-  gap: 16px;
-}
-
-.settingsButton {
-  position: absolute;
-  top: 0;
-  right: 0;
-  padding: 8px 16px;
-  border: 1px solid color(surface, primary);
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: transparent;
-  cursor: pointer;
-  transition: all 0.2s;
-  color: color(text, primary);
-
-  &:hover {
-    background-color: color(surface, secondary);
-  }
-
-  &:active {
-    background-color: color(surface, secondary);
-  }
-
-  svg {
-    width: 24px;
-    height: 24px;
-    color: inherit;
-  }
-}
-
-.userInfo {
-  position: absolute;
-  right: 60px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  gap: spacing(md);
 }
 
 .userName {
-  font-size: 0.8rem;
+  font-size: font-size(sm);
+  font-weight: font-weight(medium);
   color: color(text, primary);
 }
 
-.dentSection {
-  .triangle {
-    position: absolute;
-    flex: 1;
-    bottom: 0;
-    width: 0;
-    height: 0;
-    border-right: 30px solid transparent;
-    border-left: 30px solid transparent;
-    border-bottom: 30px solid color(border, primary);
-    &::before {
-      content: "";
-      position: absolute;
-      top: 1px;
-      width: 0px;
-      height: 0px;
-      border-right: 30px solid transparent;
-      border-left: 30px solid transparent;
-      border-bottom: 30px solid color(background, secondary);
-    }
+.settingsButton {
+  @include flex-center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: radius(sm);
+  background-color: transparent;
+  cursor: pointer;
+  transition: all transition(normal);
+  color: color(text, secondary);
+
+  &:hover {
+    background-color: color(surface, hover);
+    color: color(text, primary);
   }
-  .leftTriangle {
-    left: calc(25% - 30px);
-    &::before {
-      left: -30px;
-    }
+
+  svg {
+    width: 18px;
+    height: 18px;
   }
-  .rightTriangle {
-    right: calc(25% - 30px);
-    &::before {
-      right: -30px;
-    }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
   }
-  .rectangle {
-    position: absolute;
-    flex: 1;
-    bottom: -2px;
-    display: flex;
-    justify-content: space-between;
-    right: 25%;
-    width: 50%;
-    height: 32px;
-    z-index: 100;
-    background-color: color(background, secondary);
-    border-top: 1px solid color(border, primary);
+  50% {
+    opacity: 0.4;
   }
 }

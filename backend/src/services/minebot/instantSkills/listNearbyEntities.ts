@@ -1,13 +1,42 @@
 import { CustomBot, InstantSkill } from '../types.js';
 
 /**
+ * エンティティのカスタム名を取得するヘルパー
+ */
+function getCustomName(entity: any): string | null {
+  try {
+    const meta = entity.metadata;
+    if (!meta) return null;
+    const customName = meta[2];
+    if (!customName) return null;
+    if (typeof customName === 'object') {
+      if (customName.text) return customName.text;
+      if (customName.translate) return customName.translate;
+      return JSON.stringify(customName);
+    }
+    if (typeof customName === 'string') {
+      try {
+        const parsed = JSON.parse(customName);
+        if (parsed.text) return parsed.text;
+        return customName;
+      } catch {
+        return customName;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 原子的スキル: 周囲のエンティティをリスト表示
  */
 class ListNearbyEntities extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'list-nearby-entities';
-    this.description = '周囲のエンティティをリスト表示します。';
+    this.description = '周囲のエンティティをリスト表示します。カスタム名付きエンティティ（Mysterious Traderなど）も表示されます。';
     this.params = [
       {
         name: 'maxDistance',
@@ -48,15 +77,21 @@ class ListNearbyEntities extends InstantSkill {
           const distance = e.position.distanceTo(this.bot.entity.position);
           return distance <= maxDistance;
         })
-        .map((e) => ({
-          id: e.id,
-          name: e.name || e.type,
-          type: e.type,
-          distance:
-            Math.floor(e.position.distanceTo(this.bot.entity.position) * 10) /
-            10,
-          position: e.position,
-        }));
+        .map((e) => {
+          const customName = getCustomName(e);
+          const displayName = customName
+            ? `${customName}(${e.name || e.type})`
+            : (e.name || e.type);
+          return {
+            id: e.id,
+            name: displayName,
+            type: e.type,
+            distance:
+              Math.floor(e.position.distanceTo(this.bot.entity.position) * 10) /
+              10,
+            position: e.position,
+          };
+        });
 
       // プレイヤーとその他のエンティティをマージ
       const allEntities = [...players, ...otherEntities]

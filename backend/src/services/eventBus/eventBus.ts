@@ -1,42 +1,63 @@
-import { Color, Event, EventType, ILog, MemoryZone } from '@shannon/common';
+import {
+  Color,
+  Event,
+  EventType,
+  ILog,
+  MemoryZone,
+  TypedEvent,
+} from '@shannon/common';
 import Log from '../../models/Log.js';
+import { logger } from '../../utils/logger.js';
 
 export class EventBus {
-  private listeners: Map<EventType, Array<(event: Event) => void>> = new Map();
+  // Internal storage uses the broad Event callback type for runtime flexibility.
+  private listeners: Map<string, Array<(event: unknown) => void>> = new Map();
 
   /**
-   * イベントタイプに対応するコールバック関数を追加する
-   * @param eventType イベントタイプ
-   * @param callback コールバック関数
+   * Type-safe subscribe: callback receives a TypedEvent whose `data`
+   * is automatically narrowed based on the event type string.
+   *
+   * @example
+   * eventBus.subscribe('discord:post_message', (event) => {
+   *   // event.data is DiscordSendTextMessageInput (no cast needed)
+   *   console.log(event.data.channelId);
+   * });
    */
-  subscribe(
-    eventType: EventType,
-    callback: (event: Event) => void
+  subscribe<T extends EventType>(
+    eventType: T,
+    callback: (event: TypedEvent<T>) => void
   ): () => void {
     if (!this.listeners.has(eventType)) {
       this.listeners.set(eventType, []);
     }
-    this.listeners.get(eventType)?.push(callback);
+    // Cast needed: internal storage uses `unknown` while external API is generic
+    const wrappedCallback = callback as (event: unknown) => void;
+    this.listeners.get(eventType)?.push(wrappedCallback);
 
-    // unsubscribe関数を返す
     return () => {
       const callbacks = this.listeners.get(eventType);
       if (callbacks) {
         this.listeners.set(
           eventType,
-          callbacks.filter((cb) => cb !== callback)
+          callbacks.filter((cb) => cb !== wrappedCallback)
         );
       }
     };
   }
 
   /**
-   * イベントを送信する
-   * @param event イベント
+   * Type-safe publish: ensures the event data matches the expected
+   * payload type for the given event type.
+   *
+   * @example
+   * eventBus.publish({
+   *   type: 'discord:planning',
+   *   memoryZone: 'discord:aiminelab_server',
+   *   data: { planning, channelId, taskId }, // type-checked as DiscordPlanningInput
+   * });
    */
-  publish(event: Event) {
+  publish<T extends EventType>(event: TypedEvent<T>): void {
     this.listeners.get(event.type)?.forEach((callback) => {
-      // targetMemoryZonesが指定されている場合、対象メモリゾーンのみに配信
       if (
         !event.targetMemoryZones ||
         event.targetMemoryZones.includes(event.memoryZone)
@@ -65,21 +86,7 @@ export class EventBus {
       color,
       content,
     };
-    if (color === 'green') {
-      console.log(`\x1b[32m${content}\x1b[0m`);
-    } else if (color === 'red') {
-      console.error(`\x1b[31m${content}\x1b[0m`);
-    } else if (color === 'yellow') {
-      console.log(`\x1b[33m${content}\x1b[0m`);
-    } else if (color === 'blue') {
-      console.log(`\x1b[34m${content}\x1b[0m`);
-    } else if (color === 'magenta') {
-      console.log(`\x1b[35m${content}\x1b[0m`);
-    } else if (color === 'cyan') {
-      console.log(`\x1b[36m${content}\x1b[0m`);
-    } else {
-      console.log(content);
-    }
+    logger.info(content, color);
 
     if (isSave) {
       try {
@@ -108,6 +115,6 @@ export class EventBus {
       memoryZone: 'web',
       data: logEntry,
       targetMemoryZones: ['web'],
-    } as Event);
+    });
   }
 }

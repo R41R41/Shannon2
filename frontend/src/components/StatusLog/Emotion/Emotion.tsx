@@ -13,6 +13,7 @@ import {
   Legend,
   TooltipItem,
 } from "chart.js";
+import classNames from "classnames";
 
 ChartJS.register(
   RadialLinearScale,
@@ -28,6 +29,24 @@ interface EmotionProps {
   isMobile?: boolean;
 }
 
+const EMOTION_LABELS = [
+  "喜び",
+  "信頼",
+  "恐れ",
+  "驚き",
+  "悲しみ",
+  "嫌悪",
+  "怒り",
+  "期待",
+];
+
+const EMOTION_GROUPS = {
+  positive: { r: 74, g: 222, b: 128 },
+  negative: { r: 96, g: 165, b: 250 },
+  anger: { r: 248, g: 113, b: 113 },
+  surprise: { r: 251, g: 191, b: 36 },
+};
+
 const Emotion: React.FC<EmotionProps> = ({ emotion, isMobile }) => {
   const [emotionState, setEmotionState] = useState<EmotionType | null>(null);
   const animationRef = useRef<number>();
@@ -35,58 +54,44 @@ const Emotion: React.FC<EmotionProps> = ({ emotion, isMobile }) => {
     Array(8).fill(50)
   );
 
-  // 感情グループごとの色を定義
-  const emotionColors = {
-    positive: { r: 0, g: 255, b: 0 }, // 黄色 (喜び・期待・信頼)
-    negative: { r: 0, g: 0, b: 255 }, // 青 (恐れ・悲しみ・嫌悪)
-    anger: { r: 255, g: 0, b: 0 }, // 赤 (怒り)
-    surprise: { r: 255, g: 255, b: 255 }, // 白 (驚き)
-  };
-
-  // 感情値から色を計算
   const calculateColor = (values: number[]) => {
-    const positive = (values[0] + values[1]) / 200; // joy, trust, anticipation
-    const negative = (values[2] + values[4] + values[5]) / 300; // fear, sadness, disgust
-    const anger = values[6] / 100; // anger
-    const surprise = (values[3] + values[7]) / 200; // surprise
+    const positive = (values[0] + values[1]) / 200;
+    const negative = (values[2] + values[4] + values[5]) / 300;
+    const anger = values[6] / 100;
+    const surprise = (values[3] + values[7]) / 200;
+    const total = positive + negative + anger + surprise || 1;
 
-    // 各色の重みを計算
     const r =
-      (emotionColors.positive.r * positive +
-        emotionColors.negative.r * negative +
-        emotionColors.anger.r * anger +
-        emotionColors.surprise.r * surprise) /
-      (positive + negative + anger + surprise || 1);
-
+      (EMOTION_GROUPS.positive.r * positive +
+        EMOTION_GROUPS.negative.r * negative +
+        EMOTION_GROUPS.anger.r * anger +
+        EMOTION_GROUPS.surprise.r * surprise) /
+      total;
     const g =
-      (emotionColors.positive.g * positive +
-        emotionColors.negative.g * negative +
-        emotionColors.anger.g * anger +
-        emotionColors.surprise.g * surprise) /
-      (positive + negative + anger + surprise || 1);
-
+      (EMOTION_GROUPS.positive.g * positive +
+        EMOTION_GROUPS.negative.g * negative +
+        EMOTION_GROUPS.anger.g * anger +
+        EMOTION_GROUPS.surprise.g * surprise) /
+      total;
     const b =
-      (emotionColors.positive.b * positive +
-        emotionColors.negative.b * negative +
-        emotionColors.anger.b * anger +
-        emotionColors.surprise.b * surprise) /
-      (positive + negative + anger + surprise || 1);
+      (EMOTION_GROUPS.positive.b * positive +
+        EMOTION_GROUPS.negative.b * negative +
+        EMOTION_GROUPS.anger.b * anger +
+        EMOTION_GROUPS.surprise.b * surprise) /
+      total;
 
-    return `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}`;
+    return { r: Math.round(r), g: Math.round(g), b: Math.round(b) };
   };
 
   useEffect(() => {
     if (emotion) {
-      emotion.onUpdateEmotion((emotion) => {
-        setEmotionState(emotion);
-      });
+      emotion.onUpdateEmotion((e) => setEmotionState(e));
     }
   }, [emotion]);
 
-  // アイドル時のアニメーション
   useEffect(() => {
     let lastUpdate = Date.now();
-    const UPDATE_INTERVAL = 1000; // 1秒ごとに更新
+    const UPDATE_INTERVAL = 1000;
 
     const animate = () => {
       const now = Date.now();
@@ -115,28 +120,31 @@ const Emotion: React.FC<EmotionProps> = ({ emotion, isMobile }) => {
         setAnimatedValues(newValues);
         lastUpdate = now;
       }
-
       animationRef.current = requestAnimationFrame(animate);
     };
 
     animationRef.current = requestAnimationFrame(animate);
-
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
   }, [emotionState]);
 
+  const color = calculateColor(animatedValues);
+  const colorStr = `${color.r}, ${color.g}, ${color.b}`;
+
   const chartData = {
-    labels: ["喜び", "信頼", "恐れ", "驚き", "悲しみ", "嫌悪", "怒り", "期待"],
+    labels: EMOTION_LABELS,
     datasets: [
       {
         label: "感情パラメータ",
         data: animatedValues,
-        backgroundColor: `${calculateColor(animatedValues)}, 0.2)`,
-        borderColor: `${calculateColor(animatedValues)}, 1)`,
+        backgroundColor: `rgba(${colorStr}, 0.12)`,
+        borderColor: `rgba(${colorStr}, 0.8)`,
         borderWidth: 2,
+        pointBackgroundColor: `rgba(${colorStr}, 1)`,
+        pointBorderColor: "transparent",
+        pointRadius: 3,
+        pointHoverRadius: 5,
       },
     ],
   };
@@ -150,40 +158,37 @@ const Emotion: React.FC<EmotionProps> = ({ emotion, isMobile }) => {
         ticks: {
           stepSize: 20,
           backdropColor: "transparent",
-          color: "rgba(255, 255, 255, 0.7)",
+          color: "rgba(255, 255, 255, 0.2)",
           display: true,
           showLabelBackdrop: false,
+          font: { size: 9 },
         },
         grid: {
-          color: "rgba(255, 255, 255, 0.1)",
-          display: true,
+          color: "rgba(255, 255, 255, 0.06)",
         },
         angleLines: {
-          color: "rgba(255, 255, 255, 0.1)",
+          color: "rgba(255, 255, 255, 0.06)",
         },
         pointLabels: {
-          color: "rgba(255, 255, 255, 0.8)",
-          font: {
-            size: 12,
-          },
+          color: "rgba(255, 255, 255, 0.6)",
+          font: { size: 11, weight: "500" as const },
         },
       },
     },
     plugins: {
+      legend: { display: false },
       tooltip: {
         enabled: true,
         displayColors: false,
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        titleFont: { size: 11 },
+        bodyFont: { size: 12 },
+        padding: 8,
+        cornerRadius: 6,
         callbacks: {
           label: (context: TooltipItem<"radar">) =>
             `${Math.round(context.raw as number)}`,
         },
-      },
-      datalabels: {
-        color: "rgba(255, 255, 255, 0.8)",
-        anchor: "end",
-        align: "end",
-        offset: 5,
-        formatter: (value: number) => Math.round(value),
       },
     },
     animation: {
@@ -194,12 +199,23 @@ const Emotion: React.FC<EmotionProps> = ({ emotion, isMobile }) => {
   };
 
   return (
-    <div className={`${styles.emotion} ${isMobile ? styles.mobile : ""}`}>
-      <div className={styles.emotionName}>
-        <span>感情: </span>
-        <span>{emotionState?.emotion ?? "-"}</span>
+    <div className={classNames(styles.card, { [styles.mobile]: isMobile })}>
+      <div className={styles.cardHeader}>
+        <span className={styles.cardTitle}>Emotion</span>
+        {emotionState?.emotion && (
+          <span
+            className={styles.emotionBadge}
+            style={{
+              backgroundColor: `rgba(${colorStr}, 0.15)`,
+              color: `rgb(${colorStr})`,
+            }}
+          >
+            {emotionState.emotion}
+          </span>
+        )}
       </div>
-      <div className={styles.chart}>
+
+      <div className={styles.chartWrapper}>
         <Radar data={chartData} options={chartOptions} />
       </div>
     </div>

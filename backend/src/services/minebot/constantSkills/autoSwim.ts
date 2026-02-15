@@ -15,10 +15,22 @@ class AutoSwim extends ConstantSkill {
     this.status = true;   // デフォルトでON
     this.priority = 10;   // 最高優先度
     this.containMovement = true;
+    this.isCritical = true; // InstantSkill実行中でも動作する（生存スキル）
   }
 
   async runImpl() {
     try {
+      // auto-followがアクティブな場合はスキップ（AutoFollowのswim()が酸素管理も行う）
+      const autoFollow = this.bot.constantSkills.getSkill('auto-follow');
+      if (autoFollow && autoFollow.status && autoFollow.isLocked) {
+        // AutoFollowが水中移動中なので、そちらに任せる
+        if (this.isSwimmingUp) {
+          this.isSwimmingUp = false;
+          this.bot.setControlState('jump', false);
+        }
+        return;
+      }
+
       const oxygen = this.bot.oxygenLevel ?? 20;
       const isInWater = (this.bot.entity as any)?.isInWater || false;
 

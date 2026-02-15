@@ -1,4 +1,3 @@
-@use "sass:map";
 @use "@styles/variables.scss" as *;
 
 .container {
@@ -6,13 +5,37 @@
   display: flex;
   flex-direction: column;
   background-color: color(background, primary);
+  overflow: hidden;
 }
 
 .mainSection {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
+// Resize handles
+.resizeHandleH {
+  width: 1px;
+  background-color: color(border, primary);
+  transition: background-color transition(fast);
+
+  &:hover {
+    background-color: color(primary);
+  }
+}
+
+.resizeHandleV {
+  height: 1px;
+  background-color: color(border, primary);
+  transition: background-color transition(fast);
+
+  &:hover {
+    background-color: color(primary);
+  }
+}
+
+// Mobile layout
 .mobileLayout {
   height: 100%;
   display: flex;
@@ -23,24 +46,14 @@
 .mobileContent {
   flex: 1;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  padding-bottom: 60px; // ナビゲーションバーの高さ分
-}
-
-.mobileMainContent {
-  height: 50vh; // 画面の半分の高さ
-  min-height: 300px; // 最小高さを設定
-  overflow-y: auto;
-  padding: 1rem;
+  padding-bottom: 60px;
 }
 
 .mobileChatView {
-  height: 50vh; // 画面の半分の高さ
-  min-height: 300px; // 最小高さを設定
+  height: 50vh;
+  min-height: 280px;
   overflow-y: auto;
-  padding: 1rem;
-  border-top: 1px solid color(surface, primary); // 区切り線
+  border-top: 1px solid color(border, primary);
 }
 
 .mobileNavbar {
@@ -48,30 +61,14 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 60px;
-  background-color: color(background, primary);
-  border-top: 1px solid color(surface, primary);
-  z-index: 1000; // 他の要素の上に表示
-}
-
-.resizeHandle {
-  width: 1px;
+  height: 56px;
   background-color: color(surface, primary);
-  transition: background-color map.get($transitions, fast);
-
-  &:hover {
-    background-color: color(primary);
-  }
+  border-top: 1px solid color(border, primary);
+  z-index: z(header);
 }
 
-// メディアクエリ
 @media (max-width: 768px) {
   .container {
-    height: auto;
     min-height: 100vh;
-  }
-
-  .mainSection {
-    overflow: visible;
   }
 }

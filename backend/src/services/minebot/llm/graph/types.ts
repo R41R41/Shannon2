@@ -1,6 +1,15 @@
 import { BaseMessage } from '@langchain/core/messages';
 import { TaskTreeState } from '@shannon/common';
 
+export interface ExecutionResultItem {
+  toolName: string;
+  args: Record<string, any>;
+  success: boolean;
+  message: string;
+  duration: number;
+  error?: string;
+}
+
 export interface TaskStateInput {
   taskId?: string | null;
   environmentState?: string | null;
@@ -13,6 +22,7 @@ export interface TaskStateInput {
   humanFeedbackPending?: boolean;
   forceStop?: boolean;
   retryCount?: number;
+  executionResults?: ExecutionResultItem[] | null; // 前回の実行結果
   isEmergency?: boolean; // 緊急事態フラグ
   emergencyType?: string; // 緊急事態の種類
   resuming?: boolean; // タスク復帰フラグ

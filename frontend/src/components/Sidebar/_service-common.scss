@@ -1,0 +1,111 @@
+// Shared styles for ServiceItem / MinebotBotItem
+@use "@styles/variables.scss" as *;
+
+// Service row layout
+@mixin service-item {
+  @include flex-between;
+  padding: spacing(sm) spacing(md);
+  border-radius: radius(md);
+  transition: all transition(normal);
+
+  &.stopped {
+    opacity: 0.5;
+
+    &:hover {
+      opacity: 0.75;
+    }
+  }
+}
+
+@mixin service-info {
+  display: flex;
+  flex-direction: column;
+  gap: spacing(xxs);
+  min-width: 0;
+}
+
+@mixin service-name {
+  font-size: font-size(sm);
+  font-weight: font-weight(medium);
+  color: color(text, primary);
+  @include text-truncate;
+}
+
+@mixin service-status-text {
+  display: flex;
+  align-items: center;
+  gap: spacing(xs);
+  font-size: font-size(xxs);
+  color: color(text, disabled);
+  text-transform: capitalize;
+}
+
+@mixin service-status-dot {
+  @include status-dot(6px);
+
+  .running & {
+    background-color: color(success);
+    box-shadow: shadow(glow-success);
+  }
+
+  .stopped & {
+    background-color: color(text, disabled);
+  }
+
+  .connecting & {
+    background-color: color(warning);
+    animation: service-pulse 1.5s ease-in-out infinite;
+  }
+}
+
+// Toggle switch
+@mixin toggle-switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border: none;
+  border-radius: 10px;
+  background-color: color(surface, tertiary);
+  cursor: pointer;
+  transition: all transition(normal);
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) {
+    background-color: color(surface, hover);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &.active {
+    background-color: color(primary);
+
+    .toggleThumb {
+      transform: translateX(16px);
+      background-color: #fff;
+    }
+  }
+}
+
+@mixin toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: color(text, disabled);
+  transition: all transition(spring);
+}
+
+@keyframes service-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}

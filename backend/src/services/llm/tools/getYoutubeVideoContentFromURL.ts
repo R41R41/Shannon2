@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 import { getEventBus } from '../../eventBus/index.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { YoutubeClientOutput, YoutubeClientInput, YoutubeVideoInfoOutput } from '@shannon/common';
-dotenv.config();
 
 export default class GetYoutubeVideoContentFromURLTool extends StructuredTool {
     name = 'get-youtube-video-content-from-url';

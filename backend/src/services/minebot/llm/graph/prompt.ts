@@ -1,4 +1,4 @@
-import { AIMessage, BaseMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
+import { AIMessage, BaseMessage, SystemMessage, ToolMessage } from '@langchain/core/messages'; // prompt reload trigger
 import { Tool } from '@langchain/core/tools';
 import { PromptType } from '@shannon/common';
 import { CONFIG } from '../../config/MinebotConfig.js';
@@ -151,6 +151,17 @@ currentSubTaskId: ${state.taskTree.currentSubTaskId || 'null'}
         )
         : null,
       isToolInfo ? new SystemMessage(toolInfoMessage) : null,
+      // 前回の実行結果を明示的に表示（executionResults）
+      state.executionResults && state.executionResults.length > 0
+        ? new SystemMessage(
+          `=== Previous Execution Results ===\n` +
+          `以下はツール実行の結果です。この情報をもとに次のアクションを決定してください。\n` +
+          `データが取得済みの場合は、そのデータを分析して chat で回答してください。追加のツール実行は不要です。\n\n` +
+          state.executionResults.map((r: any) =>
+            `[${r.success ? '成功' : '失敗'}] ${r.toolName} (${r.duration}ms)\n結果: ${r.message}`
+          ).join('\n\n')
+        )
+        : null,
       new SystemMessage(`the actionLog is as follows.`),
       // メッセージを変換して追加
       ...(state.messages?.slice(-CONFIG.MAX_RECENT_MESSAGES).flatMap((msg) => {
