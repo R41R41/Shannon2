@@ -4,6 +4,7 @@ import fs from 'fs';
 import { z } from 'zod';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
+import { logger } from '../../../utils/logger.js';
 
 export default class DescribeImageTool extends StructuredTool {
   name = 'describe-image';
@@ -58,17 +59,17 @@ export default class DescribeImageTool extends StructuredTool {
       });
 
       const choice = response.choices[0];
-      console.log(`🖼️ describe-image response: finish_reason=${choice.finish_reason}, content_length=${choice.message.content?.length ?? 'null'}, refusal=${(choice.message as any).refusal ?? 'none'}`);
+      logger.info(`🖼️ describe-image response: finish_reason=${choice.finish_reason}, content_length=${choice.message.content?.length ?? 'null'}, refusal=${(choice.message as any).refusal ?? 'none'}`);
 
       if (!choice.message.content) {
-        console.warn('🖼️ describe-image: empty content. Full response:', JSON.stringify(choice, null, 2));
+        logger.warn(`🖼️ describe-image: empty content. Full response: ${JSON.stringify(choice, null, 2)}`);
       }
 
       return (
         choice.message.content || 'Failed to analyze the image.'
       );
     } catch (error) {
-      console.error('Image description error:', error);
+      logger.error('Image description error:', error);
       return `An error occurred while analyzing the image: ${error}`;
     }
   }

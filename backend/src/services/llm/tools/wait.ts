@@ -1,5 +1,6 @@
 import { StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
+import { logger } from '../../../utils/logger.js';
 
 export default class WaitTool extends StructuredTool {
   name = 'wait';
@@ -19,7 +20,7 @@ export default class WaitTool extends StructuredTool {
 
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
     try {
-      console.log(`wait for ${data.seconds} seconds`);
+      logger.info(`wait for ${data.seconds} seconds`);
       await new Promise((resolve, reject) => {
         const timer = setTimeout(resolve, 1000 * (data.seconds ?? 1));
         const cleanup = () => {
@@ -42,7 +43,7 @@ export default class WaitTool extends StructuredTool {
       });
       return `${currentTime} 待機しました: ${data.seconds}秒`;
     } catch (error) {
-      console.error('Wait error:', error);
+      logger.error('Wait error:', error);
       return `待機中にエラーが発生しました: ${error}`;
     }
   }

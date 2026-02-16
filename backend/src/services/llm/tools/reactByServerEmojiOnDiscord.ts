@@ -6,6 +6,7 @@ import {
   DiscordSendServerEmojiOutput,
 } from '@shannon/common';
 import { EventBus } from '../../eventBus/eventBus.js';
+import { logger } from '../../../utils/logger.js';
 
 export default class ReactByServerEmojiOnDiscordTool extends StructuredTool {
   name = 'react-by-server-emoji-on-discord';
@@ -70,7 +71,7 @@ export default class ReactByServerEmojiOnDiscordTool extends StructuredTool {
         return `${currentTime} Could not send reaction. ${result.errorMessage}`;
       }
     } catch (error) {
-      console.error('Discord emoji error:', error);
+      logger.error('Discord emoji error:', error);
       return `An error occurred while sending an emoji: ${error}`;
     }
   }

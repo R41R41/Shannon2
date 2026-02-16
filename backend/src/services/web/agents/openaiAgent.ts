@@ -11,6 +11,7 @@ import {
 } from '../../common/WebSocketService.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { getEventBus } from '../../eventBus/index.js';
+import { logger } from '../../../utils/logger.js';
 
 export class OpenAIClientService extends WebSocketServiceBase {
   private static instance: OpenAIClientService | null = null;
@@ -45,13 +46,13 @@ export class OpenAIClientService extends WebSocketServiceBase {
 
   protected initialize() {
     this.wss.on('connection', (ws) => {
-      console.log('\x1b[34mNew OpenAI client connected\x1b[0m');
+      logger.info('New OpenAI client connected', 'blue');
 
       // 新しい接続の管理
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        console.log('\x1b[31mOpenAI client disconnected\x1b[0m');
+        logger.error('OpenAI client disconnected');
       });
 
       ws.on('message', (message) => {
@@ -62,14 +63,15 @@ export class OpenAIClientService extends WebSocketServiceBase {
             this.broadcast({ type: 'pong' } as OpenAIMessageOutput);
             return;
           }
-          console.log(
-            `\x1b[34mvalid web message received in openai agent: ${
+          logger.info(
+            `valid web message received in openai agent: ${
               data.type === 'realtime_audio'
                 ? data.type + ' ' + data.realtime_audio?.length
                 : data.type === 'audio'
                 ? data.type + ' ' + data.audio?.length
                 : JSON.stringify(data)
-            }\x1b[0m`
+            }`,
+            'blue',
           );
           if (data.type === 'realtime_text' && data.realtime_text) {
             this.eventBus.log('web', 'white', data.realtime_text);
@@ -176,7 +178,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
             'Error processing message:' + error,
             true
           );
-          console.error('Error processing message:', error);
+          logger.error('Error processing message:', error);
         }
       });
     });

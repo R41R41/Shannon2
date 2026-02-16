@@ -3,6 +3,7 @@ import {
   IShannonMemory,
   MemoryCategory,
 } from '../../models/ShannonMemory.js';
+import { logger } from '../../utils/logger.js';
 
 /** 容量制限 */
 const MAX_EXPERIENCES = 500;
@@ -256,7 +257,7 @@ export class ShannonMemoryService {
         { sort: { importance: 1, createdAt: 1 } },
       );
       if (evicted) {
-        console.log(
+        logger.info(
           `🗑 ShannonMemory eviction [${category}]: "${evicted.content.substring(0, 50)}" (importance: ${evicted.importance})`,
         );
       }

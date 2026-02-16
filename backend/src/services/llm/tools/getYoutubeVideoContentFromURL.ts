@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { getEventBus } from '../../eventBus/index.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { YoutubeClientOutput, YoutubeClientInput, YoutubeVideoInfoOutput } from '@shannon/common';
+import { logger } from '../../../utils/logger.js';
 
 export default class GetYoutubeVideoContentFromURLTool extends StructuredTool {
     name = 'get-youtube-video-content-from-url';
@@ -43,7 +44,7 @@ export default class GetYoutubeVideoContentFromURLTool extends StructuredTool {
                 return 'YouTubeの動画URLを指定してください。';
             }
 
-            console.log('get-youtube-video-content-from-url', videoId);
+            logger.info(`get-youtube-video-content-from-url ${videoId}`);
 
             const getContent = new Promise<YoutubeClientOutput>(async (resolve) => {
                 this.eventBus.subscribe('tool:get_video_info', (event) => {
@@ -62,7 +63,7 @@ export default class GetYoutubeVideoContentFromURLTool extends StructuredTool {
 
             return `YouTubeの動画からコンテンツを取得しました。${JSON.stringify(response)} `;
         } catch (error) {
-            console.error('get-youtube-video-content-from-url error:', error);
+            logger.error('get-youtube-video-content-from-url error:', error);
             return `An error occurred while getting content from YouTube: ${error}`;
         }
     }

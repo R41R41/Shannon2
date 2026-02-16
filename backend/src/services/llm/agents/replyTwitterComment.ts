@@ -6,6 +6,7 @@ import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
 import { MemoryNode } from '../graph/nodes/MemoryNode.js';
 import { IExchange } from '../../../models/PersonMemory.js';
+import { logger } from '../../../utils/logger.js';
 
 const OPENAI_API_KEY = config.openaiApiKey;
 if (!OPENAI_API_KEY) {
@@ -78,7 +79,7 @@ export class ReplyTwitterCommentAgent {
           memoryContext = `\n\n【ボクの記憶】\n${sections.join('\n')}`;
         }
       } catch (error) {
-        console.error('❌ Twitter Reply: 記憶取得エラー:', error);
+        logger.error('❌ Twitter Reply: 記憶取得エラー:', error);
       }
     }
 
@@ -124,7 +125,7 @@ export class ReplyTwitterCommentAgent {
         conversationText: `${authorName}: ${text}\nシャノン: ${replyText}`,
         exchanges,
       }).catch((err) => {
-        console.error('❌ Twitter Reply: 記憶保存エラー:', err);
+        logger.error('❌ Twitter Reply: 記憶保存エラー:', err);
       });
     }
 

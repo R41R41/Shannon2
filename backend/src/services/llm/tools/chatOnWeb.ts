@@ -2,6 +2,7 @@ import { StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { getEventBus } from '../../eventBus/index.js';
 import { EventBus } from '../../eventBus/eventBus.js';
+import { logger } from '../../../utils/logger.js';
 
 export default class ChatOnWebTool extends StructuredTool {
   name = 'chat-on-web';
@@ -18,7 +19,7 @@ export default class ChatOnWebTool extends StructuredTool {
 
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
     try {
-      console.log('chat-on-web', data);
+      logger.info(`chat-on-web ${JSON.stringify(data)}`);
       this.eventBus.publish({
         type: 'web:post_message',
         memoryZone: 'web',
@@ -33,7 +34,7 @@ export default class ChatOnWebTool extends StructuredTool {
       });
       return `${currentTime} Sent a message to ShannonUI: ${data.message}`;
     } catch (error) {
-      console.error('Bing search error:', error);
+      logger.error('Bing search error:', error);
       return `An error occurred while searching: ${error}`;
     }
   }

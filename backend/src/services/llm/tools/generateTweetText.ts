@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
 import { loadPrompt } from '../config/prompts.js';
+import { logger } from '../../../utils/logger.js';
 
 const isPremium = !config.isDev;
 const charLimit = isPremium ? null : 140; // prod(Premium): 制限なし, dev: 140文字
@@ -107,7 +108,7 @@ export async function generateTweetForAutoPost(
 
   // dev（140文字制限あり）の場合のみ切り詰め
   if (charLimit && text.length > charLimit) {
-    console.warn(`🐦 generateTweetForAutoPost: ${text.length}文字 → ${charLimit}文字に切り詰め`);
+    logger.warn(`🐦 generateTweetForAutoPost: ${text.length}文字 → ${charLimit}文字に切り詰め`);
     return text.slice(0, charLimit);
   }
 

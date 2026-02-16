@@ -11,6 +11,7 @@ import {
 } from '../../common/WebSocketService.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { getEventBus } from '../../eventBus/index.js';
+import { logger } from '../../../utils/logger.js';
 
 export class StatusAgent extends WebSocketServiceBase {
   private static instance: StatusAgent;
@@ -43,12 +44,12 @@ export class StatusAgent extends WebSocketServiceBase {
 
   protected override initialize() {
     this.wss.on('connection', (ws) => {
-      console.log('\x1b[34mStatus client connected\x1b[0m');
+      logger.info('Status client connected', 'blue');
 
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        console.log('\x1b[31mStatus client disconnected\x1b[0m');
+        logger.error('Status client disconnected');
       });
 
       ws.on('message', async (message) => {

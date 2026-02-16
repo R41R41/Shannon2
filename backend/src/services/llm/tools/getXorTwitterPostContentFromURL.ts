@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getEventBus } from '../../eventBus/index.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { TwitterClientOutput, TwitterClientInput } from '@shannon/common';
+import { logger } from '../../../utils/logger.js';
 
 export default class GetXorTwitterPostContentFromURLTool extends StructuredTool {
   name = 'get-x-or-twitter-post-content-from-url';
@@ -53,7 +54,7 @@ export default class GetXorTwitterPostContentFromURLTool extends StructuredTool 
 
       return `X(Twitter)の投稿からコンテンツを取得しました。${JSON.stringify(response)} `;
     } catch (error) {
-      console.error('get-x-or-twitter-post-content-from-url error:', error);
+      logger.error('get-x-or-twitter-post-content-from-url error:', error);
       return `An error occurred while getting content from X(Twitter): ${error}`;
     }
   }

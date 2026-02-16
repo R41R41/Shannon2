@@ -9,6 +9,7 @@ import {
 } from '../../common/WebSocketService.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { getEventBus } from '../../eventBus/index.js';
+import { logger } from '../../../utils/logger.js';
 
 export class ScheduleAgent extends WebSocketServiceBase {
   private static instance: ScheduleAgent;
@@ -42,12 +43,12 @@ export class ScheduleAgent extends WebSocketServiceBase {
 
   protected override initialize() {
     this.wss.on('connection', async (ws) => {
-      console.log('\x1b[34mSchedule client connected\x1b[0m');
+      logger.info('Schedule client connected', 'blue');
 
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        console.log('\x1b[31mSchedule client disconnected\x1b[0m');
+        logger.error('Schedule client disconnected');
       });
 
       ws.on('message', async (message) => {
@@ -57,10 +58,11 @@ export class ScheduleAgent extends WebSocketServiceBase {
           this.broadcast({ type: 'pong' } as WebScheduleOutput);
           return;
         }
-        console.log(
-          `\x1b[34mvalid web message received in schedule agent: ${JSON.stringify(
+        logger.info(
+          `valid web message received in schedule agent: ${JSON.stringify(
             data
-          )}\x1b[0m`
+          )}`,
+          'blue',
         );
         if (data.type === 'get_schedule') {
           const name = data.name as string;
@@ -72,7 +74,7 @@ export class ScheduleAgent extends WebSocketServiceBase {
         }
 
         if (data.type === 'call_schedule') {
-          console.log('calling schedule', data.name);
+          logger.info(`calling schedule ${data.name}`);
           const name = data.name as string;
           this.eventBus.publish({
             type: 'scheduler:call_schedule',
@@ -83,11 +85,11 @@ export class ScheduleAgent extends WebSocketServiceBase {
       });
 
       ws.on('close', () => {
-        console.log('\x1b[31mMonitoring Client disconnected\x1b[0m');
+        logger.error('Monitoring Client disconnected');
       });
 
       ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
+        logger.error('WebSocket error:', error);
       });
     });
   }

@@ -2,6 +2,7 @@ import { exec } from 'child_process';
 import http from 'http';
 import { promisify } from 'util';
 import WebSocket, { WebSocketServer } from 'ws';
+import { logger } from '../../utils/logger.js';
 
 const execAsync = promisify(exec);
 
@@ -21,17 +22,17 @@ export abstract class WebSocketServiceBase {
     this.serviceName = config.serviceName;
     if (config.server) {
       this.wss = new WebSocketServer({ server: config.server });
-      console.log(`WebSocketServer created with existing server for service ${this.serviceName}`);
+      logger.info(`WebSocketServer created with existing server for service ${this.serviceName}`);
     } else if (config.port) {
       this.wss = new WebSocketServer({ port: config.port });
-      console.log(`WebSocketServer created on port ${config.port} for service ${this.serviceName}`);
+      logger.info(`WebSocketServer created on port ${config.port} for service ${this.serviceName}`);
     } else {
       throw new Error('Invalid configuration');
     }
 
     // エラーハンドリングを追加
     this.wss.on('error', (error) => {
-      console.error(`WebSocket server error for ${this.serviceName}:`, error);
+      logger.error(`WebSocket server error for ${this.serviceName}:`, error);
     });
   }
 
@@ -48,7 +49,7 @@ export abstract class WebSocketServiceBase {
       try {
         connection.close();
       } catch (error) {
-        console.error(`Error closing connection: ${error}`);
+        logger.error(`Error closing connection: ${error}`);
       }
     });
     this.activeConnections.clear();

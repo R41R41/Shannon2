@@ -10,6 +10,7 @@ import { promisify } from 'util';
 import { BaseClient } from '../common/BaseClient.js';
 import { config } from '../../config/env.js';
 import { getEventBus } from '../eventBus/index.js';
+import { logger } from '../../utils/logger.js';
 
 const execAsync = promisify(exec);
 
@@ -64,7 +65,7 @@ export class MinecraftClient extends BaseClient {
 
     try {
       const serverPath = `${this.SERVER_BASE_PATH}/${serverName}`;
-      console.log(`Starting server at ${serverPath}`);
+      logger.info(`Starting server at ${serverPath}`);
       await execAsync(`cd ${serverPath} && ./start.sh`);
       this.serverStatuses.set(serverName, true);
       return { success: true, message: `${serverName}を起動しました` };
@@ -182,7 +183,7 @@ export class MinecraftClient extends BaseClient {
         const { serviceCommand } = event.data as ServiceInput;
         if (serviceCommand === 'start') {
           const result = await this.startServer(server);
-          console.log('MinecraftClient: Start server result:', result);
+          logger.info(`MinecraftClient: Start server result: ${JSON.stringify(result)}`);
           const status = await this.getServerStatus(server);
           this.eventBus.publish({
             type: `web:status`,
@@ -194,7 +195,7 @@ export class MinecraftClient extends BaseClient {
           });
         } else if (serviceCommand === 'stop') {
           const result = await this.stopServer(server);
-          console.log('MinecraftClient: Stop server result:', result);
+          logger.info(`MinecraftClient: Stop server result: ${JSON.stringify(result)}`);
           const status = await this.getServerStatus(server);
           this.eventBus.publish({
             type: `web:status`,

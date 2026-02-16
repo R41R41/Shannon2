@@ -16,6 +16,7 @@ import { EmotionState } from './EmotionNode.js';
 import { MemoryState } from './MemoryNode.js';
 import { ExecutionResult } from '../types.js';
 import UpdatePlanTool from '../../tools/updatePlan.js';
+import { logger } from '../../../../utils/logger.js';
 
 /**
  * FunctionCallingAgent の run() に渡す状態
@@ -95,9 +96,7 @@ export class FunctionCallingAgent {
         // ツールをモデルに bind（OpenAI API の tools パラメータに変換）
         this.modelWithTools = this.model.bindTools(this.tools);
 
-        console.log(
-            `\x1b[36m🤖 FunctionCallingAgent(Web/Discord): model=${FunctionCallingAgent.MODEL_NAME}, tools=${tools.length}\x1b[0m`,
-        );
+        logger.info(`🤖 FunctionCallingAgent(Web/Discord): model=${FunctionCallingAgent.MODEL_NAME}, tools=${tools.length}`, 'cyan');
     }
 
     /**
@@ -105,9 +104,7 @@ export class FunctionCallingAgent {
      */
     public addFeedback(feedback: string): void {
         this.pendingFeedback.push(feedback);
-        console.log(
-            `\x1b[33m📝 FunctionCallingAgent: フィードバック追加: ${feedback}\x1b[0m`,
-        );
+        logger.warn(`📝 FunctionCallingAgent: フィードバック追加: ${feedback}`);
     }
 
     /**
@@ -126,9 +123,7 @@ export class FunctionCallingAgent {
         const goal = state.userMessage || 'Unknown task';
         const isEmergency = state.isEmergency || false;
 
-        console.log(
-            `\x1b[36m🤖 FunctionCallingAgent: タスク実行開始 "${goal}"${isEmergency ? ' [緊急]' : ''}\x1b[0m`,
-        );
+        logger.info(`🤖 FunctionCallingAgent: タスク実行開始 "${goal}"${isEmergency ? ' [緊急]' : ''}`, 'cyan');
 
         // update-plan ツールにコンテキストを設定
         if (this.updatePlanTool) {
@@ -173,9 +168,7 @@ export class FunctionCallingAgent {
             (sum, m) => sum + String(m.content).length,
             0,
         );
-        console.log(
-            `\x1b[36m📏 System prompt: ${totalChars}文字\x1b[0m`,
-        );
+        logger.info(`📏 System prompt: ${totalChars}文字`, 'cyan');
 
         // タスクツリー（UI表示用: 自動ステップ記録）
         const steps: HierarchicalSubTask[] = [];
@@ -197,9 +190,7 @@ export class FunctionCallingAgent {
                 if (signal?.aborted) throw new Error('Task aborted');
 
                 if (Date.now() - startTime > FunctionCallingAgent.MAX_TOTAL_TIME_MS) {
-                    console.log(
-                        '\x1b[31m⏱ FunctionCallingAgent: 総実行時間超過 (5分)\x1b[0m',
-                    );
+                    logger.error('⏱ FunctionCallingAgent: 総実行時間超過 (5分)');
                     break;
                 }
 
@@ -209,7 +200,7 @@ export class FunctionCallingAgent {
                     messages.push(
                         new HumanMessage(`ユーザーからのフィードバック: ${fb}`),
                     );
-                    console.log(`\x1b[33m📝 フィードバックを会話に追加: ${fb}\x1b[0m`);
+                    logger.warn(`📝 フィードバックを会話に追加: ${fb}`);
                 }
 
                 // ── 最新の感情状態をシステムメッセージとして注入 ──
@@ -243,9 +234,7 @@ export class FunctionCallingAgent {
                         signal: callAbort.signal,
                     })) as AIMessage;
                     clearTimeout(callTimeout);
-                    console.log(
-                        `\x1b[32m⏱ LLM応答: ${Date.now() - llmStart}ms (iteration ${iteration + 1})\x1b[0m`,
-                    );
+                    logger.success(`⏱ LLM応答: ${Date.now() - llmStart}ms (iteration ${iteration + 1})`);
                 } catch (e: any) {
                     clearTimeout(callTimeout);
                     if (signal) {
@@ -274,11 +263,9 @@ export class FunctionCallingAgent {
                         typeof response.content === 'string'
                             ? response.content
                             : '';
-                    console.log(
-                        `\x1b[32m✅ FunctionCallingAgent: タスク完了 (${iteration + 1}イテレーション, ${((Date.now() - startTime) / 1000).toFixed(1)}s)\x1b[0m`,
-                    );
+                    logger.success(`✅ FunctionCallingAgent: タスク完了 (${iteration + 1}イテレーション, ${((Date.now() - startTime) / 1000).toFixed(1)}s)`);
                     if (content) {
-                        console.log(`   応答: ${content.substring(0, 200)}`);
+                        logger.info(`   応答: ${content.substring(0, 200)}`);
                     }
 
                     this.publishTaskTree({
@@ -304,9 +291,7 @@ export class FunctionCallingAgent {
                 }
 
                 // ── ツール実行 ──
-                console.log(
-                    `\x1b[36m🔧 ${toolCalls.length}個のツールを実行中...\x1b[0m`,
-                );
+                logger.info(`🔧 ${toolCalls.length}個のツールを実行中...`, 'cyan');
 
                 const iterationResults: ExecutionResult[] = [];
 
@@ -339,7 +324,7 @@ export class FunctionCallingAgent {
                     const tool = this.toolMap.get(toolCall.name);
                     if (!tool) {
                         const errorMsg = `ツール "${toolCall.name}" が見つかりません`;
-                        console.log(`\x1b[31m  ✗ ${errorMsg}\x1b[0m`);
+                        logger.error(`  ✗ ${errorMsg}`);
 
                         if (!isUpdatePlan && steps.length > 0) {
                             const lastStep = steps[steps.length - 1];
@@ -367,9 +352,7 @@ export class FunctionCallingAgent {
 
                     try {
                         const execStart = Date.now();
-                        console.log(
-                            `\x1b[36m  ▶ ${toolCall.name}(${JSON.stringify(toolCall.args).substring(0, 200)})\x1b[0m`,
-                        );
+                        logger.info(`  ▶ ${toolCall.name}(${JSON.stringify(toolCall.args).substring(0, 200)})`, 'cyan');
 
                         const result = await tool.invoke(toolCall.args);
                         const duration = Date.now() - execStart;
@@ -378,9 +361,7 @@ export class FunctionCallingAgent {
                             typeof result === 'string'
                                 ? result
                                 : JSON.stringify(result);
-                        console.log(
-                            `\x1b[32m  ✓ ${toolCall.name} (${duration}ms): ${resultStr.substring(0, 200)}\x1b[0m`,
-                        );
+                        logger.success(`  ✓ ${toolCall.name} (${duration}ms): ${resultStr.substring(0, 200)}`);
 
                         // 結果が失敗を示しているか判定
                         const isError =
@@ -416,7 +397,7 @@ export class FunctionCallingAgent {
                     } catch (error) {
                         const duration = Date.now() - Date.now();
                         const errorMsg = `${toolCall.name} 実行エラー: ${error instanceof Error ? error.message : 'Unknown'}`;
-                        console.log(`\x1b[31m  ✗ ${errorMsg}\x1b[0m`);
+                        logger.error(`  ✗ ${errorMsg}`);
 
                         if (!isUpdatePlan && steps.length > 0) {
                             const lastStep = steps[steps.length - 1];
@@ -464,9 +445,7 @@ export class FunctionCallingAgent {
             }
 
             // 最大イテレーション到達
-            console.log(
-                `\x1b[33m⚠ FunctionCallingAgent: 最大イテレーション(${FunctionCallingAgent.MAX_ITERATIONS})に到達\x1b[0m`,
-            );
+            logger.warn(`⚠ FunctionCallingAgent: 最大イテレーション(${FunctionCallingAgent.MAX_ITERATIONS})に到達`);
 
             this.publishTaskTree({
                 status: 'error',
@@ -491,9 +470,7 @@ export class FunctionCallingAgent {
         } catch (error) {
             const errorMsg =
                 error instanceof Error ? error.message : 'Unknown error';
-            console.error(
-                `\x1b[31m❌ FunctionCallingAgent error: ${errorMsg}\x1b[0m`,
-            );
+            logger.error(`❌ FunctionCallingAgent error: ${errorMsg}`);
 
             this.publishTaskTree({
                 status: 'error',

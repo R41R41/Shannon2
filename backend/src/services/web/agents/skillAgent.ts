@@ -5,6 +5,7 @@ import {
 import { SkillInfo } from '@shannon/common';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { getEventBus } from '../../eventBus/index.js';
+import { logger } from '../../../utils/logger.js';
 
 export class SkillAgent extends WebSocketServiceBase {
   private static instance: SkillAgent;
@@ -39,12 +40,12 @@ export class SkillAgent extends WebSocketServiceBase {
   }
   protected override initialize() {
     this.wss.on('connection', async (ws) => {
-      console.log('\x1b[34mSkill client connected\x1b[0m');
+      logger.info('Skill client connected', 'blue');
 
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        console.log('\x1b[31mSkill client disconnected\x1b[0m');
+        logger.error('Skill client disconnected');
       });
 
       ws.on('message', async (message) => {
@@ -65,15 +66,15 @@ export class SkillAgent extends WebSocketServiceBase {
       });
 
       ws.on('close', () => {
-        console.log('\x1b[31mSkill Client disconnected\x1b[0m');
+        logger.error('Skill Client disconnected');
       });
 
       ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
+        logger.error('WebSocket error:', error);
       });
     });
 
-    console.log('\x1b[31mSkillAgent subscribe\x1b[0m');
+    logger.error('SkillAgent subscribe');
   }
 
   public start() {

@@ -2,6 +2,7 @@ import { StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { logger } from '../../../utils/logger.js';
 
 export default class FetchUrlTool extends StructuredTool {
     name = 'fetch-url';
@@ -57,7 +58,7 @@ export default class FetchUrlTool extends StructuredTool {
 
     async _call(data: z.infer<typeof this.schema>): Promise<string> {
         try {
-            console.log(`URLからコンテンツを取得します: ${data.url}`);
+            logger.info(`URLからコンテンツを取得します: ${data.url}`);
 
             // 大きなレスポンスを制限するための設定
             const response = await axios.get(data.url, {
@@ -132,7 +133,7 @@ export default class FetchUrlTool extends StructuredTool {
                     return String(response.data).substring(0, this.MAX_RETURN_TEXT_LENGTH);
             }
         } catch (error) {
-            console.error('URL取得エラー:', error);
+            logger.error('URL取得エラー:', error);
             if (axios.isAxiosError(error)) {
                 if (error.code === 'ECONNABORTED') {
                     return 'URLの取得中にタイムアウトが発生しました。サイトのサイズが大きすぎる可能性があります。';

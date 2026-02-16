@@ -102,11 +102,11 @@ export class EventBus {
             await Log.deleteMany({
               _id: { $in: oldestLogs.map((log) => log._id) },
             });
-            console.log(`${logsToDelete}件の古いログを削除しました`);
+            logger.info(`${logsToDelete}件の古いログを削除しました`);
           }
         }
       } catch (error) {
-        console.error('Error saving log:', error);
+        logger.error('Error saving log', error);
       }
     }
 
