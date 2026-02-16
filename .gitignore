@@ -21,3 +21,6 @@ node_modules
 
 # Generated images
 /backend/saves/images/generated/
+
+# Runtime logs
+/backend/logs/
