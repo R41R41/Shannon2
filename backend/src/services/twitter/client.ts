@@ -696,9 +696,13 @@ export class TwitterClient extends BaseClient {
         logger.error(`[postTweet] APIエラー: ${errMsg}`);
         const errLower = errMsg.toLowerCase();
 
-        // note_tweet 非対応エラー → スレッド分割で再試行
-        if (!_retried && errLower.includes('note tweet')) {
-          logger.warn('[postTweet] note_tweet 非対応。スレッド分割で再試行します...');
+        // note_tweet 関連エラー → スレッド分割で再試行
+        // (note_tweet エラー or is_note_tweet 使用中の 409/長文関連エラー)
+        const isNoteTweetError = errLower.includes('note tweet');
+        const isLongContentError = this.noteTweetSupported && content.length > 280 &&
+          (errLower.includes('409') || errLower.includes('too long') || errLower.includes('character'));
+        if (!_retried && (isNoteTweetError || isLongContentError)) {
+          logger.warn(`[postTweet] 長文投稿失敗 (${errMsg.slice(0, 80)})。スレッド分割で再試行します...`);
           this.noteTweetSupported = false;
           return this.postAsThread(content, replyId);
         }
