@@ -691,11 +691,11 @@ export class TwitterClient extends BaseClient {
         logger.error(`[postTweet] APIエラー: ${errMsg}`);
         const errLower = errMsg.toLowerCase();
 
-        // note_tweet 非対応エラー → is_note_tweet なしで再試行
+        // note_tweet 非対応エラー → スレッド分割で再試行
         if (!_retried && errLower.includes('note tweet')) {
-          logger.warn('[postTweet] note_tweet 非対応。通常ツイートで再試行します...');
+          logger.warn('[postTweet] note_tweet 非対応。スレッド分割で再試行します...');
           this.noteTweetSupported = false;
-          return this.postTweet(content, mediaUrl, replyId, true);
+          return this.postAsThread(content, replyId);
         }
 
         // セッション切れ → 再ログインしてリトライ（1回のみ）
@@ -733,6 +733,63 @@ export class TwitterClient extends BaseClient {
       }
       throw error;
     }
+  }
+
+  /**
+   * 280文字超のテキストをスレッド（連投）として投稿する。
+   * 改行区切りのブロックを優先的に使い、280文字に収まるチャンクに分割。
+   */
+  private async postAsThread(
+    content: string,
+    replyId: string | null,
+  ): Promise<import('axios').AxiosResponse | undefined> {
+    const MAX_LEN = 275; // 安全マージン
+    const chunks: string[] = [];
+    const paragraphs = content.split('\n');
+    let current = '';
+
+    for (const para of paragraphs) {
+      const candidate = current ? `${current}\n${para}` : para;
+      if (candidate.length <= MAX_LEN) {
+        current = candidate;
+      } else {
+        if (current) chunks.push(current);
+        // 段落単体が長すぎる場合はさらに分割
+        if (para.length > MAX_LEN) {
+          let remaining = para;
+          while (remaining.length > MAX_LEN) {
+            const cut = remaining.lastIndexOf('。', MAX_LEN);
+            const splitAt = cut > 0 ? cut + 1 : MAX_LEN;
+            chunks.push(remaining.slice(0, splitAt));
+            remaining = remaining.slice(splitAt);
+          }
+          current = remaining;
+        } else {
+          current = para;
+        }
+      }
+    }
+    if (current) chunks.push(current);
+
+    logger.info(`[postAsThread] ${chunks.length}件のスレッドに分割して投稿`, 'cyan');
+
+    let lastReplyId = replyId;
+    let lastResponse: import('axios').AxiosResponse | undefined;
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      logger.info(`[postAsThread] (${i + 1}/${chunks.length}) ${chunk.length}文字`, 'cyan');
+      lastResponse = await this.postTweet(chunk, null, lastReplyId, true);
+      const tweetId = lastResponse?.data?.tweet_id;
+      if (tweetId) {
+        lastReplyId = tweetId;
+      }
+      // API レート制限回避のため少し待つ
+      if (i < chunks.length - 1) {
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
+    return lastResponse;
   }
 
   /**
