@@ -34,13 +34,13 @@ export class MinebotConfig {
   // ===== サーバー設定 =====
 
   /** MinebotのAPIサーバーポート */
-  readonly MINEBOT_API_PORT = 8082;
+  readonly MINEBOT_API_PORT = 8092;
 
   /** UI Modのサーバーポート */
-  readonly UI_MOD_PORT = 8081;
+  readonly UI_MOD_PORT = 8091;
 
   /** UI Mod クライアントサイドHTTPサーバーのポート（スクリーンショット用） */
-  readonly UI_MOD_CLIENT_PORT = 8083;
+  readonly UI_MOD_CLIENT_PORT = 8093;
 
   /** UI Modのサーバーホスト */
   readonly UI_MOD_HOST = config.minecraft.uiModHost;

@@ -426,6 +426,8 @@ export class YoutubeClient extends BaseClient {
       return { success: false, message: 'YouTube client is not initialized' };
     }
     const videoId = await this.getCurrentLiveVideoId();
+    console.log('🎥 取得したvideoId:', videoId);
+    console.log('🔗 YOUTUBE_LIVE_URL:', process.env.YOUTUBE_LIVE_URL);
     if (!videoId) {
       logger.error('ライブ配信中の動画が見つかりません');
       return { success: false, message: 'ライブ配信中の動画が見つかりません' };
@@ -443,6 +445,11 @@ export class YoutubeClient extends BaseClient {
         id: [videoId],
       });
       const video = videoResponse.data.items?.[0];
+      console.log('📺 動画情報:', JSON.stringify({
+        title: video?.snippet?.title,
+        liveBroadcastContent: video?.snippet?.liveBroadcastContent,
+        liveStreamingDetails: video?.liveStreamingDetails,
+      }, null, 2));
       liveChatId = (video?.liveStreamingDetails as any)?.activeLiveChatId;
       if (!liveChatId) {
         logger.error('liveChatIdが取得できませんでした');
@@ -566,7 +573,7 @@ export class YoutubeClient extends BaseClient {
     const liveUrl = config.youtube.liveUrl;
     if (liveUrl) {
       // 正規表現で動画ID抽出（v=, /video/, /watch/, youtu.be/ など対応）
-      const match = liveUrl.match(/(?:v=|\/video\/|youtu\.be\/|watch\?v=)([a-zA-Z0-9_-]{11})/);
+      const match = liveUrl.match(/(?:v=|\/(?:video|live)\/|youtu\.be\/|watch\?v=)([a-zA-Z0-9_-]{11})/);
       if (match && match[1]) {
         return match[1];
       }

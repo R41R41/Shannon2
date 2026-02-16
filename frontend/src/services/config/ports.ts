@@ -11,17 +11,17 @@ const hostname = window.location.hostname; // 'sh4nnon.com' など
 // 常にブラウザのURLホストを使用（Nginxでプロキシされるため）
 const host = window.location.host;
 
-// WebSocketポート設定
+// WebSocketポート設定 (Shannon-prod用)
 const wsBasePorts = isDev
   ? {
-    openai: '15010',
-    monitoring: '15011',
-    scheduler: '15018',
-    status: '15013',
-    planning: '15019',
-    emotion: '15020',
-    skill: '15016',
-    auth: '15017',
+    openai: '15021',
+    monitoring: '15022',
+    scheduler: '15024',
+    status: '15023',
+    planning: '15025',
+    emotion: '15026',
+    skill: '15027',
+    auth: '15028',
   }
   : isTest
     ? {
@@ -36,7 +36,7 @@ const wsBasePorts = isDev
     }
     : null; // 本番はパスベース
 
-// 常にパスベースのWebSocketを使用（Nginxでプロキシ）
+// Shannon-prod: 常にパスベースのWebSocketを使用（Nginxでプロキシ）
 export const URLS = {
   HTTP_SERVER: `${protocol}//${host}`,
   FRONTEND: `${protocol}//${host}`,
