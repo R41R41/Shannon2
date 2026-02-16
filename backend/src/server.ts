@@ -59,13 +59,68 @@ class Server {
       res.status(200).json({ ok: true });
     });
 
-    // POST: ツイート生成テスト (LLMのみ、投稿しない)
-    app.post('/api/test/auto-post', async (req, res) => {
+    // POST: 定期投稿テスト (生成 → Twitter実投稿)
+    // body: { command: 'fortune' | 'forecast' | 'about_today' | 'news_today' }
+    // query: ?dry_run=true で投稿せずに生成結果のみ返す
+    app.post('/api/test/scheduled-post', async (req, res) => {
       const key = req.headers['x-api-key'] as string | undefined;
       if (!key || key !== config.twitter.twitterApiIoKey) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
+      const command = (req.body as any)?.command as string | undefined;
+      const dryRun = req.query.dry_run === 'true';
+      const validCommands = ['fortune', 'forecast', 'about_today', 'news_today'];
+      if (!command || !validCommands.includes(command)) {
+        res.status(400).json({ error: `command must be one of: ${validCommands.join(', ')}` });
+        return;
+      }
+      try {
+        let post = '';
+        if (command === 'fortune') {
+          const { PostFortuneAgent } = await import('./services/llm/agents/postFortuneAgent.js');
+          const agent = await PostFortuneAgent.create();
+          post = await agent.createPost();
+        } else if (command === 'forecast') {
+          const { PostWeatherAgent } = await import('./services/llm/agents/postWeatherAgent.js');
+          const agent = await PostWeatherAgent.create();
+          post = await agent.createPost();
+        } else if (command === 'about_today') {
+          const { PostAboutTodayAgent } = await import('./services/llm/agents/postAboutTodayAgent.js');
+          const agent = await PostAboutTodayAgent.create();
+          post = await agent.createPost();
+        } else if (command === 'news_today') {
+          const { PostNewsAgent } = await import('./services/llm/agents/postNewsAgent.js');
+          const agent = await PostNewsAgent.create();
+          post = await agent.createPost();
+        }
+        logger.info(`[Test:ScheduledPost] ${command} 生成完了: ${post.slice(0, 100)}...`);
+
+        if (!dryRun && post) {
+          const eventBus = getEventBus();
+          eventBus.publish({
+            type: 'twitter:post_scheduled_message',
+            memoryZone: 'twitter:schedule_post',
+            data: { text: post } as any,
+          });
+          logger.info(`[Test:ScheduledPost] ${command} Twitter投稿イベント発行`);
+        }
+        res.status(200).json({ ok: true, command, tweet: post, posted: !dryRun });
+      } catch (err) {
+        logger.error(`[Test:ScheduledPost] ${command} エラー`, err);
+        res.status(500).json({ error: String(err) });
+      }
+    });
+
+    // POST: トレンドベース自動ツイートテスト (生成 → Twitter実投稿)
+    // query: ?dry_run=true で投稿せずに生成結果のみ返す
+    app.post('/api/test/auto-tweet', async (req, res) => {
+      const key = req.headers['x-api-key'] as string | undefined;
+      if (!key || key !== config.twitter.twitterApiIoKey) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const dryRun = req.query.dry_run === 'true';
       try {
         const axios = (await import('axios')).default;
         const { AutoTweetAgent } = await import('./services/llm/agents/autoTweetAgent.js');
@@ -86,14 +141,24 @@ class Server {
         const month = now.getMonth() + 1;
         const day = now.getDate();
         const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][now.getDay()];
-        const todayInfo = `今日: ${now.getFullYear()}年${month}月${day}日(${dayOfWeek})\nイベント: バレンタインデー`;
+        const todayInfo = `今日: ${now.getFullYear()}年${month}月${day}日(${dayOfWeek})`;
 
-        logger.info(`[Test] トレンド ${trends.length}件、LLM生成のみ`);
+        logger.info(`[Test:AutoTweet] トレンド ${trends.length}件で生成開始`);
         const tweet = await agent.generateTweet(trends, todayInfo);
-        logger.info(`[Test] 生成結果: ${tweet}`);
-        res.status(200).json({ ok: true, tweet, trendsUsed: trends.length });
+        logger.info(`[Test:AutoTweet] 生成結果: ${tweet}`);
+
+        if (!dryRun && tweet) {
+          const eventBus = getEventBus();
+          eventBus.publish({
+            type: 'twitter:post_scheduled_message',
+            memoryZone: 'twitter:post',
+            data: { text: tweet } as any,
+          });
+          logger.info('[Test:AutoTweet] Twitter投稿イベント発行');
+        }
+        res.status(200).json({ ok: true, tweet, trendsUsed: trends.length, posted: !dryRun });
       } catch (err) {
-        logger.error('[Test] エラー', err);
+        logger.error('[Test:AutoTweet] エラー', err);
         res.status(500).json({ error: String(err) });
       }
     });
