@@ -649,7 +649,14 @@ export class TwitterClient extends BaseClient {
       const response = await this.client.v2.tweet(options);
       logger.success(`[postTweetByApi] 投稿成功: ${response.data.id}`);
     } catch (error: unknown) {
+      const errObj = error as Record<string, unknown>;
       logger.error(`[postTweetByApi] エラー: ${error instanceof Error ? error.message : String(error)}`);
+      if (errObj?.data) {
+        logger.error(`[postTweetByApi] レスポンス詳細: ${JSON.stringify(errObj.data).slice(0, 500)}`);
+      }
+      if (errObj?.errors) {
+        logger.error(`[postTweetByApi] エラー詳細: ${JSON.stringify(errObj.errors).slice(0, 500)}`);
+      }
       throw error;
     }
   }
@@ -666,11 +673,6 @@ export class TwitterClient extends BaseClient {
   ): Promise<import('axios').AxiosResponse | undefined> {
     if (this.status !== 'running') return;
 
-    // note_tweet が使えず 280文字超 → スレッド分割
-    if (!this.noteTweetSupported && content.length > 280) {
-      return this.postAsThread(content, replyId);
-    }
-
     // login_cookies が未取得なら自動ログイン
     if (!this.login_cookies) {
       logger.warn('[postTweet] login_cookies が未取得。loginV2 を実行します...');
@@ -684,6 +686,10 @@ export class TwitterClient extends BaseClient {
         tweet_text: content,
         proxy: this.proxy1,
       };
+      // Premium プランは長文ツイート対応
+      if (!this.isTest && content.length > 280) {
+        data.is_note_tweet = true;
+      }
       if (replyId) {
         data.reply_to_tweet_id = replyId;
       }
@@ -738,63 +744,6 @@ export class TwitterClient extends BaseClient {
       }
       throw error;
     }
-  }
-
-  /**
-   * 280文字超のテキストをスレッド（連投）として投稿する。
-   * 改行区切りのブロックを優先的に使い、280文字に収まるチャンクに分割。
-   */
-  private async postAsThread(
-    content: string,
-    replyId: string | null,
-  ): Promise<import('axios').AxiosResponse | undefined> {
-    const MAX_LEN = 275; // 安全マージン
-    const chunks: string[] = [];
-    const paragraphs = content.split('\n');
-    let current = '';
-
-    for (const para of paragraphs) {
-      const candidate = current ? `${current}\n${para}` : para;
-      if (candidate.length <= MAX_LEN) {
-        current = candidate;
-      } else {
-        if (current) chunks.push(current);
-        // 段落単体が長すぎる場合はさらに分割
-        if (para.length > MAX_LEN) {
-          let remaining = para;
-          while (remaining.length > MAX_LEN) {
-            const cut = remaining.lastIndexOf('。', MAX_LEN);
-            const splitAt = cut > 0 ? cut + 1 : MAX_LEN;
-            chunks.push(remaining.slice(0, splitAt));
-            remaining = remaining.slice(splitAt);
-          }
-          current = remaining;
-        } else {
-          current = para;
-        }
-      }
-    }
-    if (current) chunks.push(current);
-
-    logger.info(`[postAsThread] ${chunks.length}件のスレッドに分割して投稿`, 'cyan');
-
-    let lastReplyId = replyId;
-    let lastResponse: import('axios').AxiosResponse | undefined;
-
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-      logger.info(`[postAsThread] (${i + 1}/${chunks.length}) ${chunk.length}文字`, 'cyan');
-      lastResponse = await this.postTweet(chunk, null, lastReplyId, true);
-      const tweetId = lastResponse?.data?.tweet_id;
-      if (tweetId) {
-        lastReplyId = tweetId;
-      }
-      // API レート制限回避のため少し待つ
-      if (i < chunks.length - 1) {
-        await new Promise((r) => setTimeout(r, 2000));
-      }
-    }
-    return lastResponse;
   }
 
   /**
@@ -1387,8 +1336,7 @@ export class TwitterClient extends BaseClient {
   private webhookRuleId: string | null = null;
   /** 引用RT検知用WebhookルールID */
   private quoteRTWebhookRuleId: string | null = null;
-  /** note_tweet (長文ツイート) が利用可能かどうか (Basic プランでは不可) */
-  private noteTweetSupported: boolean = false;
+
 
   /**
    * twitterapi.io の Webhook フィルタルールをセットアップし有効化する。
