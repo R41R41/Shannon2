@@ -593,7 +593,7 @@ export class TwitterClient extends BaseClient {
       email: this.email,
       password: this.password,
       totp_secret: this.totp_secret,
-      proxy: this.proxy1,
+      proxy: this.proxy2,
     };
     const reqConfig = { headers: { 'X-API-Key': this.apiKey } };
     try {
@@ -671,7 +671,7 @@ export class TwitterClient extends BaseClient {
       const data: Record<string, unknown> = {
         login_cookies: this.login_cookies,
         tweet_text: content,
-        proxy: this.proxy1,
+        proxy: this.proxy2,
       };
       // prod（Premium/Basic）は長文ツイート対応（非対応判定済みならスキップ）
       if (!this.isTest && this.noteTweetSupported) {
@@ -813,7 +813,7 @@ export class TwitterClient extends BaseClient {
         login_cookies: this.login_cookies,
         tweet_text: content,
         attachment_url: quoteTweetUrl,
-        proxy: this.proxy1,
+        proxy: this.proxy2,
       };
       const reqConfig = { headers: { 'X-API-Key': this.apiKey } };
       const response = await axios.post(endpoint, data, reqConfig);
