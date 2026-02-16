@@ -655,6 +655,11 @@ export class TwitterClient extends BaseClient {
   ): Promise<import('axios').AxiosResponse | undefined> {
     if (this.status !== 'running') return;
 
+    // note_tweet が使えず 280文字超 → スレッド分割
+    if (!this.noteTweetSupported && content.length > 280) {
+      return this.postAsThread(content, replyId);
+    }
+
     // login_cookies が未取得なら自動ログイン
     if (!this.login_cookies) {
       logger.warn('[postTweet] login_cookies が未取得。loginV2 を実行します...');
