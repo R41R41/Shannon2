@@ -14,7 +14,7 @@ import { Scheduler } from './services/scheduler/client.js';
 import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
 import { YoutubeClient } from './services/youtube/client.js';
-import { logger } from './utils/logger.js';
+import { logger, initFileLogging } from './utils/logger.js';
 
 class Server {
   private llmService: LLMService;
@@ -248,6 +248,10 @@ class Server {
 
   public async start() {
     try {
+      // ファイルログを有効化（ANSI除去済みのプレーンテキストで保存）
+      const logsDir = new URL('../logs', import.meta.url).pathname;
+      initFileLogging(logsDir);
+
       // HTTPサーバーを最初に起動
       this.startHTTPServer();
 
