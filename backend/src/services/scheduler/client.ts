@@ -9,6 +9,7 @@ import fs from 'fs';
 import cron from 'node-cron';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
+import { logger } from '../../utils/logger.js';
 
 export class Scheduler extends BaseClient {
   private static instance: Scheduler;
@@ -66,7 +67,7 @@ export class Scheduler extends BaseClient {
   private async call_schedule(data: SchedulerInput) {
     const platform = data.name?.split(':')[0];
     const name = data.name?.split(':')[1];
-    console.log(`\x1b[34mCalling schedule: ${platform} ${name}\x1b[0m`);
+    logger.info(`Calling schedule: ${platform} ${name}`, 'blue');
     if (platform && name) {
       if (platform === 'twitter' && name === 'check_replies') {
         this.eventBus.publish({

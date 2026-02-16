@@ -2,6 +2,7 @@ import { StructuredTool } from '@langchain/core/tools';
 import fetch from 'node-fetch';
 import { z } from 'zod';
 import { config } from '../../../config/env.js';
+import { logger } from '../../../utils/logger.js';
 
 export default class GoogleSearchTool extends StructuredTool {
   name = 'google-search';
@@ -61,7 +62,7 @@ export default class GoogleSearchTool extends StructuredTool {
         return `検索クエリ "${data.query}" で結果が見つかりませんでした。別のキーワードで再検索してください。`;
       }
     } catch (error) {
-      console.error('Google search error:', error);
+      logger.error('Google search error:', error);
       return `検索中にエラーが発生しました: ${error}`;
     }
   }

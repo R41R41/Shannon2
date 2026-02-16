@@ -3,6 +3,7 @@ import {
   WebSocketServiceConfig,
 } from '../../common/WebSocketService.js';
 import { User } from '../../../models/User.js';
+import { logger } from '../../../utils/logger.js';
 
 export class AuthAgent extends WebSocketServiceBase {
   private static instance: AuthAgent;
@@ -20,12 +21,12 @@ export class AuthAgent extends WebSocketServiceBase {
 
   protected override initialize() {
     this.wss.on('connection', async (ws) => {
-      console.log('\x1b[34mAuth client connected\x1b[0m');
+      logger.info('Auth client connected', 'blue');
 
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        console.log('\x1b[31mAuth client disconnected\x1b[0m');
+        logger.error('Auth client disconnected');
       });
 
       ws.on('message', async (message) => {
@@ -36,7 +37,7 @@ export class AuthAgent extends WebSocketServiceBase {
             // 既存ユーザーチェック
             const existingUser = await User.findOne({ email: data.email });
             if (existingUser) {
-              console.log('User already exists:', existingUser);
+              logger.info(`User already exists: ${JSON.stringify(existingUser)}`);
               ws.send(
                 JSON.stringify({
                   type: 'auth:init_response',
@@ -55,7 +56,7 @@ export class AuthAgent extends WebSocketServiceBase {
               isAdmin: true,
               createdAt: new Date(),
             });
-            console.log('Initial user created:', user);
+            logger.info(`Initial user created: ${JSON.stringify(user)}`);
             ws.send(
               JSON.stringify({
                 type: 'auth:init_response',
@@ -63,7 +64,7 @@ export class AuthAgent extends WebSocketServiceBase {
               })
             );
           } catch (error) {
-            console.error('User creation error:', error);
+            logger.error('User creation error:', error);
             ws.send(
               JSON.stringify({
                 type: 'auth:init_response',
@@ -80,7 +81,7 @@ export class AuthAgent extends WebSocketServiceBase {
         }
 
         if (data.type === 'auth:check') {
-          console.log('Auth check received', data.email);
+          logger.info(`Auth check received ${data.email}`);
           try {
             const query = { email: data.email, isAuthorized: true };
             const user = await User.findOne(query).lean();
@@ -98,7 +99,7 @@ export class AuthAgent extends WebSocketServiceBase {
               })
             );
           } catch (error) {
-            console.error('Auth check error:', error);
+            logger.error('Auth check error:', error);
             ws.send(
               JSON.stringify({
                 type: 'auth:response',
@@ -111,7 +112,7 @@ export class AuthAgent extends WebSocketServiceBase {
       });
 
       ws.on('close', () => {
-        console.log('\x1b[31mAuth Client disconnected\x1b[0m');
+        logger.error('Auth Client disconnected');
       });
     });
   }

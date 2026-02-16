@@ -1,7 +1,10 @@
 import pkg from 'mineflayer-pathfinder';
 import { Entity } from 'prismarine-entity';
+import { createLogger } from '../../../utils/logger.js';
 import { CustomBot, ResponseType } from '../types.js';
 const { goals } = pkg;
+
+const log = createLogger('Minebot:Goal');
 
 export class GoalFollow {
   bot: CustomBot;
@@ -11,7 +14,7 @@ export class GoalFollow {
   async run(entity: Entity, distance: number): Promise<ResponseType> {
     try {
       if (!entity || !entity.position) {
-        console.error('エンティティの位置情報が取得できません:', entity); // デバッグ情報を追加
+        log.debug(`エンティティの位置情報が取得できません: ${entity}`);
         return {
           success: false,
           result: 'エンティティの位置情報が取得できません',
@@ -21,7 +24,7 @@ export class GoalFollow {
       await this.bot.pathfinder.setGoal(goal, true);
       return { success: true, result: 'ゴールに到達しました' };
     } catch (error) {
-      console.error('Error in run:', error);
+      log.error('Error in run', error);
       return { success: false, result: 'ゴールに到達できませんでした' };
     }
   }

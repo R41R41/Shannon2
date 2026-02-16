@@ -7,6 +7,7 @@ import { AgentExecutor, createOpenAIToolsAgent } from 'langchain/agents';
 import { SystemMessage } from '@langchain/core/messages';
 import GoogleSearchTool from '../tools/googleSearch.js';
 import SearchByWikipediaTool from '../tools/searchByWikipedia.js';
+import { logger } from '../../../utils/logger.js';
 const jst = 'Asia/Tokyo';
 import { pull } from 'langchain/hub';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
@@ -76,7 +77,7 @@ export class PostAboutTodayAgent {
 
       return result.output;
     } catch (error) {
-      console.error('Agent execution error:', error);
+      logger.error('Agent execution error:', error);
       throw error;
     }
   }

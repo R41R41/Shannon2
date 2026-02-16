@@ -37,6 +37,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from '../../config/env.js';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
+import { logger } from '../../utils/logger.js';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
 
@@ -153,11 +154,11 @@ export class DiscordBot extends BaseClient {
           for (const [, thread] of threads.threads) {
             if (thread.joinable && !thread.joined) {
               await thread.join();
-              console.log(`[Discord] 既存スレッドに参加: ${thread.name}`);
+              logger.info(`[Discord] 既存スレッドに参加: ${thread.name}`);
             }
           }
         } catch (err) {
-          console.warn(`[Discord] ${guild.name} のスレッド取得失敗:`, err);
+          logger.warn(`[Discord] ${guild.name} のスレッド取得失敗: ${err}`);
         }
       }
     });
@@ -186,14 +187,14 @@ export class DiscordBot extends BaseClient {
   public initialize() {
     try {
       this.client.login(config.discord.token);
-      console.log('\x1b[34mDiscord bot started\x1b[0m');
+      logger.info('Discord bot started', 'blue');
       this.eventBus.log(
         'discord:aiminelab_server',
         'blue',
         'Discord bot started'
       );
     } catch (error) {
-      console.error('\x1b[31mDiscord bot failed to start\x1b[0m');
+      logger.error('Discord bot failed to start');
       this.eventBus.log(
         'discord:aiminelab_server',
         'red',
@@ -312,17 +313,17 @@ export class DiscordBot extends BaseClient {
         const guild = this.client.guilds.cache.get(targetGuildId);
         if (guild) {
           await guild.commands.set(commandsJson);
-          console.log(`\x1b[32mSlash commands registered to guild: ${guild.name}\x1b[0m`);
+          logger.success(`Slash commands registered to guild: ${guild.name}`);
         } else {
-          console.log(`\x1b[33mGuild ${targetGuildId} not found, falling back to global\x1b[0m`);
+          logger.warn(`Guild ${targetGuildId} not found, falling back to global`);
           if (this.client.application) {
             await this.client.application.commands.set(commandsJson);
-            console.log('\x1b[32mSlash commands registered globally\x1b[0m');
+            logger.success('Slash commands registered globally');
           }
         }
       } else if (this.client.application) {
         await this.client.application.commands.set(commandsJson);
-        console.log('\x1b[32mSlash commands registered globally\x1b[0m');
+        logger.success('Slash commands registered globally');
       }
 
       this.client.on('interactionCreate', async (interaction) => {
@@ -365,7 +366,7 @@ export class DiscordBot extends BaseClient {
                 await interaction.editReply(`${statusEmoji} **${serverName}**: ${status}`);
               } catch (error) {
                 await interaction.editReply('ステータスの取得に失敗しました。');
-                console.error('Status error:', error);
+                logger.error('Status error:', error);
               }
             }
             break;
@@ -411,7 +412,7 @@ export class DiscordBot extends BaseClient {
                 }
               } catch (error) {
                 await interaction.editReply('サーバーの起動に失敗しました。');
-                console.error('Start error:', error);
+                logger.error('Start error:', error);
               }
             }
             break;
@@ -460,7 +461,7 @@ export class DiscordBot extends BaseClient {
                 }
               } catch (error) {
                 await interaction.editReply('サーバーの停止に失敗しました。');
-                console.error('Stop error:', error);
+                logger.error('Stop error:', error);
               }
             }
             break;
@@ -513,7 +514,7 @@ export class DiscordBot extends BaseClient {
                 }
               } catch (error) {
                 await interaction.editReply('Minebotのログインに失敗しました。');
-                console.error('Minebot login error:', error);
+                logger.error('Minebot login error:', error);
               }
             }
             break;
@@ -551,7 +552,7 @@ export class DiscordBot extends BaseClient {
                 }
               } catch (error) {
                 await interaction.editReply('Minebotのログアウトに失敗しました。');
-                console.error('Minebot logout error:', error);
+                logger.error('Minebot logout error:', error);
               }
             }
             break;
@@ -573,9 +574,9 @@ export class DiscordBot extends BaseClient {
             break;
         }
       });
-      console.log('\x1b[32mSlash command setup completed\x1b[0m');
+      logger.success('Slash command setup completed');
     } catch (error) {
-      console.error(`\x1b[31mSlash command setup error: ${error}\x1b[0m`);
+      logger.error(`Slash command setup error: ${error}`);
     }
   }
 
@@ -624,7 +625,7 @@ export class DiscordBot extends BaseClient {
     // 2秒後に一時ファイルを削除
     await new Promise(resolve => setTimeout(resolve, 2000));
     fs.unlinkSync(filePath);
-    console.log("ファイル削除");
+    logger.info("ファイル削除");
   }
 
   /**
@@ -793,9 +794,9 @@ export class DiscordBot extends BaseClient {
       if (!thread.joinable) return;
       try {
         await thread.join();
-        console.log(`[Discord] スレッドに参加: ${thread.name} (${thread.id})`);
+        logger.info(`[Discord] スレッドに参加: ${thread.name} (${thread.id})`);
       } catch (err) {
-        console.warn(`[Discord] スレッド参加失敗: ${thread.name}`, err);
+        logger.warn(`[Discord] スレッド参加失敗: ${thread.name}: ${err}`);
       }
     });
 
@@ -804,11 +805,11 @@ export class DiscordBot extends BaseClient {
       // 全メッセージのデバッグログ（スレッド問題調査用）
       const isThread = message.channel?.isThread?.();
       if (isThread) {
-        console.log(`[Discord] スレッド内メッセージ受信: ch=${message.channelId} author=${message.author?.username} content="${message.content?.substring(0, 50)}"`);
+        logger.info(`[Discord] スレッド内メッセージ受信: ch=${message.channelId} author=${message.author?.username} content="${message.content?.substring(0, 50)}"`);
       }
 
       if (this.status !== 'running') {
-        if (isThread) console.log(`[Discord] スレッドメッセージスキップ: status=${this.status}`);
+        if (isThread) logger.info(`[Discord] スレッドメッセージスキップ: status=${this.status}`);
         return;
       }
       // Partial メッセージの場合はfetchして完全なデータを取得
@@ -816,17 +817,17 @@ export class DiscordBot extends BaseClient {
         try {
           message = await message.fetch();
         } catch (err) {
-          console.warn('[Discord] Partial メッセージのfetch失敗:', err);
+          logger.warn(`[Discord] Partial メッセージのfetch失敗: ${err}`);
           return;
         }
       }
       const isDevGuild = message.guildId === config.discord.guilds.test.guildId;
       if (this.isDev !== isDevGuild) {
-        if (isThread) console.log(`[Discord] スレッドメッセージスキップ: isDev=${this.isDev} isDevGuild=${isDevGuild}`);
+        if (isThread) logger.info(`[Discord] スレッドメッセージスキップ: isDev=${this.isDev} isDevGuild=${isDevGuild}`);
         return;
       }
 
-      console.log(message.content);
+      logger.info(message.content);
 
       if (message.author.bot) return;
       const mentions = message.mentions.users.map((user) => ({
@@ -840,7 +841,7 @@ export class DiscordBot extends BaseClient {
         (mention) => mention.id === this.client.user?.id
       );
       if (mentions.length > 0 && !isMentioned) {
-        if (isThread) console.log(`[Discord] スレッドメッセージスキップ: 他ユーザーへのメンション`);
+        if (isThread) logger.info(`[Discord] スレッドメッセージスキップ: 他ユーザーへのメンション`);
         return;
       }
 
@@ -893,7 +894,7 @@ export class DiscordBot extends BaseClient {
           }
           replyContext += ']\n';
         } catch (err) {
-          console.warn('[Discord] 返信先メッセージの取得に失敗:', err);
+          logger.warn(`[Discord] 返信先メッセージの取得に失敗: ${err}`);
         }
       }
 
@@ -917,7 +918,7 @@ export class DiscordBot extends BaseClient {
             }
           }
         } catch (err) {
-          console.warn('[Discord] スレッドスターターメッセージの取得に失敗:', err);
+          logger.warn(`[Discord] スレッドスターターメッセージの取得に失敗: ${err}`);
         }
       }
 
@@ -960,8 +961,8 @@ export class DiscordBot extends BaseClient {
         `${guildName} ${channelName}\n${nickname}: ${contentWithImages}`,
         true
       );
-      console.log('\x1b[34m' + guildName + ' ' + channelName + '\x1b[0m');
-      console.log('\x1b[34m' + nickname + ': ' + contentWithImages + '\x1b[0m');
+      logger.info(guildName + ' ' + channelName, 'blue');
+      logger.info(nickname + ': ' + contentWithImages, 'blue');
       this.eventBus.publish({
         type: 'llm:get_discord_message',
         memoryZone: memoryZone,
@@ -979,7 +980,7 @@ export class DiscordBot extends BaseClient {
         } as DiscordSendTextMessageOutput,
       });
       } catch (err) {
-        console.error('[Discord] messageCreate ハンドラエラー:', err);
+        logger.error('[Discord] messageCreate ハンドラエラー:', err);
       }
     });
     this.client.on('speech', async (speech) => {
@@ -1028,8 +1029,8 @@ export class DiscordBot extends BaseClient {
           `${guildName} ${channelName}\nShannon: ${text}`,
           true
         );
-        console.log('\x1b[34m' + guildName + ' ' + channelName + '\x1b[0m');
-        console.log('\x1b[34m' + 'shannon: ' + text + '\x1b[0m');
+        logger.info(guildName + ' ' + channelName, 'blue');
+        logger.info('shannon: ' + text, 'blue');
         if (imageUrl) {
           const content = (text ?? '').slice(0, 2000);
           try {
@@ -1040,7 +1041,7 @@ export class DiscordBot extends BaseClient {
                 const attachment = new AttachmentBuilder(imageUrl, { name: fileName });
                 await channel.send({ content, files: [attachment] });
               } else {
-                console.warn(`[Discord] 画像ファイルが見つかりません: ${imageUrl}`);
+                logger.warn(`[Discord] 画像ファイルが見つかりません: ${imageUrl}`);
                 await channel.send({ content: content + '\n(画像ファイルが見つかりませんでした)' });
               }
             } else {
@@ -1049,7 +1050,7 @@ export class DiscordBot extends BaseClient {
               await channel.send({ content, embeds: [embed] });
             }
           } catch (imgError) {
-            console.error('[Discord] 画像送信エラー:', imgError);
+            logger.error('[Discord] 画像送信エラー:', imgError);
             // 画像送信失敗時はテキストだけ送信（クラッシュ防止）
             await sendLongMessage(channel as TextChannel, text ?? '');
           }
@@ -1158,7 +1159,7 @@ export class DiscordBot extends BaseClient {
           } as DiscordSendServerEmojiOutput,
         });
       } catch (error) {
-        console.error('Error sending server emoji:', error);
+        logger.error('Error sending server emoji:', error);
         this.eventBus.publish({
           type: 'tool:send_server_emoji',
           memoryZone: 'null',
@@ -1174,7 +1175,7 @@ export class DiscordBot extends BaseClient {
       if (this.status !== 'running') return;
       let { planning, channelId, taskId } = event.data as DiscordPlanningInput;
       const channel = this.client.channels.cache.get(channelId);
-      console.log('discord:planning', taskId);
+      logger.info(`discord:planning ${taskId}`);
 
       if (channel?.isTextBased() && 'send' in channel) {
         const messages = await channel.messages.fetch({ limit: 10 });
@@ -1324,7 +1325,7 @@ export class DiscordBot extends BaseClient {
 
       return conversationLog;
     } catch (error) {
-      console.error('Error fetching recent messages:', error);
+      logger.error('Error fetching recent messages:', error);
       this.eventBus.log(
         'discord:aiminelab_server',
         'red',

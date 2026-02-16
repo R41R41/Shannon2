@@ -1,6 +1,8 @@
 import { CONFIG } from '../config/MinebotConfig.js';
 import { CustomBot, InstantSkill } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
 import { SkillParam } from '../types/skillParams.js';
+const log = createLogger('Minebot:Skill:chat');
 
 class Chat extends InstantSkill {
     skillName = 'chat';
@@ -20,20 +22,17 @@ class Chat extends InstantSkill {
     }
 
     async runImpl(message: string) {
-        console.log(`\x1b[35m🔧 Chat.runImpl called with: ${message}\x1b[0m`);
-
         if (!message) {
             return { success: false, result: 'メッセージが指定されていません' };
         }
 
         // Minecraftチャットに送信
-        console.log(`\x1b[35m🔧 Calling this.bot.chat("${message}")\x1b[0m`);
+        log.info(`💬 チャット送信: ${message}`, 'magenta');
         this.bot.chat(message);
-        console.log(`\x1b[35m🔧 this.bot.chat completed\x1b[0m`);
 
         // UI Modのチャットタブにも反映させる
         this.notifyUIMod(message).catch(err => {
-            console.error('Failed to notify UI Mod:', err.message);
+            log.error('Failed to notify UI Mod', err);
         });
 
         return { success: true, result: `メッセージを送信しました: ${message}` };
@@ -51,7 +50,7 @@ class Chat extends InstantSkill {
             });
 
             if (!response.ok) {
-                console.warn(`UI Mod notification failed: ${response.status}`);
+                log.warn(`UI Mod notification failed: ${response.status}`);
             }
         } catch (error) {
             // UI Modが起動していない場合など、エラーは無視

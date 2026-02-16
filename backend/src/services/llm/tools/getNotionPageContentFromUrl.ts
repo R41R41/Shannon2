@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { getEventBus } from '../../eventBus/index.js';
 import { cacheNotionImageUrls } from './describeNotionImage.js';
+import { logger } from '../../../utils/logger.js';
 
 export default class GetNotionPageContentFromUrlTool extends StructuredTool {
     name = 'get-notion-page-content-from-url';
@@ -93,7 +94,7 @@ export default class GetNotionPageContentFromUrlTool extends StructuredTool {
                 return `NotionのURLからページIDを抽出できませんでした: ${url}`;
             }
 
-            console.log('get-notion-page-content-from-url', pageId);
+            logger.info(`get-notion-page-content-from-url ${pageId}`);
             // Notionクライアントにイベント経由でリクエストし、レスポンスを待つ
             const getContent = new Promise<NotionClientOutput>((resolve, reject) => {
                 // タイムアウト: 30秒
@@ -158,7 +159,7 @@ export default class GetNotionPageContentFromUrlTool extends StructuredTool {
 
             return result;
         } catch (error) {
-            console.error('get-notion-page-content-from-url error:', error);
+            logger.error('get-notion-page-content-from-url error:', error);
             return `An error occurred while getting content from Notion: ${error}`;
         }
     }

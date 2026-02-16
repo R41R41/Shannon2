@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { z } from 'zod';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
+import { logger } from '../../../utils/logger.js';
 
 // 画像URLキャッシュ（グローバル）
 const imageUrlCache: Map<number, string> = new Map();
@@ -15,7 +16,7 @@ export function cacheNotionImageUrls(urls: string[]): void {
     urls.forEach((url, index) => {
         imageUrlCache.set(index + 1, url); // 1-indexed
     });
-    console.log(`\x1b[35m📷 ${urls.length}件の画像URLをキャッシュしました\x1b[0m`);
+    logger.info(`📷 ${urls.length}件の画像URLをキャッシュしました`, 'magenta');
 }
 
 /**
@@ -64,7 +65,7 @@ export default class DescribeNotionImageTool extends StructuredTool {
                 return `画像${data.image_number}が見つかりません。利用可能な画像番号: ${cachedNumbers.join(', ')}`;
             }
 
-            console.log(`\x1b[35m📷 画像${data.image_number}を分析中...\x1b[0m`);
+            logger.info(`📷 画像${data.image_number}を分析中...`, 'magenta');
 
             const response = await this.openai.chat.completions.create({
                 model: models.vision,
@@ -89,7 +90,7 @@ export default class DescribeNotionImageTool extends StructuredTool {
             const description = response.choices[0].message.content || '画像の分析に失敗しました';
             return `[画像${data.image_number}の説明] ${description}`;
         } catch (error) {
-            console.error('Notion image description error:', error);
+            logger.error('Notion image description error:', error);
             return `画像${data.image_number}の分析中にエラーが発生しました: ${error}`;
         }
     }

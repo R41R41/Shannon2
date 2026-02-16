@@ -2,6 +2,9 @@ import { StructuredTool } from '@langchain/core/tools';
 import { Vec3 } from 'vec3';
 import { z, ZodObject } from 'zod';
 import { CustomBot } from '../../../types.js';
+import { createLogger } from '../../../../../utils/logger.js';
+
+const log = createLogger('Minebot:SkillTool');
 
 /**
  * InstantSkillをLangChainのStructuredToolに変換するクラス
@@ -38,7 +41,7 @@ export class InstantSkillTool extends StructuredTool {
                             try {
                                 zodType = (zodType as any).default(param.default);
                             } catch (error) {
-                                console.error(`デフォルト値の設定に失敗: ${error}`);
+                                log.error(`デフォルト値の設定に失敗: ${error}`);
                             }
                         }
                     } else {
@@ -79,7 +82,7 @@ export class InstantSkillTool extends StructuredTool {
             return `${this.name}スキルが存在しません。`;
         }
 
-        console.log(`\x1b[32m${skill.skillName}を実行: ${JSON.stringify(data)}\x1b[0m`);
+        log.success(`${skill.skillName}を実行: ${JSON.stringify(data)}`);
 
         try {
             const args = this.convertArgs(skill.params || [], data);
@@ -89,7 +92,7 @@ export class InstantSkillTool extends StructuredTool {
                 ? result
                 : `結果: ${result.success ? '成功' : '失敗'} 詳細: ${result.result}`;
         } catch (error) {
-            console.error(`${this.name}スキル実行エラー:`, error);
+            log.error(`${this.name}スキル実行エラー`, error);
             return `スキル実行エラー: ${error}`;
         }
     }

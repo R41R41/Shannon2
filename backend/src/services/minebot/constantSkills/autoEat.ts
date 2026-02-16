@@ -1,4 +1,7 @@
+import { createLogger } from '../../../utils/logger.js';
 import { ConstantSkill, CustomBot } from '../types.js';
+
+const log = createLogger('Minebot:Skill:autoEat');
 
 /**
  * 自動食事スキル
@@ -50,7 +53,7 @@ class AutoEat extends ConstantSkill {
         // 既に手に持っている場合
         if (this.bot.heldItem?.name === foodItem.name) {
           await this.bot.consume();
-          console.log(`\x1b[32m✓ ${foodItem.name}を食べました\x1b[0m`);
+          log.success(`✓ ${foodItem.name}を食べました`);
           return;
         }
 
@@ -59,14 +62,9 @@ class AutoEat extends ConstantSkill {
 
         // 食べる
         await this.bot.consume();
-        console.log(`\x1b[32m✓ ${foodItem.name}を食べました\x1b[0m`);
+        log.success(`✓ ${foodItem.name}を食べました`);
       } catch (error) {
-        // エラーは無視（次回リトライ）
-        console.log(
-          `\x1b[33m⚠ 食事に失敗: ${
-            error instanceof Error ? error.message : '不明なエラー'
-          }\x1b[0m`
-        );
+        log.warn(`⚠ 食事に失敗: ${error instanceof Error ? error.message : '不明なエラー'}`);
       }
     }
   }

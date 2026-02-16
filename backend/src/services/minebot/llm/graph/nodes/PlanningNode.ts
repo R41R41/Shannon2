@@ -2,10 +2,13 @@ import { ChatOpenAI } from '@langchain/openai';
 import { HierarchicalSubTask, TaskTreeState } from '@shannon/common';
 import { Vec3 } from 'vec3';
 import { z } from 'zod';
+import { createLogger } from '../../../../../utils/logger.js';
 import { CentralLogManager, LogManager } from '../logging/index.js';
 import { Prompt } from '../prompt.js';
 import { config } from '../../../../../config/env.js';
 import { models } from '../../../../../config/models.js';
+
+const log = createLogger('Minebot:Planning');
 
 // 失敗したサブタスクの情報
 interface FailedSubTaskInfo {
@@ -27,16 +30,10 @@ async function sendTaskTreeToServer(taskTree: any) {
       body: JSON.stringify(taskTree),
     });
     if (!response.ok) {
-      console.error(
-        'taskTree送信失敗:',
-        response.status,
-        await response.text()
-      );
-    } else {
-      console.log('taskTree送信成功');
+      log.error(`taskTree送信失敗: ${response.status} ${await response.text()}`);
     }
   } catch (error) {
-    console.error('taskTree送信エラー:', error);
+    log.error('taskTree送信エラー', error);
   }
 }
 
@@ -81,7 +78,7 @@ export class PlanningNode {
         reasoning_effort: reasoningEffort,
       },
     });
-    console.log(`\x1b[36m🧠 PlanningNode: model=${modelName}, reasoning_effort=${reasoningEffort}\x1b[0m`);
+    log.info(`🧠 Initialized: model=${modelName}, reasoning_effort=${reasoningEffort}`, 'cyan');
   }
 
   /**
@@ -95,8 +92,7 @@ export class PlanningNode {
    * 失敗したサブタスクを分解する
    */
   async decomposeFailedSubTask(failedInfo: FailedSubTaskInfo): Promise<HierarchicalSubTask[]> {
-    console.log(`\x1b[33m🔧 サブタスク「${failedInfo.goal}」を分解中...\x1b[0m`);
-    console.log(`   失敗理由: ${failedInfo.failureReason}`);
+    log.warn(`🔧 Decomposing subtask "${failedInfo.goal}" (reason: ${failedInfo.failureReason})`);
 
     const DecomposeSchema = z.object({
       newSubTasks: z.array(
@@ -150,8 +146,7 @@ export class PlanningNode {
       ], { signal: decomposeAbort.signal } as any);
       clearTimeout(decomposeTimeout);
 
-      console.log(`\x1b[32m✓ 分解完了: ${response.newSubTasks.length}個のサブタスクに分解\x1b[0m`);
-      console.log(`   理由: ${response.decompositionReason}`);
+      log.success(`🔧 Decomposed into ${response.newSubTasks.length} subtasks: ${response.decompositionReason}`);
 
       // HierarchicalSubTask形式に変換
       const parentId = failedInfo.subTaskId;
@@ -187,7 +182,8 @@ export class PlanningNode {
   }
 
   async invoke(state: any): Promise<any> {
-    console.log('🧠 PlanningNode: 戦略を立案中...');
+    const planningStartTime = Date.now();
+    log.info('🧠 戦略を立案中...');
 
     // humanFeedbackPendingをリセット
     const hadFeedback = state.humanFeedbackPending;
@@ -246,23 +242,23 @@ export class PlanningNode {
       nearbyBlocks: environmentContext.nearbyBlocks,
     };
 
-    // 前回の実行結果があればログに表示
+    // 前回の実行結果があればログに表示（consolidated）
     if (state.executionResults) {
       const results = state.executionResults;
       const successCount = results.filter((r: any) => r.success).length;
       const totalCount = results.length;
-      console.log(`\x1b[36m📊 前回の実行結果: ${successCount}/${totalCount} 成功\x1b[0m`);
-      if (results.some((r: any) => !r.success)) {
-        const errors = results.filter((r: any) => !r.success);
-        errors.forEach((e: any) => {
-          console.log(`\x1b[31m   ✗ ${e.toolName}: ${e.message}\x1b[0m`);
-        });
+      const errors = results.filter((r: any) => !r.success);
+      if (errors.length > 0) {
+        const errorSummary = errors.map((e: any) => `${e.toolName}: ${e.message}`).join(', ');
+        log.warn(`📊 前回の実行結果: ${successCount}/${totalCount} 成功, errors: ${errorSummary}`);
+      } else {
+        log.info(`📊 前回の実行結果: ${successCount}/${totalCount} 成功`, 'cyan');
       }
     }
 
     // 人間フィードバックがあった場合はメッセージに追加
     if (hadFeedback && state.humanFeedback) {
-      console.log('📝 人間フィードバックを処理:', state.humanFeedback);
+      log.info(`📝 人間フィードバックを処理: ${state.humanFeedback}`);
     }
 
     // === 1. 階層的サブタスク（表示用・自然言語） ===
@@ -328,7 +324,7 @@ export class PlanningNode {
 
     // デバッグ: メッセージサイズを計測
     const totalChars = messages.reduce((sum, m) => sum + String(m.content).length, 0);
-    console.log(`\x1b[36m📏 Planning messages: ${messages.length}個, 合計${totalChars}文字, isEmergency=${state.isEmergency}\x1b[0m`);
+    log.debug(`📏 Planning messages: ${messages.length}個, 合計${totalChars}文字, isEmergency=${state.isEmergency}`);
 
     try {
       // Planning開始ログ
@@ -347,7 +343,7 @@ export class PlanningNode {
       const timeoutMs = state.isEmergency ? 30000 : 60000; // 通常60秒、緊急30秒
       const planningAbort = new AbortController();
       const planningTimeout = setTimeout(() => {
-        console.log(`\x1b[31m⏱ Planning LLM タイムアウト (${timeoutMs / 1000}s) - リクエストを中断\x1b[0m`);
+        log.error(`⏱ Planning LLM タイムアウト (${timeoutMs / 1000}s) - リクエストを中断`);
         planningAbort.abort();
       }, timeoutMs);
       const startTime = Date.now();
@@ -355,7 +351,7 @@ export class PlanningNode {
       try {
         response = await structuredLLM.invoke(messages, { signal: planningAbort.signal } as any);
         clearTimeout(planningTimeout);
-        console.log(`\x1b[32m⏱ LLM応答: ${Date.now() - startTime}ms\x1b[0m`);
+        log.success(`⏱ LLM応答: ${Date.now() - startTime}ms`);
       } catch (e: any) {
         clearTimeout(planningTimeout);
         if (e.name === 'AbortError' || planningAbort.signal.aborted) {
@@ -364,21 +360,14 @@ export class PlanningNode {
         throw e;
       }
 
-      // 詳細なプランニング結果をログ出力
-      console.log('\x1b[36m═══════════════════════════════════════════════════════════════\x1b[0m');
-      console.log('\x1b[36m📋 Planning結果\x1b[0m');
-      console.log('\x1b[36m═══════════════════════════════════════════════════════════════\x1b[0m');
-      console.log(`\x1b[33m🎯 Goal:\x1b[0m ${response.goal}`);
-      console.log(`\x1b[33m📝 Strategy:\x1b[0m ${response.strategy}`);
-      console.log(`\x1b[33m📊 Status:\x1b[0m ${response.status}`);
-      if (response.emergencyResolved !== null && response.emergencyResolved !== undefined) {
-        console.log(`\x1b[33m🚨 EmergencyResolved:\x1b[0m ${response.emergencyResolved}`);
-      }
+      // Planning結果をログ出力（consolidated）
+      const emergencyInfo = (response.emergencyResolved != null) ? `, emergencyResolved=${response.emergencyResolved}` : '';
+      log.info(`📋 Planning結果: goal="${response.goal}", status=${response.status}${emergencyInfo}`, 'cyan');
+      log.info(`📝 Strategy: ${response.strategy}`);
 
       // === 1. 階層的サブタスク（表示用）を表示 ===
       if (response.hierarchicalSubTasks && response.hierarchicalSubTasks.length > 0) {
-        console.log(`\x1b[32m📌 HierarchicalSubTasks (タスク全体像):\x1b[0m`);
-        this.printHierarchicalSubTasks(response.hierarchicalSubTasks, 0);
+        log.info(`📌 SubTasks (${response.hierarchicalSubTasks.length}): ${this.formatSubTaskSummary(response.hierarchicalSubTasks)}`);
 
         // 保存（そのまま使用）
         this.hierarchicalSubTasks = response.hierarchicalSubTasks;
@@ -387,24 +376,16 @@ export class PlanningNode {
 
       // === 2. 次に実行するアクション（実行用）を表示 ===
       if (response.nextActionSequence && response.nextActionSequence.length > 0) {
-        console.log(`\x1b[32m⚡ NextActionSequence (${response.nextActionSequence.length}個):\x1b[0m`);
-        response.nextActionSequence.forEach((action, i) => {
-          console.log(`   ${i + 1}. \x1b[35m${action.toolName}\x1b[0m`);
-          console.log(`      args: ${action.args}`);
-          console.log(`      期待: ${action.expectedResult}`);
-        });
+        const actionNames = response.nextActionSequence.map(a => a.toolName).join(', ');
+        log.info(`⚡ NextActions (${response.nextActionSequence.length}): ${actionNames}`, 'cyan');
       } else {
-        console.log('\x1b[33m⚡ NextActionSequence: なし（Planningのみ）\x1b[0m');
+        log.debug('⚡ NextActionSequence: なし（Planningのみ）');
       }
 
       // 旧形式のsubTasksも表示（後方互換性）
       if (response.subTasks && response.subTasks.length > 0) {
-        console.log(`\x1b[32m📌 SubTasks (旧形式: ${response.subTasks.length}個):\x1b[0m`);
-        response.subTasks.forEach((task, i) => {
-          console.log(`   ${i + 1}. [${task.subTaskStatus}] ${task.subTaskGoal}`);
-        });
+        log.debug(`📌 SubTasks (legacy ${response.subTasks.length}): ${response.subTasks.map(t => `[${t.subTaskStatus}] ${t.subTaskGoal}`).join(' | ')}`);
       }
-      console.log('\x1b[36m═══════════════════════════════════════════════════════════════\x1b[0m');
 
       // ログに記録（詳細なTaskTree情報を含める）
       this.logManager.addLog({
@@ -427,7 +408,7 @@ export class PlanningNode {
 
       // 緊急状態が解決されたかチェック
       if (response.emergencyResolved && state.isEmergency) {
-        console.log('\x1b[32m✅ LLMが緊急状態の解決を確認しました\x1b[0m');
+        log.success('✅ LLMが緊急状態の解決を確認しました');
         if (this.onEmergencyResolved) {
           await this.onEmergencyResolved();
         }
@@ -440,14 +421,13 @@ export class PlanningNode {
 
         // 完全に無効なケース
         if (!argsStr || argsStr === 'null' || argsStr.startsWith(':')) {
-          console.log(`\x1b[33m⚠ ${a.toolName}: 無効なargs "${a.args}" → スキップ\x1b[0m`);
+          log.warn(`⚠ ${a.toolName}: 無効なargs "${a.args}" → スキップ`);
           return null;
         }
 
         // シングルクォートをダブルクォートに変換（Python辞書形式対応）
         if (argsStr.includes("'")) {
           argsStr = argsStr.replace(/'/g, '"');
-          console.log(`\x1b[33m⚠ ${a.toolName}: シングルクォートをダブルクォートに変換\x1b[0m`);
         }
 
         try {
@@ -458,14 +438,14 @@ export class PlanningNode {
             expectedResult: a.expectedResult,
           };
         } catch (e) {
-          console.log(`\x1b[33m⚠ ${a.toolName}: argsのパースに失敗 "${a.args}" → スキップ\x1b[0m`);
+          log.warn(`⚠ ${a.toolName}: argsパース失敗 "${a.args}" → スキップ`);
           return null;
         }
       }).filter(a => a !== null) || null;
 
       // 全てスキップされた場合は警告
       if (response.nextActionSequence?.length && parsedNextActionSequence?.length === 0) {
-        console.log(`\x1b[31m❌ 全てのアクションが無効でした。\x1b[0m`);
+        log.error('❌ 全てのアクションが無効でした');
       }
 
       // taskTreeをUIに送信（「取り組み中のタスク」タブ用）
@@ -478,6 +458,8 @@ export class PlanningNode {
         subTasks: response.subTasks,
       };
       await sendTaskTreeToServer(taskTreeForUI);
+
+      log.debug(`🧠 Planning完了: elapsed=${Date.now() - planningStartTime}ms`);
 
       return {
         taskTree: {
@@ -496,7 +478,7 @@ export class PlanningNode {
         isEmergency: state.isEmergency, // 緊急フラグを保持
       };
     } catch (error) {
-      console.error('❌ PlanningNode error:', error);
+      log.error('❌ Planning failed', error);
 
       // ログに記録
       this.logManager.addLog({
@@ -534,9 +516,9 @@ export class PlanningNode {
   }
 
   /**
-   * 階層的サブタスクを表示（フラットリスト + parentIdベース）
+   * 階層的サブタスクの1行サマリーを生成
    */
-  private printHierarchicalSubTasks(tasks: any[], depth: number): void {
+  private formatSubTaskSummary(tasks: any[]): string {
     const statusIcon = (status: string) => {
       switch (status) {
         case 'completed': return '✓';
@@ -546,33 +528,9 @@ export class PlanningNode {
       }
     };
 
-    const printTask = (task: any, level: number) => {
-      const indent = '   '.repeat(level);
-      const icon = statusIcon(task.status);
-      console.log(`${indent}${icon} \x1b[35m${task.goal}\x1b[0m [${task.status}]`);
-      if (task.result) {
-        console.log(`${indent}  => ${task.result}`);
-      }
-      if (task.failureReason) {
-        console.log(`${indent}  \x1b[31m✗ ${task.failureReason}\x1b[0m`);
-      }
-      // parentIdベースの子タスク表示
-      const children = tasks.filter((t: any) => t.parentId === task.id);
-      children.forEach((child: any) => printTask(child, level + 1));
-      // 後方互換: childrenプロパティがある場合も対応
-      if (task.children && task.children.length > 0) {
-        task.children.forEach((child: any) => printTask(child, level + 1));
-      }
-    };
-
-    // トップレベル（parentIdがnullまたは未定義）から開始
     const topLevel = tasks.filter((t: any) => !t.parentId);
-    // topLevelが空の場合はフォールバック（全て表示）
-    if (topLevel.length === 0) {
-      tasks.forEach((task: any) => printTask(task, depth));
-    } else {
-      topLevel.forEach((task: any) => printTask(task, depth));
-    }
+    const items = topLevel.length > 0 ? topLevel : tasks;
+    return items.map((t: any) => `${statusIcon(t.status)} ${t.goal}`).join(' | ');
   }
 
   getLogs() {

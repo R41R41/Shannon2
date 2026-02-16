@@ -16,6 +16,7 @@ import {
 import { config } from '../../config/env.js';
 import { models } from '../../config/models.js';
 import { loadPrompt } from '../llm/config/prompts.js';
+import { logger } from '../../utils/logger.js';
 
 /** 容量制限 */
 const MAX_PERSON_RECORDS = 200;
@@ -223,10 +224,10 @@ export class PersonMemoryService {
 
       // 非同期で特徴抽出 (fire-and-forget)
       this.extractAndUpdateTraits(record).catch((err) => {
-        console.error('❌ 人物特徴抽出エラー:', err);
+        logger.error('❌ 人物特徴抽出エラー', err);
       });
     } catch (error) {
-      console.error('❌ PersonMemory updateAfterConversation エラー:', error);
+      logger.error('❌ PersonMemory updateAfterConversation エラー', error);
     }
   }
 
@@ -322,7 +323,7 @@ ${conversationText}`;
         }
       }
     } catch (error) {
-      console.error('❌ extractAndUpdateTraits パースエラー:', error);
+      logger.error('❌ extractAndUpdateTraits パースエラー', error);
     }
   }
 
@@ -339,7 +340,7 @@ ${conversationText}`;
         { sort: { lastSeenAt: 1 } },
       );
       if (evicted) {
-        console.log(
+        logger.info(
           `🗑 PersonMemory eviction: ${evicted.displayName} (${evicted.platform}, interactions: ${evicted.totalInteractions})`,
         );
       }

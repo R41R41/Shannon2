@@ -3,6 +3,7 @@ import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
 import { getEventBus } from '../../eventBus/index.js';
 import { EventBus } from '../../eventBus/eventBus.js';
+import { logger } from '../../../utils/logger.js';
 
 export class RealtimeAPIService {
   private static instance: RealtimeAPIService;
@@ -163,7 +164,7 @@ export class RealtimeAPIService {
 
   private async initialize() {
     if (this.initialized) return;
-    console.log('\x1b[36mRealtimeAPI initialized\x1b[0m');
+    logger.info('RealtimeAPI initialized', 'cyan');
 
     const url = `wss://api.openai.com/v1/realtime?model=${models.realtime}`;
 
@@ -176,7 +177,7 @@ export class RealtimeAPIService {
       });
 
       this.ws.on('open', () => {
-        console.log('\x1b[32mConnected to OpenAI Realtime API\x1b[0m');
+        logger.success('Connected to OpenAI Realtime API');
         // セッション設定を送信
         if (this.ws) {
           this.ws.send(JSON.stringify(this.noVadSessionConfig));
@@ -190,17 +191,17 @@ export class RealtimeAPIService {
 
         switch (data.type) {
           case 'session.created':
-            console.log('\x1b[34mSession created\x1b[0m');
+            logger.info('Session created', 'blue');
             this.eventBus.log('web', 'blue', 'Session created');
             break;
 
           case 'session.updated':
-            console.log('\x1b[36mSession updated\x1b[0m');
+            logger.info('Session updated', 'cyan');
             this.eventBus.log('web', 'cyan', 'Session updated');
             break;
 
           case 'response.created':
-            console.log('\x1b[34mResponse creation started\x1b[0m');
+            logger.info('Response creation started', 'blue');
             this.eventBus.log('web', 'blue', 'Response creation started');
             break;
 
@@ -211,7 +212,7 @@ export class RealtimeAPIService {
             break;
 
           case 'response.text.done':
-            console.log('\x1b[32mText done\x1b[0m');
+            logger.success('Text done');
             this.eventBus.log('web', 'green', 'Text done');
             this.isTextResponseComplete = true;
             if (!this.isProcessingTextQueue && this.onTextDoneResponse) {
@@ -221,7 +222,7 @@ export class RealtimeAPIService {
             break;
 
           case 'input_audio_buffer.committed':
-            console.log('\x1b[32mSpeech committed\x1b[0m');
+            logger.success('Speech committed');
             this.eventBus.log('web', 'green', 'Speech committed');
             this.isUserTranscriptResponseComplete = false;
             break;
@@ -234,13 +235,7 @@ export class RealtimeAPIService {
             break;
 
           case 'input_audio_buffer.debug':
-            console.log(
-              `\x1b[33mCurrent OpenAI buffer state: ${JSON.stringify(
-                data,
-                null,
-                2
-              )}\x1b[0m`
-            );
+            logger.warn(`Current OpenAI buffer state: ${JSON.stringify(data, null, 2)}`);
             break;
 
           case 'response.audio.delta':
@@ -250,9 +245,7 @@ export class RealtimeAPIService {
             break;
 
           case 'response.audio.done':
-            console.log(
-              `\x1b[32mResponse Audio completed: ${this.responseAudioBuffer.length} bytes\x1b[0m`
-            );
+            logger.success(`Response Audio completed: ${this.responseAudioBuffer.length} bytes`);
             this.eventBus.log('web', 'green', 'Response Audio completed');
             this.isAudioResponseComplete = true;
             if (!this.isProcessingAudioQueue && this.onAudioDoneResponse) {
@@ -268,7 +261,7 @@ export class RealtimeAPIService {
             break;
 
           case 'response.audio_transcript.done':
-            console.log('\x1b[32mTranscript done\x1b[0m');
+            logger.success('Transcript done');
             this.eventBus.log('web', 'green', 'Transcript done');
             this.isTextResponseComplete = true;
             if (!this.isProcessingTextQueue && this.onTextDoneResponse) {
@@ -278,7 +271,7 @@ export class RealtimeAPIService {
             break;
 
           case 'conversation.item.input_audio_transcription.completed':
-            console.log('\x1b[32mTranscript completed\x1b[0m');
+            logger.success('Transcript completed');
             this.eventBus.log('web', 'green', 'Transcript completed');
             this.isUserTranscriptResponseComplete = true;
             if (this.onUserTranscriptResponse && data.transcript) {
@@ -287,9 +280,7 @@ export class RealtimeAPIService {
             break;
 
           case 'error':
-            console.error(
-              `\x1b[31mServer error: ${JSON.stringify(data)}\x1b[0m`
-            );
+            logger.error(`Server error: ${JSON.stringify(data)}`);
             this.eventBus.log('web', 'red', 'Server error', true);
             break;
 
@@ -299,13 +290,13 @@ export class RealtimeAPIService {
       });
 
       this.ws.on('error', (error) => {
-        console.error(`\x1b[31mWebSocket error: ${error}\x1b[0m`);
+        logger.error(`WebSocket error: ${error}`);
         this.eventBus.log('web', 'red', 'WebSocket error');
         reject(error);
       });
 
       this.ws.on('close', () => {
-        console.log('\x1b[31mWebSocket connection closed\x1b[0m');
+        logger.error('WebSocket connection closed');
         this.eventBus.log('web', 'red', 'WebSocket connection closed');
         this.initialized = false;
       });
@@ -314,7 +305,7 @@ export class RealtimeAPIService {
 
   private async ensureConnection() {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.log('WebSocket not connected, attempting to reconnect...');
+      logger.info('WebSocket not connected, attempting to reconnect...');
       await this.initialize();
     }
   }
@@ -339,7 +330,7 @@ export class RealtimeAPIService {
       };
       this.ws?.send(JSON.stringify(responseRequest));
     } catch (error) {
-      console.error('Error processing text input:', error);
+      logger.error('Error processing text input:', error);
       throw error;
     }
   }
@@ -354,7 +345,7 @@ export class RealtimeAPIService {
       };
       this.ws?.send(JSON.stringify(audioMessage));
     } catch (error) {
-      console.error(`\x1b[31mError processing voice input: ${error}\x1b[0m`);
+      logger.error(`Error processing voice input: ${error}`);
       throw error;
     }
   }
@@ -364,7 +355,7 @@ export class RealtimeAPIService {
       const commitMessage = {
         type: 'input_audio_buffer.commit',
       };
-      console.log('inputAudioBufferCommit', commitMessage);
+      logger.info(`inputAudioBufferCommit ${JSON.stringify(commitMessage)}`);
       this.ws.send(JSON.stringify(commitMessage));
 
       const responseRequest = {
@@ -381,11 +372,11 @@ export class RealtimeAPIService {
     if (this.ws) {
       this.isVadMode = data;
       if (this.isVadMode) {
-        console.log('\x1b[36mVAD mode change: true\x1b[0m');
+        logger.info('VAD mode change: true', 'cyan');
         this.eventBus.log('web', 'cyan', 'VAD mode change: true');
         this.ws.send(JSON.stringify(this.vadSessionConfig));
       } else {
-        console.log('\x1b[36mVAD mode change: false\x1b[0m');
+        logger.info('VAD mode change: false', 'cyan');
         this.eventBus.log('web', 'cyan', 'VAD mode change: false');
         this.ws.send(JSON.stringify(this.noVadSessionConfig));
       }

@@ -4,6 +4,7 @@ import { NotionClientInput } from '@shannon/common';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
 import { config } from '../../config/env.js';
+import { logger } from '../../utils/logger.js';
 
 export class NotionClient extends BaseClient {
     private client: Client;
@@ -72,7 +73,7 @@ export class NotionClient extends BaseClient {
             } catch (error: any) {
                 // ページとして見つからない場合、データベースとして取得を試みる
                 if (error?.code === 'object_not_found') {
-                    console.log(`[Notion] ページとして見つからないため、データベースとして取得: ${pageId}`);
+                    logger.info(`[Notion] ページとして見つからないため、データベースとして取得: ${pageId}`);
                     try {
                         const dbResult = await this.queryDatabase(pageId);
                         this.eventBus.publish({
@@ -84,7 +85,7 @@ export class NotionClient extends BaseClient {
                             },
                         });
                     } catch (dbError: any) {
-                        console.error('[Notion] データベース取得エラー:', dbError?.message || dbError);
+                        logger.error(`[Notion] データベース取得エラー: ${dbError?.message || dbError}`);
                         this.eventBus.publish({
                             type: 'tool:getPageMarkdown',
                             memoryZone: 'notion',
@@ -95,7 +96,7 @@ export class NotionClient extends BaseClient {
                         });
                     }
                 } else {
-                    console.error('[Notion] ページ取得エラー:', error?.message || error);
+                    logger.error(`[Notion] ページ取得エラー: ${error?.message || error}`);
                     this.eventBus.publish({
                         type: 'tool:getPageMarkdown',
                         memoryZone: 'notion',
@@ -124,7 +125,7 @@ export class NotionClient extends BaseClient {
      */
     async queryDatabase(databaseId: string, pageSize: number = 50): Promise<{ title: string; content: string[] }> {
         const uuid = this.toUuid(databaseId);
-        console.log(`[Notion] データベースクエリ: ${uuid}`);
+        logger.info(`[Notion] データベースクエリ: ${uuid}`);
 
         // データベースのメタデータを取得
         const dbMeta = await this.client.databases.retrieve({ database_id: uuid });
@@ -344,7 +345,7 @@ export class NotionClient extends BaseClient {
      * 再帰的にブロックとその子ブロックを取得してマークダウンに変換
      */
     async getPageBlocksToMarkdown(pageId: string, indent: number = 0): Promise<string[]> {
-        console.log('\x1b[34mgetPageBlocksToMarkdown\x1b[0m', pageId);
+        logger.info(`getPageBlocksToMarkdown ${pageId}`, 'blue');
         try {
             const response = await this.client.blocks.children.list({
                 block_id: pageId,
@@ -370,7 +371,7 @@ export class NotionClient extends BaseClient {
 
             return markdownLines;
         } catch (error) {
-            console.error(`Notionブロック取得エラー: ${error}`);
+            logger.error(`Notionブロック取得エラー: ${error}`);
             return [];
         }
     }
@@ -386,23 +387,21 @@ export class NotionClient extends BaseClient {
                     const now = Date.now();
                     const waitTime = resetTime - now + 10000;
 
-                    console.warn(
-                        `\x1b[33mTwitter rate limit reached, waiting until ${new Date(
+                    logger.warn(
+                        `Twitter rate limit reached, waiting until ${new Date(
                             resetTime
-                        ).toISOString()} (${waitTime / 1000}s)\x1b[0m`
+                        ).toISOString()} (${waitTime / 1000}s)`
                     );
 
                     await new Promise((resolve) => setTimeout(resolve, waitTime));
                     await this.initialize();
                 } else {
-                    console.warn(
-                        '\x1b[33mTwitter rate limit reached, waiting before retry...\x1b[0m'
-                    );
+                    logger.warn('Twitter rate limit reached, waiting before retry...');
                     await new Promise((resolve) => setTimeout(resolve, 5000));
                     await this.initialize();
                 }
             } else {
-                console.error(`\x1b[31mNotion initialization error: ${error}\x1b[0m`);
+                logger.error(`Notion initialization error: ${error}`);
                 throw error;
             }
         }

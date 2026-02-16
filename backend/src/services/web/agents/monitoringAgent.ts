@@ -6,6 +6,7 @@ import {
 } from '../../common/WebSocketService.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { getEventBus } from '../../eventBus/index.js';
+import { logger } from '../../../utils/logger.js';
 
 interface SearchQuery {
   startDate?: string;
@@ -40,12 +41,12 @@ export class MonitoringAgent extends WebSocketServiceBase {
 
   protected override initialize() {
     this.wss.on('connection', async (ws) => {
-      console.log('\x1b[34mMonitoring client connected\x1b[0m');
+      logger.info('Monitoring client connected', 'blue');
 
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        console.log('\x1b[31mMonitoring client disconnected\x1b[0m');
+        logger.error('Monitoring client disconnected');
       });
 
       const logs = await Log.find().sort({ timestamp: -1 }).limit(200);
@@ -65,12 +66,13 @@ export class MonitoringAgent extends WebSocketServiceBase {
           this.broadcast({ type: 'pong' } as WebMonitoringOutput);
           return;
         }
-        console.log(
-          `\x1b[34mvalid web message received in monitoring agent: ${
+        logger.info(
+          `valid web message received in monitoring agent: ${
             data.type === 'search'
               ? JSON.stringify(data.query)
               : JSON.stringify(data)
-          }\x1b[0m`
+          }`,
+          'blue',
         );
         if (data.type === 'search') {
           const query = data.query as SearchQuery;
@@ -83,11 +85,11 @@ export class MonitoringAgent extends WebSocketServiceBase {
       });
 
       ws.on('close', () => {
-        console.log('\x1b[31mMonitoring Client disconnected\x1b[0m');
+        logger.error('Monitoring Client disconnected');
       });
 
       ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
+        logger.error('WebSocket error:', error);
       });
     });
   }

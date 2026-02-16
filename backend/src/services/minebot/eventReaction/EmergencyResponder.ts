@@ -14,6 +14,9 @@ import {
     HostileEventData,
     SuffocationEventData,
 } from './types.js';
+import { createLogger } from '../../../utils/logger.js';
+
+const log = createLogger('Minebot:Emergency');
 
 interface EmergencyAction {
     type: 'flee' | 'eat' | 'equip' | 'attack' | 'dig_up' | 'swim_up' | 'none';
@@ -39,7 +42,7 @@ export class EmergencyResponder {
      * 初期化
      */
     async initialize(): Promise<void> {
-        console.log('✅ EmergencyResponder initialized');
+        log.success('✅ EmergencyResponder initialized');
     }
 
     /**
@@ -47,7 +50,7 @@ export class EmergencyResponder {
      */
     async respond(eventData: EventData): Promise<string> {
         if (this.isResponding) {
-            console.log('⚠️ 緊急対応中のため新しい緊急対応をスキップ');
+            log.warn('⚠️ 緊急対応中のため新しい緊急対応をスキップ');
             return 'already_responding';
         }
 
@@ -59,7 +62,7 @@ export class EmergencyResponder {
             await this.executeAction(action);
             return action.type;
         } catch (error) {
-            console.error('緊急対応エラー:', error);
+            log.error('緊急対応エラー', error);
             return 'error';
         } finally {
             this.isResponding = false;
@@ -170,7 +173,7 @@ JSON形式で回答: {"type": "アクション名", "target": "対象(任意)"}`
                 return JSON.parse(jsonMatch[0]) as EmergencyAction;
             }
         } catch (error) {
-            console.error('LLM緊急判断エラー:', error);
+            log.error('LLM緊急判断エラー', error);
         }
 
         return { type: 'none' };
@@ -197,7 +200,7 @@ JSON形式で回答: {"type": "アクション名", "target": "対象(任意)"}`
      * アクションを実行
      */
     private async executeAction(action: EmergencyAction): Promise<void> {
-        console.log(`🚨 緊急アクション実行: ${action.type}`);
+        log.warn(`🚨 緊急アクション実行: ${action.type}`);
 
         switch (action.type) {
             case 'flee':
@@ -220,7 +223,7 @@ JSON形式で回答: {"type": "アクション名", "target": "対象(任意)"}`
                 break;
             case 'none':
             default:
-                console.log('緊急アクション: 何もしない');
+                log.debug('緊急アクション: 何もしない');
                 break;
         }
     }
@@ -253,9 +256,9 @@ JSON形式で回答: {"type": "アクション名", "target": "対象(任意)"}`
             this.bot.setControlState('forward', false);
             this.bot.setControlState('sprint', false);
 
-            console.log('✅ 逃走完了');
+            log.success('✅ 逃走完了');
         } catch (error) {
-            console.error('逃走エラー:', error);
+            log.error('逃走エラー', error);
         }
     }
 
@@ -268,10 +271,10 @@ JSON形式で回答: {"type": "アクション名", "target": "対象(任意)"}`
             if (food) {
                 await this.bot.equip(food, 'hand');
                 await this.bot.consume();
-                console.log(`✅ ${food.name}を食べた`);
+                log.success(`✅ ${food.name}を食べた`);
             }
         } catch (error) {
-            console.error('食事エラー:', error);
+            log.error('食事エラー', error);
         }
     }
 
@@ -284,11 +287,11 @@ JSON形式で回答: {"type": "アクション名", "target": "対象(任意)"}`
                 const weapon = this.findWeapon();
                 if (weapon) {
                     await this.bot.equip(weapon, 'hand');
-                    console.log(`✅ ${weapon.name}を装備`);
+                    log.success(`✅ ${weapon.name}を装備`);
                 }
             }
         } catch (error) {
-            console.error('装備エラー:', error);
+            log.error('装備エラー', error);
         }
     }
 
@@ -301,10 +304,10 @@ JSON形式で回答: {"type": "アクション名", "target": "対象(任意)"}`
             const hostile = this.findNearestHostile();
             if (hostile) {
                 await this.bot.attack(hostile);
-                console.log(`✅ ${hostile.name}を攻撃`);
+                log.success(`✅ ${hostile.name}を攻撃`);
             }
         } catch (error) {
-            console.error('攻撃エラー:', error);
+            log.error('攻撃エラー', error);
         }
     }
 
@@ -321,10 +324,10 @@ JSON形式で回答: {"type": "アクション名", "target": "対象(任意)"}`
                 this.bot.setControlState('jump', true);
                 await new Promise(resolve => setTimeout(resolve, 500));
                 this.bot.setControlState('jump', false);
-                console.log('✅ 上に掘って脱出');
+                log.success('✅ 上に掘って脱出');
             }
         } catch (error) {
-            console.error('掘削エラー:', error);
+            log.error('掘削エラー', error);
         }
     }
 
@@ -339,9 +342,9 @@ JSON形式で回答: {"type": "アクション名", "target": "対象(任意)"}`
             await new Promise(resolve => setTimeout(resolve, 5000));
 
             this.bot.setControlState('jump', false);
-            console.log('✅ 水面に浮上');
+            log.success('✅ 水面に浮上');
         } catch (error) {
-            console.error('水泳エラー:', error);
+            log.error('水泳エラー', error);
         }
     }
 

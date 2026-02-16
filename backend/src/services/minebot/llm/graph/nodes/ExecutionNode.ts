@@ -1,6 +1,9 @@
 import { AIMessage, ToolMessage } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
+import { createLogger } from '../../../../../utils/logger.js';
 import { CentralLogManager, LogManager } from '../logging/index.js';
+
+const log = createLogger('Minebot:Execution');
 
 /**
  * アクション項目の型定義
@@ -78,15 +81,13 @@ export class ExecutionNode {
     ): Promise<{ success: boolean; message: ToolMessage; result: ExecutionResult }> {
         const startTime = Date.now();
 
-        console.log(
-            `\x1b[36m[${index + 1}/${total}] ${action.toolName}を実行中...\x1b[0m`
-        );
+        log.info(`[${index + 1}/${total}] ${action.toolName}を実行中...`, 'cyan');
 
         const tool = this.tools.get(action.toolName);
         if (!tool) {
             const duration = Date.now() - startTime;
             const errorMsg = `ツール ${action.toolName} が見つかりません`;
-            console.error(`\x1b[31m${errorMsg}\x1b[0m`);
+            log.error(errorMsg);
 
             return {
                 success: false,
@@ -112,12 +113,12 @@ export class ExecutionNode {
             delete cleanArgs._expectedResult;
             delete cleanArgs._dynamicResolve;
 
-            console.log(`${action.toolName}を実行します。パラメータ：${JSON.stringify(cleanArgs)}`);
+            log.info(`${action.toolName}を実行します。パラメータ：${JSON.stringify(cleanArgs)}`);
 
             const result = await tool.invoke(cleanArgs);
             const duration = Date.now() - startTime;
 
-            console.log(`\x1b[32m✓ ${action.toolName} 完了 (${duration}ms): ${result}\x1b[0m`);
+            log.success(`✓ ${action.toolName} 完了 (${duration}ms): ${result}`);
 
             // 結果が失敗を示している場合もエラーとして扱う
             const isError =
@@ -128,9 +129,7 @@ export class ExecutionNode {
                     result.includes('見つかりません'));
 
             if (isError) {
-                console.warn(
-                    `\x1b[33m⚠ ${action.toolName} の結果が失敗を示しています\x1b[0m`
-                );
+                log.warn(`⚠ ${action.toolName} の結果が失敗を示しています`);
             }
 
             const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
@@ -170,7 +169,7 @@ export class ExecutionNode {
                 errorMsg += `: ${error instanceof Error ? error.message : '不明なエラー'}`;
             }
 
-            console.error(`\x1b[31m✗ ${errorMsg} (${duration}ms)\x1b[0m`);
+            log.error(`✗ ${errorMsg} (${duration}ms)`);
 
             return {
                 success: false,
@@ -324,7 +323,7 @@ export class ExecutionNode {
                     hasError = true;
                     // 残りのアクションをスキップ
                     if (i < actions.length - 1) {
-                        console.log(`\x1b[33m残り${actions.length - i - 1}個のアクションをスキップしました\x1b[0m`);
+                        log.warn(`残り${actions.length - i - 1}個のアクションをスキップしました`);
                     }
                     break;
                 }

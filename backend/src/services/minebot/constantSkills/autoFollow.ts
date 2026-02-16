@@ -1,5 +1,8 @@
 import { Entity } from 'prismarine-entity';
+import { createLogger } from '../../../utils/logger.js';
 import { ConstantSkill, CustomBot } from '../types.js';
+
+const log = createLogger('Minebot:Skill:autoFollow');
 
 class AutoFollow extends ConstantSkill {
   private lastStatus: boolean = false;
@@ -51,7 +54,7 @@ class AutoFollow extends ConstantSkill {
       this.bot.pathfinder.setGoal(null);
       this.bot.clearControlStates();
     } catch (error: any) {
-      console.error('追尾ループ中にエラー:', error);
+      log.error('追尾ループ中にエラー', error);
     }
   }
 

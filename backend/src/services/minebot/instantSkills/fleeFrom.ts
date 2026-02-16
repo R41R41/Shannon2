@@ -1,8 +1,10 @@
 import pathfinder from 'mineflayer-pathfinder';
 import { Vec3 } from 'vec3';
 import { CustomBot, InstantSkill } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
 import { setMovements } from '../utils/setMovements.js';
 const { goals } = pathfinder;
+const log = createLogger('Minebot:Skill:fleeFrom');
 
 /**
  * 原子的スキル: エンティティから逃げる
@@ -96,9 +98,7 @@ class FleeFrom extends InstantSkill {
         false // canSwim: 水を避けて逃げる（水中は危険）
       );
 
-      console.log(
-        `🏃 ${name}から逃走開始（目標距離: ${minDistance}ブロック以上）`
-      );
+      log.info(`🏃 ${name}から逃走開始（目標距離: ${minDistance}ブロック以上）`);
 
       // GoalInvertを使用して逃げる方向に移動
       // GoalNearの逆で、指定位置から離れる

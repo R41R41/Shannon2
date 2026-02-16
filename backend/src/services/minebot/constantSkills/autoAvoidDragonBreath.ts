@@ -1,5 +1,8 @@
 import { Vec3 } from 'vec3';
+import { createLogger } from '../../../utils/logger.js';
 import { ConstantSkill, CustomBot } from '../types.js';
+
+const log = createLogger('Minebot:Skill:autoAvoidDragonBreath');
 
 class AutoAvoidDragonBreath extends ConstantSkill {
   constructor(bot: CustomBot) {
@@ -48,7 +51,7 @@ class AutoAvoidDragonBreath extends ConstantSkill {
 
         // 8 ブロック以内に着弾する見込みなら回避
         if (horizontalDistance < 8) {
-          console.log('ドラゴンの火の玉を検知。回避行動を取ります');
+          log.warn('🐉 ドラゴンの火の玉を検知、回避行動を取ります');
           await this.bot.utils.runFromEntities(this.bot, [fireball], 12);
           // 危険は一度回避したら他の火の玉は無視 (過剰反応防止)
           break;
@@ -80,7 +83,7 @@ class AutoAvoidDragonBreath extends ConstantSkill {
         await this.bot.utils.runFromEntities(this.bot, [dragonBreath], 12);
       }
     } catch (error: any) {
-      console.error(`エンドラのブレス回避中にエラー: ${error.message}`);
+      log.error('エンドラのブレス回避中にエラー', error);
     }
   }
 }

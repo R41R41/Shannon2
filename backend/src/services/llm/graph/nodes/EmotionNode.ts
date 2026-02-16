@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { EventBus } from '../../../eventBus/eventBus.js';
 import { getEventBus } from '../../../eventBus/index.js';
 import { ExecutionResult } from '../types.js';
+import { logger } from '../../../../utils/logger.js';
 
 /**
  * 共有感情状態の型定義
@@ -109,7 +110,7 @@ export class EmotionNode {
      * 感情を分析する（初回同期評価）
      */
     async invoke(state: any): Promise<{ emotion: EmotionType }> {
-        console.log('💭 EmotionNode: 感情を分析中...');
+        logger.info('💭 EmotionNode: 感情を分析中...');
 
         const structuredLLM = this.model.withStructuredOutput(EmotionSchema, {
             name: 'Emotion',
@@ -119,8 +120,8 @@ export class EmotionNode {
             const messages = this.buildMessages(state);
             const response = await structuredLLM.invoke(messages);
 
-            console.log(`💭 感情: ${response.emotion}`);
-            console.log(`   パラメータ: joy=${response.parameters.joy}, trust=${response.parameters.trust}, fear=${response.parameters.fear}, surprise=${response.parameters.surprise}`);
+            logger.info(`💭 感情: ${response.emotion}`);
+            logger.info(`   パラメータ: joy=${response.parameters.joy}, trust=${response.parameters.trust}, fear=${response.parameters.fear}, surprise=${response.parameters.surprise}`);
 
             // EventBus経由でUIに通知
             this.publishEmotion(response);
@@ -132,7 +133,7 @@ export class EmotionNode {
                 },
             };
         } catch (error) {
-            console.error('❌ EmotionNode error:', error);
+            logger.error('❌ EmotionNode error:', error);
             return { emotion: NEUTRAL_EMOTION };
         }
     }
@@ -147,7 +148,7 @@ export class EmotionNode {
         executionResults: ExecutionResult[] | null,
         currentEmotion: EmotionType | null
     ): Promise<EmotionType> {
-        console.log('💭 EmotionNode: 非同期で感情を再評価中...');
+        logger.info('💭 EmotionNode: 非同期で感情を再評価中...');
 
         const structuredLLM = this.model.withStructuredOutput(EmotionSchema, {
             name: 'Emotion',
@@ -161,7 +162,7 @@ export class EmotionNode {
             );
             const response = await structuredLLM.invoke(messages);
 
-            console.log(`💭 感情更新: ${response.emotion}`);
+            logger.info(`💭 感情更新: ${response.emotion}`);
 
             // EventBus経由でUIに通知
             this.publishEmotion(response);
@@ -171,7 +172,7 @@ export class EmotionNode {
                 parameters: response.parameters,
             };
         } catch (error) {
-            console.error('❌ EmotionNode async error:', error);
+            logger.error('❌ EmotionNode async error:', error);
             return currentEmotion || NEUTRAL_EMOTION;
         }
     }

@@ -60,9 +60,9 @@ export class PostFortuneAgent {
       '挑戦', '伝統', '友情', '直感',
       '競争', '忠実', '知性', '夢',
     ];
+    // gpt-5-mini は temperature=1 のみサポートのためデフォルトを使用
     this.model = new ChatOpenAI({
       modelName: models.contentGeneration,
-      temperature: 0.7,
     });
   }
 

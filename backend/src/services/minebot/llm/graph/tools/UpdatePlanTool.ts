@@ -1,6 +1,9 @@
 import { StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
+import { createLogger } from '../../../../../utils/logger.js';
 import { CONFIG } from '../../../config/MinebotConfig.js';
+
+const log = createLogger('Minebot:UpdatePlan');
 
 /**
  * update-plan ツール (Minebot版)
@@ -81,20 +84,17 @@ export class UpdatePlanTool extends StructuredTool {
         }),
       });
       if (!response.ok) {
-        console.error('update-plan: UI Mod通知失敗:', response.status);
+        log.error(`UI Mod通知失敗: status=${response.status}`);
       }
     } catch (error) {
-      // UI Modが起動していない場合は無視
-      console.warn('update-plan: UI Mod通知スキップ:', (error as Error).message);
+      log.warn(`UI Mod通知スキップ: ${(error as Error).message}`);
     }
 
     const subtaskSummary = data.subtasks
       .map((st) => `  ${st.status === 'completed' ? '✓' : st.status === 'in_progress' ? '→' : '□'} ${st.goal}`)
       .join('\n');
 
-    console.log(
-      `\x1b[36m📋 Plan updated: "${data.goal}" (${data.subtasks.length} subtasks)\n${subtaskSummary}\x1b[0m`,
-    );
+    log.info(`📋 Plan updated: "${data.goal}" (${data.subtasks.length} subtasks) ${subtaskSummary.replace(/\n/g, ' | ')}`, 'cyan');
 
     return `計画を更新しました: ${data.goal} (${data.subtasks.length}個のサブタスク)`;
   }

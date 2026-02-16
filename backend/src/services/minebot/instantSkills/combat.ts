@@ -1,8 +1,10 @@
 import pathfinder from 'mineflayer-pathfinder';
 import { CustomBot, InstantSkill } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
 import { setMovements } from '../utils/setMovements.js';
 
 const { goals } = pathfinder;
+const log = createLogger('Minebot:Skill:combat');
 
 /**
  * 戦闘スキル: 敵を追いかけながら倒すまで攻撃
@@ -101,7 +103,7 @@ class Combat extends InstantSkill {
                     };
                 }
                 weaponName = equipResult.weaponName;
-                console.log(`\x1b[32m🗡️ ${weaponName}を装備しました\x1b[0m`);
+                log.success(`🗡️ ${weaponName}を装備しました`);
             }
 
             // ターゲットを探す
@@ -132,7 +134,7 @@ class Combat extends InstantSkill {
             }
 
             const enemyName = enemy.name || 'unknown';
-            console.log(`\x1b[33m⚔️ ${enemyName}との戦闘開始！（${weaponName}使用）\x1b[0m`);
+            log.warn(`⚔️ ${enemyName}との戦闘開始！（${weaponName}使用）`);
 
             // pathfinderの移動設定（戦闘用）
             setMovements(
@@ -157,7 +159,7 @@ class Combat extends InstantSkill {
                 // 敵を再検索（死んだ場合など）
                 enemy = findEnemy();
                 if (!enemy || !enemy.isValid) {
-                    console.log(`\x1b[32m✅ ${enemyName}を倒しました！\x1b[0m`);
+                    log.success(`✅ ${enemyName}を倒しました！`);
                     this.bot.pathfinder.stop();
                     return {
                         success: true,
@@ -202,7 +204,7 @@ class Combat extends InstantSkill {
                 // HPが危険な場合は撤退
                 if (this.bot.health < 6) {
                     this.bot.pathfinder.stop();
-                    console.log(`\x1b[33m⚠️ HP危険！戦闘中断\x1b[0m`);
+                    log.warn('⚠️ HP危険！戦闘中断');
                     return {
                         success: false,
                         result: `HP危険（${this.bot.health.toFixed(1)}/20）のため戦闘中断。${enemyName}を${attackCount}回攻撃しました。`,

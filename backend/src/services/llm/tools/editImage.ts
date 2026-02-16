@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
+import { logger } from '../../../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -63,7 +64,7 @@ export default class EditImageTool extends StructuredTool {
           const resp = await axios.get(data.imagePath, { responseType: 'arraybuffer', timeout: 30000 });
           const base64 = Buffer.from(resp.data).toString('base64');
           imageDataUrl = `data:image/png;base64,${base64}`;
-          console.log(`\x1b[35m🎨 画像ダウンロード完了 (${Math.round(resp.data.byteLength / 1024)}KB)\x1b[0m`);
+          logger.info(`🎨 画像ダウンロード完了 (${Math.round(resp.data.byteLength / 1024)}KB)`, 'magenta');
         } catch (dlErr) {
           return `エラー: 画像URLからのダウンロードに失敗しました: ${dlErr instanceof Error ? dlErr.message : String(dlErr)}`;
         }
@@ -77,8 +78,9 @@ export default class EditImageTool extends StructuredTool {
         imageDataUrl = `data:image/png;base64,${base64}`;
       }
 
-      console.log(
-        `\x1b[35m🎨 画像編集開始: ${data.imagePath}\n   指示: ${data.prompt}\n   モデル: ${models.imageGeneration}\x1b[0m`,
+      logger.info(
+        `🎨 画像編集開始: ${data.imagePath}\n   指示: ${data.prompt}\n   モデル: ${models.imageGeneration}`,
+        'magenta',
       );
 
       // GPT Image モデル用: JSON 形式で REST API を直接呼び出す
@@ -111,7 +113,7 @@ export default class EditImageTool extends StructuredTool {
         const filepath = join(this.outputDir, filename);
         const imageBuffer = Buffer.from(b64Json, 'base64');
         fs.writeFileSync(filepath, imageBuffer);
-        console.log(`\x1b[35m🎨 画像編集完了: ${filepath}\x1b[0m`);
+        logger.info(`🎨 画像編集完了: ${filepath}`, 'magenta');
         return `Image edited and saved to: ${filepath}`;
       }
 
@@ -124,10 +126,10 @@ export default class EditImageTool extends StructuredTool {
       return 'Image was edited but no data was returned.';
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
-        console.error('Image edit API error:', error.response.status, JSON.stringify(error.response.data));
+        logger.error(`Image edit API error: ${error.response.status} ${JSON.stringify(error.response.data)}`);
         return `画像編集APIエラー (${error.response.status}): ${JSON.stringify(error.response.data?.error?.message || error.response.data)}`;
       }
-      console.error('Image edit error:', error);
+      logger.error('Image edit error:', error);
       return `画像編集中にエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`;
     }
   }

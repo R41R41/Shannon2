@@ -1,3 +1,7 @@
+import { createLogger } from '../../../utils/logger.js';
+
+const log = createLogger('Minebot:Types');
+
 /**
  * スキルパラメータの型定義を厳密化
  */
@@ -63,18 +67,18 @@ export class SkillParamValidator {
      */
     static validateParamDefinition(param: SkillParam): boolean {
         if (!param.name || typeof param.name !== 'string') {
-            console.error('Invalid param name:', param);
+            log.error(`Invalid param name: ${JSON.stringify(param)}`);
             return false;
         }
 
         const validTypes: SkillParamType[] = ['string', 'number', 'boolean', 'Vec3'];
         if (!validTypes.includes(param.type)) {
-            console.error('Invalid param type:', param.type);
+            log.error(`Invalid param type: ${param.type}`);
             return false;
         }
 
         if (!param.description || typeof param.description !== 'string') {
-            console.warn('Param missing description:', param.name);
+            log.warn(`Param missing description: ${param.name}`);
         }
 
         return true;
@@ -85,7 +89,7 @@ export class SkillParamValidator {
      */
     static validateParamValue(param: SkillParam, value: SkillParamValue): boolean {
         if (param.required && (value === null || value === undefined)) {
-            console.error(`Required param ${param.name} is missing`);
+            log.error(`Required param ${param.name} is missing`);
             return false;
         }
 

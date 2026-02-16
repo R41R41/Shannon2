@@ -7,10 +7,13 @@
 import { BaseMessage, HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';
+import { createLogger } from '../../../../utils/logger.js';
 import { CONFIG } from '../../config/MinebotConfig.js';
 import { LLMError } from '../../types/index.js';
 import { errorHandler } from '../../utils/ErrorHandler.js';
 import { ActionJudgementResult, IActionJudge, TaskAction } from './IActionJudge.js';
+
+const log = createLogger('Minebot:ActionJudge');
 
 /**
  * アクション判定のスキーマ（Structured Output用）
@@ -36,7 +39,7 @@ export class ActionJudge implements IActionJudge {
             apiKey: CONFIG.OPENAI_API_KEY,
             temperature: CONFIG.TEMPERATURE_CENTRAL,
         });
-        console.log(`🔍 ActionJudge initialized with ${CONFIG.CENTRAL_AGENT_MODEL}`);
+        log.info(`🔍 ActionJudge initialized with ${CONFIG.CENTRAL_AGENT_MODEL}`);
     }
 
     /**
@@ -49,7 +52,7 @@ export class ActionJudge implements IActionJudge {
     ): Promise<ActionJudgementResult> {
         const systemPrompt = this.buildSystemPrompt(currentTaskContext);
 
-        console.log('🔍 ActionJudge: アクションを判定中...');
+        log.info('🔍 ActionJudge: アクションを判定中...');
 
         const structuredLLM = this.openai.withStructuredOutput(ActionJudgementSchema, {
             name: 'action_judgement',
@@ -62,7 +65,7 @@ export class ActionJudge implements IActionJudge {
                 new HumanMessage(message),
             ]);
 
-            console.log(`✅ アクション判定完了: ${result.action} (理由: ${result.reasoning})`);
+            log.success(`✅ アクション判定完了: ${result.action} (理由: ${result.reasoning})`);
 
             return {
                 action: result.action as TaskAction,

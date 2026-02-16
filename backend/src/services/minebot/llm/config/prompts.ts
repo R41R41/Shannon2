@@ -1,7 +1,10 @@
 import { PromptType } from '@shannon/common';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { createLogger } from '../../../../utils/logger.js';
 import { CONFIG } from '../../config/MinebotConfig.js';
+
+const log = createLogger('Minebot:Prompts');
 
 export const loadPrompt = async (
   promptType: PromptType,
@@ -22,10 +25,10 @@ export const loadPrompt = async (
         `${promptType}.md`
       );
     }
-    console.log('Loading prompt from:', path);
+    log.debug(`Loading prompt from: ${path}`);
     return readFileSync(path, 'utf-8').trim();
   } catch (error) {
-    console.error(`Failed to load prompt for ${promptType}:`, error);
+    log.error(`Failed to load prompt for ${promptType}`, error);
     throw new Error(`プロンプトの読み込みに失敗しました: ${promptType}`);
   }
 };

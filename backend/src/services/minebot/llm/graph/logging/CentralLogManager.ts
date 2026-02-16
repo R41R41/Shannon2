@@ -1,5 +1,8 @@
 import fetch from 'node-fetch';
+import { createLogger } from '../../../../../utils/logger.js';
 import { DetailedLog, LogManager } from './detailedLogTypes.js';
+
+const log = createLogger('Minebot:CentralLog');
 
 /**
  * Central Log Manager
@@ -120,9 +123,9 @@ export class CentralLogManager {
                 }),
             });
 
-            console.log(`📤 Sent ${logs.length} logs to UI`);
+            log.debug(`📤 Sent ${logs.length} logs to UI`);
         } catch (error) {
-            console.error('❌ Failed to send logs to UI:', error);
+            log.error('❌ UIへのログ送信に失敗', error);
         }
     }
 

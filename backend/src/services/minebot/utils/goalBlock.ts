@@ -1,7 +1,10 @@
 import pkg from 'mineflayer-pathfinder';
 import { Vec3 } from 'vec3';
+import { createLogger } from '../../../utils/logger.js';
 import { CustomBot, ResponseType } from '../types.js';
 const { goals } = pkg;
+
+const log = createLogger('Minebot:Goal');
 
 export class GoalBlock {
   bot: CustomBot;
@@ -15,7 +18,7 @@ export class GoalBlock {
       );
       return { success: true, result: 'ゴールに到達しました' };
     } catch (error) {
-      console.error('Error in run:', error);
+      log.error('Error in run', error);
       return { success: false, result: 'ゴールに到達できませんでした' };
     }
   }
@@ -26,7 +29,7 @@ export class GoalBlock {
       );
       return { success: true, result: 'ゴールに到達しました' };
     } catch (error) {
-      console.error('Error in goToNear:', error);
+      log.error('Error in goToNear', error);
       return { success: false, result: 'ゴールに到達できませんでした' };
     }
   }

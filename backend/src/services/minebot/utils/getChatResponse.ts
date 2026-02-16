@@ -1,4 +1,7 @@
+import { createLogger } from '../../../utils/logger.js';
 import { CustomBot } from '../types.js';
+
+const log = createLogger('Minebot:Chat');
 export async function getChatResponse(
   bot: CustomBot,
   question: string
@@ -24,7 +27,7 @@ export async function getChatResponse(
         bot.chatMode = true;
       }, 180000); // 3分間
     } catch (error) {
-      console.error(error);
+      log.error('getChatResponse failed', error);
       reject(error);
     }
   });

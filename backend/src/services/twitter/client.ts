@@ -650,7 +650,8 @@ export class TwitterClient extends BaseClient {
   private async postTweet(
     content: string,
     mediaUrl: string | null,
-    replyId: string | null
+    replyId: string | null,
+    _retried: boolean = false,
   ): Promise<import('axios').AxiosResponse | undefined> {
     if (this.status !== 'running') return;
 
@@ -667,7 +668,7 @@ export class TwitterClient extends BaseClient {
         tweet_text: content,
         proxy: this.proxy1,
       };
-      // prod（Premium）は長文ツイート対応
+      // prod（Premium/Basic）は長文ツイート対応
       if (!this.isTest) {
         data.is_note_tweet = true;
       }
@@ -684,15 +685,16 @@ export class TwitterClient extends BaseClient {
       logger.info(`[postTweet] レスポンス: ${JSON.stringify(resData).slice(0, 500)}`, 'cyan');
 
       // --- エラー判定 ---
-      // v2 形式: { status: 'error', msg: '...' }
+      // v2 形式: { status: 'error', message/msg: '...' }
       if (resData?.status === 'error') {
-        const errMsg = resData?.msg || 'Unknown error';
+        const errMsg = resData?.message || resData?.msg || 'Unknown error';
         logger.error(`[postTweet] APIエラー: ${errMsg}`);
-        // login_cookies が無効になった場合は再ログインしてリトライ
-        if (errMsg.includes('cookie') || errMsg.includes('login') || errMsg.includes('auth')) {
+        // login_cookies が無効またはセッション切れの場合は再ログインしてリトライ（1回のみ）
+        const errLower = errMsg.toLowerCase();
+        if (!_retried && (errLower.includes('cookie') || errLower.includes('login') || errLower.includes('auth'))) {
           logger.warn('[postTweet] セッション無効の可能性。再ログインしてリトライします...');
           await this.loginV2();
-          return this.postTweet(content, mediaUrl, replyId);
+          return this.postTweet(content, mediaUrl, replyId, true);
         }
         throw new Error(`Twitter API error: ${errMsg}`);
       }
