@@ -684,10 +684,6 @@ export class TwitterClient extends BaseClient {
         tweet_text: content,
         proxy: this.proxy1,
       };
-      // prod（Premium/Basic）は長文ツイート対応（非対応判定済みならスキップ）
-      if (!this.isTest && this.noteTweetSupported) {
-        data.is_note_tweet = true;
-      }
       if (replyId) {
         data.reply_to_tweet_id = replyId;
       }
@@ -706,17 +702,6 @@ export class TwitterClient extends BaseClient {
         const errMsg = resData?.message || resData?.msg || 'Unknown error';
         logger.error(`[postTweet] APIエラー: ${errMsg}`);
         const errLower = errMsg.toLowerCase();
-
-        // note_tweet 関連エラー → スレッド分割で再試行
-        // (note_tweet エラー or is_note_tweet 使用中の 409/長文関連エラー)
-        const isNoteTweetError = errLower.includes('note tweet');
-        const isLongContentError = this.noteTweetSupported && content.length > 280 &&
-          (errLower.includes('409') || errLower.includes('too long') || errLower.includes('character'));
-        if (!_retried && (isNoteTweetError || isLongContentError)) {
-          logger.warn(`[postTweet] 長文投稿失敗 (${errMsg.slice(0, 80)})。スレッド分割で再試行します...`);
-          this.noteTweetSupported = false;
-          return this.postAsThread(content, replyId);
-        }
 
         // セッション切れ → 再ログインしてリトライ（1回のみ）
         if (!_retried && (errLower.includes('cookie') || errLower.includes('login') || errLower.includes('auth'))) {
@@ -1402,8 +1387,8 @@ export class TwitterClient extends BaseClient {
   private webhookRuleId: string | null = null;
   /** 引用RT検知用WebhookルールID */
   private quoteRTWebhookRuleId: string | null = null;
-  /** note_tweet (長文ツイート) が利用可能かどうか */
-  private noteTweetSupported: boolean = true;
+  /** note_tweet (長文ツイート) が利用可能かどうか (Basic プランでは不可) */
+  private noteTweetSupported: boolean = false;
 
   /**
    * twitterapi.io の Webhook フィルタルールをセットアップし有効化する。
