@@ -7,15 +7,23 @@
  *   - LOG_ID  (session-scoped sequential ID for tracing)
  *   - Message body
  *
- * Format:
- *   2026-02-16 19:30:45.123 [INFO ] #0001 Server started
+ * Format (terminal):
+ *   2026-02-16 19:30:45.123 [INFO   ] #0001 Server started   (with ANSI colors)
+ *
+ * Format (file):
+ *   2026-02-16 19:30:45.123 [INFO   ] #0001 Server started   (plain text)
+ *
+ * File logging:
+ *   import { logger, initFileLogging } from '../../utils/logger.js';
+ *   initFileLogging('/path/to/logs');  // call once at startup
  *
  * Usage:
- *   import { logger } from '../../utils/logger.js';
  *   logger.info('Server started', 'blue');
  *   logger.error('Connection failed');
  *   logger.success('Task completed');
  */
+import { existsSync, mkdirSync, createWriteStream, type WriteStream } from 'fs';
+import { join } from 'path';
 import type { Color } from '@shannon/common';
 
 // ---------------------------------------------------------------------------
@@ -35,6 +43,68 @@ const RESET = '\x1b[0m';
 
 function colorize(text: string, color: Color): string {
   return `${ANSI[color]}${text}${RESET}`;
+}
+
+/** Strip all ANSI escape codes from a string */
+function stripAnsi(text: string): string {
+  return text.replace(/\x1b\[[0-9;]*m/g, '');
+}
+
+// ---------------------------------------------------------------------------
+// File logging (optional, call initFileLogging() to enable)
+// ---------------------------------------------------------------------------
+let fileStream: WriteStream | null = null;
+let currentLogDate = '';
+
+/** Directory for log files (set by initFileLogging) */
+let logDir = '';
+
+function getLogFileName(): string {
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const y = jst.getUTCFullYear();
+  const mo = String(jst.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(jst.getUTCDate()).padStart(2, '0');
+  return `prod-${y}${mo}${d}.log`;
+}
+
+function ensureFileStream(): void {
+  if (!logDir) return;
+
+  const fileName = getLogFileName();
+  const dateKey = fileName;
+
+  // Rotate on date change
+  if (dateKey !== currentLogDate) {
+    if (fileStream) {
+      fileStream.end();
+    }
+    if (!existsSync(logDir)) {
+      mkdirSync(logDir, { recursive: true });
+    }
+    fileStream = createWriteStream(join(logDir, fileName), { flags: 'a' });
+    currentLogDate = dateKey;
+  }
+}
+
+function writeToFile(line: string): void {
+  if (!logDir) return;
+  ensureFileStream();
+  fileStream?.write(stripAnsi(line) + '\n');
+}
+
+/**
+ * Enable file logging. Call once at startup.
+ * Logs are written as plain text (no ANSI codes) to `<dir>/prod-YYYYMMDD.log`.
+ * Files rotate automatically at midnight (JST).
+ */
+export function initFileLogging(dir: string): void {
+  logDir = dir;
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  ensureFileStream();
+  console.log(`📁 File logging enabled: ${dir}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -91,28 +161,41 @@ export const logger = {
   /** General log with optional color */
   info(message: string, color?: Color): void {
     const body = color ? colorize(message, color) : message;
-    console.log(`${formatPrefix('INFO')} ${body}`);
+    const line = `${formatPrefix('INFO')} ${body}`;
+    console.log(line);
+    writeToFile(line);
   },
 
   /** Error log (always red) */
   error(message: string, error?: unknown): void {
-    console.error(`${formatPrefix('ERROR')} ${colorize(message, 'red')}`);
-    if (error) console.error(error);
+    const line = `${formatPrefix('ERROR')} ${colorize(message, 'red')}`;
+    console.error(line);
+    writeToFile(line);
+    if (error) {
+      console.error(error);
+      writeToFile(String(error instanceof Error ? error.stack || error.message : error));
+    }
   },
 
   /** Warning log (always yellow) */
   warn(message: string): void {
-    console.log(`${formatPrefix('WARN')} ${colorize(message, 'yellow')}`);
+    const line = `${formatPrefix('WARN')} ${colorize(message, 'yellow')}`;
+    console.log(line);
+    writeToFile(line);
   },
 
   /** Success log (always green) */
   success(message: string): void {
-    console.log(`${formatPrefix('SUCCESS')} ${colorize(message, 'green')}`);
+    const line = `${formatPrefix('SUCCESS')} ${colorize(message, 'green')}`;
+    console.log(line);
+    writeToFile(line);
   },
 
   /** Debug log (always cyan) */
   debug(message: string): void {
-    console.log(`${formatPrefix('DEBUG')} ${colorize(message, 'cyan')}`);
+    const line = `${formatPrefix('DEBUG')} ${colorize(message, 'cyan')}`;
+    console.log(line);
+    writeToFile(line);
   },
 
   /** Colorize a string without logging (for embedding in other logs) */
