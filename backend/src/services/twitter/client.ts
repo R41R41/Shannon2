@@ -20,6 +20,8 @@ import { logger } from '../../utils/logger.js';
 const PROCESSED_IDS_FILE = path.resolve('saves/processed_tweet_ids.json');
 // 日次返信カウンタの永続化ファイルパス
 const DAILY_REPLY_COUNT_FILE = path.resolve('saves/daily_reply_count.json');
+// login_cookies の永続化ファイルパス
+const LOGIN_COOKIES_FILE = path.resolve('saves/twitter_login_cookies.json');
 // 自動投稿カウンタの永続化ファイルパス
 const AUTO_POST_COUNT_FILE = path.resolve('saves/auto_post_count.json');
 import { BaseClient } from '../common/BaseClient.js';
@@ -593,7 +595,7 @@ export class TwitterClient extends BaseClient {
       email: this.email,
       password: this.password,
       totp_secret: this.totp_secret,
-      proxy: this.proxy3,
+      proxy: this.proxy1,
     };
     const reqConfig = { headers: { 'X-API-Key': this.apiKey } };
     try {
@@ -612,6 +614,15 @@ export class TwitterClient extends BaseClient {
       }
       this.login_cookies = cookies;
       logger.success(`[loginV2] ログイン成功。login_cookies 取得完了 (${cookies.length}文字)`);
+      // クッキーをファイルに永続化
+      try {
+        const dir = path.dirname(LOGIN_COOKIES_FILE);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(LOGIN_COOKIES_FILE, JSON.stringify({ cookies, updatedAt: new Date().toISOString() }));
+        logger.info('[loginV2] login_cookies をファイルに保存', 'cyan');
+      } catch (e) {
+        logger.warn(`[loginV2] login_cookies ファイル保存失敗: ${e}`);
+      }
     } catch (error: unknown) {
       logger.error(`[loginV2] エラー: ${error instanceof Error ? error.message : String(error)}`);
       if (isAxiosError(error)) {
@@ -671,7 +682,7 @@ export class TwitterClient extends BaseClient {
       const data: Record<string, unknown> = {
         login_cookies: this.login_cookies,
         tweet_text: content,
-        proxy: this.proxy3,
+        proxy: this.proxy1,
       };
       // prod（Premium/Basic）は長文ツイート対応（非対応判定済みならスキップ）
       if (!this.isTest && this.noteTweetSupported) {
@@ -813,7 +824,7 @@ export class TwitterClient extends BaseClient {
         login_cookies: this.login_cookies,
         tweet_text: content,
         attachment_url: quoteTweetUrl,
-        proxy: this.proxy3,
+        proxy: this.proxy1,
       };
       const reqConfig = { headers: { 'X-API-Key': this.apiKey } };
       const response = await axios.post(endpoint, data, reqConfig);
@@ -1626,11 +1637,26 @@ export class TwitterClient extends BaseClient {
 
   public async initialize() {
     try {
-      // V2 ログイン: login_cookies を取得（投稿に必要）
+      // V2 ログイン: まずファイルから login_cookies を復元、なければ新規ログイン
+      let cookiesRestored = false;
       try {
-        await this.loginV2();
-      } catch (loginError) {
-        logger.warn(`[initialize] V2ログイン失敗（投稿時に再試行します）: ${loginError instanceof Error ? loginError.message : String(loginError)}`);
+        if (fs.existsSync(LOGIN_COOKIES_FILE)) {
+          const saved = JSON.parse(fs.readFileSync(LOGIN_COOKIES_FILE, 'utf-8'));
+          if (saved?.cookies && typeof saved.cookies === 'string' && saved.cookies.length > 100) {
+            this.login_cookies = saved.cookies;
+            cookiesRestored = true;
+            logger.success(`[initialize] login_cookies をファイルから復元 (${saved.cookies.length}文字, saved: ${saved.updatedAt ?? '不明'})`);
+          }
+        }
+      } catch (e) {
+        logger.warn(`[initialize] login_cookies ファイル読込失敗: ${e}`);
+      }
+      if (!cookiesRestored) {
+        try {
+          await this.loginV2();
+        } catch (loginError) {
+          logger.warn(`[initialize] V2ログイン失敗（投稿時に再試行します）: ${loginError instanceof Error ? loginError.message : String(loginError)}`);
+        }
       }
 
       // Webhook ルールをセットアップ (dev/prod 共通)
