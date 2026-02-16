@@ -1,5 +1,8 @@
+import { createLogger } from '../../../utils/logger.js';
 import SleepInBed from '../instantSkills/sleepInBed.js';
 import { ConstantSkill, CustomBot } from '../types.js';
+
+const log = createLogger('Minebot:Skill:autoSleep');
 
 class AutoSleep extends ConstantSkill {
   private sleepInBed: SleepInBed;
@@ -33,9 +36,9 @@ class AutoSleep extends ConstantSkill {
     if (this.bot.isSleeping && isMorningTime) {
       try {
         const result = await this.sleepInBed.run(true, false);
-        console.log(result);
+        log.debug(`起床結果: ${result.result}`);
       } catch (error: any) {
-        console.error(error);
+        log.error('起床に失敗', error);
       }
       return;
     }
@@ -49,9 +52,9 @@ class AutoSleep extends ConstantSkill {
     if (isNightTime) {
       try {
         const result = await this.sleepInBed.run(false, true);
-        console.log(result);
+        log.debug(`就寝結果: ${result.result}`);
       } catch (error: any) {
-        console.error(error);
+        log.error('就寝に失敗', error);
       }
     }
   }

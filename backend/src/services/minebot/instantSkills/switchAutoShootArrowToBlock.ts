@@ -1,4 +1,6 @@
 import { CustomBot, InstantSkill } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
+const log = createLogger('Minebot:Skill:switchAutoShootArrowToBlock');
 
 export class SwitchAutoShootArrowToBlock extends InstantSkill {
   constructor(bot: CustomBot) {
@@ -25,7 +27,7 @@ export class SwitchAutoShootArrowToBlock extends InstantSkill {
   }
 
   async runImpl(enable: boolean, blockName: string) {
-    console.log('switchAutoShootArrowToBlock', enable, blockName);
+    log.info(`switchAutoShootArrowToBlock: enable=${enable}, blockName=${blockName}`);
     try {
       const skill = this.bot.constantSkills.getSkill(
         'auto-shoot-arrow-to-block'

@@ -5,6 +5,7 @@ import {
 } from '../../common/WebSocketService.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { getEventBus } from '../../eventBus/index.js';
+import { logger } from '../../../utils/logger.js';
 
 export class EmotionAgent extends WebSocketServiceBase {
   private static instance: EmotionAgent;
@@ -36,12 +37,12 @@ export class EmotionAgent extends WebSocketServiceBase {
 
   protected override initialize() {
     this.wss.on('connection', async (ws) => {
-      console.log('\x1b[34mEmotion client connected\x1b[0m');
+      logger.info('Emotion client connected', 'blue');
 
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        console.log('\x1b[31mEmotion client disconnected\x1b[0m');
+        logger.error('Emotion client disconnected');
       });
 
       ws.on('message', async (message) => {
@@ -54,15 +55,15 @@ export class EmotionAgent extends WebSocketServiceBase {
       });
 
       ws.on('close', () => {
-        console.log('\x1b[31mEmotion Client disconnected\x1b[0m');
+        logger.error('Emotion Client disconnected');
       });
 
       ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
+        logger.error('WebSocket error:', error);
       });
     });
 
-    console.log('\x1b[31mEmotionAgent subscribe\x1b[0m');
+    logger.error('EmotionAgent subscribe');
   }
 
   public start() {

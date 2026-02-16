@@ -1,7 +1,9 @@
 import pathfinder from 'mineflayer-pathfinder';
 import { CustomBot, InstantSkill } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
 import { setMovements } from '../utils/setMovements.js';
 const { goals } = pathfinder;
+const log = createLogger('Minebot:Skill:followEntity');
 
 /**
  * 原子的スキル: エンティティについていく
@@ -76,9 +78,7 @@ class FollowEntity extends InstantSkill {
       // GoalFollowを設定
       const goal = new goals.GoalFollow(entity, range);
 
-      console.log(
-        `👣 ${targetName}の追従を開始（範囲: ${range}ブロック、時間: ${duration}ms）`
-      );
+      log.info(`👣 ${targetName}の追従を開始（範囲: ${range}ブロック、時間: ${duration}ms）`);
 
       // 追従開始
       this.bot.pathfinder.setGoal(goal, true); // dynamic=trueで対象が動いても追従

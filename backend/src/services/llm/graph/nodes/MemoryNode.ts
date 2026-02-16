@@ -18,6 +18,7 @@ import {
   resolveMemberByPlatformId,
 } from '../../../../config/memberAliases.js';
 import { loadPrompt } from '../../config/prompts.js';
+import { logger } from '../../../../utils/logger.js';
 
 /**
  * MemoryNode に渡す入力
@@ -148,9 +149,7 @@ export class MemoryNode {
           userId,
           displayName ?? 'Unknown',
         );
-        console.log(
-          `💭 MemoryNode: ${state.person.displayName} の記憶を取得 (traits: ${state.person.traits.length}, interactions: ${state.person.totalInteractions})`,
-        );
+        logger.info(`💭 MemoryNode: ${state.person.displayName} の記憶を取得 (traits: ${state.person.traits.length}, interactions: ${state.person.totalInteractions})`);
       }
 
       // 2. recall-experience: メッセージパターンで判断
@@ -162,13 +161,9 @@ export class MemoryNode {
             5,
           );
           if (state.experiences.length > 0) {
-            console.log(
-              `💭 MemoryNode: 最近の体験 ${state.experiences.length}件を取得（日付ベース）`,
-            );
+            logger.info(`💭 MemoryNode: 最近の体験 ${state.experiences.length}件を取得（日付ベース）`);
           } else {
-            console.log(
-              '💭 MemoryNode: 最近の体験が見つかりませんでした',
-            );
+            logger.info('💭 MemoryNode: 最近の体験が見つかりませんでした');
           }
         } else if (shouldRecallExperience(input.userMessage)) {
           // 「前にもこんなことあったよね？」系 → キーワード検索
@@ -179,9 +174,7 @@ export class MemoryNode {
               3,
             );
             if (state.experiences.length > 0) {
-              console.log(
-                `💭 MemoryNode: 関連する体験 ${state.experiences.length}件を取得`,
-              );
+              logger.info(`💭 MemoryNode: 関連する体験 ${state.experiences.length}件を取得`);
             }
           }
         }
@@ -196,14 +189,12 @@ export class MemoryNode {
             3,
           );
           if (state.knowledge.length > 0) {
-            console.log(
-              `💭 MemoryNode: 関連する知識 ${state.knowledge.length}件を取得`,
-            );
+            logger.info(`💭 MemoryNode: 関連する知識 ${state.knowledge.length}件を取得`);
           }
         }
       }
     } catch (error) {
-      console.error('❌ MemoryNode preProcess エラー:', error);
+      logger.error('❌ MemoryNode preProcess エラー:', error);
     }
 
     return state;
@@ -223,7 +214,7 @@ export class MemoryNode {
       if (input.conversationText.trim()) {
         this.extractAndSaveMemories(input.conversationText, source).catch(
           (err) => {
-            console.error('❌ MemoryNode 記憶抽出エラー:', err);
+            logger.error('❌ MemoryNode 記憶抽出エラー:', err);
           },
         );
       }
@@ -238,11 +229,11 @@ export class MemoryNode {
             input.exchanges,
           )
           .catch((err) => {
-            console.error('❌ MemoryNode 人物更新エラー:', err);
+            logger.error('❌ MemoryNode 人物更新エラー:', err);
           });
       }
     } catch (error) {
-      console.error('❌ MemoryNode postProcess エラー:', error);
+      logger.error('❌ MemoryNode postProcess エラー:', error);
     }
   }
 
@@ -285,13 +276,11 @@ export class MemoryNode {
 
         const result = await this.shannonService.saveWithDedup(memoryInput);
         if (result.saved) {
-          console.log(
-            `💭 MemoryNode: [${memory.category}] "${memory.content.substring(0, 40)}" を保存`,
-          );
+          logger.info(`💭 MemoryNode: [${memory.category}] "${memory.content.substring(0, 40)}" を保存`);
         }
       }
     } catch (error) {
-      console.error('❌ MemoryNode extractAndSaveMemories パースエラー:', error);
+      logger.error('❌ MemoryNode extractAndSaveMemories パースエラー:', error);
     }
   }
 

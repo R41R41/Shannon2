@@ -12,6 +12,7 @@ import { google, youtube_v3 } from 'googleapis';
 import { BaseClient } from '../common/BaseClient.js';
 import { config } from '../../config/env.js';
 import { getEventBus } from '../eventBus/index.js';
+import { logger } from '../../utils/logger.js';
 
 export class YoutubeClient extends BaseClient {
   private static instance: YoutubeClient;
@@ -82,7 +83,7 @@ export class YoutubeClient extends BaseClient {
           });
         }
       } catch (error) {
-        console.error(`\x1b[31mCheck comments error: ${error}\x1b[0m`);
+        logger.error(`Check comments error: ${error}`);
       }
     });
 
@@ -101,17 +102,15 @@ export class YoutubeClient extends BaseClient {
           });
         }
       } catch (error) {
-        console.error(`\x1b[31mCheck subscribers error: ${error}\x1b[0m`);
+        logger.error(`Check subscribers error: ${error}`);
       }
     });
 
     this.eventBus.subscribe('youtube:reply_comment', async (event) => {
       const { videoId, commentId, reply } = event.data as YoutubeVideoInput;
       if (!videoId || !commentId || !reply) {
-        console.error(
-          `\x1b[31mInvalid input for replyComment: ${JSON.stringify(
-            event.data
-          )}\x1b[0m`
+        logger.error(
+          `Invalid input for replyComment: ${JSON.stringify(event.data)}`
         );
         return;
       }
@@ -121,10 +120,8 @@ export class YoutubeClient extends BaseClient {
     this.eventBus.subscribe('youtube:get_video_info', async (event) => {
       const { videoId } = event.data as YoutubeClientInput;
       if (!videoId) {
-        console.error(
-          `\x1b[31mInvalid input for getVideoInfo: ${JSON.stringify(
-            event.data
-          )}\x1b[0m`
+        logger.error(
+          `Invalid input for getVideoInfo: ${JSON.stringify(event.data)}`
         );
         return;
       }
@@ -177,10 +174,10 @@ export class YoutubeClient extends BaseClient {
         scope: ['https://www.googleapis.com/auth/youtube.force-ssl'],
       });
 
-      console.log('以下のURLにアクセスして認証してください:');
-      console.log(authUrl);
+      logger.info('以下のURLにアクセスして認証してください:');
+      logger.info(authUrl);
     } catch (error) {
-      console.error(`\x1b[31mYouTube getClient error: ${error}\x1b[0m`);
+      logger.error(`YouTube getClient error: ${error}`);
       throw error;
     }
   }
@@ -197,13 +194,13 @@ export class YoutubeClient extends BaseClient {
       if (!this.authCode) {
         throw new Error('認証コードが設定されていません');
       }
-      console.log('authCode:', this.authCode);
+      logger.info(`authCode: ${this.authCode}`);
 
       const { tokens } = await oauth2Client.getToken(this.authCode);
       this.refreshToken = tokens.refresh_token || null;
-      console.log('Refresh token:', tokens.refresh_token);
+      logger.info(`Refresh token: ${tokens.refresh_token}`);
     } catch (error) {
-      console.error(`\x1b[31mYouTube getRefreshToken error: ${error}\x1b[0m`);
+      logger.error(`YouTube getRefreshToken error: ${error}`);
       throw error;
     }
   }
@@ -233,9 +230,7 @@ export class YoutubeClient extends BaseClient {
         const title = video.snippet?.title;
         const description = video.snippet?.description;
         if (!videoId) continue;
-        console.log(
-          `\x1b[34mChecking comments for video: ${videoId} ${title}\x1b[0m`
-        );
+        logger.info(`Checking comments for video: ${videoId} ${title}`, 'blue');
         // コメントスレッドを取得
         const comments = await this.client.commentThreads.list({
           part: ['snippet', 'replies'],
@@ -268,7 +263,7 @@ export class YoutubeClient extends BaseClient {
       }
       return unrepliedComments;
     } catch (error) {
-      console.error(`\x1b[31mYouTube comments fetch error: ${error}\x1b[0m`);
+      logger.error(`YouTube comments fetch error: ${error}`);
       throw error;
     }
   }
@@ -283,17 +278,12 @@ export class YoutubeClient extends BaseClient {
         part: ['statistics'],
         id: [this.channelId],
       });
-      console.log(
-        'subscriberCount:',
-        response.data.items?.[0]?.statistics?.subscriberCount
-      );
+      logger.info(`subscriberCount: ${response.data.items?.[0]?.statistics?.subscriberCount}`);
       return parseInt(
         response.data.items?.[0]?.statistics?.subscriberCount || '0'
       );
     } catch (error) {
-      console.error(
-        `\x1b[31mYouTube subscriber count fetch error: ${error}\x1b[0m`
-      );
+      logger.error(`YouTube subscriber count fetch error: ${error}`);
       throw error;
     }
   }
@@ -320,11 +310,9 @@ export class YoutubeClient extends BaseClient {
           },
         },
       });
-      console.log(
-        `\x1b[32mReplied to comment ${commentId} on video ${videoId}\x1b[0m`
-      );
+      logger.success(`Replied to comment ${commentId} on video ${videoId}`);
     } catch (error) {
-      console.error(`\x1b[31mYouTube reply error: ${error}\x1b[0m`);
+      logger.error(`YouTube reply error: ${error}`);
       throw error;
     }
   }
@@ -337,22 +325,16 @@ export class YoutubeClient extends BaseClient {
         await this.setUpConnection();
         this.setupEventHandlers();
         this.lastSubscriberCount = await this.getSubscriberCount();
-        console.log('lastSubscriberCount2:', this.lastSubscriberCount);
+        logger.info(`lastSubscriberCount2: ${this.lastSubscriberCount}`);
       } catch (error) {
-        console.error(`\x1b[31mYouTube initialization error: ${error}\x1b[0m`);
-        console.warn(
-          '\x1b[33mYouTube initialization failed, but continuing without YouTube functionality!\x1b[0m'
-        );
+        logger.error(`YouTube initialization error: ${error}`);
+        logger.warn('YouTube initialization failed, but continuing without YouTube functionality!');
         // エラーをスローせずに処理を続行
         this.status = 'stopped';
       }
     } catch (error) {
-      console.error(
-        `\x1b[31mYouTube initialization outer error: ${error}\x1b[0m`
-      );
-      console.warn(
-        '\x1b[33mYouTube initialization failed, but continuing without YouTube functionality\x1b[0m'
-      );
+      logger.error(`YouTube initialization outer error: ${error}`);
+      logger.warn('YouTube initialization failed, but continuing without YouTube functionality');
       // エラーをスローせずに処理を続行
       this.status = 'stopped';
     }
@@ -363,12 +345,10 @@ export class YoutubeClient extends BaseClient {
       const clientId = config.youtube.clientId;
       const clientSecret = config.youtube.clientSecret;
       this.refreshToken = config.youtube.refreshToken || null;
-      console.log(clientId, clientSecret, this.refreshToken);
+      logger.info(`${clientId} ${clientSecret} ${this.refreshToken}`);
 
       if (!clientId || !clientSecret || !this.refreshToken) {
-        console.warn(
-          '\x1b[33mYouTube OAuth2認証情報が設定されていません。YouTube機能は無効化されます。\x1b[0m'
-        );
+        logger.warn('YouTube OAuth2認証情報が設定されていません。YouTube機能は無効化されます。');
         this.status = 'stopped';
         return; // 認証情報がない場合は早期リターン
       }
@@ -388,10 +368,8 @@ export class YoutubeClient extends BaseClient {
         auth: this.oauth2Client,
       });
     } catch (error) {
-      console.error(`\x1b[31mYouTube setUpConnection error: ${error}\x1b[0m`);
-      console.warn(
-        '\x1b[33mYouTube connection failed, but continuing without YouTube functionality\x1b[0m'
-      );
+      logger.error(`YouTube setUpConnection error: ${error}`);
+      logger.warn('YouTube connection failed, but continuing without YouTube functionality');
       this.status = 'stopped';
       // エラーをスローせずに処理を続行
     }
@@ -424,16 +402,7 @@ export class YoutubeClient extends BaseClient {
       const viewCount = Number(video.statistics?.viewCount || 0);
       const likeCount = Number(video.statistics?.likeCount || 0);
       const commentCount = Number(video.statistics?.commentCount || 0);
-      console.log('videoInfo:', {
-        title,
-        author,
-        thumbnail,
-        description,
-        publishedAt,
-        viewCount,
-        likeCount,
-        commentCount,
-      });
+      logger.info(`videoInfo: ${JSON.stringify({ title, author, thumbnail, description, publishedAt, viewCount, likeCount, commentCount })}`);
 
       return {
         title,
@@ -446,21 +415,21 @@ export class YoutubeClient extends BaseClient {
         commentCount,
       };
     } catch (error) {
-      console.error(`\x1b[31mYouTube getVideoInfo error: ${error}\x1b[0m`);
+      logger.error(`YouTube getVideoInfo error: ${error}`);
       throw error;
     }
   }
 
   private async startLiveChatPolling() {
     if (!this.client) {
-      console.error('YouTube client is not initialized');
+      logger.error('YouTube client is not initialized');
       return { success: false, message: 'YouTube client is not initialized' };
     }
     const videoId = await this.getCurrentLiveVideoId();
     console.log('🎥 取得したvideoId:', videoId);
     console.log('🔗 YOUTUBE_LIVE_URL:', process.env.YOUTUBE_LIVE_URL);
     if (!videoId) {
-      console.error('ライブ配信中の動画が見つかりません');
+      logger.error('ライブ配信中の動画が見つかりません');
       return { success: false, message: 'ライブ配信中の動画が見つかりません' };
     }
     // 既に監視中なら一度止める
@@ -483,7 +452,7 @@ export class YoutubeClient extends BaseClient {
       }, null, 2));
       liveChatId = (video?.liveStreamingDetails as any)?.activeLiveChatId;
       if (!liveChatId) {
-        console.error('liveChatIdが取得できませんでした（動画がライブ配信中でない可能性があります）');
+        logger.error('liveChatIdが取得できませんでした');
         return { success: false, message: 'liveChatIdが取得できませんでした' };
       }
       this.liveChatId = liveChatId;
@@ -500,10 +469,10 @@ export class YoutubeClient extends BaseClient {
       }, 60 * 1000);
       // 初回即時実行
       this.fetchLiveChatMessages();
-      console.log('ライブチャット監視を開始しました');
+      logger.info('ライブチャット監視を開始しました');
       return { success: true, message: 'ライブチャット監視を開始しました' };
     } catch (error) {
-      console.error('ライブチャット監視開始エラー:', error);
+      logger.error('ライブチャット監視開始エラー', error);
       return { success: false, message: 'ライブチャット監視開始エラー' };
     }
   }
@@ -513,7 +482,7 @@ export class YoutubeClient extends BaseClient {
       clearInterval(this.liveChatPolling);
       this.liveChatPolling = null;
       this.liveChatId = null;
-      console.log('ライブチャット監視を停止しました');
+      logger.info('ライブチャット監視を停止しました');
     }
   }
 
@@ -573,7 +542,7 @@ export class YoutubeClient extends BaseClient {
         }
       }
     } catch (error) {
-      console.error('ライブチャット取得エラー:', error);
+      logger.error('ライブチャット取得エラー', error);
     }
   }
 
@@ -593,9 +562,9 @@ export class YoutubeClient extends BaseClient {
           },
         },
       });
-      console.log('ライブチャットにコメントを投稿:', message);
+      logger.info(`ライブチャットにコメントを投稿: ${message}`);
     } catch (error) {
-      console.error('ライブチャットコメント投稿エラー:', error);
+      logger.error('ライブチャットコメント投稿エラー', error);
     }
   }
 

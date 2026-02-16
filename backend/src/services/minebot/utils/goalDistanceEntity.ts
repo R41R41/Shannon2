@@ -1,7 +1,10 @@
 import pkg from 'mineflayer-pathfinder';
 import { Vec3 } from 'vec3';
+import { createLogger } from '../../../utils/logger.js';
 import { CustomBot, ResponseType } from '../types.js';
 const { goals } = pkg;
+
+const log = createLogger('Minebot:Goal');
 
 export class GoalDistanceEntity {
   bot: CustomBot;
@@ -13,7 +16,7 @@ export class GoalDistanceEntity {
   async run(entityId: number, distance: number): Promise<ResponseType> {
     const entity = this.bot.entities[entityId];
     if (!entity || !entity.position || !entity.velocity) {
-      console.error('エンティティの位置情報が取得できません:', entity); // デバッグ情報を追加
+      log.debug(`エンティティの位置情報が取得できません: ${entity}`);
       return {
         success: false,
         result: 'エンティティの位置情報が取得できません',
@@ -34,7 +37,7 @@ export class GoalDistanceEntity {
       botSpeed
     );
     try {
-      console.log(entity.name, adjustedTarget.x, adjustedTarget.z);
+      log.debug(`target: ${entity.name} x=${adjustedTarget.x} z=${adjustedTarget.z}`);
       if (isNaN(adjustedTarget.x) || isNaN(adjustedTarget.z)) {
         return {
           success: false,
@@ -50,7 +53,7 @@ export class GoalDistanceEntity {
       await Promise.race([movePromise, timeoutPromise]);
       return { success: true, result: 'ゴールに到達しました' };
     } catch (error) {
-      console.error('Error in run:', error);
+      log.error('Error in run', error);
       return { success: false, result: 'ゴールに到達できませんでした' };
     }
   }
@@ -69,7 +72,7 @@ export class GoalDistanceEntity {
     const dz = entityZ - botZ;
     const vx = entitySpeedX;
     const vz = entitySpeedZ;
-    console.log(dx, dz, vx, vz);
+    log.debug(`dx=${dx} dz=${dz} vx=${vx} vz=${vz}`);
 
     // 速度がほぼ0なら現在位置を使う
     if (

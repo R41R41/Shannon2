@@ -6,6 +6,7 @@ import {
   DiscordGetServerEmojiOutput,
 } from '@shannon/common';
 import { EventBus } from '../../eventBus/eventBus.js';
+import { logger } from '../../../utils/logger.js';
 
 export default class GetServerEmojiOnDiscordTool extends StructuredTool {
   name = 'get-server-emoji-on-discord';
@@ -49,7 +50,7 @@ export default class GetServerEmojiOnDiscordTool extends StructuredTool {
       });
       return `${currentTime} discordのサーバー固有絵文字のリストを取得しました。\n${emojis}`;
     } catch (error) {
-      console.error('Discord emoji error:', error);
+      logger.error('Discord emoji error:', error);
       return `絵文字の送信中にエラーが発生しました: ${error}`;
     }
   }

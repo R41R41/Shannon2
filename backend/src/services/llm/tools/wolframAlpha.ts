@@ -2,6 +2,7 @@ import { StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { createRequire } from 'module';
 import { config } from '../../../config/env.js';
+import { logger } from '../../../utils/logger.js';
 const require = createRequire(import.meta.url);
 const WolframAlphaAPI = require('@wolfram-alpha/wolfram-alpha-api');
 
@@ -39,7 +40,7 @@ export default class WolframAlphaTool extends StructuredTool {
       }
       return result || 'No answer found.';
     } catch (error) {
-      console.error('Wolfram Alpha error:', error);
+      logger.error('Wolfram Alpha error:', error);
       return `An error occurred during calculation: ${error}`;
     }
   }

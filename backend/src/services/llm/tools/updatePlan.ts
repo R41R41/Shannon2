@@ -3,6 +3,7 @@ import { DiscordPlanningInput } from '@shannon/common';
 import { z } from 'zod';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { getEventBus } from '../../eventBus/index.js';
+import { logger } from '../../../utils/logger.js';
 
 /**
  * update-plan ツール
@@ -106,13 +107,14 @@ export default class UpdatePlanTool extends StructuredTool {
             }
 
             const subtaskCount = data.subtasks?.length || 0;
-            console.log(
-                `\x1b[36m📋 Plan updated: "${data.goal}" (${subtaskCount} subtasks)\x1b[0m`
+            logger.info(
+                `📋 Plan updated: "${data.goal}" (${subtaskCount} subtasks)`,
+                'cyan',
             );
 
             return `計画を更新しました: ${data.goal}`;
         } catch (error) {
-            console.error('update-plan error:', error);
+            logger.error('update-plan error:', error);
             return `計画の更新に失敗しました: ${error}`;
         }
     }

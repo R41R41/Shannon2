@@ -2,6 +2,7 @@ import { StructuredTool } from '@langchain/core/tools';
 import { ThreadChannel } from 'discord.js';
 import { z } from 'zod';
 import { DiscordBot } from '../../discord/client.js';
+import { logger } from '../../../utils/logger.js';
 
 /**
  * Discordチャンネルの直近メッセージから画像（添付ファイル・embed）を取得するツール。
@@ -113,7 +114,7 @@ export default class GetDiscordImagesTool extends StructuredTool {
             }
           }
         } catch (err) {
-          console.warn('[get-discord-images] スターターメッセージの取得に失敗:', err);
+          logger.warn(`[get-discord-images] スターターメッセージの取得に失敗: ${err}`);
         }
       }
 
@@ -123,7 +124,7 @@ export default class GetDiscordImagesTool extends StructuredTool {
 
       return `チャンネル内の画像一覧（新しい順）:\n\n${results.join('\n\n')}\n\n※ edit-image の imagePath にこの画像URLをそのまま渡せます。`;
     } catch (error) {
-      console.error('get-discord-images error:', error);
+      logger.error('get-discord-images error:', error);
       return `画像の取得中にエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`;
     }
   }

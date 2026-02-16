@@ -6,6 +6,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
+import { logger } from '../../../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -53,7 +54,7 @@ export default class CreateImageTool extends StructuredTool {
         const filepath = join(this.outputDir, filename);
         const imageBuffer = Buffer.from(b64Json, 'base64');
         writeFileSync(filepath, imageBuffer);
-        console.log(`\x1b[35m🎨 画像生成完了: ${filepath}\x1b[0m`);
+        logger.info(`🎨 画像生成完了: ${filepath}`, 'magenta');
         return `Image created and saved to: ${filepath}`;
       }
 
@@ -65,7 +66,7 @@ export default class CreateImageTool extends StructuredTool {
 
       return 'Image was generated but no data was returned.';
     } catch (error) {
-      console.error('Image generation error:', error);
+      logger.error('Image generation error:', error);
       return `An error occurred while generating the image: ${error}`;
     }
   }

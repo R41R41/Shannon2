@@ -15,6 +15,7 @@ import { models } from '../../../config/models.js';
 import { loadPrompt } from '../config/prompts.js';
 import GoogleSearchTool from '../tools/googleSearch.js';
 import WolframAlphaTool from '../tools/wolframAlpha.js';
+import { logger } from '../../../utils/logger.js';
 
 const OPENAI_API_KEY = config.openaiApiKey;
 const jst = 'Asia/Tokyo';
@@ -253,7 +254,7 @@ export class PostWeatherAgent {
 
       return result.output;
     } catch (error) {
-      console.error('Agent execution error:', error);
+      logger.error('Agent execution error:', error);
       throw error;
     }
   }
@@ -276,13 +277,13 @@ export class PostWeatherAgent {
 
   private getChanceOfRain(forecastData: WeatherApiForecastItem): string {
     const chanceOfRainData = forecastData.chanceOfRain;
-    console.log('chanceOfRainData:', chanceOfRainData);
+    logger.info(`chanceOfRainData: ${JSON.stringify(chanceOfRainData)}`);
     const t00_06 = chanceOfRainData['T00_06'] || '0%';
     const t06_12 = chanceOfRainData['T06_12'] || '0%';
     const t12_18 = chanceOfRainData['T12_18'] || '0%';
     const t18_24 = chanceOfRainData['T18_24'] || '0%';
     const result = `${t00_06}${t06_12}${t12_18}${t18_24}`;
-    console.log('chanceOfRain result:', result);
+    logger.info(`chanceOfRain result: ${result}`);
     return result;
   }
 
@@ -331,12 +332,12 @@ export class PostWeatherAgent {
   }
 
   private async getMaxChanceOfRain(chanceOfRain: string): Promise<string> {
-    console.log('Input chanceOfRain:', chanceOfRain);
+    logger.info(`Input chanceOfRain: ${chanceOfRain}`);
     const chanceOfRainList = chanceOfRain
       .split('%')
       .map(Number)
       .filter((n) => !isNaN(n));
-    console.log('chanceOfRainList:', chanceOfRainList);
+    logger.info(`chanceOfRainList: ${JSON.stringify(chanceOfRainList)}`);
 
     if (chanceOfRainList.length === 0) {
       return '0%';
@@ -395,7 +396,7 @@ export class PostWeatherAgent {
 
       return result;
     } catch (error) {
-      console.error('Error getting weather comment:', error);
+      logger.error('Error getting weather comment:', error);
 
       // エラーが発生した場合、基本的な天気予報を返す
       const defaultResult: WeatherResult = {
@@ -503,7 +504,7 @@ export class PostWeatherAgent {
 
       return formattedForecast;
     } catch (error) {
-      console.error('Error getting weather forecast for Toyama:', error);
+      logger.error('Error getting weather forecast for Toyama:', error);
 
       // エラーが発生した場合、基本的な天気予報を返す
       if (lastForecast && lastForecast.weatherData) {

@@ -5,6 +5,7 @@ import {
 } from '../../common/WebSocketService.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { getEventBus } from '../../eventBus/index.js';
+import { logger } from '../../../utils/logger.js';
 
 export class PlanningAgent extends WebSocketServiceBase {
   private static instance: PlanningAgent;
@@ -36,12 +37,12 @@ export class PlanningAgent extends WebSocketServiceBase {
 
   protected override initialize() {
     this.wss.on('connection', async (ws) => {
-      console.log('\x1b[34mPlanning client connected\x1b[0m');
+      logger.info('Planning client connected', 'blue');
 
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        console.log('\x1b[31mPlanning client disconnected\x1b[0m');
+        logger.error('Planning client disconnected');
       });
 
       ws.on('message', async (message) => {
@@ -54,15 +55,15 @@ export class PlanningAgent extends WebSocketServiceBase {
       });
 
       ws.on('close', () => {
-        console.log('\x1b[31mPlanning Client disconnected\x1b[0m');
+        logger.error('Planning Client disconnected');
       });
 
       ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
+        logger.error('WebSocket error:', error);
       });
     });
 
-    console.log('\x1b[31mplanningAgent subscribe\x1b[0m');
+    logger.error('planningAgent subscribe');
   }
 
   public start() {

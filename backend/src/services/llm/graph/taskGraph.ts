@@ -24,6 +24,7 @@ import {
   TaskQueueEntry,
   TaskStateInput,
 } from './types.js';
+import { logger } from '../../../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -94,7 +95,7 @@ export class TaskGraph {
     // FunctionCallingAgent 初期化（ツール群を渡す）
     this.functionCallingAgent = new FunctionCallingAgent(this.tools);
 
-    console.log('\x1b[36m✅ TaskGraph initialized (FunctionCalling + Memory mode)\x1b[0m');
+    logger.info('✅ TaskGraph initialized (FunctionCalling + Memory mode)', 'cyan');
   }
 
   /**
@@ -102,12 +103,12 @@ export class TaskGraph {
    */
   private initializeEventBus() {
     this.eventBus.subscribe('task:stop', (event) => {
-      console.log('タスクを停止します');
+      logger.info('タスクを停止します');
       this.forceStop();
     });
 
     this.eventBus.subscribe('task:start', () => {
-      console.log('タスクを再開します');
+      logger.info('タスクを再開します');
       this.executeNextTask();
     });
   }
@@ -134,7 +135,7 @@ export class TaskGraph {
   public async invoke(partialState: TaskStateInput) {
     // 排他制御
     if (this.isExecuting) {
-      console.log(`\x1b[33m⚠️ タスク実行中のため、新しいタスクをスキップします (message: ${partialState.userMessage?.substring(0, 50)})\x1b[0m`);
+      logger.warn(`⚠️ タスク実行中のため、新しいタスクをスキップします (message: ${partialState.userMessage?.substring(0, 50)})`);
       return null;
     }
 
@@ -177,7 +178,7 @@ export class TaskGraph {
     };
 
     try {
-      console.log('🚀 タスク実行開始 ID:', taskId);
+      logger.info(`🚀 タスク実行開始 ID: ${taskId}`);
 
       // === Step 1: EmotionNode 初回評価 (同期) ===
       if (this.emotionNode) {
@@ -189,9 +190,9 @@ export class TaskGraph {
             emotion: emotionState.current,
           });
           emotionState.current = emotionResult.emotion;
-          console.log(`💭 初回感情: ${emotionState.current?.emotion}`);
+          logger.info(`💭 初回感情: ${emotionState.current?.emotion}`);
         } catch (error) {
-          console.error('❌ 初回感情分析エラー:', error);
+          logger.error('❌ 初回感情分析エラー:', error);
           // エラーでも続行（感情なしでFunctionCallingAgentを実行）
         }
       }
@@ -205,7 +206,7 @@ export class TaskGraph {
             context,
           });
         } catch (error) {
-          console.error('❌ MemoryNode preProcess エラー:', error);
+          logger.error('❌ MemoryNode preProcess エラー:', error);
           // エラーでも続行（記憶なしでFCAを実行）
         }
       }
@@ -234,10 +235,10 @@ export class TaskGraph {
                 .evaluateAsync(messages, results, emotionState.current)
                 .then((newEmotion) => {
                   emotionState.current = newEmotion;
-                  console.log(`💭 感情更新(非同期): ${newEmotion.emotion}`);
+                  logger.info(`💭 感情更新(非同期): ${newEmotion.emotion}`);
                 })
                 .catch((err) => {
-                  console.error('❌ 非同期感情再評価エラー:', err);
+                  logger.error('❌ 非同期感情再評価エラー:', err);
                 });
             }
           },
@@ -259,12 +260,7 @@ export class TaskGraph {
         result.taskTree.status = 'error';
       }
 
-      console.log('✅ タスク完了:', {
-        taskId: result.taskId,
-        status: result.taskTree?.status,
-        messageCount: result.messages.length,
-        finalEmotion: emotionState.current?.emotion,
-      });
+      logger.info(`✅ タスク完了: ${JSON.stringify({ taskId: result.taskId, status: result.taskTree?.status, messageCount: result.messages.length, finalEmotion: emotionState.current?.emotion })}`);
 
       // === Fallback: FCA がチャットツールを呼ばずにテキスト応答で終了した場合 ===
       if (
@@ -285,9 +281,7 @@ export class TaskGraph {
           }
         );
         if (!chatToolCalled) {
-          console.log(
-            '\x1b[33m⚠️ FCA が chat-on-discord を呼ばなかったため、フォールバック送信\x1b[0m'
-          );
+          logger.warn('⚠️ FCA が chat-on-discord を呼ばなかったため、フォールバック送信');
           this.eventBus.publish({
             type: 'discord:post_message',
             memoryZone: partialState.memoryZone || 'web',
@@ -331,7 +325,7 @@ export class TaskGraph {
           conversationText,
           exchanges,
         }).catch((err) => {
-          console.error('❌ MemoryNode postProcess エラー:', err);
+          logger.error('❌ MemoryNode postProcess エラー:', err);
         });
       }
 
@@ -345,7 +339,7 @@ export class TaskGraph {
           error.message?.includes('aborted') ||
           error.message?.includes('abort'))
       ) {
-        console.log('\x1b[33m⚠️ タスクが強制停止されました\x1b[0m');
+        logger.warn('⚠️ タスクが強制停止されました');
         return {
           taskId,
           forceStop: true,
@@ -358,7 +352,7 @@ export class TaskGraph {
         };
       }
 
-      console.error('タスク実行エラー:', error);
+      logger.error('タスク実行エラー:', error);
       return {
         taskId,
         taskTree: {
@@ -373,7 +367,7 @@ export class TaskGraph {
       this.abortController = null;
 
       if (partialState.isEmergency || this.isEmergencyMode) {
-        console.log('\x1b[33m🚨 緊急タスク終了\x1b[0m');
+        logger.warn('🚨 緊急タスク終了');
         this.isEmergencyMode = false;
         this.emergencyTask = null;
       }
@@ -449,9 +443,7 @@ export class TaskGraph {
     };
 
     this.taskQueue.push(task);
-    console.log(
-      `\x1b[32m📥 タスクをキューに追加: "${task.taskTree?.goal}" (${this.taskQueue.length}/${GRAPH_CONFIG.MAX_QUEUE_SIZE})\x1b[0m`
-    );
+    logger.success(`📥 タスクをキューに追加: "${task.taskTree?.goal}" (${this.taskQueue.length}/${GRAPH_CONFIG.MAX_QUEUE_SIZE})`);
 
     this.notifyTaskListUpdate();
 
@@ -505,16 +497,14 @@ export class TaskGraph {
       (t) => t.status === 'pending' || t.status === 'paused'
     );
     if (!nextTask) {
-      console.log('\x1b[33m📭 実行するタスクがありません\x1b[0m');
+      logger.warn('📭 実行するタスクがありません');
       return;
     }
 
     nextTask.status = 'executing';
     this.notifyTaskListUpdate();
 
-    console.log(
-      `\x1b[32m▶️ タスク実行開始: "${nextTask.taskTree?.goal}"\x1b[0m`
-    );
+    logger.success(`▶️ タスク実行開始: "${nextTask.taskTree?.goal}"`);
 
     await this.invoke(nextTask.state);
     this.handleTaskCompletion(nextTask.id);

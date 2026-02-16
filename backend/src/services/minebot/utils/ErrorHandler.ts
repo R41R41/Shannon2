@@ -3,8 +3,11 @@
  * エラーハンドリングを統一するユーティリティクラス
  */
 
+import { createLogger } from '../../../utils/logger.js';
 import { IErrorHandler } from '../interfaces/index.js';
 import { ErrorRecoveryStrategy, MinebotError } from '../types/index.js';
+
+const log = createLogger('Minebot:ErrorHandler');
 
 /**
  * エラーハンドラー
@@ -28,14 +31,14 @@ export class ErrorHandler implements IErrorHandler {
      */
     handle(error: MinebotError): void {
         // エラー情報をコンソールに出力
-        console.error('🚨 Error occurred:', error.toJSON());
+        log.error(`🚨 Error occurred: ${JSON.stringify(error.toJSON())}`);
 
         // 登録されたリスナーに通知
         this.errorListeners.forEach(listener => {
             try {
                 listener(error);
             } catch (listenerError) {
-                console.error('Error in error listener:', listenerError);
+                log.error('Error in error listener', listenerError);
             }
         });
     }
@@ -85,9 +88,7 @@ export class ErrorHandler implements IErrorHandler {
                 }
 
                 if (attempt < strategy.maxRetries) {
-                    console.log(
-                        `⚠️ Retry attempt ${attempt}/${strategy.maxRetries} after ${strategy.retryDelay}ms`
-                    );
+                    log.warn(`⚠️ Retry attempt ${attempt}/${strategy.maxRetries} after ${strategy.retryDelay}ms`);
 
                     if (strategy.onRetry) {
                         strategy.onRetry(attempt, minebotError);
@@ -153,10 +154,10 @@ export const DEFAULT_RETRY_STRATEGY: ErrorRecoveryStrategy = {
         return error.type === 'LLM_ERROR' || error.type === 'HTTP_SERVER_ERROR';
     },
     onRetry: (attemptNumber, error) => {
-        console.log(`🔄 Retrying (attempt ${attemptNumber}): ${error.message}`);
+        log.warn(`🔄 Retrying (attempt ${attemptNumber}): ${error.message}`);
     },
     onMaxRetriesReached: (error) => {
-        console.error(`❌ Max retries reached for: ${error.message}`);
+        log.error(`❌ Max retries reached for: ${error.message}`);
     },
 };
 

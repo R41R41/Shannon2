@@ -1,6 +1,7 @@
 import { StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import wikipedia from 'wikipedia';
+import { logger } from '../../../utils/logger.js';
 
 // Wikipedia API は User-Agent 必須（ないと 403）
 wikipedia.setUserAgent('ShannonBot/1.0 (https://sh4nnon.com)');
@@ -34,7 +35,7 @@ export default class SearchByWikipediaTool extends StructuredTool {
             if (error && error.message && error.message.includes('No article found')) {
                 return `Wikipediaで「${data.query}」の記事が見つかりませんでした。`;
             }
-            console.error('Wikipedia search error:', error);
+            logger.error('Wikipedia search error:', error);
             return `Wikipedia検索中にエラーが発生しました: ${error}`;
         }
     }

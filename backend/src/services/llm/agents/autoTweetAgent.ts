@@ -2,6 +2,7 @@ import { TwitterTrendData } from '@shannon/common';
 import { config } from '../../../config/env.js';
 import { loadPrompt } from '../config/prompts.js';
 import { generateTweetForAutoPost } from '../tools/generateTweetText.js';
+import { logger } from '../../../utils/logger.js';
 
 /**
  * AutoTweetAgent: トレンド情報を元にシャノンのキャラでツイートを自動生成する
@@ -49,13 +50,13 @@ export class AutoTweetAgent {
       const result = await generateTweetForAutoPost(topic, this.systemPrompt);
 
       if (!result) {
-        console.warn('🐦 AutoTweetAgent: 生成失敗（空の結果）');
+        logger.warn('🐦 AutoTweetAgent: 生成失敗（空の結果）');
         return '';
       }
 
       return result;
     } catch (error) {
-      console.error('🐦 AutoTweetAgent error:', error);
+      logger.error('🐦 AutoTweetAgent error:', error);
       return '';
     }
   }

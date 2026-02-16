@@ -1,5 +1,7 @@
 import { CustomBot, InstantSkill } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
 import { Vec3 } from 'vec3';
+const log = createLogger('Minebot:Skill:fish');
 
 /**
  * 原子的スキル: 釣りをする
@@ -91,14 +93,14 @@ class Fish extends InstantSkill {
         if (candidate.totalDist > 15) continue;
         const target = candidate.pos.offset(0.5, 0.5, 0.5);
         if (this.hasLineOfSight(eyePos, target)) {
-          console.log(`\x1b[36m🎣 水面選択: 水平距離=${candidate.horizontalDist.toFixed(1)}m, 総距離=${candidate.totalDist.toFixed(1)}m\x1b[0m`);
+          log.info(`🎣 水面選択: 水平距離=${candidate.horizontalDist.toFixed(1)}m, 総距離=${candidate.totalDist.toFixed(1)}m`, 'cyan');
           return candidate.pos;
         }
       }
     }
 
     // 視線が通る水面がなかった場合、最も近い水面をフォールバック
-    console.log(`\x1b[33m⚠ 視線が通る水面がないため、最寄り水面を使用\x1b[0m`);
+    log.warn('⚠ 視線が通る水面がないため、最寄り水面を使用');
     surfaceBlocks.sort((a, b) => a.totalDist - b.totalDist);
     return surfaceBlocks[0].pos;
   }
@@ -151,9 +153,7 @@ class Fish extends InstantSkill {
         const notchYaw = (180 / Math.PI) * (Math.PI - bot.entity.yaw);
         const notchPitch = (180 / Math.PI) * (-bot.entity.pitch);
         data.rotation = { x: notchYaw, y: notchPitch };
-        console.log(
-          `\x1b[35m🔧 use_item rotation修正: yaw=${notchYaw.toFixed(1)}° pitch=${notchPitch.toFixed(1)}°\x1b[0m`,
-        );
+        log.info(`🔧 use_item rotation修正: yaw=${notchYaw.toFixed(1)}° pitch=${notchPitch.toFixed(1)}°`, 'magenta');
       }
       return origWrite(name, data, ...rest);
     };
@@ -170,6 +170,8 @@ class Fish extends InstantSkill {
     // 世代をインクリメント: 古い runImpl() がまだ動いていたら
     // ループ内で世代変化を検出して自発的に終了する
     const myGeneration = ++this.runGeneration;
+
+    log.info(`🎣 釣り開始 (${count}回)`);
 
     try {
       // 前回の中断された釣り操作をキャンセル
@@ -215,9 +217,7 @@ class Fish extends InstantSkill {
               '近くに水が見つかりません。水辺に移動してください（10ブロック以内）。',
           };
         }
-        console.log(
-          `\x1b[33m⚠ 視線が通る水面がなく、最寄りの水ブロックに向きます: ${anyWater.position}\x1b[0m`,
-        );
+        log.warn(`⚠ 視線が通る水面がなく、最寄りの水ブロックに向きます: ${anyWater.position}`);
         aimTarget = anyWater.position.offset(0.5, 0.5, 0.5);
       } else {
         aimTarget = waterSurface.offset(0.5, 0.5, 0.5);
@@ -256,12 +256,7 @@ class Fish extends InstantSkill {
             ) *
               (180 / Math.PI),
           );
-          console.log(
-            `\x1b[36m🎯 自動照準: 水面ターゲット (${aimTarget.x.toFixed(1)}, ${aimTarget.y.toFixed(1)}, ${aimTarget.z.toFixed(1)}) dist=${eyePos.distanceTo(aimTarget).toFixed(1)}m 水平=${horizontalDist.toFixed(1)}m\x1b[0m`,
-          );
-          console.log(
-            `\x1b[36m🎯 ボバー弧補正: pitch=${directPitchDeg}°→${fishingPitchDeg}° (補正=${arcCompensation.toFixed(1)}m下)\x1b[0m`,
-          );
+          log.info(`🎯 自動照準: ターゲット (${aimTarget.x.toFixed(1)}, ${aimTarget.y.toFixed(1)}, ${aimTarget.z.toFixed(1)}) dist=${eyePos.distanceTo(aimTarget).toFixed(1)}m 水平=${horizontalDist.toFixed(1)}m / 弧補正: pitch=${directPitchDeg}°→${fishingPitchDeg}°`, 'cyan');
         }
 
         // lookAt で方向設定 (force=true でパケット即送信)
@@ -272,7 +267,7 @@ class Fish extends InstantSkill {
         // 中断チェック2: 世代が変わった場合（新しい runImpl() が開始された）
         if (this.shouldInterrupt() || myGeneration !== this.runGeneration) {
           const reason = myGeneration !== this.runGeneration ? '新しいタスクにより' : 'フィードバックにより';
-          console.log(`\x1b[33m⚡ 釣りループ終了: ${reason}中断（${successCount}/${i}回完了）\x1b[0m`);
+          log.warn(`⚡ 釣りループ終了: ${reason}中断（${successCount}/${i}回完了）`);
           // 世代が変わった場合は unpatch しない（新しい runImpl が使っている）
           if (myGeneration === this.runGeneration) unpatch();
           return {
@@ -284,10 +279,6 @@ class Fish extends InstantSkill {
         }
 
         try {
-          console.log(
-            `\x1b[36m🎣 釣り ${i + 1}/${count} 回目: キャスト中...\x1b[0m`
-          );
-
           // playerCollect イベントで釣れたアイテムを検出
           const collectPromise = new Promise<string>((resolve) => {
             const timeout = setTimeout(() => {
@@ -341,9 +332,7 @@ class Fish extends InstantSkill {
 
           caughtItems.push(itemName);
           successCount++;
-          console.log(
-            `\x1b[32m✓ 釣り ${i + 1}/${count}: ${itemName} を釣り上げた！\x1b[0m`
-          );
+          log.success(`✓ 釣り ${i + 1}/${count}: ${itemName} を釣り上げた！`);
 
           // 次のキャストまで少し待つ
           if (i < count - 1) {
@@ -351,9 +340,7 @@ class Fish extends InstantSkill {
           }
         } catch (e: any) {
           failCount++;
-          console.log(
-            `\x1b[33m⚠ 釣り ${i + 1}/${count}: 失敗 - ${e.message}\x1b[0m`
-          );
+          log.warn(`⚠ 釣り ${i + 1}/${count}: 失敗 - ${e.message}`);
 
           // 中断シグナルまたは世代変化ならループを即終了
           if (this.shouldInterrupt() || myGeneration !== this.runGeneration) {

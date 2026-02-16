@@ -3,6 +3,7 @@ import { DiscordClientInput, MemoryZone } from '@shannon/common';
 import { z } from 'zod';
 import { EventBus } from '../../eventBus/eventBus.js';
 import { getEventBus } from '../../eventBus/index.js';
+import { logger } from '../../../utils/logger.js';
 
 export default class ChatOnDiscordTool extends StructuredTool {
   name = 'chat-on-discord';
@@ -49,7 +50,7 @@ export default class ChatOnDiscordTool extends StructuredTool {
       });
       return `${currentTime} Sent a message to Discord: ${data.message}`;
     } catch (error) {
-      console.error('Discord send error:', error);
+      logger.error('Discord send error:', error);
       return `Discordへの送信中にエラーが発生しました: ${error}`;
     }
   }

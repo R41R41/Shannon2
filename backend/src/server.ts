@@ -14,6 +14,7 @@ import { Scheduler } from './services/scheduler/client.js';
 import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
 import { YoutubeClient } from './services/youtube/client.js';
+import { logger } from './utils/logger.js';
 
 class Server {
   private llmService: LLMService;
@@ -87,12 +88,12 @@ class Server {
         const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][now.getDay()];
         const todayInfo = `今日: ${now.getFullYear()}年${month}月${day}日(${dayOfWeek})\nイベント: バレンタインデー`;
 
-        console.log(`[Test] トレンド ${trends.length}件、LLM生成のみ`);
+        logger.info(`[Test] トレンド ${trends.length}件、LLM生成のみ`);
         const tweet = await agent.generateTweet(trends, todayInfo);
-        console.log(`[Test] 生成結果: ${tweet}`);
+        logger.info(`[Test] 生成結果: ${tweet}`);
         res.status(200).json({ ok: true, tweet, trendsUsed: trends.length });
       } catch (err) {
-        console.error('[Test] エラー:', err);
+        logger.error('[Test] エラー', err);
         res.status(500).json({ error: String(err) });
       }
     });
@@ -103,7 +104,7 @@ class Server {
         // X-API-Key ヘッダーで送信元を検証
         const receivedKey = req.headers['x-api-key'] as string | undefined;
         if (!receivedKey || receivedKey !== config.twitter.twitterApiIoKey) {
-          console.warn('[Webhook] Twitter webhook: 不正な API Key');
+          logger.warn('[Webhook] Twitter webhook: 不正な API Key');
           res.status(401).json({ error: 'Unauthorized' });
           return;
         }
@@ -124,11 +125,11 @@ class Server {
         }
 
         // デバッグ: 初回はペイロード構造を確認
-        console.log(
+        logger.info(
           `[Webhook] Twitter webhook 受信: ${tweets.length}件 (rule: ${rule_tag})`
         );
         if (tweets.length > 0) {
-          console.log('[Webhook] ペイロード例:', JSON.stringify(tweets[0], null, 2).slice(0, 500));
+          logger.info(`[Webhook] ペイロード例: ${JSON.stringify(tweets[0], null, 2).slice(0, 500)}`);
         }
 
         const eventBus = getEventBus();
@@ -148,7 +149,7 @@ class Server {
 
           // 処理済みチェック (ポーリングとの二重返信防止)
           if (this.twitterClient.processedTweetIds.has(tweetId)) {
-            console.log(`[Webhook] 既に処理済み: ${tweetId}`);
+            logger.info(`[Webhook] 既に処理済み: ${tweetId}`);
             continue;
           }
 
@@ -158,7 +159,7 @@ class Server {
 
           // 日次返信上限チェック
           if (this.twitterClient.isReplyLimitReached()) {
-            console.log(`[Webhook] 日次返信上限に到達: ${tweetId} (by @${authorUserName}) をスキップ`);
+            logger.info(`[Webhook] 日次返信上限に到達: ${tweetId} (by @${authorUserName}) をスキップ`);
             continue;
           }
 
@@ -166,7 +167,7 @@ class Server {
           const inReplyToId =
             tweet.inReplyToId ?? tweet.in_reply_to_status_id ?? tweet.in_reply_to_tweet_id ?? null;
 
-          console.log(
+          logger.info(
             `[Webhook] リプライ検知: @${authorUserName} "${tweetText.slice(0, 50)}..." (返信先: ${inReplyToId})`
           );
 
@@ -193,10 +194,10 @@ class Server {
                 currentReplyToId = t.inReplyToId ?? t.in_reply_to_status_id ?? null;
               }
             } catch (err) {
-              console.warn('[Webhook] 会話スレッド取得失敗:', err);
+              logger.warn(`[Webhook] 会話スレッド取得失敗: ${err}`);
             }
 
-            console.log(`[Webhook] 会話スレッド: ${thread.length}件取得 (最大${MAX_CHAIN_DEPTH})`);
+            logger.info(`[Webhook] 会話スレッド: ${thread.length}件取得 (最大${MAX_CHAIN_DEPTH})`);
 
             // 返信カウンタをインクリメント
             this.twitterClient.incrementReplyCount();
@@ -223,29 +224,25 @@ class Server {
 
         res.status(200).json({ ok: true, processed });
       } catch (error) {
-        console.error('[Webhook] Twitter webhook エラー:', error);
+        logger.error('[Webhook] Twitter webhook エラー', error);
         res.status(500).json({ error: 'Internal Server Error' });
       }
     });
 
     const port = config.port;
     this.httpServer = app.listen(port, () => {
-      console.log(`\x1b[34mHTTP Server listening on port ${port}\x1b[0m`);
+      logger.info(`HTTP Server listening on port ${port}`, 'blue');
     });
   }
 
   private async connectDatabase() {
     try {
       const uri = config.mongodbUri;
-      console.log('Connecting to MongoDB:', uri); // URIを確認
+      logger.info(`Connecting to MongoDB: ${uri}`);
       await mongoose.connect(uri);
-      console.log(
-        '\x1b[34mMongoDB connected to:',
-        mongoose.connection.db.databaseName,
-        '\x1b[0m'
-      ); // DB名を確認
+      logger.info(`MongoDB connected to: ${mongoose.connection.db.databaseName}`, 'blue');
     } catch (error) {
-      console.error(`\x1b[31mMongoDB connection error: ${error}\x1b[0m`);
+      logger.error(`MongoDB connection error: ${error}`);
     }
   }
 
@@ -269,7 +266,7 @@ class Server {
         this.startNotionClient(),
       ]);
     } catch (error) {
-      console.error(`\x1b[31mサービス起動エラー: ${error}\x1b[0m`);
+      logger.error(`サービス起動エラー: ${error}`);
       process.exit(1);
     }
   }
@@ -280,51 +277,51 @@ class Server {
 
   private async startWebClient() {
     await this.webClient.start();
-    console.log('\x1b[34mWeb Client started\x1b[0m');
+    logger.info('Web Client started', 'blue');
   }
 
   private async startTwitterClient() {
     await this.twitterClient.start();
-    console.log('\x1b[34mTwitter Client started\x1b[0m');
+    logger.info('Twitter Client started', 'blue');
   }
 
   private async startLLMService() {
     await this.llmService.initialize();
-    console.log('\x1b[34mLLM Service started\x1b[0m');
+    logger.info('LLM Service started', 'blue');
   }
 
   private async startScheduler() {
     await this.scheduler.start();
-    console.log('\x1b[34mScheduler started\x1b[0m');
+    logger.info('Scheduler started', 'blue');
   }
 
   private async startYoutubeClient() {
     try {
       await this.youtubeClient.start();
-      console.log('\x1b[34mYoutube Client started\x1b[0m');
+      logger.info('Youtube Client started', 'blue');
     } catch (error) {
-      console.error(`\x1b[31mYoutube Client start error: ${error}\x1b[0m`);
-      console.warn('\x1b[33mContinuing without Youtube functionality\x1b[0m');
+      logger.error(`Youtube Client start error: ${error}`);
+      logger.warn('Continuing without Youtube functionality');
     }
   }
 
   private async startMinecraftClient() {
     await this.minecraftClient.start();
-    console.log('\x1b[34mMinecraft Client started\x1b[0m');
+    logger.info('Minecraft Client started', 'blue');
   }
 
   private async startMinebotClient() {
     await this.minebotClient.start();
-    console.log('\x1b[34mMinebot Client started\x1b[0m');
+    logger.info('Minebot Client started', 'blue');
   }
 
   private async startNotionClient() {
     await this.notionClient.start();
-    console.log('\x1b[34mNotion Client started\x1b[0m');
+    logger.info('Notion Client started', 'blue');
   }
 
   public async shutdown() {
-    console.log('\x1b[33m[Shutdown] グレースフルシャットダウン開始...\x1b[0m');
+    logger.warn('[Shutdown] グレースフルシャットダウン開始...');
 
     // 注意: Webhook ルールはシャットダウン時に無効化しない。
     // deactivate → reactivate するとカーソル (last_tweet_id) がリセットされ、
@@ -333,7 +330,7 @@ class Server {
 
     // 各サービスのクリーンアップ処理
     await mongoose.disconnect();
-    console.log('\x1b[31mMongoDB disconnected\x1b[0m');
+    logger.error('MongoDB disconnected');
     process.exit(0);
   }
 }

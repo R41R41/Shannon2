@@ -1,7 +1,10 @@
 import { MinebotSkillInput } from '@shannon/common';
 import { EventBus } from '../../eventBus/eventBus.js';
+import { createLogger } from '../../../utils/logger.js';
 import { ConstantSkills, CustomBot, InstantSkills } from '../types.js';
 import { SkillLoader } from './SkillLoader.js';
+
+const log = createLogger('Minebot:SkillRegistrar');
 
 /**
  * SkillRegistrar
@@ -20,7 +23,7 @@ export class SkillRegistrar {
      * InstantSkillsをEventBusに登録
      */
     registerInstantSkills(instantSkills: InstantSkills): void {
-        console.log('📝 Registering instant skills to EventBus...');
+        log.info('📝 Registering instant skills to EventBus...');
 
         instantSkills.getSkills().forEach((skill) => {
 
@@ -49,14 +52,14 @@ export class SkillRegistrar {
             });
         });
 
-        console.log(`✅ Registered ${instantSkills.getSkills().length} instant skills`);
+        log.success(`✅ Registered ${instantSkills.getSkills().length} instant skills`);
     }
 
     /**
      * ConstantSkillsをEventBusに登録し、定期実行を設定
      */
     registerConstantSkills(bot: CustomBot, constantSkills: ConstantSkills): void {
-        console.log('📝 Registering constant skills...');
+        log.info('📝 Registering constant skills...');
 
         // JSONファイルから保存された状態を読み込む
         const savedSkills = this.skillLoader.loadConstantSkillsState();
@@ -85,14 +88,14 @@ export class SkillRegistrar {
             }
         });
 
-        console.log(`✅ Registered ${constantSkills.getSkills().length} constant skills`);
+        log.success(`✅ Registered ${constantSkills.getSkills().length} constant skills`);
     }
 
     /**
      * EventBus経由のスキル制御イベントを登録
      */
     registerSkillControlEvents(bot: CustomBot): void {
-        console.log('📝 Registering skill control events...');
+        log.info('📝 Registering skill control events...');
 
         // スキル停止イベント
         this.eventBus.subscribe('minebot:stopInstantSkill', async (event) => {
@@ -160,7 +163,7 @@ export class SkillRegistrar {
             }
         });
 
-        console.log('✅ Skill control events registered');
+        log.success('✅ Skill control events registered');
     }
 }
 

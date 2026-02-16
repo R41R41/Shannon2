@@ -13,6 +13,9 @@ import { CentralLogManager, LogManager } from '../logging/index.js';
 import { UpdatePlanTool } from '../tools/UpdatePlanTool.js';
 import { config } from '../../../../../config/env.js';
 import { models } from '../../../../../config/models.js';
+import { createLogger } from '../../../../../utils/logger.js';
+
+const log = createLogger('Minebot:FCA');
 
 // taskTreeをPOST送信する関数
 async function sendTaskTreeToServer(taskTree: any) {
@@ -24,10 +27,10 @@ async function sendTaskTreeToServer(taskTree: any) {
       body: JSON.stringify(taskTree),
     });
     if (!response.ok) {
-      console.error('taskTree送信失敗:', response.status);
+      log.error(`taskTree送信失敗: ${response.status}`);
     }
   } catch (error) {
-    console.error('taskTree送信エラー:', error);
+    log.error('taskTree送信エラー', error);
   }
 }
 
@@ -112,9 +115,7 @@ export class FunctionCallingAgent {
     // ツールをモデルに bind（OpenAI API の tools パラメータに変換）
     this.modelWithTools = this.model.bindTools(this.tools);
 
-    console.log(
-      `\x1b[36m🤖 FunctionCallingAgent: model=${modelName}, tools=${tools.length}\x1b[0m`,
-    );
+    log.info(`🤖 initialized model=${modelName}, tools=${tools.length}`, 'cyan');
   }
 
   /**
@@ -131,9 +132,7 @@ export class FunctionCallingAgent {
   public addFeedback(feedback: string): void {
     if (this._waitingForResponse && this.responseResolver) {
       // 応答待機中 → Promiseを解決してAgentループを再開
-      console.log(
-        `\x1b[33m📝 FunctionCallingAgent: 待機中に応答受信: ${feedback}\x1b[0m`,
-      );
+      log.info(`📝 待機中に応答受信: ${feedback}`, 'cyan');
       const resolver = this.responseResolver;
       this.responseResolver = null;
       this._waitingForResponse = false;
@@ -141,9 +140,7 @@ export class FunctionCallingAgent {
     } else {
       // 通常のフィードバック（スキル実行中の中断用など）
       this.pendingFeedback.push(feedback);
-      console.log(
-        `\x1b[33m📝 FunctionCallingAgent: フィードバック追加: ${feedback}\x1b[0m`,
-      );
+      log.info(`📝 フィードバック追加: ${feedback}`, 'cyan');
     }
   }
 
@@ -161,9 +158,7 @@ export class FunctionCallingAgent {
       const timer = setTimeout(() => {
         this._waitingForResponse = false;
         this.responseResolver = null;
-        console.log(
-          `\x1b[33m⏱ 応答待機タイムアウト (${timeoutMs / 1000}秒)\x1b[0m`,
-        );
+        log.warn(`⏱ 応答待機タイムアウト (${timeoutMs / 1000}秒)`);
         resolve(null);
       }, timeoutMs);
 
@@ -218,9 +213,7 @@ export class FunctionCallingAgent {
     const goal = state.userMessage || 'Unknown task';
     const isEmergency = state.isEmergency || false;
 
-    console.log(
-      `\x1b[36m🤖 FunctionCallingAgent: タスク実行開始 "${goal}"${isEmergency ? ' [緊急]' : ''}\x1b[0m`,
-    );
+    log.info(`🤖 タスク実行開始 "${goal}"${isEmergency ? ' [緊急]' : ''}`, 'cyan');
 
     // ボットの状態を更新
     const autoUpdateState =
@@ -254,9 +247,7 @@ export class FunctionCallingAgent {
       (sum, m) => sum + String(m.content).length,
       0,
     );
-    console.log(
-      `\x1b[36m📏 System prompt: ${totalChars}文字 (旧方式: ~23000文字)\x1b[0m`,
-    );
+    log.debug(`📏 System prompt: ${totalChars}文字`);
 
     // タスクツリー（UI表示用）
     const steps: HierarchicalSubTask[] = [];
@@ -297,9 +288,7 @@ export class FunctionCallingAgent {
           Date.now() - startTime >
           FunctionCallingAgent.MAX_TOTAL_TIME_MS
         ) {
-          console.log(
-            '\x1b[31m⏱ FunctionCallingAgent: 総実行時間超過 (5分)\x1b[0m',
-          );
+          log.error('⏱ 総実行時間超過 (10分)');
           break;
         }
 
@@ -309,7 +298,7 @@ export class FunctionCallingAgent {
           messages.push(
             new HumanMessage(`ユーザーからのフィードバック: ${fb}`),
           );
-          console.log(`\x1b[33m📝 フィードバックを会話に追加: ${fb}\x1b[0m`);
+          log.info(`📝 フィードバックを会話に追加: ${fb}`, 'cyan');
         }
 
         // ── LLM 呼び出し（タイムアウト付き） ──
@@ -351,9 +340,7 @@ export class FunctionCallingAgent {
             signal: callAbort.signal,
           })) as AIMessage;
           clearTimeout(callTimeout);
-          console.log(
-            `\x1b[32m⏱ LLM応答: ${Date.now() - llmStart}ms (iteration ${iteration + 1})\x1b[0m`,
-          );
+          log.success(`⏱ LLM応答: ${Date.now() - llmStart}ms (iteration ${iteration + 1})`);
         } catch (e: any) {
           clearTimeout(callTimeout);
           if (signal) {
@@ -391,9 +378,7 @@ export class FunctionCallingAgent {
             try {
               this.bot.chat(content.substring(0, 250));
             } catch (e) {
-              console.log(
-                `\x1b[33m⚠ チャット送信失敗: ${(e as Error).message}\x1b[0m`,
-              );
+              log.warn(`⚠ チャット送信失敗: ${(e as Error).message}`);
             }
           }
 
@@ -404,10 +389,7 @@ export class FunctionCallingAgent {
             iteration < FunctionCallingAgent.MAX_ITERATIONS - 1 &&
             !signal?.aborted
           ) {
-            console.log(
-              `\x1b[36m🔄 会話的応答を検出 - ユーザーの返答を待機中 (最大${FunctionCallingAgent.RESPONSE_TIMEOUT_MS / 1000}秒)...\x1b[0m`,
-            );
-            console.log(`   応答: ${content.substring(0, 200)}`);
+            log.info(`🔄 会話的応答を検出 - 待機中 (最大${FunctionCallingAgent.RESPONSE_TIMEOUT_MS / 1000}秒): ${content.substring(0, 100)}`, 'cyan');
 
             await sendTaskTreeToServer({
               status: 'in_progress',
@@ -434,24 +416,15 @@ export class FunctionCallingAgent {
               chatToolCalled = false; // 次のイテレーション用にリセット
               // 注意: 応答待機はイテレーションとしてカウントしない
               // （実際のLLM+ツール作業ではなくユーザー待機のため）
-              console.log(
-                `\x1b[32m📨 ユーザー応答受信: "${userResponse}" (Q&A ${conversationQA.length}件) - 会話を継続\x1b[0m`,
-              );
+              log.success(`📨 ユーザー応答受信: "${userResponse}" (Q&A ${conversationQA.length}件)`);
               continue;
             }
             // タイムアウト → タスク完了として処理
-            console.log(
-              `\x1b[33m⏱ 応答待機タイムアウト - タスクを完了します\x1b[0m`,
-            );
+            log.warn('⏱ 応答待機タイムアウト - タスクを完了します');
           }
 
           // タスク完了
-          console.log(
-            `\x1b[32m✅ FunctionCallingAgent: タスク完了 (${iteration + 1}イテレーション, ${((Date.now() - startTime) / 1000).toFixed(1)}s)\x1b[0m`,
-          );
-          if (content) {
-            console.log(`   応答: ${content.substring(0, 200)}`);
-          }
+          log.success(`✅ タスク完了 (${iteration + 1}イテレーション, ${((Date.now() - startTime) / 1000).toFixed(1)}s)${content ? ': ' + content.substring(0, 120) : ''}`);
 
           await sendTaskTreeToServer({
             status: 'completed',
@@ -485,9 +458,7 @@ export class FunctionCallingAgent {
         }
 
         // ── ツール実行 ──
-        console.log(
-          `\x1b[36m🔧 ${toolCalls.length}個のツールを実行中...\x1b[0m`,
-        );
+        log.info(`🔧 ${toolCalls.length}個のツールを実行中...`, 'cyan');
 
         for (const toolCall of toolCalls) {
           if (signal?.aborted) throw new Error('Task aborted');
@@ -518,7 +489,7 @@ export class FunctionCallingAgent {
           const tool = this.toolMap.get(toolCall.name);
           if (!tool) {
             const errorMsg = `ツール "${toolCall.name}" が見つかりません`;
-            console.log(`\x1b[31m  ✗ ${errorMsg}\x1b[0m`);
+            log.error(`  ✗ ${errorMsg}`);
 
             if (!isUpdatePlan && steps.length > 0) {
               const lastStep = steps[steps.length - 1];
@@ -537,9 +508,7 @@ export class FunctionCallingAgent {
 
           try {
             const execStart = Date.now();
-            console.log(
-              `\x1b[36m  ▶ ${toolCall.name}(${JSON.stringify(toolCall.args)})\x1b[0m`,
-            );
+            log.info(`  ▶ ${toolCall.name}(${JSON.stringify(toolCall.args)})`, 'cyan');
 
             const result = await tool.invoke(toolCall.args);
             const duration = Date.now() - execStart;
@@ -548,9 +517,7 @@ export class FunctionCallingAgent {
               typeof result === 'string'
                 ? result
                 : JSON.stringify(result);
-            console.log(
-              `\x1b[32m  ✓ ${toolCall.name} (${duration}ms): ${resultStr.substring(0, 200)}\x1b[0m`,
-            );
+            log.success(`  ✓ ${toolCall.name} (${duration}ms): ${resultStr.substring(0, 200)}`);
 
             // 結果が失敗を示しているか判定
             const isError =
@@ -593,7 +560,7 @@ export class FunctionCallingAgent {
             });
           } catch (error) {
             const errorMsg = `${toolCall.name} 実行エラー: ${error instanceof Error ? error.message : 'Unknown'}`;
-            console.log(`\x1b[31m  ✗ ${errorMsg}\x1b[0m`);
+            log.error(`  ✗ ${errorMsg}`, error);
 
             if (!isUpdatePlan && steps.length > 0) {
               const lastStep = steps[steps.length - 1];
@@ -634,9 +601,7 @@ export class FunctionCallingAgent {
       }
 
       // 最大イテレーション到達
-      console.log(
-        `\x1b[33m⚠ FunctionCallingAgent: 最大イテレーション(${FunctionCallingAgent.MAX_ITERATIONS})に到達\x1b[0m`,
-      );
+      log.warn(`⚠ 最大イテレーション(${FunctionCallingAgent.MAX_ITERATIONS})に到達`);
 
       await sendTaskTreeToServer({
         status: 'error',
@@ -661,9 +626,7 @@ export class FunctionCallingAgent {
     } catch (error) {
       const errorMsg =
         error instanceof Error ? error.message : 'Unknown error';
-      console.error(
-        `\x1b[31m❌ FunctionCallingAgent error: ${errorMsg}\x1b[0m`,
-      );
+      log.error(`❌ error: ${errorMsg}`, error);
 
       this.logManager.addLog({
         phase: 'planning',

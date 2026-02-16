@@ -9,6 +9,7 @@ import { pull } from 'langchain/hub';
 import { loadPrompt } from '../config/prompts.js';
 import { models } from '../../../config/models.js';
 import GoogleSearchTool from '../tools/googleSearch.js';
+import { logger } from '../../../utils/logger.js';
 
 const jst = 'Asia/Tokyo';
 
@@ -69,7 +70,7 @@ export class PostNewsAgent {
             });
             return result.output;
         } catch (error) {
-            console.error('Agent execution error:', error);
+            logger.error('Agent execution error:', error);
             throw error;
         }
     }

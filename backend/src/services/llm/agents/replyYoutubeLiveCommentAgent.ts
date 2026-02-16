@@ -6,6 +6,7 @@ import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
 import { MemoryNode } from '../graph/nodes/MemoryNode.js';
 import { IExchange } from '../../../models/PersonMemory.js';
+import { logger } from '../../../utils/logger.js';
 
 const OPENAI_API_KEY = config.openaiApiKey;
 if (!OPENAI_API_KEY) {
@@ -75,7 +76,7 @@ export class ReplyYoutubeLiveCommentAgent {
           memoryContext = `\n\n【ボクの記憶】\n${sections.join('\n')}`;
         }
       } catch (error) {
-        console.error('❌ YouTube Live Reply: 記憶取得エラー:', error);
+        logger.error('❌ YouTube Live Reply: 記憶取得エラー:', error);
       }
     }
 
@@ -100,7 +101,7 @@ export class ReplyYoutubeLiveCommentAgent {
         conversationText: `${author}: ${message}\nシャノン: ${replyText}`,
         exchanges,
       }).catch((err) => {
-        console.error('❌ YouTube Live Reply: 記憶保存エラー:', err);
+        logger.error('❌ YouTube Live Reply: 記憶保存エラー:', err);
       });
     }
 

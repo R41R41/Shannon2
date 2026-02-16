@@ -6,7 +6,9 @@ import {
 import { ChatOpenAI } from '@langchain/openai';
 import { CONFIG } from '../config/MinebotConfig.js';
 import { CustomBot, InstantSkill } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
 import { SkillParam } from '../types/skillParams.js';
+const log = createLogger('Minebot:Skill:investigateTerrain');
 
 /**
  * スキル②: LLMを使って周囲の地形を調査する
@@ -49,9 +51,7 @@ class InvestigateTerrain extends InstantSkill {
     try {
       const botPos = this.bot.entity.position.floor();
 
-      console.log(
-        `🔍 地形調査開始: "${context}" (範囲: ${searchRadius}ブロック)`
-      );
+      log.info(`🔍 地形調査開始: "${context}" (範囲: ${searchRadius}ブロック)`);
 
       // LLMに使わせるツールを定義
       const tools = this.createTools(botPos, searchRadius);
@@ -75,21 +75,14 @@ class InvestigateTerrain extends InstantSkill {
 
       while (iteration < maxIterations) {
         iteration++;
-        console.log(`  📡 LLM呼び出し #${iteration}`);
 
         const response = await llmWithTools.invoke(messages);
         messages.push(response);
 
         // ツール呼び出しがある場合
         if (response.tool_calls && response.tool_calls.length > 0) {
-          console.log(`  🔧 ツール呼び出し: ${response.tool_calls.length}個`);
-
           // 各ツール呼び出しを実行
           for (const toolCall of response.tool_calls) {
-            console.log(
-              `    - ${toolCall.name}(${JSON.stringify(toolCall.args)})`
-            );
-
             const toolResult = await this.executeToolCall(
               toolCall.name,
               toolCall.args
@@ -106,7 +99,7 @@ class InvestigateTerrain extends InstantSkill {
         } else {
           // ツール呼び出しがない = 最終回答
           finalResult = response.content.toString();
-          console.log(`  ✅ 調査完了`);
+          log.success(`✅ 調査完了 (${iteration}回のLLM呼び出し)`);
           break;
         }
       }
@@ -120,7 +113,7 @@ class InvestigateTerrain extends InstantSkill {
         result: finalResult,
       };
     } catch (error: any) {
-      console.error('地形調査エラー:', error);
+      log.error('地形調査エラー', error);
       return {
         success: false,
         result: `調査エラー: ${error.message}`,

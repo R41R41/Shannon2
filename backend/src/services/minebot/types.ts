@@ -4,8 +4,11 @@ import pathfinderPkg from 'mineflayer-pathfinder';
 import { Block } from 'prismarine-block';
 import { Entity } from 'prismarine-entity';
 import { Vec3 } from 'vec3';
+import { createLogger } from '../../utils/logger.js';
 import { CONFIG } from './config/MinebotConfig.js';
 import { Utils } from './utils/index.js';
+
+const log = createLogger('Minebot:Types');
 
 const { goals } = pathfinderPkg;
 
@@ -209,7 +212,7 @@ export abstract class InstantSkill extends Skill {
               }
             } catch (_) { /* ignore */ }
 
-            console.log(`\x1b[33m⚡ ${this.skillName} を中断: フィードバック受信\x1b[0m`);
+            log.warn(`⚡ ${this.skillName} を中断: フィードバック受信`);
             resolve({
               success: false,
               result: `フィードバックにより中断されました（${this.skillName}）。再計画します。`,
@@ -437,9 +440,6 @@ export class ConstantSkills {
       tasks.slice(0, this.MAX_QUEUE_SIZE).forEach(task => this.taskQueue.push(task));
     }
 
-    // console.log("taskQueue", this.taskQueue.toArray().map(task =>
-    //   `${task.skill.skillName}:${task.skill.priority}`
-    // ));
   }
 
   // 次のタスクを処理a
@@ -461,7 +461,7 @@ export class ConstantSkills {
         timeoutPromise
       ]);
     } catch (error) {
-      console.error(`Task execution error: ${error}`);
+      log.error('タスク実行エラー', error);
     } finally {
       this.isProcessing = false;
       this.currentTask = null;

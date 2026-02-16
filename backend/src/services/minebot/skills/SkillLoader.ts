@@ -1,8 +1,11 @@
 import fs from 'fs';
 import { join } from 'path';
+import { createLogger } from '../../../utils/logger.js';
 import { CONFIG } from '../config/MinebotConfig.js';
 import { ConstantSkill, ConstantSkills, CustomBot, InstantSkill, InstantSkills } from '../types.js';
 import { SkillLoadError } from '../types/index.js';
+
+const log = createLogger('Minebot:SkillLoader');
 
 /**
  * SkillLoader
@@ -22,7 +25,7 @@ export class SkillLoader {
      */
     async loadInstantSkills(bot: CustomBot): Promise<{ success: boolean; result: string; skills?: InstantSkills }> {
         try {
-            console.log('📂 Loading instant skills from:', this.instantSkillDir);
+            log.info(`📂 Loading instant skills from: ${this.instantSkillDir}`);
             const instantSkills = new InstantSkills();
             const files = fs.readdirSync(this.instantSkillDir);
 
@@ -36,7 +39,7 @@ export class SkillLoader {
                         instantSkills.addSkill(skillInstance);
                     }
                 } catch (error) {
-                    console.error(`❌ Failed to load skill from ${file}:`, error);
+                    log.error(`❌ スキル読み込み失敗: ${file}`, error);
                     return {
                         success: false,
                         result: `${file}の読み込みに失敗しました: ${error}`,
@@ -44,7 +47,7 @@ export class SkillLoader {
                 }
             }
 
-            console.log(`✅ Loaded ${instantSkills.getSkills().length} instant skills`);
+            log.success(`✅ Loaded ${instantSkills.getSkills().length} instant skills`);
             return {
                 success: true,
                 result: 'instant skills loaded',
@@ -52,7 +55,7 @@ export class SkillLoader {
             };
         } catch (error) {
             const skillError = new SkillLoadError('instant-skills', error as Error);
-            console.error(skillError.toJSON());
+            log.error(skillError.message, skillError);
             return { success: false, result: skillError.message };
         }
     }
@@ -62,7 +65,7 @@ export class SkillLoader {
      */
     async loadConstantSkills(bot: CustomBot): Promise<{ success: boolean; result: string; skills?: ConstantSkills }> {
         try {
-            console.log('📂 Loading constant skills from:', this.constantSkillDir);
+            log.info(`📂 Loading constant skills from: ${this.constantSkillDir}`);
             const constantSkills = new ConstantSkills();
             const files = fs.readdirSync(this.constantSkillDir);
 
@@ -77,7 +80,7 @@ export class SkillLoader {
                     }
                 } catch (error) {
                     const skillError = new SkillLoadError(file, error as Error);
-                    console.error(skillError.toJSON());
+                    log.error(skillError.message, skillError);
                     return {
                         success: false,
                         result: skillError.message,
@@ -85,7 +88,7 @@ export class SkillLoader {
                 }
             }
 
-            console.log(`✅ Loaded ${constantSkills.getSkills().length} constant skills`);
+            log.success(`✅ Loaded ${constantSkills.getSkills().length} constant skills`);
             return {
                 success: true,
                 result: 'constant skills loaded',
@@ -93,7 +96,7 @@ export class SkillLoader {
             };
         } catch (error) {
             const skillError = new SkillLoadError('constant-skills', error as Error);
-            console.error(skillError.toJSON());
+            log.error(skillError.message, skillError);
             return { success: false, result: skillError.message };
         }
     }
@@ -109,10 +112,10 @@ export class SkillLoader {
             if (fs.existsSync(jsonPath)) {
                 const jsonContent = fs.readFileSync(jsonPath, 'utf-8');
                 savedSkills = JSON.parse(jsonContent);
-                console.log(`✅ Loaded constant skills state from ${jsonPath}`);
+                log.success(`✅ Loaded constant skills state from ${jsonPath}`);
             }
         } catch (error) {
-            console.error('❌ Failed to load constantSkills.json:', error);
+            log.error('❌ constantSkills.json読み込み失敗', error);
         }
 
         return savedSkills;
@@ -130,9 +133,9 @@ export class SkillLoader {
 
         try {
             fs.writeFileSync(jsonPath, JSON.stringify(skillsData, null, 2));
-            console.log(`✅ Saved constant skills state to ${jsonPath}`);
+            log.success(`✅ Saved constant skills state to ${jsonPath}`);
         } catch (error) {
-            console.error('❌ Failed to save constantSkills.json:', error);
+            log.error('❌ constantSkills.json保存失敗', error);
         }
     }
 }

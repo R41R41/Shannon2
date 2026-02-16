@@ -1,5 +1,7 @@
 import { Vec3 } from 'vec3';
 import { CustomBot, InstantSkill } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
+const log = createLogger('Minebot:Skill:digBlockAt');
 
 /**
  * 原子的スキル: 近くのブロックを掘る（座標指定版）
@@ -88,9 +90,9 @@ class DigBlockAt extends InstantSkill {
         // ツールを装備
         try {
           await this.bot.equip(tool, 'hand');
-          console.log(`\x1b[33m🔧 ${tool.name}を装備しました\x1b[0m`);
+          log.info(`🔧 ${tool.name}を装備しました`);
         } catch (equipError: any) {
-          console.error(`ツール装備エラー: ${equipError.message}`);
+          log.error(`ツール装備エラー: ${equipError.message}`, equipError);
         }
       } else {
         // harvestToolsがない場合でも、最適なツールを探して装備
@@ -98,7 +100,7 @@ class DigBlockAt extends InstantSkill {
         if (bestTool) {
           try {
             await this.bot.equip(bestTool, 'hand');
-            console.log(`\x1b[33m🔧 ${bestTool.name}を装備しました（効率化）\x1b[0m`);
+            log.info(`🔧 ${bestTool.name}を装備しました（効率化）`);
           } catch (equipError: any) {
             // 装備失敗しても続行（素手で掘れるブロックの場合）
           }

@@ -38,6 +38,7 @@ import { ReplyTwitterCommentAgent } from './agents/replyTwitterComment.js';
 import { ReplyYoutubeCommentAgent } from './agents/replyYoutubeComment.js';
 import { ReplyYoutubeLiveCommentAgent } from './agents/replyYoutubeLiveCommentAgent.js';
 import { TaskGraph } from './graph/taskGraph.js';
+import { logger } from '../../utils/logger.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -88,7 +89,7 @@ export class LLMService {
       await ReplyYoutubeLiveCommentAgent.create();
     this.newsAgent = await PostNewsAgent.create();
     this.autoTweetAgent = await AutoTweetAgent.create();
-    console.log('\x1b[36mLLM Service initialized\x1b[0m');
+    logger.info('LLM Service initialized', 'cyan');
   }
 
   private setupEventBus() {
@@ -107,7 +108,7 @@ export class LLMService {
 
     this.eventBus.subscribe('llm:post_twitter_reply', (event) => {
       this.processTwitterReply(event.data as TwitterReplyOutput).catch((err) => {
-        console.error('[Twitter Reply] 未処理エラー:', err);
+        logger.error('[Twitter Reply] 未処理エラー:', err);
       });
     });
 
@@ -154,7 +155,7 @@ export class LLMService {
           this.tools.push(new ToolClass());
         }
       } catch (error) {
-        console.error(`ツール読み込みエラー: ${file}`, error);
+        logger.error(`ツール読み込みエラー: ${file}`, error);
       }
     }
   }
@@ -247,12 +248,12 @@ export class LLMService {
     const conversationThread = data.conversationThread;
 
     if (!text || !replyId || !authorName) {
-      console.error('Twitter reply data is invalid:', { text, replyId, authorName });
+      logger.error('Twitter reply data is invalid:', { text, replyId, authorName });
       return;
     }
 
     try {
-      console.log(`[Twitter Reply] LLM生成開始: @${authorName} "${text.slice(0, 50)}" (スレッド: ${conversationThread?.length ?? 0}件)`);
+      logger.info(`[Twitter Reply] LLM生成開始: @${authorName} "${text.slice(0, 50)}" (スレッド: ${conversationThread?.length ?? 0}件)`);
       const response = await this.replyTwitterCommentAgent.reply(
         text,
         authorName,
@@ -261,7 +262,7 @@ export class LLMService {
         conversationThread,
         data.authorId,
       );
-      console.log(`[Twitter Reply] LLM生成完了: "${response.slice(0, 80)}"`);
+      logger.info(`[Twitter Reply] LLM生成完了: "${response.slice(0, 80)}"`);
       this.eventBus.publish({
         type: 'twitter:post_message',
         memoryZone: 'twitter:post',
@@ -271,7 +272,7 @@ export class LLMService {
         } as TwitterClientInput,
       });
     } catch (error) {
-      console.error('[Twitter Reply] エラー:', error);
+      logger.error('[Twitter Reply] エラー:', error);
     }
   }
 
@@ -279,7 +280,7 @@ export class LLMService {
     const { tweetId, tweetUrl, text, authorName, authorUserName } = data;
 
     if (!tweetId || !tweetUrl || !text || !authorName) {
-      console.error('Twitter quote RT data is invalid');
+      logger.error('Twitter quote RT data is invalid');
       return;
     }
 
@@ -302,19 +303,19 @@ export class LLMService {
     try {
       const { trends, todayInfo } = data;
       if (!trends || trends.length === 0) {
-        console.warn('🐦 processAutoTweet: トレンドデータなし');
+        logger.warn('🐦 processAutoTweet: トレンドデータなし');
         return;
       }
 
-      console.log(`🐦 AutoTweet: ツイート生成中 (トレンド${trends.length}件)...`);
+      logger.info(`🐦 AutoTweet: ツイート生成中 (トレンド${trends.length}件)...`);
       const tweetText = await this.autoTweetAgent.generateTweet(trends, todayInfo);
 
       if (!tweetText) {
-        console.warn('🐦 AutoTweet: ツイート生成失敗（空の結果）');
+        logger.warn('🐦 AutoTweet: ツイート生成失敗（空の結果）');
         return;
       }
 
-      console.log(`🐦 AutoTweet: 生成完了「${tweetText}」`);
+      logger.info(`🐦 AutoTweet: 生成完了「${tweetText}」`);
 
       // 既存の定期投稿フローに合流して投稿
       this.eventBus.publish({
@@ -325,7 +326,7 @@ export class LLMService {
         } as TwitterClientInput,
       });
     } catch (error) {
-      console.error('🐦 AutoTweet エラー:', error);
+      logger.error('🐦 AutoTweet エラー:', error);
     }
   }
 
@@ -374,7 +375,7 @@ export class LLMService {
         }
       }
     } catch (error) {
-      console.error('LLM処理エラー:', error);
+      logger.error('LLM処理エラー:', error);
     }
   }
 
@@ -418,7 +419,7 @@ export class LLMService {
         return;
       }
     } catch (error) {
-      console.error('LLM処理エラー:', error);
+      logger.error('LLM処理エラー:', error);
       throw error;
     }
   }
@@ -522,7 +523,7 @@ export class LLMService {
         userMessage: newMessage,
       });
     } catch (error) {
-      console.error(`\x1b[31mLLM処理エラー:${error}\n\x1b[0m`);
+      logger.error(`LLM処理エラー:${error}`);
       this.eventBus.log(inputMemoryZone, 'red', `Error: ${error}`, true);
       throw error;
     }

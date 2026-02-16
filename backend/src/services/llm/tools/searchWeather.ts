@@ -1,6 +1,7 @@
 import { StructuredTool } from '@langchain/core/tools';
 import fetch from 'node-fetch';
 import { z } from 'zod';
+import { logger } from '../../../utils/logger.js';
 
 // 気象庁の地域コードマッピング
 const jmaAreaCodes: Record<string, { code: string; name: string }> = {
@@ -173,7 +174,7 @@ export default class SearchWeatherTool extends StructuredTool {
       return weatherReport;
 
     } catch (error) {
-      console.error('Weather search tool error:', error);
+      logger.error('Weather search tool error:', error);
       return `天気情報の取得に失敗しました: ${error}\n\n気象庁のデータを取得できませんでした。`;
     }
   }
