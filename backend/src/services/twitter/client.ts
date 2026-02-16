@@ -1315,6 +1315,8 @@ export class TwitterClient extends BaseClient {
 
   /** 現在のWebhookルールID (起動中のみ保持) */
   private webhookRuleId: string | null = null;
+  /** 引用RT検知用WebhookルールID */
+  private quoteRTWebhookRuleId: string | null = null;
 
   /**
    * twitterapi.io の Webhook フィルタルールをセットアップし有効化する。
@@ -1449,6 +1451,100 @@ export class TwitterClient extends BaseClient {
   }
 
   // =========================================================================
+  // 引用RT検知用 Webhook ルール
+  // =========================================================================
+
+  /**
+   * 自分のツイートが引用RTされた時に検知する Webhook ルールをセットアップ。
+   * フィルタ: url:"x.com/USERNAME/status" -from:USERNAME
+   */
+  public async setupQuoteRTWebhookRule(): Promise<void> {
+    const baseUrl = config.twitter.webhookBaseUrl;
+    const userName = config.twitter.userName;
+    if (!baseUrl || !userName) {
+      logger.warn('🔔 QuoteRT Webhook: webhookBaseUrl または userName が未設定。スキップ');
+      return;
+    }
+
+    const tag = `shannon-quote-rt-${this.isTest ? 'dev' : 'prod'}`;
+    const filterValue = `url:"x.com/${userName}/status" -from:${userName}`;
+    const interval = config.twitter.webhookInterval;
+
+    try {
+      const rulesRes = await axios.get(
+        'https://api.twitterapi.io/oapi/tweet_filter/get_rules',
+        { headers: { 'X-API-Key': this.apiKey } }
+      );
+
+      const existingRules: Array<{
+        rule_id: string;
+        tag: string;
+        value: string;
+        interval_seconds: number;
+        is_effect?: number;
+      }> = rulesRes.data?.rules ?? [];
+
+      const existing = existingRules.find((r) => r.tag === tag);
+
+      if (existing) {
+        this.quoteRTWebhookRuleId = existing.rule_id;
+        const alreadyActive = existing.is_effect === 1;
+        logger.info(
+          `🔔 QuoteRT Webhook: 既存ルールを再利用 (id=${existing.rule_id}, tag=${tag}, active=${alreadyActive})`,
+          'cyan'
+        );
+        if (alreadyActive) {
+          logger.info(
+            `🔔 QuoteRT Webhook: ルールは既に有効。スキップ (filter="${filterValue}")`,
+            'green'
+          );
+          return;
+        }
+      } else {
+        const addRes = await axios.post(
+          'https://api.twitterapi.io/oapi/tweet_filter/add_rule',
+          { tag, value: filterValue, interval_seconds: interval },
+          { headers: { 'X-API-Key': this.apiKey } }
+        );
+
+        if (addRes.data?.status !== 'success') {
+          logger.error(`🔔 QuoteRT Webhook: ルール作成失敗: ${addRes.data?.msg}`);
+          return;
+        }
+
+        this.quoteRTWebhookRuleId = addRes.data.rule_id;
+        logger.info(
+          `🔔 QuoteRT Webhook: 新規ルール作成 (id=${this.quoteRTWebhookRuleId}, tag=${tag}, filter="${filterValue}")`,
+          'green'
+        );
+      }
+
+      const updateRes = await axios.post(
+        'https://api.twitterapi.io/oapi/tweet_filter/update_rule',
+        {
+          rule_id: this.quoteRTWebhookRuleId,
+          tag,
+          value: filterValue,
+          interval_seconds: interval,
+          is_effect: 1,
+        },
+        { headers: { 'X-API-Key': this.apiKey } }
+      );
+
+      if (updateRes.data?.status === 'success') {
+        logger.info(
+          `🔔 QuoteRT Webhook: ルール有効化完了 (filter="${filterValue}")`,
+          'green'
+        );
+      } else {
+        logger.error(`🔔 QuoteRT Webhook: ルール有効化失敗: ${updateRes.data?.msg}`);
+      }
+    } catch (error) {
+      logger.error('🔔 QuoteRT Webhook: セットアップエラー:', error);
+    }
+  }
+
+  // =========================================================================
   // Initialization
   // =========================================================================
 
@@ -1463,6 +1559,8 @@ export class TwitterClient extends BaseClient {
 
       // Webhook ルールをセットアップ (dev/prod 共通)
       await this.setupWebhookRule();
+      // 引用RT検知用 Webhook ルール
+      await this.setupQuoteRTWebhookRule();
 
       if (!this.isTest) {
         // リプライ検知: Webhook がメイン。ポーリングはフォールバック (2時間間隔)

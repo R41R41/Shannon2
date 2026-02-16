@@ -199,6 +199,7 @@ class Server {
 
         const eventBus = getEventBus();
         const myUserId = config.twitter.userId;
+        const isQuoteRTWebhook = rule_tag?.includes('quote-rt') ?? false;
         let processed = 0;
 
         for (const tweet of tweets) {
@@ -222,6 +223,57 @@ class Server {
           this.twitterClient.processedTweetIds.add(tweetId);
           this.twitterClient.saveProcessedIds();
 
+          // ─── 引用RT検知 ───
+          if (isQuoteRTWebhook) {
+            const quotedTweet = tweet.quoted_tweet ?? tweet.quotedTweet ?? null;
+            const quotedText = quotedTweet?.text ?? '';
+            const quotedAuthor = quotedTweet?.author?.name ?? quotedTweet?.author?.userName ?? 'Shannon';
+
+            logger.info(
+              `[Webhook] 引用RT検知: @${authorUserName} が引用「${tweetText.slice(0, 60)}...」` +
+              ` (元ツイート: "${quotedText.slice(0, 60)}...")`,
+              'green'
+            );
+
+            // いいね
+            eventBus.publish({
+              type: 'twitter:like_tweet',
+              memoryZone: 'twitter:post',
+              data: { tweetId, text: '' } as any,
+            });
+
+            // 日次返信上限チェック
+            if (this.twitterClient.isReplyLimitReached()) {
+              logger.info(`[Webhook] 日次返信上限のため引用RTへの返信をスキップ: ${tweetId}`);
+              processed++;
+              continue;
+            }
+
+            this.twitterClient.incrementReplyCount();
+
+            // LLM に返信生成を依頼 (引用RTである文脈を conversationThread で伝える)
+            eventBus.publish({
+              type: 'llm:post_twitter_reply',
+              memoryZone: 'twitter:post',
+              data: {
+                replyId: tweetId,
+                text: tweetText,
+                authorName,
+                authorId: authorId || null,
+                repliedTweet: quotedText || null,
+                repliedTweetAuthorName: quotedAuthor,
+                conversationThread: [
+                  { authorName: quotedAuthor, text: `[元ツイート] ${quotedText}` },
+                  { authorName, text: `[引用RT] ${tweetText}` },
+                ],
+              } as TwitterReplyOutput,
+            });
+
+            processed++;
+            continue;
+          }
+
+          // ─── 通常リプライ処理 ───
           // 日次返信上限チェック
           if (this.twitterClient.isReplyLimitReached()) {
             logger.info(`[Webhook] 日次返信上限に到達: ${tweetId} (by @${authorUserName}) をスキップ`);
