@@ -668,8 +668,8 @@ export class TwitterClient extends BaseClient {
         tweet_text: content,
         proxy: this.proxy1,
       };
-      // prod（Premium/Basic）は長文ツイート対応
-      if (!this.isTest) {
+      // prod（Premium/Basic）は長文ツイート対応（非対応判定済みならスキップ）
+      if (!this.isTest && this.noteTweetSupported) {
         data.is_note_tweet = true;
       }
       if (replyId) {
@@ -689,8 +689,16 @@ export class TwitterClient extends BaseClient {
       if (resData?.status === 'error') {
         const errMsg = resData?.message || resData?.msg || 'Unknown error';
         logger.error(`[postTweet] APIエラー: ${errMsg}`);
-        // login_cookies が無効またはセッション切れの場合は再ログインしてリトライ（1回のみ）
         const errLower = errMsg.toLowerCase();
+
+        // note_tweet 非対応エラー → is_note_tweet なしで再試行
+        if (!_retried && errLower.includes('note tweet')) {
+          logger.warn('[postTweet] note_tweet 非対応。通常ツイートで再試行します...');
+          this.noteTweetSupported = false;
+          return this.postTweet(content, mediaUrl, replyId, true);
+        }
+
+        // セッション切れ → 再ログインしてリトライ（1回のみ）
         if (!_retried && (errLower.includes('cookie') || errLower.includes('login') || errLower.includes('auth'))) {
           logger.warn('[postTweet] セッション無効の可能性。再ログインしてリトライします...');
           await this.loginV2();
@@ -1317,6 +1325,8 @@ export class TwitterClient extends BaseClient {
   private webhookRuleId: string | null = null;
   /** 引用RT検知用WebhookルールID */
   private quoteRTWebhookRuleId: string | null = null;
+  /** note_tweet (長文ツイート) が利用可能かどうか */
+  private noteTweetSupported: boolean = true;
 
   /**
    * twitterapi.io の Webhook フィルタルールをセットアップし有効化する。
