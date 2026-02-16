@@ -1,4 +1,6 @@
 import { CustomBot, InstantSkill } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
+const log = createLogger('Minebot:Skill:switchAutoDetectBlockOrEntity');
 
 export class SwitchAutoDetectBlockOrEntity extends InstantSkill {
     constructor(bot: CustomBot) {
@@ -35,7 +37,7 @@ export class SwitchAutoDetectBlockOrEntity extends InstantSkill {
     }
 
     async runImpl(enable: boolean, blockName: string, entityName: string, searchDistance: number) {
-        console.log('switchAutoDetectBlockOrEntity', enable, blockName, entityName);
+        log.info(`switchAutoDetectBlockOrEntity: enable=${enable}, blockName=${blockName}, entityName=${entityName}`);
         try {
             const skill = this.bot.constantSkills.getSkill('auto-detect-block-or-entity');
             if (!skill) {

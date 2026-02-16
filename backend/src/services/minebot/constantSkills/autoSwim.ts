@@ -1,4 +1,7 @@
+import { createLogger } from '../../../utils/logger.js';
 import { ConstantSkill, CustomBot } from '../types.js';
+
+const log = createLogger('Minebot:Skill:autoSwim');
 
 /**
  * 自動浮上スキル
@@ -36,7 +39,7 @@ class AutoSwim extends ConstantSkill {
 
       // 水中かつ酸素が半分以下（10未満）→ 浮上開始
       if (isInWater && oxygen < 10 && !this.isSwimmingUp) {
-        console.log(`\x1b[36m🏊 自動浮上開始！酸素: ${oxygen}/20\x1b[0m`);
+        log.info(`🏊 自動浮上開始！酸素: ${oxygen}/20`, 'cyan');
         this.isSwimmingUp = true;
       }
 
@@ -44,7 +47,7 @@ class AutoSwim extends ConstantSkill {
       if (this.isSwimmingUp) {
         if (oxygen >= 20) {
           // 完全回復したら停止
-          console.log(`\x1b[32m🏊 浮上完了！酸素完全回復: 20/20\x1b[0m`);
+          log.success('🏊 浮上完了！酸素完全回復: 20/20');
           this.isSwimmingUp = false;
           this.bot.setControlState('jump', false);
         } else {
@@ -57,7 +60,7 @@ class AutoSwim extends ConstantSkill {
         }
       }
     } catch (error) {
-      console.log('autoSwim error', error);
+      log.error('autoSwimエラー', error);
     }
   }
 }

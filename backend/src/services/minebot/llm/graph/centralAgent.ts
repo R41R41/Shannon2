@@ -8,9 +8,12 @@
  */
 
 import { BaseMessage } from '@langchain/core/messages';
+import { createLogger } from '../../../../utils/logger.js';
 import { CustomBot } from '../../types.js';
 import { TaskCoordinator } from '../agents/index.js';
 import { TaskGraph } from './taskGraph.js';
+
+const log = createLogger('Minebot:CentralAgent');
 
 export class CentralAgent {
   private static instance: CentralAgent;
@@ -18,7 +21,7 @@ export class CentralAgent {
 
   private constructor(bot: CustomBot) {
     this.taskCoordinator = new TaskCoordinator(bot);
-    console.log(`🤖 CentralAgent initialized (delegating to TaskCoordinator)`);
+    log.info('🤖 CentralAgent initialized (delegating to TaskCoordinator)');
   }
 
   public static getInstance(bot: CustomBot) {

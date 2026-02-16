@@ -1,7 +1,9 @@
 import pathfinder from 'mineflayer-pathfinder';
 import { CustomBot, InstantSkill } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
 
 const { goals } = pathfinder;
+const log = createLogger('Minebot:Skill:tradeWithVillager');
 
 /**
  * エンティティのカスタム名を取得するヘルパー
@@ -387,7 +389,7 @@ class TradeWithVillager extends InstantSkill {
 
           window.close && window.close();
         } catch (e: any) {
-          console.error(`村人との取引エラー: ${e.message}`);
+          log.error(`村人との取引エラー: ${e.message}`, e);
         }
       }
 

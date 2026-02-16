@@ -1,7 +1,9 @@
 import pathfinder from 'mineflayer-pathfinder';
 import { CustomBot, InstantSkill } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
 import { setMovements } from '../utils/setMovements.js';
 const { goals } = pathfinder;
+const log = createLogger('Minebot:Skill:moveTo');
 /**
  * 原子的スキル: 指定座標に移動するだけ
  * goalType: 'near' (デフォルト) または 'xz' (XZ座標のみ、Y座標は自動調整)
@@ -60,7 +62,7 @@ class MoveTo extends InstantSkill {
     const originalAutoFollowStatus = autoFollow?.status ?? false;
     const originalAutoAvoidStatus = autoAvoid?.status ?? false;
 
-    console.log(`🔧 move-to: ConstantSkillの状態 - autoFollow: ${originalAutoFollowStatus}, autoAvoid: ${originalAutoAvoidStatus}`);
+    log.debug(`ConstantSkillの状態 - autoFollow: ${originalAutoFollowStatus}, autoAvoid: ${originalAutoAvoidStatus}`);
 
     // 障害物ブロック情報（エラー時に返す）- tryの外で宣言
     const stuckBlockRef: { info: { x: number; y: number; z: number; name: string } | null } = { info: null };
@@ -69,11 +71,9 @@ class MoveTo extends InstantSkill {
       // ConstantSkillを一時無効化
       if (autoFollow) {
         autoFollow.status = false;
-        console.log(`🔧 move-to: auto-followを無効化しました`);
       }
       if (autoAvoid) {
         autoAvoid.status = false;
-        console.log(`🔧 move-to: auto-avoid-projectile-rangeを無効化しました`);
       }
 
       // パラメータの妥当性チェック
@@ -157,7 +157,7 @@ class MoveTo extends InstantSkill {
       );
 
       if (isInWater) {
-        console.log('\x1b[36m🏊 水中移動モード\x1b[0m');
+        log.info('🏊 水中移動モード', 'cyan');
       }
 
       // goalTypeに応じてGoalを選択
@@ -197,15 +197,11 @@ class MoveTo extends InstantSkill {
         setTimeout(() => reject(new Error('移動タイムアウト')), timeout);
       });
 
-      console.log(`🚶 move-to: 目標地点 ${goalDescription} への移動を開始`);
-      console.log(`🚶 move-to: 現在位置 (${currentPos.x.toFixed(1)}, ${currentPos.y.toFixed(1)}, ${currentPos.z.toFixed(1)})`);
-      console.log(`🚶 move-to: 距離 ${distance.toFixed(1)}m`);
+      log.info(`🚶 移動開始: ${goalDescription} (現在: ${currentPos.x.toFixed(1)}, ${currentPos.y.toFixed(1)}, ${currentPos.z.toFixed(1)} / 距離: ${distance.toFixed(1)}m)`);
 
       // 移動前にコントロール状態をリセット（前のタスクの残りを消す）
       this.bot.clearControlStates();
       this.bot.stopDigging();
-
-      console.log(`🚶 move-to: pathfinder.goto()を実行開始`);
 
       // 移動中の状態を監視 & スタック検出
       let lastPosition = { x: currentPos.x, y: currentPos.y, z: currentPos.z };
@@ -223,15 +219,13 @@ class MoveTo extends InstantSkill {
 
         if (moved < 0.3 && pathfinderStatus === 'moving') {
           stuckCount++;
-          console.log(`⚠️ move-to: スタック検出 (${stuckCount}回目) - 位置(${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`);
+          log.warn(`⚠️ スタック検出 (${stuckCount}回目) - 位置(${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`);
 
           // スタック解消を試みる（ジャンプと後退のみ、掘らない）
           if (stuckCount === 1) {
-            console.log(`🔧 move-to: スタック解消 - ジャンプ試行`);
             this.bot.setControlState('jump', true);
             setTimeout(() => this.bot.setControlState('jump', false), 400);
           } else if (stuckCount === 2) {
-            console.log(`🔧 move-to: スタック解消 - 後退+ジャンプ試行`);
             this.bot.setControlState('back', true);
             this.bot.setControlState('jump', true);
             setTimeout(() => {
@@ -252,21 +246,18 @@ class MoveTo extends InstantSkill {
                 z: Math.floor(targetBlock.position.z),
                 name: targetBlock.name,
               };
-              console.log(`🧱 move-to: 障害物ブロック検出: ${targetBlock.name} at (${stuckBlockRef.info.x}, ${stuckBlockRef.info.y}, ${stuckBlockRef.info.z})`);
+              log.warn(`🧱 障害物ブロック検出: ${targetBlock.name} at (${stuckBlockRef.info.x}, ${stuckBlockRef.info.y}, ${stuckBlockRef.info.z})`);
             }
           }
         } else {
           if (stuckCount > 0) {
-            console.log(`✓ move-to: スタック解消成功`);
+            log.debug('✓ スタック解消成功');
           }
           stuckCount = 0;
           stuckBlockRef.info = null;
         }
 
         lastPosition = { x: pos.x, y: pos.y, z: pos.z };
-        if (stuckCount === 0) {
-          console.log(`🚶 move-to: 進捗 - 位置(${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}) moved=${moved.toFixed(2)}`);
-        }
       }, 1500);
 
       try {
@@ -285,7 +276,7 @@ class MoveTo extends InstantSkill {
     } catch (error: any) {
       // エラーメッセージを詳細化
       const errorMessage = error.message ? error.message.toLowerCase() : '';
-      console.log(`❌ move-to エラー: ${error.message}`);
+      log.error(`❌ 移動エラー: ${error.message}`, error);
 
       let errorDetail = error.message;
       if (errorMessage.includes('no path')) {
@@ -313,11 +304,9 @@ class MoveTo extends InstantSkill {
       // ConstantSkillを元の状態に戻す
       if (autoFollow) {
         autoFollow.status = originalAutoFollowStatus;
-        console.log(`🔧 move-to: auto-followを復元しました (${originalAutoFollowStatus})`);
       }
       if (autoAvoid) {
         autoAvoid.status = originalAutoAvoidStatus;
-        console.log(`🔧 move-to: auto-avoid-projectile-rangeを復元しました (${originalAutoAvoidStatus})`);
       }
     }
   }

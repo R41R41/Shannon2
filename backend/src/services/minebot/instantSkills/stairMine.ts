@@ -1,6 +1,8 @@
 import minecraftData from 'minecraft-data';
 import { Vec3 } from 'vec3';
 import { CustomBot, InstantSkill } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
+const log = createLogger('Minebot:Skill:stairMine');
 
 /**
  * 階段掘り/埋めスキル
@@ -88,7 +90,7 @@ class StairMine extends InstantSkill {
             const TIMEOUT_MS = 60 * 1000;
             const startTime = Date.now();
 
-            console.log(`\x1b[36m⛏️ 階段${isDescending ? '下降' : '上昇'}開始: Y=${currentY} → Y=${targetY} (${steps}段, 最大60秒)\x1b[0m`);
+            log.info(`⛏️ 階段${isDescending ? '下降' : '上昇'}開始: Y=${currentY} → Y=${targetY} (${steps}段, 最大60秒)`, 'cyan');
 
             for (let i = 0; i < steps; i++) {
                 // 中断チェック
@@ -134,7 +136,7 @@ class StairMine extends InstantSkill {
 
                 // 進捗表示
                 if (successSteps % 5 === 0) {
-                    console.log(`\x1b[36m⛏️ ${successSteps}/${steps}段完了\x1b[0m`);
+                    log.debug(`⛏️ ${successSteps}/${steps}段完了`);
                 }
 
                 // 少し待機
@@ -165,7 +167,7 @@ class StairMine extends InstantSkill {
             const headBlock = this.bot.blockAt(currentPos.offset(dir.x, 1, dir.z));
             if (headBlock && headBlock.name !== 'air' && headBlock.name !== 'cave_air') {
                 if (!headBlock.diggable) {
-                    console.log(`\x1b[33m⚠ ${headBlock.name}は掘れません\x1b[0m`);
+                    log.warn(`⚠ ${headBlock.name}は掘れません`);
                     return false;
                 }
                 await this.digBlockSafe(headBlock);
@@ -175,7 +177,7 @@ class StairMine extends InstantSkill {
             const bodyBlock = this.bot.blockAt(currentPos.offset(dir.x, 0, dir.z));
             if (bodyBlock && bodyBlock.name !== 'air' && bodyBlock.name !== 'cave_air') {
                 if (!bodyBlock.diggable) {
-                    console.log(`\x1b[33m⚠ ${bodyBlock.name}は掘れません\x1b[0m`);
+                    log.warn(`⚠ ${bodyBlock.name}は掘れません`);
                     return false;
                 }
                 await this.digBlockSafe(bodyBlock);
@@ -185,7 +187,7 @@ class StairMine extends InstantSkill {
             const floorBlock = this.bot.blockAt(nextPos);
             if (floorBlock && floorBlock.name !== 'air' && floorBlock.name !== 'cave_air') {
                 if (!floorBlock.diggable) {
-                    console.log(`\x1b[33m⚠ ${floorBlock.name}は掘れません\x1b[0m`);
+                    log.warn(`⚠ ${floorBlock.name}は掘れません`);
                     return false;
                 }
                 await this.digBlockSafe(floorBlock);
@@ -202,7 +204,7 @@ class StairMine extends InstantSkill {
 
             return true;
         } catch (error: any) {
-            console.error(`下降エラー: ${error.message}`);
+            log.error(`下降エラー: ${error.message}`, error);
             return false;
         }
     }
@@ -227,7 +229,7 @@ class StairMine extends InstantSkill {
                     }
                 }
                 if (!found) {
-                    console.log(`\x1b[33m⚠ 置けるブロックがありません\x1b[0m`);
+                    log.warn('⚠ 置けるブロックがありません');
                     return false;
                 }
             }
@@ -264,7 +266,7 @@ class StairMine extends InstantSkill {
                 const placePos = currentPos.offset(dir.x, 0, dir.z);
                 const placed = await this.placeBlockSafe(blockName, placePos);
                 if (!placed) {
-                    console.log(`\x1b[33m⚠ ブロックを置けませんでした\x1b[0m`);
+                    log.warn('⚠ ブロックを置けませんでした');
                     return false;
                 }
             }
@@ -281,7 +283,7 @@ class StairMine extends InstantSkill {
 
             return true;
         } catch (error: any) {
-            console.error(`上昇エラー: ${error.message}`);
+            log.error(`上昇エラー: ${error.message}`, error);
             return false;
         }
     }

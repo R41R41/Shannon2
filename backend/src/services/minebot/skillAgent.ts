@@ -13,6 +13,9 @@ import { SkillLoader } from './skills/SkillLoader.js';
 import { SkillRegistrar } from './skills/SkillRegistrar.js';
 import { CustomBot } from './types.js';
 import { ConstantSkillInfo, LLMError, SkillExecutionError } from './types/index.js';
+import { createLogger } from '../../utils/logger.js';
+
+const log = createLogger('Minebot:SkillAgent');
 
 /**
  * SkillAgent
@@ -56,12 +59,12 @@ export class SkillAgent {
    */
   async startAgent() {
     try {
-      console.log('🚀 Starting SkillAgent...');
+      log.info('🚀 Starting SkillAgent...', 'cyan');
 
       // スキル初期化
       const initSkillsResponse = await this.initSkills();
       if (!initSkillsResponse.success) {
-        console.error(`❌ Skills initialization failed: ${initSkillsResponse.result}`);
+        log.error(`❌ Skills initialization failed: ${initSkillsResponse.result}`);
         return { success: false, result: initSkillsResponse.result };
       }
 
@@ -73,15 +76,15 @@ export class SkillAgent {
 
       // 定期実行設定
       await this.setInterval();
-      console.log('✅ setInterval done');
+      log.success('✅ setInterval done');
 
       // EventBus購読登録
       await this.registerEventBusSubscriptions();
-      console.log('✅ registerEventBusSubscriptions done');
+      log.success('✅ registerEventBusSubscriptions done');
 
       // CentralAgent初期化
       await this.centralAgent.initialize();
-      console.log('✅ centralAgent initialized');
+      log.success('✅ centralAgent initialized');
 
       // TaskGraphをbotに設定（HTTPサーバーからアクセスできるように）
       (this.bot as any).taskGraph = this.centralAgent.currentTaskGraph;
@@ -95,18 +98,18 @@ export class SkillAgent {
 
       // EventReactionSystem初期化
       await this.eventReactionSystem.initialize();
-      console.log('✅ EventReactionSystem initialized');
+      log.success('✅ EventReactionSystem initialized');
 
       // 緊急イベントハンドラーを設定（EventReactionSystemを使用）
       this.eventHandler.setEventReactionSystem(this.eventReactionSystem);
-      console.log('✅ Event reaction system registered');
+      log.success('✅ Event reaction system registered');
 
       // HTTPサーバーにEventReactionSystemを設定
       this.httpServer.setEventReactionSystem(this.eventReactionSystem);
 
       // チャットメッセージコールバックを設定
       this.httpServer.setOnChatMessageCallback(async (sender: string, message: string) => {
-        console.log(`💬 Processing chat from ${sender}: ${message}`);
+        log.info(`💬 Processing chat from ${sender}: ${message}`, 'cyan');
         // マイクラチャットと同様に処理（環境情報も渡す）
         await this.processMessage(
           sender,
@@ -123,10 +126,10 @@ export class SkillAgent {
       await this.sendConstantSkills();
       await this.sendReactionSettings();
 
-      console.log('🎉 SkillAgent started successfully');
+      log.success('🎉 SkillAgent started successfully');
       return { success: true, result: 'agent started' };
     } catch (error) {
-      console.error(`❌ SkillAgent startup failed: ${error}`);
+      log.error(`❌ SkillAgent startup failed`, error);
       return { success: false, result: error };
     }
   }
@@ -135,7 +138,7 @@ export class SkillAgent {
    * スキルを初期化
    */
   private async initSkills() {
-    console.log('🔧 Initializing skills...');
+    log.info('🔧 Initializing skills...', 'cyan');
 
     // スキル読み込み
     const instantResult = await this.skillLoader.loadInstantSkills(this.bot);
@@ -177,7 +180,7 @@ export class SkillAgent {
         return;
       }
 
-      console.log(`[${username}] ${message}`);
+      log.info(`[${username}] ${message}`);
       if (!message) {
         return;
       }
@@ -291,13 +294,14 @@ export class SkillAgent {
       const response = await skill.run(...Object.values(paramsResponse.result));
       skill.status = false;
 
-      console.log(`${skillName} ${response.result}`);
       if (!response.success) {
-        console.log(`${skillName} error: ${response.result}`);
+        log.error(`${skillName} failed: ${response.result}`);
+      } else {
+        log.success(`${skillName} completed: ${response.result}`);
       }
     } catch (error) {
       const skillError = new SkillExecutionError(skillName, error as Error);
-      console.error(skillError.toJSON());
+      log.error(`${skillName} error: ${skillError.message}`, error);
       this.bot.chat(`${skillName} error: ${skillError.message}`);
     }
   }
@@ -374,7 +378,7 @@ export class SkillAgent {
       );
     } catch (error) {
       const llmError = new LLMError('message-processing', error as Error);
-      console.error(llmError.toJSON());
+      log.error(`Message processing failed: ${llmError.message}`, error);
       this.bot.chat('エラーが発生しました。もう一度お試しください。');
     }
   }
@@ -442,9 +446,9 @@ export class SkillAgent {
         body: JSON.stringify(skills),
       });
 
-      console.log('📤 Constant skills sent to UI Mod');
+      log.debug('📤 Constant skills sent to UI Mod');
     } catch (error) {
-      console.error('❌ Failed to send constant skills:', error);
+      log.error('❌ Failed to send constant skills', error);
     }
   }
 
@@ -461,9 +465,9 @@ export class SkillAgent {
         body: JSON.stringify(settings),
       });
 
-      console.log('📤 Reaction settings sent to UI Mod');
+      log.debug('📤 Reaction settings sent to UI Mod');
     } catch (error) {
-      console.error('❌ Failed to send reaction settings:', error);
+      log.error('❌ Failed to send reaction settings', error);
     }
   }
 
@@ -486,21 +490,14 @@ export class SkillAgent {
    */
   async sendTaskListState(taskListState: any) {
     try {
-      const emergencyInfo = taskListState.emergencyTask
-        ? `goal="${taskListState.emergencyTask.goal}"`
-        : 'null';
-      console.log(`📤 Task list state sending: tasks=${taskListState.tasks?.length || 0}, emergencyTask=${emergencyInfo}`);
-
       await fetch(`http://localhost:${CONFIG.UI_MOD_PORT}/task_list`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=UTF-8' },
         body: JSON.stringify(taskListState),
       });
-
-      console.log('📤 Task list state sent to UI Mod');
-    } catch (error) {
-      // MODサーバーが起動していない場合はエラーを無視
-      console.debug('Task list state send skipped (UI Mod not available)');
+      log.debug(`📤 Task list sent: tasks=${taskListState.tasks?.length || 0}, emergency=${taskListState.emergencyTask ? 'yes' : 'no'}`);
+    } catch {
+      // UI Mod not available — silently skip
     }
   }
 }

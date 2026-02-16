@@ -1,5 +1,8 @@
 import { Vec3 } from 'vec3';
+import { createLogger } from '../../../utils/logger.js';
 import { ConstantSkill, CustomBot } from '../types.js';
+
+const log = createLogger('Minebot:Skill:autoFaceSpeaker');
 
 /**
  * AutoFaceSpeaker
@@ -50,14 +53,14 @@ class AutoFaceSpeaker extends ConstantSkill {
         );
 
         if (!playerEntity) {
-            console.log(`⚠️ プレイヤー ${playerName} が見つかりません`);
+            log.warn(`プレイヤー ${playerName} が見つかりません`);
             return;
         }
 
         // 距離をチェック（10ブロック以内）
         const distance = this.bot.entity.position.distanceTo(playerEntity.position);
         if (distance > 10) {
-            console.log(`⚠️ プレイヤー ${playerName} が遠すぎます (${distance.toFixed(1)}ブロック)`);
+            log.warn(`プレイヤー ${playerName} が遠すぎます (${distance.toFixed(1)}ブロック)`);
             return;
         }
 
@@ -71,7 +74,7 @@ class AutoFaceSpeaker extends ConstantSkill {
         // そちらを向く
         await this.bot.lookAt(headPos);
 
-        console.log(`👀 ${playerName}の方を向きました`);
+        log.debug(`👀 ${playerName}の方を向きました`);
 
         // 少し待つ（ロックは親クラスのrun()が管理）
         await new Promise((resolve) => setTimeout(resolve, 500));

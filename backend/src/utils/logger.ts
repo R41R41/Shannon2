@@ -118,3 +118,30 @@ export const logger = {
   /** Colorize a string without logging (for embedding in other logs) */
   colorize,
 };
+
+// ---------------------------------------------------------------------------
+// Named logger type (returned by createLogger)
+// ---------------------------------------------------------------------------
+export type NamedLogger = Omit<typeof logger, 'colorize'>;
+
+// ---------------------------------------------------------------------------
+// Factory: create a logger with a fixed prefix
+// ---------------------------------------------------------------------------
+/**
+ * Creates a logger that prepends `[prefix]` to every message.
+ *
+ * @example
+ *   const log = createLogger('Minebot:TaskGraph');
+ *   log.info('タスク開始');
+ *   // → 2026-02-16 19:30:45.123 [INFO   ] #0312 [Minebot:TaskGraph] タスク開始
+ */
+export function createLogger(prefix: string): NamedLogger {
+  const tag = `[${prefix}]`;
+  return {
+    info: (message: string, color?: Color) => logger.info(`${tag} ${message}`, color),
+    error: (message: string, error?: unknown) => logger.error(`${tag} ${message}`, error),
+    warn: (message: string) => logger.warn(`${tag} ${message}`),
+    success: (message: string) => logger.success(`${tag} ${message}`),
+    debug: (message: string) => logger.debug(`${tag} ${message}`),
+  };
+}

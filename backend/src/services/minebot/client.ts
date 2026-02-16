@@ -18,6 +18,9 @@ import { CONFIG } from './config/MinebotConfig.js';
 import { SkillAgent } from './skillAgent.js';
 import { ConstantSkills, CustomBot, InstantSkills } from './types.js';
 import { Utils } from './utils/index.js';
+import { createLogger } from '../../utils/logger.js';
+
+const log = createLogger('Minebot:Client');
 
 // 環境変数の検証
 CONFIG.validateEnvironment();
@@ -55,7 +58,7 @@ export class MinebotClient extends BaseClient {
       throw new Error(`Unknown server: ${serverName}`);
     }
 
-    console.log(`${port} ${version}に接続します`);
+    log.info(`🔌 ${serverName} (port:${port}, v${version}) に接続します`, 'cyan');
 
     this.bot = mineflayer.createBot({
       host: '127.0.0.1',
@@ -74,12 +77,11 @@ export class MinebotClient extends BaseClient {
     this.bot.loadPlugin(toolPlugin);
     cmd.allowConsoleInput = true;
     this.bot.loadPlugin(cmd);
-    console.log(pkg);
     const minecraftHawkEye = pkg.default;
     try {
       this.bot.loadPlugin(minecraftHawkEye);
     } catch (error) {
-      console.log('error', error);
+      log.error('HawkEye plugin load failed', error);
     }
 
     this.bot.on('login', async () => {
@@ -88,17 +90,17 @@ export class MinebotClient extends BaseClient {
 
     // タイムアウト・切断のログ
     this.bot.on('kicked', (reason: string) => {
-      console.log(`\x1b[31m🚫 Bot was kicked: ${reason}\x1b[0m`);
+      log.error(`🚫 Bot was kicked: ${reason}`);
       this.eventBus.log('minecraft', 'red', `Bot was kicked: ${reason}`);
     });
 
     this.bot.on('end', (reason: string) => {
-      console.log(`\x1b[31m🔌 Bot disconnected: ${reason}\x1b[0m`);
+      log.error(`🔌 Bot disconnected: ${reason}`);
       this.eventBus.log('minecraft', 'red', `Bot disconnected: ${reason}`);
     });
 
     this.bot.on('error', (err: Error) => {
-      console.log(`\x1b[31m❌ Bot error: ${err.message}\x1b[0m`);
+      log.error(`❌ Bot error: ${err.message}`, err);
       this.eventBus.log('minecraft', 'red', `Bot error: ${err.message}`);
     });
 

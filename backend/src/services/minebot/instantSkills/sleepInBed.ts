@@ -1,8 +1,10 @@
 import pathfinder from 'mineflayer-pathfinder';
 import { Vec3 } from 'vec3';
 import { CustomBot, InstantSkill } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
 
 const { goals } = pathfinder;
+const log = createLogger('Minebot:Skill:sleepInBed');
 
 /**
  * 原子的スキル: ベッドで寝る
@@ -162,7 +164,7 @@ class SleepInBed extends InstantSkill {
             try {
               await this.bot.activateBlock(bed);
             } catch (error: any) {
-              console.log('村人起こしエラー:', error.message);
+              log.warn(`村人起こしエラー: ${error.message}`);
             }
             // 村人が起きるまで少し待つ
             await new Promise((resolve) => setTimeout(resolve, 500));

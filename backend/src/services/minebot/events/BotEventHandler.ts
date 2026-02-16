@@ -2,6 +2,9 @@ import { BaseMessage } from '@langchain/core/messages';
 import { EventReactionSystem } from '../eventReaction/EventReactionSystem.js';
 import { CentralAgent } from '../llm/graph/centralAgent.js';
 import { CustomBot } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
+
+const log = createLogger('Minebot:Event');
 
 /**
  * BotEventHandler
@@ -45,7 +48,7 @@ export class BotEventHandler {
         this.registerDeathMessage();
         this.registerDeath();
         this.registerRespawn();
-        console.log('✅ All bot event handlers registered');
+        log.success('✅ All bot event handlers registered');
     }
 
     /**
@@ -55,7 +58,7 @@ export class BotEventHandler {
         this.bot.on('entitySpawn', async (entity) => {
             const autoPickUpItem = this.bot.constantSkills.getSkill('auto-pick-up-item');
             if (!autoPickUpItem) {
-                console.log('autoPickUpItem not found');
+                log.warn('autoPickUpItem not found');
                 return;
             }
             if (!autoPickUpItem.status) return;
@@ -63,7 +66,7 @@ export class BotEventHandler {
             try {
                 await autoPickUpItem.run(entity);
             } catch (error) {
-                console.error('エラーが発生しました:', error);
+                log.error('autoPickUpItem エラー', error);
             }
         });
     }
@@ -99,7 +102,7 @@ export class BotEventHandler {
                     this.consecutiveDamageCount = 1; // 新しいダメージ系列の開始
                 }
 
-                console.log(`\x1b[33m⚠️ ダメージ検知 (-${damage.toFixed(1)} HP, 残HP=${currentHealth.toFixed(1)}/20, ${damagePercent.toFixed(1)}%) 連続: ${this.consecutiveDamageCount}\x1b[0m`);
+                log.warn(`⚠️ ダメージ検知 -${damage.toFixed(1)}HP (残${currentHealth.toFixed(1)}/20, ${damagePercent.toFixed(0)}%) 連続:${this.consecutiveDamageCount}`);
 
                 // 緊急対応が必要かの判定
                 // 以下の場合のみEventReactionSystemに通知（緊急タスク生成）:
@@ -113,7 +116,7 @@ export class BotEventHandler {
 
                 if (this.eventReactionSystem && (isCriticalHP || isUnderAttack || isMassiveDamage)) {
                     const reason = isCriticalHP ? 'HP危険域' : isUnderAttack ? '連続攻撃' : '大ダメージ';
-                    console.log(`\x1b[31m🚨 緊急対応トリガー: ${reason}\x1b[0m`);
+                    log.error(`🚨 緊急対応トリガー: ${reason}`);
 
                     await this.eventReactionSystem.handleDamage({
                         damage,
@@ -123,7 +126,7 @@ export class BotEventHandler {
                     });
                 } else {
                     // 軽微なダメージ → autoEat に任せる（このメソッドの後半で呼ばれる）
-                    console.log(`\x1b[33mℹ️ 軽微ダメージ - autoEatに委任（HP=${currentHealth.toFixed(1)}/20）\x1b[0m`);
+                    log.debug(`ℹ️ 軽微ダメージ - autoEatに委任 (HP=${currentHealth.toFixed(1)}/20)`);
                 }
 
                 this.lastDamageTime = currentTime;
@@ -138,7 +141,7 @@ export class BotEventHandler {
                 const oxygen = this.bot.oxygenLevel || 20;
                 // 酸素が大きく減った（3以上）または、酸素が半分以下でHPが減っている
                 if (oxygen < this.lastOxygen - 3 || (oxygen < 10 && currentHealth < this.lastHealth)) {
-                    console.log(`\x1b[31m⚠️ 緊急: 窒息検知 (酸素: ${oxygen}/20, HP: ${currentHealth}/20)\x1b[0m`);
+                    log.error(`⚠️ 窒息検知 (酸素: ${oxygen}/20, HP: ${currentHealth}/20)`);
 
                     if (this.eventReactionSystem) {
                         await this.eventReactionSystem.handleSuffocation({
@@ -163,7 +166,7 @@ export class BotEventHandler {
             try {
                 await autoEat.run();
             } catch (error) {
-                console.error('エラーが発生しました:', error);
+                log.error('autoEat エラー', error);
             }
         });
     }
@@ -190,7 +193,7 @@ export class BotEventHandler {
             try {
                 await autoFaceUpdatedBlock.run(block);
             } catch (error) {
-                console.error('エラーが発生しました:', error);
+                log.error('autoFaceUpdatedBlock エラー', error);
             }
         });
     }
@@ -215,7 +218,7 @@ export class BotEventHandler {
             try {
                 await autoFaceMovedEntity.run(entity);
             } catch (error) {
-                console.error('エラーが発生しました:', error);
+                log.error('autoFaceMovedEntity エラー', error);
             }
         });
     }
@@ -283,7 +286,7 @@ export class BotEventHandler {
             for (const pattern of deathPatterns) {
                 if (pattern.test(message)) {
                     this.lastDeathMessage = message;
-                    console.log(`\x1b[31m💀 死亡メッセージ検出: ${message}\x1b[0m`);
+                    log.error(`💀 死亡メッセージ検出: ${message}`);
                     return;
                 }
             }
@@ -314,7 +317,7 @@ export class BotEventHandler {
                 }
             }
 
-            console.log(`\x1b[31m💀 ボット死亡: ${this.lastDeathMessage}\x1b[0m`);
+            log.error(`💀 ボット死亡: ${this.lastDeathMessage}`);
         });
     }
 
@@ -323,7 +326,7 @@ export class BotEventHandler {
      */
     private registerRespawn(): void {
         this.bot.on('spawn', async () => {
-            console.log('\x1b[32m🔄 Bot has respawned.\x1b[0m');
+            log.success('🔄 Bot has respawned');
 
             // TaskGraphに死亡を通知してタスクを失敗としてマーク
             const taskGraph = this.centralAgent.currentTaskGraph;

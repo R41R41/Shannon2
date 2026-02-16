@@ -2,7 +2,10 @@ import mcData from 'minecraft-data';
 import prismarineBiome from 'prismarine-biome';
 import * as prismarineRegistry from 'prismarine-registry';
 import { Vec3 } from 'vec3';
+import { createLogger } from '../../../utils/logger.js';
 import { ConstantSkill, CustomBot } from '../types.js';
+
+const log = createLogger('Minebot:Skill:autoUpdateState');
 
 class AutoUpdateState extends ConstantSkill {
   private mcData: any;
@@ -52,7 +55,7 @@ class AutoUpdateState extends ConstantSkill {
       this.bot.environmentState.biome = biomeName;
       this.bot.environmentState.dimension = this.bot.game.dimension;
     } catch (e) {
-      console.error(`Error updating self state and environment state: ${e}`);
+      log.error('状態更新に失敗', e);
     }
   }
 

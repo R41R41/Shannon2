@@ -1,6 +1,9 @@
 import express, { Application } from 'express';
 import { Server } from 'http';
+import { createLogger } from '../../../utils/logger.js';
 import { CONFIG } from '../config/MinebotConfig.js';
+
+const log = createLogger('Minebot:HTTP');
 import { EventReactionSystem } from '../eventReaction/EventReactionSystem.js';
 import { SkillLoader } from '../skills/SkillLoader.js';
 import { CustomBot } from '../types.js';
@@ -91,12 +94,12 @@ export class MinebotHttpServer {
                 const cleanItemName = itemName.includes(':') ? itemName.split(':')[1] : itemName;
                 const result = await dropItem.run(cleanItemName, 1);
 
-                console.log(`📦 アイテムドロップ: ${cleanItemName} -> ${result.result}`);
+                log.info(`📦 アイテムドロップ: ${cleanItemName} → ${result.result}`);
                 const response: ApiResponse = { success: result.success, result: result.result };
                 res.status(200).json(response);
             } catch (error) {
                 const httpError = new HttpServerError('/throw_item', 500, error as Error);
-                console.error(httpError.toJSON());
+                log.error('/throw_item エラー', httpError);
                 const response: ApiResponse = {
                     success: false,
                     result: httpError.message,
@@ -174,7 +177,7 @@ export class MinebotHttpServer {
                 res.status(200).json(response);
             } catch (error) {
                 const httpError = new HttpServerError('/constant_skill_switch', 500, error as Error);
-                console.error(httpError.toJSON());
+                log.error('/constant_skill_switch エラー', httpError);
                 const response: ApiResponse = {
                     success: false,
                     result: httpError.message,
@@ -197,7 +200,7 @@ export class MinebotHttpServer {
                         enabled,
                         probability,
                     });
-                    console.log(`📝 反応設定更新: ${eventType} -> enabled=${enabled}, probability=${probability}`);
+                    log.info(`📝 反応設定更新: ${eventType} → enabled=${enabled}, probability=${probability}`);
                 }
 
                 const response: ApiResponse = {
@@ -208,7 +211,7 @@ export class MinebotHttpServer {
                 res.status(200).json(response);
             } catch (error) {
                 const httpError = new HttpServerError('/reaction_setting_update', 500, error as Error);
-                console.error(httpError.toJSON());
+                log.error('/reaction_setting_update エラー', httpError);
                 const response: ApiResponse = {
                     success: false,
                     result: httpError.message,
@@ -226,7 +229,7 @@ export class MinebotHttpServer {
                 // EventReactionSystemで設定をリセット
                 if (this.eventReactionSystem) {
                     this.eventReactionSystem.resetConfigs();
-                    console.log('📝 反応設定をリセットしました');
+                    log.info('📝 反応設定をリセットしました');
                 }
 
                 const response: ApiResponse = {
@@ -236,7 +239,7 @@ export class MinebotHttpServer {
                 res.status(200).json(response);
             } catch (error) {
                 const httpError = new HttpServerError('/reaction_settings_reset', 500, error as Error);
-                console.error(httpError.toJSON());
+                log.error('/reaction_settings_reset エラー', httpError);
                 const response: ApiResponse = {
                     success: false,
                     result: httpError.message,
@@ -279,7 +282,7 @@ export class MinebotHttpServer {
                 }
             } catch (error) {
                 const httpError = new HttpServerError('/reaction_settings', 500, error as Error);
-                console.error(httpError.toJSON());
+                log.error('/reaction_settings エラー', httpError);
                 res.status(500).json({
                     success: false,
                     result: httpError.message,
@@ -291,7 +294,7 @@ export class MinebotHttpServer {
         this.app.post('/chat_message', async (req: any, res: any) => {
             try {
                 const { sender, message } = req.body as ChatMessageRequest;
-                console.log(`💬 Chat from ${sender}: ${message}`);
+                log.info(`💬 Chat from ${sender}: ${message}`);
 
                 if (this.onChatMessageCallback) {
                     await this.onChatMessageCallback(sender, message);
@@ -304,7 +307,7 @@ export class MinebotHttpServer {
                 res.status(200).json(response);
             } catch (error) {
                 const httpError = new HttpServerError('/chat_message', 500, error as Error);
-                console.error(httpError.toJSON());
+                log.error('/chat_message エラー', httpError);
                 res.status(500).json({
                     success: false,
                     result: httpError.message,
@@ -323,7 +326,7 @@ export class MinebotHttpServer {
                 res.status(200).json(taskListState);
             } catch (error) {
                 const httpError = new HttpServerError('/task_list', 500, error as Error);
-                console.error(httpError.toJSON());
+                log.error('/task_list エラー', httpError);
                 res.status(500).json({ success: false, result: httpError.message });
             }
         });
@@ -345,7 +348,7 @@ export class MinebotHttpServer {
                 res.status(200).json(result);
             } catch (error) {
                 const httpError = new HttpServerError('/task_delete', 500, error as Error);
-                console.error(httpError.toJSON());
+                log.error('/task_delete エラー', httpError);
                 res.status(500).json({ success: false, result: httpError.message });
             }
         });
@@ -367,12 +370,12 @@ export class MinebotHttpServer {
                 res.status(200).json(result);
             } catch (error) {
                 const httpError = new HttpServerError('/task_prioritize', 500, error as Error);
-                console.error(httpError.toJSON());
+                log.error('/task_prioritize エラー', httpError);
                 res.status(500).json({ success: false, result: httpError.message });
             }
         });
 
-        console.log('✅ API endpoints registered');
+        log.success('✅ API endpoints registered');
     }
 
     /**
@@ -380,12 +383,12 @@ export class MinebotHttpServer {
      */
     start(): void {
         if (this.server) {
-            console.log('⚠️ Server is already running');
+            log.warn('⚠️ Server is already running');
             return;
         }
 
         this.server = this.app.listen(CONFIG.MINEBOT_API_PORT, () => {
-            console.log(`✅ Express server listening on port ${CONFIG.MINEBOT_API_PORT}`);
+            log.success(`✅ Express server listening on port ${CONFIG.MINEBOT_API_PORT}`);
         });
     }
 
@@ -400,7 +403,7 @@ export class MinebotHttpServer {
             }
 
             this.server.close(() => {
-                console.log('Express server closed');
+                log.info('Express server closed');
                 this.server = null;
                 resolve();
             });

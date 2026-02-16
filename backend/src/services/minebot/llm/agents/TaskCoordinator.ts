@@ -11,6 +11,9 @@ import { errorHandler } from '../../utils/ErrorHandler.js';
 import { TaskGraph } from '../graph/taskGraph.js';
 import { ActionJudge } from './ActionJudge.js';
 import { TaskAction } from './IActionJudge.js';
+import { createLogger } from '../../../../utils/logger.js';
+
+const log = createLogger('Minebot:Coordinator');
 
 /**
  * TaskCoordinator
@@ -39,7 +42,7 @@ export class TaskCoordinator {
             });
         }
 
-        console.log('✅ TaskCoordinator initialized');
+        log.success('✅ TaskCoordinator initialized');
     }
 
     /**
@@ -55,7 +58,7 @@ export class TaskCoordinator {
      * 緊急事態を処理（BotEventHandlerから直接呼ばれる）
      */
     public async handleEmergencyEvent(type: string, data: any): Promise<void> {
-        console.log(`\x1b[35m🚨 緊急イベント受信: ${type}\x1b[0m`);
+        log.info(`🚨 緊急イベント受信: ${type}`, 'magenta');
 
         const emergencyMessage = this.buildEmergencyMessage(type, data);
         await this.handleEmergency(emergencyMessage, type);
@@ -65,7 +68,7 @@ export class TaskCoordinator {
      * 緊急状態解除（TaskGraphから呼ばれる）
      */
     public async handleEmergencyResolved(): Promise<void> {
-        console.log('\x1b[32m✅ 緊急状態が解除されました\x1b[0m');
+        log.success('✅ 緊急状態が解除されました');
 
         // 元のタスクに戻る
         if (this.taskGraph) {
@@ -107,7 +110,7 @@ export class TaskCoordinator {
      */
     private async handleEmergency(message: string, type: string): Promise<void> {
         if (!this.taskGraph) {
-            console.warn('⚠️ TaskGraphが初期化されていません');
+            log.warn('⚠️ TaskGraphが初期化されていません');
             return;
         }
 
@@ -168,9 +171,7 @@ export class TaskCoordinator {
             // ActionJudge をバイパスして直接 feedback として処理する
             // （マルチターン会話のため）
             if (this.taskGraph?.isAgentWaitingForResponse) {
-                console.log(
-                    '\x1b[33m🔄 Agent応答待機中 → ActionJudge をスキップして feedback として処理\x1b[0m',
-                );
+                log.info('🔄 Agent応答待機中 → feedback として処理', 'cyan');
                 return 'feedback';
             }
 
@@ -219,7 +220,7 @@ export class TaskCoordinator {
         selfState?: string;
         recentMessages?: BaseMessage[];
     }): Promise<void> {
-        console.log('\x1b[31m新しいタスクを作成します\x1b[0m');
+        log.info(`新しいタスクを作成: ${context.message.substring(0, 80)}`, 'cyan');
 
         // TaskGraphの初期化確認
         if (!this.taskGraph) {
@@ -242,7 +243,7 @@ export class TaskCoordinator {
 
         // キューがいっぱいの場合はタスク一覧を表示してどれを終了させるか聞く
         if (!result.success) {
-            console.log('\x1b[33m⚠️ タスクキューがいっぱいです\x1b[0m');
+            log.warn('⚠️ タスクキューがいっぱいです');
             const taskList = this.taskGraph.getTaskListState();
             const taskNames = taskList.tasks.map((t, i) => `${i + 1}. ${t.goal.substring(0, 20)}...`).join('\n');
             this.bot.chat(`今は3つのタスクを抱えています。どれかをやめてほしいですか？\n${taskNames}`);
@@ -253,10 +254,10 @@ export class TaskCoordinator {
      * フィードバックを提供
      */
     private provideFeedback(message: string): void {
-        console.log('\x1b[31mフィードバックを更新します\x1b[0m');
+        log.info(`フィードバック更新: ${message.substring(0, 80)}`, 'cyan');
 
         if (!this.taskGraph) {
-            console.warn('⚠️ TaskGraphが初期化されていません');
+            log.warn('⚠️ TaskGraphが初期化されていません');
             return;
         }
 
@@ -267,10 +268,10 @@ export class TaskCoordinator {
      * タスクを停止（実行中のタスクのみ。キューは残る）
      */
     private stopTask(): void {
-        console.log('\x1b[31mタスクを終了します\x1b[0m');
+        log.info('タスクを終了します', 'cyan');
 
         if (!this.taskGraph) {
-            console.warn('⚠️ TaskGraphが初期化されていません');
+            log.warn('⚠️ TaskGraphが初期化されていません');
             return;
         }
 

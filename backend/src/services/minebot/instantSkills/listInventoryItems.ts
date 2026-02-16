@@ -1,4 +1,6 @@
 import { CustomBot, InstantSkill } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
+const log = createLogger('Minebot:Skill:listInventoryItems');
 
 /**
  * 原子的スキル: インベントリの全アイテムをリスト表示
@@ -14,30 +16,6 @@ class ListInventoryItems extends InstantSkill {
   async runImpl() {
     try {
       const items = this.bot.inventory.items();
-
-      // デバッグ: 全スロットを確認
-      console.log('🔍 インベントリ詳細:');
-      const allSlots = this.bot.inventory.slots;
-      allSlots.forEach((slot, index) => {
-        if (slot) {
-          console.log(`  Slot ${index}: ${slot.name} x${slot.count}`);
-        }
-      });
-
-      // ホットバー（スロット36-44）も確認
-      console.log('🔍 ホットバー:');
-      for (let i = 36; i <= 44; i++) {
-        const slot = this.bot.inventory.slots[i];
-        if (slot) {
-          console.log(`  Hotbar ${i - 36}: ${slot.name} x${slot.count}`);
-        }
-      }
-
-      // 手持ちアイテム
-      const heldItem = this.bot.heldItem;
-      if (heldItem) {
-        console.log(`🔍 手持ち: ${heldItem.name} x${heldItem.count}`);
-      }
 
       if (items.length === 0) {
         return {

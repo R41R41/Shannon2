@@ -6,6 +6,9 @@
 import { TaskGraph } from '../llm/graph/taskGraph.js';
 import { CustomBot } from '../types.js';
 import { EmergencyResponder } from './EmergencyResponder.js';
+import { createLogger } from '../../../utils/logger.js';
+
+const log = createLogger('Minebot:EventReaction');
 import {
     BiomeEventData,
     DamageEventData,
@@ -72,11 +75,11 @@ export class EventReactionSystem {
                 this.updateInitialState();
                 this.startEnvironmentCheck();
                 this.startHostileCheck();
-                console.log('✅ EventReactionSystem started after spawn');
+                log.success('✅ EventReactionSystem started after spawn');
             });
         }
 
-        console.log('✅ EventReactionSystem initialized');
+        log.success('✅ EventReactionSystem initialized');
     }
 
     /**
@@ -84,7 +87,7 @@ export class EventReactionSystem {
      */
     private updateInitialState(): void {
         if (!this.bot.entity) {
-            console.warn('⚠️ bot.entity not available yet');
+            log.warn('⚠️ bot.entity not available yet');
             return;
         }
 
@@ -566,7 +569,7 @@ export class EventReactionSystem {
 
             // アイテム取得はinfo更新のみ
             if (eventData.eventType === 'item_obtained') {
-                console.log(`📦 アイテム取得: +${(eventData as ItemEventData).count} ${(eventData as ItemEventData).itemName}`);
+                log.info(`📦 アイテム取得: +${(eventData as ItemEventData).count} ${(eventData as ItemEventData).itemName}`);
                 return { handled: true, reactionType: 'info' };
             }
 
@@ -591,7 +594,7 @@ export class EventReactionSystem {
                 // アイテム取得の特別処理
                 if (eventData.eventType === 'item_obtained') {
                     const itemData = eventData as ItemEventData;
-                    console.log(`📦 アイテム取得: +${itemData.count} ${itemData.itemName}`);
+                    log.info(`📦 アイテム取得: +${itemData.count} ${itemData.itemName}`);
 
                     // プレイヤーからもらった場合は使い道を聞く（タスクとして処理）
                     if (itemData.nearbyPlayers && itemData.nearbyPlayers.length > 0) {
@@ -607,24 +610,24 @@ export class EventReactionSystem {
      */
     private async handleEmergencyEvent(eventData: EventData): Promise<EventReactionResult> {
         if (!this.taskGraph) {
-            console.warn('⚠️ TaskGraphが初期化されていません');
+            log.warn('⚠️ TaskGraphが初期化されていません');
             return { handled: false, reactionType: 'emergency' };
         }
 
         // InstantSkill実行中は緊急対応をスキップ（移動中に中断されるのを防ぐ）
         if (this.bot.executingSkill) {
-            console.log('\x1b[33m⚠️ InstantSkill実行中のため緊急対応をスキップ\x1b[0m');
+            log.warn('⚠️ InstantSkill実行中のため緊急対応をスキップ');
             return { handled: false, reactionType: 'emergency' };
         }
 
         // 既に緊急タスクを処理中の場合はスキップ（上書き防止）
         if (this.taskGraph.isInEmergencyMode()) {
-            console.log('\x1b[33m⚠️ 緊急タスク処理中のため新しい緊急イベントをスキップ\x1b[0m');
+            log.warn('⚠️ 緊急タスク処理中のため新しい緊急イベントをスキップ');
             return { handled: false, reactionType: 'emergency' };
         }
 
         const message = this.buildEmergencyMessage(eventData);
-        console.log(`\x1b[31m🚨 緊急対応: ${message}\x1b[0m`);
+        log.error(`🚨 緊急対応: ${message}`);
 
         try {
             // 現在のタスクを中断（paused状態に）
@@ -643,7 +646,7 @@ export class EventReactionSystem {
 
             return { handled: true, reactionType: 'emergency', message };
         } catch (error) {
-            console.error('緊急対応エラー:', error);
+            log.error('緊急対応エラー', error);
             return { handled: false, reactionType: 'emergency', message };
         }
     }
@@ -657,7 +660,7 @@ export class EventReactionSystem {
         }
 
         const message = this.buildTaskMessage(eventData);
-        console.log(`📋 タスク生成: ${message}`);
+        log.info(`📋 タスク生成: ${message}`);
 
         try {
             // タスクをキューに追加（直接invokeではなくキュー管理経由）
@@ -667,13 +670,13 @@ export class EventReactionSystem {
             });
 
             if (!result.success) {
-                console.log(`\x1b[33m⚠️ タスク追加失敗: ${result.reason}\x1b[0m`);
+                log.warn(`⚠️ タスク追加失敗: ${result.reason}`);
                 return { handled: false, reactionType: 'task', message };
             }
 
             return { handled: true, reactionType: 'task', message };
         } catch (error) {
-            console.error('タスク生成エラー:', error);
+            log.error('タスク生成エラー', error);
             return { handled: false, reactionType: 'task', message };
         }
     }

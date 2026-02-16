@@ -2,6 +2,9 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
+import { createLogger } from '../../../utils/logger.js';
+
+const log = createLogger('Minebot:Config');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -188,29 +191,24 @@ export class MinebotConfig {
       const error = new Error(
         `Missing required environment variables: ${missingVars.join(', ')}`
       );
-      console.error('❌ Environment validation failed:', error.message);
+      log.error(`❌ Environment validation failed: ${error.message}`);
       throw error;
     }
 
-    console.log('✅ All required environment variables are set');
+    log.success('✅ All required environment variables are set');
   }
 
   /**
    * 設定値のサマリーを表示（デバッグ用）
    */
   logConfiguration(): void {
-    console.log('📋 Minebot Configuration:');
-    console.log(`  LLM Models:`);
-    console.log(`    - Central Agent: ${this.CENTRAL_AGENT_MODEL}`);
-    console.log(`    - Execution: ${this.EXECUTION_MODEL}`);
-    console.log(`  Server Ports:`);
-    console.log(`    - Minebot API: ${this.MINEBOT_API_PORT}`);
-    console.log(`    - UI Mod: ${this.UI_MOD_PORT}`);
-    console.log(`  Task Settings:`);
-    console.log(`    - Max Retry: ${this.MAX_RETRY_COUNT}`);
-    console.log(`    - Task Timeout: ${this.TASK_TIMEOUT}ms`);
-    console.log(`    - Max Queue Size: ${this.MAX_QUEUE_SIZE}`);
-    console.log(`  Dev Mode: ${this.IS_DEV}`);
+    log.info(
+      `📋 Minebot Configuration: ` +
+      `LLM=[Central:${this.CENTRAL_AGENT_MODEL}, Exec:${this.EXECUTION_MODEL}] ` +
+      `Ports=[API:${this.MINEBOT_API_PORT}, UI:${this.UI_MOD_PORT}] ` +
+      `Task=[retry:${this.MAX_RETRY_COUNT}, timeout:${this.TASK_TIMEOUT}ms, queue:${this.MAX_QUEUE_SIZE}] ` +
+      `Dev=${this.IS_DEV}`
+    );
   }
 }
 

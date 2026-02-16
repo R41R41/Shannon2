@@ -1,4 +1,6 @@
 import { CustomBot, InstantSkill } from '../types.js';
+import { createLogger } from '../../../utils/logger.js';
+const log = createLogger('Minebot:Skill:switchConstantSkill');
 
 /**
  * パラメータ名 → 実際の常時スキル名のマッピング
@@ -92,7 +94,7 @@ export class SwitchConstantSkill extends InstantSkill {
 
                 const skill = this.bot.constantSkills.getSkill(skillName);
                 if (!skill) {
-                    console.warn(`⚠️ 常時スキルが未登録: ${skillName} (${paramName})`);
+                    log.warn(`⚠️ 常時スキルが未登録: ${skillName} (${paramName})`);
                     errors.push(`スキル未登録: ${skillName}`);
                     continue;
                 }
