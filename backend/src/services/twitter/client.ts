@@ -602,7 +602,7 @@ export class TwitterClient extends BaseClient {
       logger.info(`[loginV2] ログイン中... user_name=${this.userName}, email=${this.email}, totp_secret=${this.totp_secret ? '***' : '(empty)'}`, 'cyan');
       const response = await axios.post(endpoint, data, reqConfig);
       const resData = response.data;
-      logger.info(`[loginV2] レスポンス全体: ${JSON.stringify(resData).slice(0, 500)}`, 'cyan');
+      logger.debug(`[loginV2] レスポンス status: ${resData?.status}`);
 
       if (resData?.status === 'error') {
         throw new Error(`loginV2 failed: ${resData?.msg || resData?.message || JSON.stringify(resData).slice(0, 200)}`);
@@ -700,7 +700,7 @@ export class TwitterClient extends BaseClient {
       logger.info(`[postTweet] 投稿中 (v2)... replyId=${replyId}`, 'cyan');
       const response = await axios.post(endpoint, data, reqConfig);
       const resData = response.data;
-      logger.info(`[postTweet] レスポンス: ${JSON.stringify(resData).slice(0, 500)}`, 'cyan');
+      logger.info(`[postTweet] レスポンス: ${JSON.stringify(resData).slice(0, 200)}`, 'cyan');
 
       // --- エラー判定 ---
       // v2 形式: { status: 'error', message/msg: '...' }
@@ -991,7 +991,7 @@ export class TwitterClient extends BaseClient {
       this.lastCheckedTime = now;
 
       if (allTweets.length === 0) {
-        logger.info('📭 新着ツイートなし', 'cyan');
+        logger.debug('📭 新着ツイートなし');
         return;
       }
 

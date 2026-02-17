@@ -74,7 +74,7 @@ export class SkillAgent extends WebSocketServiceBase {
       });
     });
 
-    logger.error('SkillAgent subscribe');
+    logger.debug('SkillAgent subscribe');
   }
 
   public start() {

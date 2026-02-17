@@ -189,13 +189,9 @@ class Server {
           return;
         }
 
-        // デバッグ: 初回はペイロード構造を確認
         logger.info(
-          `[Webhook] Twitter webhook 受信: ${tweets.length}件 (rule: ${rule_tag})`
+          `[Webhook] Twitter webhook 受信: ${tweets.length}件 (rule: ${rule_tag})${tweets.length > 0 ? ` from:@${tweets[0].author?.userName ?? '?'} "${(tweets[0].text ?? '').slice(0, 60)}"` : ''}`
         );
-        if (tweets.length > 0) {
-          logger.info(`[Webhook] ペイロード例: ${JSON.stringify(tweets[0], null, 2).slice(0, 500)}`);
-        }
 
         const eventBus = getEventBus();
         const myUserId = config.twitter.userId;

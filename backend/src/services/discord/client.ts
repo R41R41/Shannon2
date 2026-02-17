@@ -188,11 +188,6 @@ export class DiscordBot extends BaseClient {
     try {
       this.client.login(config.discord.token);
       logger.info('Discord bot started', 'blue');
-      this.eventBus.log(
-        'discord:aiminelab_server',
-        'blue',
-        'Discord bot started'
-      );
     } catch (error) {
       logger.error('Discord bot failed to start');
       this.eventBus.log(

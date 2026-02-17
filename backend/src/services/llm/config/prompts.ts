@@ -27,7 +27,7 @@ export const loadPrompt = async (
         `${promptType}.md`
       );
     }
-    logger.info(`Loading prompt from: ${path}`);
+    logger.debug(`Loading prompt: ${promptType}`);
     return readFileSync(path, 'utf-8').trim();
   } catch (error) {
     logger.error(`Failed to load prompt for ${promptType}:`, error);
