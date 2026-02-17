@@ -1,24 +1,23 @@
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { Runnable } from '@langchain/core/runnables';
-import { StructuredTool } from '@langchain/core/tools';
 import { ChatOpenAI } from '@langchain/openai';
 import { PromptType } from '@shannon/common';
 import axios from 'axios';
 import { addDays, format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { AgentExecutor, createOpenAIToolsAgent } from 'langchain/agents';
-import { pull } from 'langchain/hub';
 import { z } from 'zod';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
 import { loadPrompt } from '../config/prompts.js';
-import GoogleSearchTool from '../tools/googleSearch.js';
-import WolframAlphaTool from '../tools/wolframAlpha.js';
 import { logger } from '../../../utils/logger.js';
 
 const OPENAI_API_KEY = config.openaiApiKey;
 const jst = 'Asia/Tokyo';
+
+/** エージェントの出力 */
+export interface WeatherOutput {
+  text: string;
+  imagePrompt?: string;
+}
 
 // 天気予報のスキーマ定義
 const WeatherSchema = z.object({
@@ -30,11 +29,14 @@ const WeatherSchema = z.object({
       weather: z.string(),
       temperature: z.string().nullable(),
       chanceOfRain: z.string().nullable(),
-      hourlyEmojis: z.array(z.string()).nullable(), // 6時間ごとの天気絵文字
+      hourlyEmojis: z.array(z.string()).nullable(),
     })
   ),
   advice: z.string(),
   closing: z.string(),
+  imagePrompt: z.string().describe(
+    '天気に合った画像を生成するためのプロンプト（英語）。photorealistic style。明日の天気の雰囲気を描写。'
+  ),
 });
 
 // 上海を含む天気予報のスキーマ
@@ -104,15 +106,6 @@ export class PostWeatherAgent {
   private systemPrompts: Map<PromptType, string>;
   private cityForecasts: CityForecast[] | null = null;
   private forecasts: Forecast[] = [];
-  private forecastObservations: string[] = [
-    'city',
-    'temperature',
-    'weather',
-    'chanceOfRain',
-  ];
-  private tools: StructuredTool[];
-  private agent: Runnable | null;
-  private executor: AgentExecutor | null;
 
   constructor(
     systemPrompts: Map<PromptType, string>,
@@ -122,11 +115,6 @@ export class PostWeatherAgent {
       modelName: models.scheduledPost,
       apiKey: OPENAI_API_KEY,
     });
-    this.agent = null;
-    this.executor = null;
-    this.tools = [];
-    this.setTools();
-    this.initializeAgent();
     this.cities = [
       ['稚内', '011000'],
       ['根室', '014010'],
@@ -201,34 +189,6 @@ export class PostWeatherAgent {
     this.systemPrompts = systemPrompts;
   }
 
-  private setTools() {
-    // const bingSearchTool = new BingSearchTool();
-    const wolframAlphaTool = new WolframAlphaTool();
-    const googleSearchTool = new GoogleSearchTool();
-    this.tools = [wolframAlphaTool, googleSearchTool];
-  }
-
-  private async initializeAgent() {
-    // AgentのPromptをHubから取得
-    const prompt = (await pull(
-      'hwchase17/openai-tools-agent'
-    )) as ChatPromptTemplate;
-
-    // Agentを作成
-    this.agent = await createOpenAIToolsAgent({
-      llm: this.model,
-      tools: this.tools,
-      prompt: prompt,
-    });
-
-    // ExecutorでAgentを実行可能に
-    this.executor = new AgentExecutor({
-      agent: this.agent,
-      tools: this.tools,
-      verbose: true,
-    });
-  }
-
   public static async create(): Promise<PostWeatherAgent> {
     const promptsName: PromptType[] = [
       'forecast',
@@ -240,23 +200,6 @@ export class PostWeatherAgent {
       systemPrompts.set(name, await loadPrompt(name));
     }
     return new PostWeatherAgent(systemPrompts);
-  }
-
-  private async llm(systemPrompt: string): Promise<string> {
-    if (!this.executor) {
-      throw new Error('Executor is not initialized');
-    }
-    try {
-      // AgentExecutorを使用して実行
-      const result = await this.executor.invoke({
-        input: systemPrompt,
-      });
-
-      return result.output;
-    } catch (error) {
-      logger.error('Agent execution error:', error);
-      throw error;
-    }
   }
 
   private async getUrl(city: string): Promise<WeatherApiResponse> {
@@ -439,8 +382,9 @@ export class PostWeatherAgent {
             hourlyEmojis: ["❓", "❓", "❓", "❓"]
           }
         ],
-        advice: "最新の天気情報を別の情報源で確認することをお勧めします。",
-        closing: "ご不便をおかけして申し訳ありません。"
+        advice: "天気情報の取得がうまくいかなかったみたい…別の情報源で確認してみてね",
+        closing: "ごめんね〜また次はちゃんと取れるといいな",
+        imagePrompt: "photorealistic, high quality photograph of a cloudy sky over a Japanese city, overcast weather, no people, no characters, no anime, no illustration, no text, no letters, no words, no watermarks",
       };
 
       return defaultResult;
@@ -455,7 +399,7 @@ export class PostWeatherAgent {
     });
   }
 
-  public async createPost(): Promise<string> {
+  public async createPost(): Promise<WeatherOutput> {
     await this.setCityForecasts();
 
     // 構造化された天気予報データを取得
@@ -467,7 +411,10 @@ export class PostWeatherAgent {
     const date = this.getTomorrowDate();
     this.setForecasts(date, formattedForecast, weatherData);
 
-    return formattedForecast;
+    return {
+      text: formattedForecast,
+      imagePrompt: weatherData.imagePrompt,
+    };
   }
 
   public async createPostForToyama(): Promise<string> {

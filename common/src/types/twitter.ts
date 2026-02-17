@@ -69,6 +69,19 @@ export interface TwitterTrendData {
   metaDescription?: string;
 }
 
+/** メンバーツイートへのFCA応答用データ */
+export interface MemberTweetInput extends ServiceInput {
+  tweetId: string;
+  tweetUrl: string;
+  text: string;
+  authorName: string;
+  authorUserName: string;
+  authorId?: string | null;
+  repliedTweet?: string | null;
+  repliedTweetAuthorName?: string | null;
+  conversationThread?: Array<{ authorName: string; text: string }> | null;
+}
+
 /** 自動投稿用イベントデータ */
 export interface TwitterAutoTweetInput extends ServiceInput {
   trends: TwitterTrendData[];

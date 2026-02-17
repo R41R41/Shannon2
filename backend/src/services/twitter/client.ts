@@ -1,4 +1,5 @@
 import {
+  MemberTweetInput,
   TwitterActionResult,
   TwitterAutoTweetInput,
   TwitterClientInput,
@@ -20,6 +21,8 @@ import { logger } from '../../utils/logger.js';
 const PROCESSED_IDS_FILE = path.resolve('saves/processed_tweet_ids.json');
 // 日次返信カウンタの永続化ファイルパス
 const DAILY_REPLY_COUNT_FILE = path.resolve('saves/daily_reply_count.json');
+// login_cookies の永続化ファイルパス
+const LOGIN_COOKIES_FILE = path.resolve('saves/twitter_login_cookies.json');
 // 自動投稿カウンタの永続化ファイルパス
 const AUTO_POST_COUNT_FILE = path.resolve('saves/auto_post_count.json');
 import { BaseClient } from '../common/BaseClient.js';
@@ -62,6 +65,8 @@ interface MonitoredAccountConfig {
   reply: boolean;
   /** 必ず引用RTするか */
   alwaysQuoteRT: boolean;
+  /** FCAで返信/引用RTを自動判断するか (メンバー用) */
+  memberFCA: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -329,13 +334,17 @@ export class TwitterClient extends BaseClient {
       config.twitter.usernames.aiminelab,
     ].filter(Boolean) as string[];
 
-    this.monitoredAccounts = allUserNames.map((userName) => ({
-      userName,
-      alwaysLike: true,
-      reply: true,
-      // ai_mine_lab のみ引用RT
-      alwaysQuoteRT: userName === this.officialAccountUserName,
-    }));
+    this.monitoredAccounts = allUserNames.map((userName) => {
+      const isOfficial = userName === this.officialAccountUserName;
+      return {
+        userName,
+        alwaysLike: true,
+        // メンバーは FCA で処理するので reply / alwaysQuoteRT は false
+        reply: isOfficial,
+        alwaysQuoteRT: isOfficial,
+        memberFCA: !isOfficial,
+      };
+    });
 
     const apiKey = config.twitter.apiKey;
     const apiKeySecret = config.twitter.apiKeySecret;
@@ -383,10 +392,12 @@ export class TwitterClient extends BaseClient {
 
     this.eventBus.subscribe('twitter:post_scheduled_message', async (event) => {
       if (this.status !== 'running') return;
-      const { text } = event.data as TwitterClientInput;
+      const { text, quoteTweetUrl, imageUrl } = event.data as TwitterClientInput;
       try {
-        if (text) {
-          await this.postTweet(text, null, null);
+        if (text && quoteTweetUrl) {
+          await this.postQuoteTweet(text, quoteTweetUrl);
+        } else if (text) {
+          await this.postTweet(text, imageUrl ?? null, null);
         }
       } catch (error) {
         logger.error('Twitter post error:', error);
@@ -600,7 +611,7 @@ export class TwitterClient extends BaseClient {
       logger.info(`[loginV2] ログイン中... user_name=${this.userName}, email=${this.email}, totp_secret=${this.totp_secret ? '***' : '(empty)'}`, 'cyan');
       const response = await axios.post(endpoint, data, reqConfig);
       const resData = response.data;
-      logger.info(`[loginV2] レスポンス全体: ${JSON.stringify(resData).slice(0, 500)}`, 'cyan');
+      logger.debug(`[loginV2] レスポンス status: ${resData?.status}`);
 
       if (resData?.status === 'error') {
         throw new Error(`loginV2 failed: ${resData?.msg || resData?.message || JSON.stringify(resData).slice(0, 200)}`);
@@ -612,6 +623,15 @@ export class TwitterClient extends BaseClient {
       }
       this.login_cookies = cookies;
       logger.success(`[loginV2] ログイン成功。login_cookies 取得完了 (${cookies.length}文字)`);
+      // クッキーをファイルに永続化
+      try {
+        const dir = path.dirname(LOGIN_COOKIES_FILE);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(LOGIN_COOKIES_FILE, JSON.stringify({ cookies, updatedAt: new Date().toISOString() }));
+        logger.info('[loginV2] login_cookies をファイルに保存', 'cyan');
+      } catch (e) {
+        logger.warn(`[loginV2] login_cookies ファイル保存失敗: ${e}`);
+      }
     } catch (error: unknown) {
       logger.error(`[loginV2] エラー: ${error instanceof Error ? error.message : String(error)}`);
       if (isAxiosError(error)) {
@@ -638,7 +658,14 @@ export class TwitterClient extends BaseClient {
       const response = await this.client.v2.tweet(options);
       logger.success(`[postTweetByApi] 投稿成功: ${response.data.id}`);
     } catch (error: unknown) {
+      const errObj = error as Record<string, unknown>;
       logger.error(`[postTweetByApi] エラー: ${error instanceof Error ? error.message : String(error)}`);
+      if (errObj?.data) {
+        logger.error(`[postTweetByApi] レスポンス詳細: ${JSON.stringify(errObj.data).slice(0, 500)}`);
+      }
+      if (errObj?.errors) {
+        logger.error(`[postTweetByApi] エラー詳細: ${JSON.stringify(errObj.errors).slice(0, 500)}`);
+      }
       throw error;
     }
   }
@@ -668,8 +695,8 @@ export class TwitterClient extends BaseClient {
         tweet_text: content,
         proxy: this.proxy1,
       };
-      // prod（Premium/Basic）は長文ツイート対応
-      if (!this.isTest) {
+      // Premium プランは長文ツイート対応
+      if (!this.isTest && content.length > 280) {
         data.is_note_tweet = true;
       }
       if (replyId) {
@@ -682,15 +709,23 @@ export class TwitterClient extends BaseClient {
       logger.info(`[postTweet] 投稿中 (v2)... replyId=${replyId}`, 'cyan');
       const response = await axios.post(endpoint, data, reqConfig);
       const resData = response.data;
-      logger.info(`[postTweet] レスポンス: ${JSON.stringify(resData).slice(0, 500)}`, 'cyan');
+      logger.info(`[postTweet] レスポンス: ${JSON.stringify(resData).slice(0, 200)}`, 'cyan');
 
       // --- エラー判定 ---
       // v2 形式: { status: 'error', message/msg: '...' }
       if (resData?.status === 'error') {
         const errMsg = resData?.message || resData?.msg || 'Unknown error';
-        logger.error(`[postTweet] APIエラー: ${errMsg}`);
-        // login_cookies が無効またはセッション切れの場合は再ログインしてリトライ（1回のみ）
         const errLower = errMsg.toLowerCase();
+
+        // Note Tweet: twitterapi.io が tweet_id をパースできないが投稿自体は成功している
+        if (errLower.includes('could not extract tweet_id')) {
+          logger.warn(`[postTweet] Note Tweet投稿: tweet_id取得失敗（投稿自体は成功の可能性あり）`);
+          return response;
+        }
+
+        logger.error(`[postTweet] APIエラー: ${errMsg}`);
+
+        // セッション切れ → 再ログインしてリトライ（1回のみ）
         if (!_retried && (errLower.includes('cookie') || errLower.includes('login') || errLower.includes('auth'))) {
           logger.warn('[postTweet] セッション無効の可能性。再ログインしてリトライします...');
           await this.loginV2();
@@ -724,6 +759,52 @@ export class TwitterClient extends BaseClient {
         logger.error(`[postTweet] レスポンス: ${JSON.stringify(error.response?.data).slice(0, 300)}`);
       }
       throw error;
+    }
+  }
+
+  /**
+   * twitterapi.io v2 経由でメディアをアップロードし media_id を返す
+   * upload_media_v2 エンドポイント使用
+   */
+  public async uploadMedia(imageBuffer: Buffer, filename: string = 'image.png'): Promise<string | null> {
+    if (!this.login_cookies) {
+      logger.warn('[uploadMedia] login_cookies が未取得。loginV2 を実行します...');
+      await this.loginV2();
+    }
+
+    try {
+      const FormData = (await import('form-data')).default;
+      const form = new FormData();
+      form.append('file', imageBuffer, { filename, contentType: 'image/png' });
+      form.append('login_cookies', this.login_cookies);
+      form.append('proxy', this.proxy1);
+
+      const endpoint = 'https://api.twitterapi.io/twitter/upload_media_v2';
+      logger.info(`[uploadMedia] アップロード中... (${(imageBuffer.length / 1024).toFixed(1)} KB)`, 'cyan');
+
+      const response = await axios.post(endpoint, form, {
+        headers: {
+          ...form.getHeaders(),
+          'X-API-Key': this.apiKey,
+        },
+        maxContentLength: 10 * 1024 * 1024,
+        maxBodyLength: 10 * 1024 * 1024,
+      });
+
+      const resData = response.data;
+      if (resData?.status === 'success' && resData?.media_id) {
+        logger.info(`[uploadMedia] 成功: media_id=${resData.media_id}`, 'green');
+        return resData.media_id;
+      }
+
+      logger.error(`[uploadMedia] エラー: ${resData?.msg || JSON.stringify(resData).slice(0, 200)}`);
+      return null;
+    } catch (error: unknown) {
+      const errMsg = isAxiosError(error)
+        ? error.response?.data?.message || error.message
+        : error instanceof Error ? error.message : String(error);
+      logger.error(`[uploadMedia] 失敗: ${errMsg}`);
+      return null;
     }
   }
 
@@ -972,7 +1053,7 @@ export class TwitterClient extends BaseClient {
       this.lastCheckedTime = now;
 
       if (allTweets.length === 0) {
-        logger.info('📭 新着ツイートなし', 'cyan');
+        logger.debug('📭 新着ツイートなし');
         return;
       }
 
@@ -1020,7 +1101,7 @@ export class TwitterClient extends BaseClient {
           });
         }
 
-        // 3) 確率で返信
+        // 3) 確率で返信 (ai_mine_lab 用)
         if (accountConfig.reply && Math.random() < this.replyProbability) {
           let repliedTweetText = '';
           let repliedTweetAuthorName = '';
@@ -1054,6 +1135,43 @@ export class TwitterClient extends BaseClient {
             } as TwitterReplyOutput,
           });
         }
+
+        // 4) メンバーFCA: LLMが返信/引用RTを自動判断
+        if (accountConfig.memberFCA && Math.random() < this.replyProbability) {
+          const tweetUrl = tweet.url || `https://x.com/${authorUserName}/status/${tweet.id}`;
+          let repliedTweetText = '';
+          let repliedTweetAuthorName = '';
+
+          if (tweet.inReplyToId || tweet.in_reply_to_status_id || tweet.in_reply_to_tweet_id) {
+            const originalTweetId =
+              tweet.inReplyToId ||
+              tweet.in_reply_to_status_id ||
+              tweet.in_reply_to_tweet_id;
+            if (originalTweetId) {
+              try {
+                const original = await this.fetchTweetContent(originalTweetId);
+                repliedTweetText = original.text ?? '';
+                repliedTweetAuthorName = original.authorName ?? '';
+              } catch {
+                // 元ツイート取得失敗は無視
+              }
+            }
+          }
+
+          this.eventBus.publish({
+            type: 'llm:respond_member_tweet',
+            memoryZone: 'twitter:post',
+            data: {
+              tweetId: tweet.id,
+              tweetUrl,
+              text: tweet.text,
+              authorName: tweet.author.name,
+              authorUserName,
+              repliedTweet: repliedTweetText,
+              repliedTweetAuthorName,
+            } as MemberTweetInput,
+          });
+        }
       }
 
       // processedTweetIds が際限なく増えるのを防ぐ (最大1000件保持)
@@ -1084,12 +1202,16 @@ export class TwitterClient extends BaseClient {
       );
 
       if (res.data?.trends && Array.isArray(res.data.trends)) {
-        return res.data.trends.map((t: any, i: number) => ({
-          name: t.name ?? t.trend ?? '',
-          query: t.query ?? t.name ?? '',
-          rank: t.rank ?? i + 1,
-          metaDescription: t.meta_description ?? t.metaDescription ?? undefined,
-        }));
+        return res.data.trends.map((t: any, i: number) => {
+          // API v2: { trend: { name, target: { query }, rank } }
+          const trend = t.trend && typeof t.trend === 'object' ? t.trend : t;
+          return {
+            name: trend.name ?? '',
+            query: trend.target?.query ?? trend.query ?? trend.name ?? '',
+            rank: trend.rank ?? i + 1,
+            metaDescription: trend.meta_description ?? trend.metaDescription ?? undefined,
+          };
+        });
       }
 
       logger.warn('🐦 fetchTrends: 予期しないレスポンス形式');
@@ -1315,6 +1437,9 @@ export class TwitterClient extends BaseClient {
 
   /** 現在のWebhookルールID (起動中のみ保持) */
   private webhookRuleId: string | null = null;
+  /** 引用RT検知用WebhookルールID */
+  private quoteRTWebhookRuleId: string | null = null;
+
 
   /**
    * twitterapi.io の Webhook フィルタルールをセットアップし有効化する。
@@ -1449,20 +1574,131 @@ export class TwitterClient extends BaseClient {
   }
 
   // =========================================================================
+  // 引用RT検知用 Webhook ルール
+  // =========================================================================
+
+  /**
+   * 自分のツイートが引用RTされた時に検知する Webhook ルールをセットアップ。
+   * フィルタ: url:"x.com/USERNAME/status" -from:USERNAME
+   */
+  public async setupQuoteRTWebhookRule(): Promise<void> {
+    const baseUrl = config.twitter.webhookBaseUrl;
+    const userName = config.twitter.userName;
+    if (!baseUrl || !userName) {
+      logger.warn('🔔 QuoteRT Webhook: webhookBaseUrl または userName が未設定。スキップ');
+      return;
+    }
+
+    const tag = `shannon-quote-rt-${this.isTest ? 'dev' : 'prod'}`;
+    const filterValue = `url:"x.com/${userName}/status" -from:${userName}`;
+    const interval = config.twitter.webhookInterval;
+
+    try {
+      const rulesRes = await axios.get(
+        'https://api.twitterapi.io/oapi/tweet_filter/get_rules',
+        { headers: { 'X-API-Key': this.apiKey } }
+      );
+
+      const existingRules: Array<{
+        rule_id: string;
+        tag: string;
+        value: string;
+        interval_seconds: number;
+        is_effect?: number;
+      }> = rulesRes.data?.rules ?? [];
+
+      const existing = existingRules.find((r) => r.tag === tag);
+
+      if (existing) {
+        this.quoteRTWebhookRuleId = existing.rule_id;
+        const alreadyActive = existing.is_effect === 1;
+        logger.info(
+          `🔔 QuoteRT Webhook: 既存ルールを再利用 (id=${existing.rule_id}, tag=${tag}, active=${alreadyActive})`,
+          'cyan'
+        );
+        if (alreadyActive) {
+          logger.info(
+            `🔔 QuoteRT Webhook: ルールは既に有効。スキップ (filter="${filterValue}")`,
+            'green'
+          );
+          return;
+        }
+      } else {
+        const addRes = await axios.post(
+          'https://api.twitterapi.io/oapi/tweet_filter/add_rule',
+          { tag, value: filterValue, interval_seconds: interval },
+          { headers: { 'X-API-Key': this.apiKey } }
+        );
+
+        if (addRes.data?.status !== 'success') {
+          logger.error(`🔔 QuoteRT Webhook: ルール作成失敗: ${addRes.data?.msg}`);
+          return;
+        }
+
+        this.quoteRTWebhookRuleId = addRes.data.rule_id;
+        logger.info(
+          `🔔 QuoteRT Webhook: 新規ルール作成 (id=${this.quoteRTWebhookRuleId}, tag=${tag}, filter="${filterValue}")`,
+          'green'
+        );
+      }
+
+      const updateRes = await axios.post(
+        'https://api.twitterapi.io/oapi/tweet_filter/update_rule',
+        {
+          rule_id: this.quoteRTWebhookRuleId,
+          tag,
+          value: filterValue,
+          interval_seconds: interval,
+          is_effect: 1,
+        },
+        { headers: { 'X-API-Key': this.apiKey } }
+      );
+
+      if (updateRes.data?.status === 'success') {
+        logger.info(
+          `🔔 QuoteRT Webhook: ルール有効化完了 (filter="${filterValue}")`,
+          'green'
+        );
+      } else {
+        logger.error(`🔔 QuoteRT Webhook: ルール有効化失敗: ${updateRes.data?.msg}`);
+      }
+    } catch (error) {
+      logger.error('🔔 QuoteRT Webhook: セットアップエラー:', error);
+    }
+  }
+
+  // =========================================================================
   // Initialization
   // =========================================================================
 
   public async initialize() {
     try {
-      // V2 ログイン: login_cookies を取得（投稿に必要）
+      // V2 ログイン: まずファイルから login_cookies を復元、なければ新規ログイン
+      let cookiesRestored = false;
       try {
-        await this.loginV2();
-      } catch (loginError) {
-        logger.warn(`[initialize] V2ログイン失敗（投稿時に再試行します）: ${loginError instanceof Error ? loginError.message : String(loginError)}`);
+        if (fs.existsSync(LOGIN_COOKIES_FILE)) {
+          const saved = JSON.parse(fs.readFileSync(LOGIN_COOKIES_FILE, 'utf-8'));
+          if (saved?.cookies && typeof saved.cookies === 'string' && saved.cookies.length > 100) {
+            this.login_cookies = saved.cookies;
+            cookiesRestored = true;
+            logger.success(`[initialize] login_cookies をファイルから復元 (${saved.cookies.length}文字, saved: ${saved.updatedAt ?? '不明'})`);
+          }
+        }
+      } catch (e) {
+        logger.warn(`[initialize] login_cookies ファイル読込失敗: ${e}`);
+      }
+      if (!cookiesRestored) {
+        try {
+          await this.loginV2();
+        } catch (loginError) {
+          logger.warn(`[initialize] V2ログイン失敗（投稿時に再試行します）: ${loginError instanceof Error ? loginError.message : String(loginError)}`);
+        }
       }
 
       // Webhook ルールをセットアップ (dev/prod 共通)
       await this.setupWebhookRule();
+      // 引用RT検知用 Webhook ルール
+      await this.setupQuoteRTWebhookRule();
 
       if (!this.isTest) {
         // リプライ検知: Webhook がメイン。ポーリングはフォールバック (2時間間隔)

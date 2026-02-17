@@ -1,63 +1,620 @@
 import { TwitterTrendData } from '@shannon/common';
+import { ChatOpenAI } from '@langchain/openai';
+import {
+  AIMessage,
+  BaseMessage,
+  HumanMessage,
+  SystemMessage,
+  ToolMessage,
+} from '@langchain/core/messages';
+import { StructuredTool } from '@langchain/core/tools';
+import { z } from 'zod';
+import axios from 'axios';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { config } from '../../../config/env.js';
+import { models } from '../../../config/models.js';
 import { loadPrompt } from '../config/prompts.js';
-import { generateTweetForAutoPost } from '../tools/generateTweetText.js';
 import { logger } from '../../../utils/logger.js';
 
-/**
- * AutoTweetAgent: トレンド情報を元にシャノンのキャラでツイートを自動生成する
- * 内部で generateTweetForAutoPost（プロンプト + few-shot例ベース）を使用
- */
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+/** エージェントの出力（オリジナル or 引用RT） */
+export interface AutoTweetOutput {
+  type: 'tweet' | 'quote_rt';
+  text: string;
+  quoteUrl?: string;
+}
+
+/** レビュー結果 */
+interface ReviewResult {
+  approved: boolean;
+  issues: string[];
+  viewer_perception: string;
+  suggestion: string;
+}
+
+/** ウォッチリスト設定 */
+interface WatchlistConfig {
+  accounts: Array<{ userName: string; label: string; category: string }>;
+  topicBias: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const MAX_TOOL_CALLS = 8;
+const MAX_EXPLORATION_ITERATIONS = 12;
+const MAX_REVIEW_RETRIES = 3;
+const API_BASE = 'https://api.twitterapi.io';
+const WATCHLIST_PATH = resolve('saves/watchlist.json');
+
+// ---------------------------------------------------------------------------
+// Twitter API helpers (used by tools)
+// ---------------------------------------------------------------------------
+
+function getHeaders(): Record<string, string> {
+  return { 'x-api-key': config.twitter.twitterApiIoKey };
+}
+
+function formatTweet(t: any): string {
+  const a = t.author || {};
+  return [
+    `@${a.userName || '?'} (${a.name || '?'})`,
+    `  "${t.text?.slice(0, 200) || ''}"`,
+    `  URL: ${t.url || ''}`,
+    `  Likes: ${t.likeCount ?? 0} | RT: ${t.retweetCount ?? 0} | Replies: ${t.replyCount ?? 0} | Views: ${t.viewCount ?? 0}`,
+    `  Date: ${t.createdAt || ''}`,
+  ].join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Tool 1: search_tweets
+// ---------------------------------------------------------------------------
+
+class SearchTweetsTool extends StructuredTool {
+  name = 'search_tweets';
+  description =
+    'キーワードでツイートを検索する。人気ツイートを見つけたり、トレンドの文脈を把握するのに使う。';
+  schema = z.object({
+    query: z.string().describe('検索クエリ（日本語・英語どちらもOK）'),
+    count: z
+      .number()
+      .optional()
+      .describe('取得件数（デフォルト10、最大20）'),
+  });
+
+  async _call(data: z.infer<typeof this.schema>): Promise<string> {
+    try {
+      const res = await axios.get(`${API_BASE}/twitter/tweet/advanced_search`, {
+        headers: getHeaders(),
+        params: { queryType: 'Top', query: data.query },
+      });
+      const tweets = (res.data?.tweets || res.data?.data?.tweets || []).slice(
+        0,
+        data.count || 10,
+      );
+      if (tweets.length === 0) return '検索結果なし';
+      return tweets.map(formatTweet).join('\n---\n');
+    } catch (e: any) {
+      return `検索エラー: ${e.message}`;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tool 2: get_tweet_replies
+// ---------------------------------------------------------------------------
+
+class GetTweetRepliesTool extends StructuredTool {
+  name = 'get_tweet_replies';
+  description =
+    '特定ツイートへの返信一覧を取得する。会話の流れや反応を確認するのに使う。';
+  schema = z.object({
+    tweetId: z.string().describe('ツイートID'),
+    count: z
+      .number()
+      .optional()
+      .describe('取得件数（デフォルト10、最大20）'),
+  });
+
+  async _call(data: z.infer<typeof this.schema>): Promise<string> {
+    try {
+      const res = await axios.get(`${API_BASE}/twitter/tweet/replies`, {
+        headers: getHeaders(),
+        params: { tweetId: data.tweetId },
+      });
+      const replies = (
+        res.data?.replies || res.data?.data?.replies || []
+      ).slice(0, data.count || 10);
+      if (replies.length === 0) return '返信なし';
+      return replies.map(formatTweet).join('\n---\n');
+    } catch (e: any) {
+      return `返信取得エラー: ${e.message}`;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tool 3: get_tweet_details
+// ---------------------------------------------------------------------------
+
+class GetTweetDetailsTool extends StructuredTool {
+  name = 'get_tweet_details';
+  description =
+    'ツイートIDから詳細情報（本文、著者、エンゲージメント）を取得する。';
+  schema = z.object({
+    tweetId: z.string().describe('ツイートID'),
+  });
+
+  async _call(data: z.infer<typeof this.schema>): Promise<string> {
+    try {
+      const res = await axios.get(`${API_BASE}/twitter/tweets`, {
+        headers: getHeaders(),
+        params: { tweet_ids: data.tweetId },
+      });
+      const tweets = res.data?.tweets || res.data?.data?.tweets || [];
+      if (tweets.length === 0) return 'ツイートが見つかりません';
+      return formatTweet(tweets[0]);
+    } catch (e: any) {
+      return `詳細取得エラー: ${e.message}`;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tool 4: get_user_tweets
+// ---------------------------------------------------------------------------
+
+class GetUserTweetsTool extends StructuredTool {
+  name = 'get_user_tweets';
+  description =
+    '特定ユーザーの最新ツイートを取得する。ウォッチリスト以外のユーザーも調べられる。';
+  schema = z.object({
+    userName: z.string().describe('Twitterユーザー名（@なし）'),
+    count: z
+      .number()
+      .optional()
+      .describe('取得件数（デフォルト5、最大10）'),
+  });
+
+  async _call(data: z.infer<typeof this.schema>): Promise<string> {
+    try {
+      const res = await axios.get(`${API_BASE}/twitter/user/last_tweets`, {
+        headers: getHeaders(),
+        params: { userName: data.userName },
+      });
+      const tweets = (
+        res.data?.data?.tweets || res.data?.tweets || []
+      ).slice(0, data.count || 5);
+      if (tweets.length === 0)
+        return `@${data.userName} のツイートが見つかりません`;
+      return tweets.map(formatTweet).join('\n---\n');
+    } catch (e: any) {
+      return `ユーザーツイート取得エラー: ${e.message}`;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tool 5: get_user_profile
+// ---------------------------------------------------------------------------
+
+class GetUserProfileTool extends StructuredTool {
+  name = 'get_user_profile';
+  description =
+    'ユーザーのプロフィール情報を取得する。自己紹介文、フォロワー数、フォロー数、ツイート数、直近のツイートを返す。';
+  schema = z.object({
+    userName: z.string().describe('Twitterユーザー名（@なし）'),
+  });
+
+  async _call(data: z.infer<typeof this.schema>): Promise<string> {
+    try {
+      const [profileRes, tweetsRes] = await Promise.all([
+        axios.get(`${API_BASE}/twitter/user/info`, {
+          headers: getHeaders(),
+          params: { userName: data.userName },
+        }),
+        axios.get(`${API_BASE}/twitter/user/last_tweets`, {
+          headers: getHeaders(),
+          params: { userName: data.userName },
+        }),
+      ]);
+
+      const u = profileRes.data?.data;
+      if (!u) return `@${data.userName} が見つかりません`;
+
+      const recentTweets = (
+        tweetsRes.data?.data?.tweets || tweetsRes.data?.tweets || []
+      ).slice(0, 3);
+
+      const lines = [
+        `## @${u.userName} (${u.name})`,
+        `Bio: ${u.description || '(なし)'}`,
+        `Followers: ${(u.followers ?? 0).toLocaleString()} | Following: ${(u.following ?? 0).toLocaleString()} | Tweets: ${(u.statusesCount ?? 0).toLocaleString()}`,
+        `Verified: ${u.isBlueVerified ? 'Yes' : 'No'} | Created: ${u.createdAt || '?'}`,
+      ];
+
+      if (recentTweets.length > 0) {
+        lines.push('', '### 直近のツイート');
+        for (const t of recentTweets) {
+          lines.push(formatTweet(t));
+          lines.push('---');
+        }
+      }
+
+      return lines.join('\n');
+    } catch (e: any) {
+      return `プロフィール取得エラー: ${e.message}`;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tool 6: submit_tweet (output tool - signals the agent to stop)
+// ---------------------------------------------------------------------------
+
+class SubmitTweetTool extends StructuredTool {
+  name = 'submit_tweet';
+  description =
+    '探索が完了したら、このツールで最終的なツイートを提出する。オリジナルツイートまたは引用RTのどちらかを選べる。';
+  schema = z.object({
+    type: z
+      .enum(['tweet', 'quote_rt'])
+      .describe(
+        '"tweet" = オリジナルツイート, "quote_rt" = 引用リツイート',
+      ),
+    text: z.string().describe('ツイート本文'),
+    quoteUrl: z
+      .string()
+      .optional()
+      .describe(
+        '引用RTの場合のみ: 元ツイートのURL (例: https://x.com/user/status/123)',
+      ),
+  });
+
+  async _call(data: z.infer<typeof this.schema>): Promise<string> {
+    return JSON.stringify(data);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// AutoTweetAgent
+// ---------------------------------------------------------------------------
+
 export class AutoTweetAgent {
   private systemPrompt: string;
+  private reviewPrompt: string;
+  private tools: StructuredTool[];
+  private toolMap: Map<string, StructuredTool>;
+  private watchlist: WatchlistConfig;
 
-  private constructor(systemPrompt: string) {
+  private constructor(
+    systemPrompt: string,
+    reviewPrompt: string,
+    watchlist: WatchlistConfig,
+  ) {
     this.systemPrompt = systemPrompt;
+    this.reviewPrompt = reviewPrompt;
+    this.watchlist = watchlist;
+
+    this.tools = [
+      new SearchTweetsTool(),
+      new GetTweetRepliesTool(),
+      new GetTweetDetailsTool(),
+      new GetUserTweetsTool(),
+      new GetUserProfileTool(),
+      new SubmitTweetTool(),
+    ];
+    this.toolMap = new Map(this.tools.map((t) => [t.name, t]));
   }
 
   public static async create(): Promise<AutoTweetAgent> {
-    const prompt = await loadPrompt('auto_tweet');
-    if (!prompt) {
-      throw new Error('Failed to load auto_tweet prompt');
+    const systemPrompt = await loadPrompt('auto_tweet');
+    if (!systemPrompt) throw new Error('Failed to load auto_tweet prompt');
+
+    const reviewPrompt = await loadPrompt('auto_tweet_review');
+    if (!reviewPrompt)
+      throw new Error('Failed to load auto_tweet_review prompt');
+
+    let watchlist: WatchlistConfig;
+    try {
+      watchlist = JSON.parse(readFileSync(WATCHLIST_PATH, 'utf-8'));
+    } catch {
+      logger.warn('ウォッチリスト読み込み失敗、空のリストを使用');
+      watchlist = { accounts: [], topicBias: [] };
     }
-    return new AutoTweetAgent(prompt);
+
+    return new AutoTweetAgent(systemPrompt, reviewPrompt, watchlist);
   }
 
+  // =========================================================================
+  // Public: メインエントリポイント
+  // =========================================================================
+
   /**
-   * トレンドデータと今日の情報からツイートを生成する
+   * トレンド+ウォッチリストからツイートを生成し、レビューを通す。
+   * 最大3回リトライ。全て不合格なら null を返す。
    */
   public async generateTweet(
     trends: TwitterTrendData[],
-    todayInfo: string
-  ): Promise<string> {
+    todayInfo: string,
+  ): Promise<AutoTweetOutput | null> {
+    let feedback: string | undefined;
+
+    for (let attempt = 1; attempt <= MAX_REVIEW_RETRIES; attempt++) {
+      logger.info(
+        `[AutoTweet] 探索+生成 (試行 ${attempt}/${MAX_REVIEW_RETRIES})`,
+        'cyan',
+      );
+
+      const draft = await this.explore(trends, todayInfo, feedback);
+      if (!draft) {
+        logger.warn('[AutoTweet] 探索結果なし、リトライ');
+        feedback = '前回は探索に失敗した。別のアプローチを試して。';
+        continue;
+      }
+
+      logger.info(
+        `[AutoTweet] ドラフト: type=${draft.type} text="${draft.text.slice(0, 60)}..."`,
+        'cyan',
+      );
+
+      const review = await this.review(draft);
+      if (review.approved) {
+        logger.info('[AutoTweet] レビュー合格', 'green');
+        return draft;
+      }
+
+      logger.warn(
+        `[AutoTweet] レビュー不合格: ${review.issues.join(', ')}`,
+      );
+      feedback = [
+        `前回のツイート「${draft.text}」は以下の理由で不合格:`,
+        ...review.issues.map((i) => `- ${i}`),
+        review.suggestion ? `提案: ${review.suggestion}` : '',
+        '別のアプローチでもう一度ツイートを作ってください。',
+      ].join('\n');
+    }
+
+    logger.warn('[AutoTweet] 3回リトライ失敗、投稿スキップ');
+    return null;
+  }
+
+  // =========================================================================
+  // Phase 1: 探索 (Function Calling Agent)
+  // =========================================================================
+
+  private async explore(
+    trends: TwitterTrendData[],
+    todayInfo: string,
+    feedback?: string,
+  ): Promise<AutoTweetOutput | null> {
+    const model = new ChatOpenAI({
+      modelName: models.autoTweet,
+      temperature: 0.9,
+    });
+    const modelWithTools = model.bindTools(this.tools);
+
+    const watchlistContext = await this.fetchWatchlistContext();
+
     const trendsText = trends
-      .map((t) => `${t.rank}. ${t.name}${t.metaDescription ? ` - ${t.metaDescription}` : ''}`)
+      .map(
+        (t) =>
+          `${t.rank}. ${t.name}${t.metaDescription ? ` - ${t.metaDescription}` : ''}`,
+      )
       .join('\n');
 
-    const topic = [
+    const topicBiasText = this.watchlist.topicBias.length > 0
+      ? `\n特に注目すべきジャンル: ${this.watchlist.topicBias.join(', ')}`
+      : '';
+
+    const userContent = [
       `# 今日の情報`,
       todayInfo,
       '',
       `# 現在のトレンド (日本)`,
       trendsText,
+      topicBiasText,
       '',
+      watchlistContext
+        ? `# ウォッチリストの最新投稿\n${watchlistContext}`
+        : '',
+      '',
+      'ツールを使ってTwitter空間を探索し、面白い話題を見つけてください。',
+      '探索が十分にできたら submit_tweet ツールで最終的なツイートを提出してください。',
+      'オリジナルツイートでも、面白い投稿を見つけたら引用RTでもOK。',
       config.isDev
-        ? 'トレンドから安全なトピックを1つ選んで、シャノンらしいツイートを1つ書いて。140文字以内。ツイート本文のみ出力。'
-        : 'トレンドから安全なトピックを1つ選んで、シャノンらしいツイートを1つ書いて。文字数制限なし。ツイート本文のみ出力。',
-    ].join('\n');
+        ? '140文字以内。'
+        : '文字数制限なし（長文OK）。',
+      feedback ? `\n# 前回のフィードバック\n${feedback}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
 
-    try {
-      const result = await generateTweetForAutoPost(topic, this.systemPrompt);
+    const messages: BaseMessage[] = [
+      new SystemMessage(this.systemPrompt),
+      new HumanMessage(userContent),
+    ];
 
-      if (!result) {
-        logger.warn('🐦 AutoTweetAgent: 生成失敗（空の結果）');
-        return '';
+    let toolCallCount = 0;
+
+    for (let i = 0; i < MAX_EXPLORATION_ITERATIONS; i++) {
+      let response: AIMessage;
+      try {
+        response = (await modelWithTools.invoke(messages)) as AIMessage;
+      } catch (e: any) {
+        logger.error(`[AutoTweet] LLM呼び出しエラー: ${e.message}`);
+        return null;
+      }
+      messages.push(response);
+
+      const toolCalls = response.tool_calls || [];
+
+      if (toolCalls.length === 0) {
+        const text =
+          typeof response.content === 'string'
+            ? response.content.trim()
+            : '';
+        if (text) {
+          return { type: 'tweet', text };
+        }
+        return null;
       }
 
-      return result;
-    } catch (error) {
-      logger.error('🐦 AutoTweetAgent error:', error);
-      return '';
+      for (const tc of toolCalls) {
+        if (tc.name === 'submit_tweet') {
+          try {
+            const result = await this.toolMap.get(tc.name)!.invoke(tc.args);
+            const parsed = JSON.parse(result);
+            return {
+              type: parsed.type || 'tweet',
+              text: parsed.text || '',
+              quoteUrl: parsed.quoteUrl,
+            };
+          } catch {
+            return null;
+          }
+        }
+
+        if (toolCallCount >= MAX_TOOL_CALLS) {
+          messages.push(
+            new ToolMessage({
+              content:
+                'ツール呼び出し上限に達しました。submit_tweet で最終的なツイートを提出してください。',
+              tool_call_id: tc.id || `call_${Date.now()}`,
+            }),
+          );
+          continue;
+        }
+
+        const tool = this.toolMap.get(tc.name);
+        if (!tool) {
+          messages.push(
+            new ToolMessage({
+              content: `ツール "${tc.name}" は存在しません`,
+              tool_call_id: tc.id || `call_${Date.now()}`,
+            }),
+          );
+          continue;
+        }
+
+        try {
+          logger.debug(`[AutoTweet] Tool: ${tc.name}(${JSON.stringify(tc.args).slice(0, 100)})`);
+          const result = await tool.invoke(tc.args);
+          const resultStr =
+            typeof result === 'string' ? result : JSON.stringify(result);
+          messages.push(
+            new ToolMessage({
+              content: resultStr.slice(0, 4000),
+              tool_call_id: tc.id || `call_${Date.now()}`,
+            }),
+          );
+          toolCallCount++;
+        } catch (e: any) {
+          messages.push(
+            new ToolMessage({
+              content: `ツール実行エラー: ${e.message}`,
+              tool_call_id: tc.id || `call_${Date.now()}`,
+            }),
+          );
+        }
+      }
     }
+
+    logger.warn('[AutoTweet] 探索イテレーション上限到達');
+    return null;
+  }
+
+  // =========================================================================
+  // Phase 2: レビュー
+  // =========================================================================
+
+  private async review(draft: AutoTweetOutput): Promise<ReviewResult> {
+    const model = new ChatOpenAI({
+      modelName: models.autoTweet,
+      temperature: 0,
+    });
+
+    const draftDescription =
+      draft.type === 'quote_rt'
+        ? `引用RT:\nコメント: "${draft.text}"\n引用元URL: ${draft.quoteUrl}`
+        : `ツイート: "${draft.text}"`;
+
+    const messages = [
+      new SystemMessage(this.reviewPrompt),
+      new HumanMessage(
+        `以下のツイート案を審査してください。JSON形式で結果を返してください。\n\n${draftDescription}`,
+      ),
+    ];
+
+    try {
+      const response = await model.invoke(messages);
+      const text =
+        typeof response.content === 'string' ? response.content.trim() : '';
+
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        logger.warn(`[AutoTweet] レビューJSON解析失敗: ${text.slice(0, 200)}`);
+        return { approved: true, issues: [], viewer_perception: '', suggestion: '' };
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]) as ReviewResult;
+      return {
+        approved: parsed.approved ?? true,
+        issues: parsed.issues ?? [],
+        viewer_perception: parsed.viewer_perception ?? '',
+        suggestion: parsed.suggestion ?? '',
+      };
+    } catch (e: any) {
+      logger.error(`[AutoTweet] レビューエラー: ${e.message}`);
+      return { approved: true, issues: [], viewer_perception: '', suggestion: '' };
+    }
+  }
+
+  // =========================================================================
+  // ウォッチリスト事前取得
+  // =========================================================================
+
+  private async fetchWatchlistContext(): Promise<string> {
+    if (this.watchlist.accounts.length === 0) return '';
+
+    const categories = new Map<string, typeof this.watchlist.accounts>();
+    for (const acc of this.watchlist.accounts) {
+      if (!categories.has(acc.category)) categories.set(acc.category, []);
+      categories.get(acc.category)!.push(acc);
+    }
+
+    const selected: typeof this.watchlist.accounts = [];
+    for (const [, accounts] of categories) {
+      const shuffled = [...accounts].sort(() => Math.random() - 0.5);
+      selected.push(...shuffled.slice(0, 2));
+    }
+
+    const results: string[] = [];
+    const getUserTweets = this.toolMap.get('get_user_tweets')!;
+
+    for (const acc of selected.slice(0, 6)) {
+      try {
+        const result = await getUserTweets.invoke({
+          userName: acc.userName,
+          count: 3,
+        });
+        if (
+          typeof result === 'string' &&
+          !result.includes('エラー') &&
+          !result.includes('見つかりません')
+        ) {
+          results.push(`## ${acc.label} (@${acc.userName})\n${result}`);
+        }
+      } catch {
+        // skip
+      }
+    }
+
+    return results.join('\n\n');
   }
 }

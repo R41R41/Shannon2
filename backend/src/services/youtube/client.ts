@@ -194,11 +194,11 @@ export class YoutubeClient extends BaseClient {
       if (!this.authCode) {
         throw new Error('認証コードが設定されていません');
       }
-      logger.info(`authCode: ${this.authCode}`);
+      logger.debug(`authCode: ${this.authCode ? '***' : '(empty)'}`);
 
       const { tokens } = await oauth2Client.getToken(this.authCode);
       this.refreshToken = tokens.refresh_token || null;
-      logger.info(`Refresh token: ${tokens.refresh_token}`);
+      logger.debug(`Refresh token obtained: ${tokens.refresh_token ? '***' : '(empty)'}`);
     } catch (error) {
       logger.error(`YouTube getRefreshToken error: ${error}`);
       throw error;
@@ -230,7 +230,7 @@ export class YoutubeClient extends BaseClient {
         const title = video.snippet?.title;
         const description = video.snippet?.description;
         if (!videoId) continue;
-        logger.info(`Checking comments for video: ${videoId} ${title}`, 'blue');
+        logger.debug(`Checking comments for video: ${videoId} ${title}`);
         // コメントスレッドを取得
         const comments = await this.client.commentThreads.list({
           part: ['snippet', 'replies'],
@@ -278,7 +278,7 @@ export class YoutubeClient extends BaseClient {
         part: ['statistics'],
         id: [this.channelId],
       });
-      logger.info(`subscriberCount: ${response.data.items?.[0]?.statistics?.subscriberCount}`);
+      logger.debug(`subscriberCount: ${response.data.items?.[0]?.statistics?.subscriberCount}`);
       return parseInt(
         response.data.items?.[0]?.statistics?.subscriberCount || '0'
       );
@@ -325,7 +325,7 @@ export class YoutubeClient extends BaseClient {
         await this.setUpConnection();
         this.setupEventHandlers();
         this.lastSubscriberCount = await this.getSubscriberCount();
-        logger.info(`lastSubscriberCount2: ${this.lastSubscriberCount}`);
+        logger.debug(`lastSubscriberCount: ${this.lastSubscriberCount}`);
       } catch (error) {
         logger.error(`YouTube initialization error: ${error}`);
         logger.warn('YouTube initialization failed, but continuing without YouTube functionality!');
@@ -345,7 +345,7 @@ export class YoutubeClient extends BaseClient {
       const clientId = config.youtube.clientId;
       const clientSecret = config.youtube.clientSecret;
       this.refreshToken = config.youtube.refreshToken || null;
-      logger.info(`${clientId} ${clientSecret} ${this.refreshToken}`);
+      logger.debug(`YouTube OAuth2: clientId=${clientId ? '***' : '(empty)'}, refreshToken=${this.refreshToken ? '***' : '(empty)'}`);
 
       if (!clientId || !clientSecret || !this.refreshToken) {
         logger.warn('YouTube OAuth2認証情報が設定されていません。YouTube機能は無効化されます。');

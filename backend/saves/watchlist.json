@@ -1,0 +1,21 @@
+{
+  "accounts": [
+    { "userName": "sama", "label": "Sam Altman / OpenAI CEO", "category": "tech" },
+    { "userName": "elonmusk", "label": "Elon Musk / xAI", "category": "tech" },
+    { "userName": "OpenAI", "label": "OpenAI公式", "category": "tech" },
+    { "userName": "GoogleDeepMind", "label": "Google DeepMind", "category": "tech" },
+    { "userName": "NeurosamaAI", "label": "Neuro-sama / AI VTuber", "category": "ai_vtuber" },
+    { "userName": "Vedal987", "label": "Vedal / Neuro-sama開発者", "category": "ai_vtuber" },
+    { "userName": "suisei_hosimati", "label": "星街すいせい / hololive", "category": "vtuber" },
+    { "userName": "usadapekora", "label": "兎田ぺこら / hololive", "category": "vtuber" },
+    { "userName": "houshoumarine", "label": "宝鐘マリン / hololive", "category": "vtuber" },
+    { "userName": "sakuramiko35", "label": "さくらみこ / hololive", "category": "vtuber" },
+    { "userName": "shirakamifubuki", "label": "白上フブキ / hololive", "category": "vtuber" },
+    { "userName": "inugamikorone", "label": "戌神ころね / hololive", "category": "vtuber" },
+    { "userName": "Kanae_2434", "label": "叶 / にじさんじ", "category": "vtuber" },
+    { "userName": "Vamp_Kuzu", "label": "葛葉 / にじさんじ", "category": "vtuber" },
+    { "userName": "Mojang", "label": "Minecraft公式", "category": "game" },
+    { "userName": "Nintendo", "label": "任天堂", "category": "game" }
+  ],
+  "topicBias": ["AI", "LLM", "VTuber", "ホロライブ", "にじさんじ", "hololive", "配信", "ゲーム", "Minecraft", "プログラミング", "テクノロジー"]
+}

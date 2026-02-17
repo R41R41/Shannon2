@@ -86,7 +86,7 @@ export class EventBus {
       color,
       content,
     };
-    logger.info(content, color);
+    logger.info(content.length > 150 ? `${content.slice(0, 150)}...` : content, color);
 
     if (isSave) {
       try {

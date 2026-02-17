@@ -6,7 +6,7 @@ import { NotionClientInput, NotionClientOutput, NotionEventType } from './notion
 import { SchedulerEventType, SchedulerInput, SchedulerOutput } from './scheduler.js';
 import { EmotionType, TaskEventType, TaskInput, TaskTreeState } from './taskGraph.js';
 import { ToolEventType } from './tools.js';
-import { TwitterClientInput, TwitterClientOutput, TwitterEventType, TwitterSchedulePostEndpoint } from './twitter.js';
+import { MemberTweetInput, TwitterClientInput, TwitterClientOutput, TwitterEventType, TwitterSchedulePostEndpoint } from './twitter.js';
 import { OpenAIInput, OpenAIMessageOutput, WebEventType, WebSkillInput } from './web.js';
 import { YoutubeClientOutput, YoutubeEventType } from './youtube.js';
 export type Platform = 'web' | 'discord' | 'minecraft' | 'scheduler' | 'twitter' | 'youtube' | 'notion' | 'minebot' | 'youtube:live_chat';
@@ -57,7 +57,7 @@ export declare function memoryZoneToContext(memoryZone: MemoryZone, channelId?: 
 export declare function contextToMemoryZone(context: TaskContext): MemoryZone;
 export type ConversationType = 'text' | 'audio' | 'realtime_text' | 'realtime_audio' | 'command' | 'log' | 'user_transcript';
 export declare const promptTypes: PromptType[];
-export type PromptType = TwitterSchedulePostEndpoint | 'base_text' | 'base_voice' | 'discord' | 'minecraft' | 'weather_to_emoji' | 'forecast_for_toyama_server' | 'reply_youtube_comment' | 'planning' | 'reply_twitter_comment' | 'quote_twitter_comment' | 'emotion' | 'use_tool' | 'reply_youtube_live_comment' | 'emergency' | 'auto_tweet' | 'extract_person_traits' | 'extract_memories';
+export type PromptType = TwitterSchedulePostEndpoint | 'base_text' | 'base_voice' | 'discord' | 'minecraft' | 'weather_to_emoji' | 'forecast_for_toyama_server' | 'reply_youtube_comment' | 'planning' | 'reply_twitter_comment' | 'quote_twitter_comment' | 'emotion' | 'use_tool' | 'reply_youtube_live_comment' | 'emergency' | 'auto_tweet' | 'auto_tweet_review' | 'respond_member_tweet' | 'about_today_review' | 'news_today_review' | 'fortune_review' | 'extract_person_traits' | 'extract_memories';
 export type RealTimeAPIEndpoint = 'realtime_text_input' | 'realtime_text_commit' | 'realtime_audio_append' | 'realtime_audio_commit' | 'realtime_vad_on' | 'realtime_vad_off' | 'text_done' | 'audio_done';
 export type ServiceStatus = 'running' | 'stopped' | 'connecting';
 export type ServiceCommand = 'start' | 'stop' | 'status';
@@ -77,7 +77,7 @@ export type EventType = TaskEventType | TwitterEventType | YoutubeEventType | Mi
 export interface Event {
     type: EventType;
     memoryZone: MemoryZone;
-    data: TwitterClientInput | TwitterClientOutput | OpenAIInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput | ServiceOutput | TaskInput | TaskTreeState | EmotionType | SkillInfo[] | WebSkillInput | SkillParameters | SkillResult | NotionClientInput | NotionClientOutput;
+    data: TwitterClientInput | TwitterClientOutput | OpenAIInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput | ServiceOutput | TaskInput | TaskTreeState | EmotionType | SkillInfo[] | WebSkillInput | SkillParameters | SkillResult | NotionClientInput | NotionClientOutput | MemberTweetInput;
     targetMemoryZones?: MemoryZone[];
 }
 export interface ILog {

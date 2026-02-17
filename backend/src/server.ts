@@ -59,13 +59,107 @@ class Server {
       res.status(200).json({ ok: true });
     });
 
-    // POST: ツイート生成テスト (LLMのみ、投稿しない)
-    app.post('/api/test/auto-post', async (req, res) => {
+    // POST: 定期投稿テスト (生成 → Twitter実投稿)
+    // body: { command: 'fortune' | 'forecast' | 'about_today' | 'news_today' }
+    // query: ?dry_run=true で投稿せずに生成結果のみ返す
+    app.post('/api/test/scheduled-post', async (req, res) => {
       const key = req.headers['x-api-key'] as string | undefined;
       if (!key || key !== config.twitter.twitterApiIoKey) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
+      const command = (req.body as any)?.command as string | undefined;
+      const dryRun = req.query.dry_run === 'true';
+      const validCommands = ['fortune', 'forecast', 'about_today', 'news_today'];
+      if (!command || !validCommands.includes(command)) {
+        res.status(400).json({ error: `command must be one of: ${validCommands.join(', ')}` });
+        return;
+      }
+      try {
+        let post = '';
+        let imagePrompt: string | undefined;
+
+        if (command === 'fortune') {
+          const { PostFortuneAgent } = await import('./services/llm/agents/postFortuneAgent.js');
+          const agent = await PostFortuneAgent.create();
+          const result = await agent.createPost();
+          post = result.text;
+          imagePrompt = result.imagePrompt;
+        } else if (command === 'forecast') {
+          const { PostWeatherAgent } = await import('./services/llm/agents/postWeatherAgent.js');
+          const agent = await PostWeatherAgent.create();
+          const result = await agent.createPost();
+          post = result.text;
+          imagePrompt = result.imagePrompt;
+        } else if (command === 'about_today') {
+          const { PostAboutTodayAgent } = await import('./services/llm/agents/postAboutTodayAgent.js');
+          const agent = await PostAboutTodayAgent.create();
+          const result = await agent.createPost();
+          post = result.text;
+          imagePrompt = result.imagePrompt;
+        } else if (command === 'news_today') {
+          const { PostNewsAgent } = await import('./services/llm/agents/postNewsAgent.js');
+          const agent = await PostNewsAgent.create();
+          const result = await agent.createPost();
+          post = result.text;
+          imagePrompt = result.imagePrompt;
+        }
+        logger.info(`[Test:ScheduledPost] ${command} 生成完了: ${post.slice(0, 100)}...`);
+
+        // 画像生成 + アップロード（全 command 共通、dry_run でなければ）
+        let mediaId: string | null = null;
+        if (!dryRun && imagePrompt) {
+          try {
+            const { generateImage } = await import('./services/llm/utils/generateImage.js');
+            const imgBuf = await generateImage(imagePrompt, '1024x1024', 'low');
+            if (imgBuf) {
+              const { TwitterClient } = await import('./services/twitter/client.js');
+              const twitterClient = TwitterClient.getInstance();
+              mediaId = await twitterClient.uploadMedia(imgBuf, `${command}.jpg`) ?? null;
+              if (mediaId) {
+                logger.info(`[Test:ScheduledPost] ${command} 画像アップロード成功: ${mediaId}`);
+              }
+            }
+          } catch (imgErr) {
+            logger.warn(`[Test:ScheduledPost] ${command} 画像失敗（テキストのみ）: ${imgErr}`);
+          }
+        }
+
+        if (!dryRun && post) {
+          const eventBus = getEventBus();
+          eventBus.publish({
+            type: 'twitter:post_scheduled_message',
+            memoryZone: 'twitter:schedule_post',
+            data: {
+              text: post,
+              ...(mediaId ? { imageUrl: mediaId } : {}),
+            } as any,
+          });
+          logger.info(`[Test:ScheduledPost] ${command} Twitter投稿イベント発行${mediaId ? ' (画像付き)' : ''}`);
+        }
+        res.status(200).json({
+          ok: true,
+          command,
+          tweet: post,
+          posted: !dryRun,
+          ...(dryRun && imagePrompt ? { imagePrompt } : {}),
+          ...(mediaId ? { mediaId } : {}),
+        });
+      } catch (err) {
+        logger.error(`[Test:ScheduledPost] ${command} エラー`, err);
+        res.status(500).json({ error: String(err) });
+      }
+    });
+
+    // POST: トレンドベース自動ツイートテスト (生成 → Twitter実投稿)
+    // query: ?dry_run=true で投稿せずに生成結果のみ返す
+    app.post('/api/test/auto-tweet', async (req, res) => {
+      const key = req.headers['x-api-key'] as string | undefined;
+      if (!key || key !== config.twitter.twitterApiIoKey) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const dryRun = req.query.dry_run === 'true';
       try {
         const axios = (await import('axios')).default;
         const { AutoTweetAgent } = await import('./services/llm/agents/autoTweetAgent.js');
@@ -75,25 +169,48 @@ class Server {
           headers: { 'X-API-Key': config.twitter.twitterApiIoKey },
           params: { woeid: '23424856' },
         });
-        const trends = (trendsRes.data?.trends ?? []).map((t: any, i: number) => ({
-          name: t.name ?? t.trend ?? '',
-          query: t.query ?? t.name ?? '',
-          rank: t.rank ?? i + 1,
-          metaDescription: t.meta_description ?? t.metaDescription ?? undefined,
-        }));
+        const trends = (trendsRes.data?.trends ?? []).map((t: any, i: number) => {
+          const trend = t.trend && typeof t.trend === 'object' ? t.trend : t;
+          return {
+            name: trend.name ?? '',
+            query: trend.target?.query ?? trend.query ?? trend.name ?? '',
+            rank: trend.rank ?? i + 1,
+            metaDescription: trend.meta_description ?? trend.metaDescription ?? undefined,
+          };
+        });
 
         const now = new Date();
         const month = now.getMonth() + 1;
         const day = now.getDate();
         const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][now.getDay()];
-        const todayInfo = `今日: ${now.getFullYear()}年${month}月${day}日(${dayOfWeek})\nイベント: バレンタインデー`;
+        const todayInfo = `今日: ${now.getFullYear()}年${month}月${day}日(${dayOfWeek})`;
 
-        logger.info(`[Test] トレンド ${trends.length}件、LLM生成のみ`);
-        const tweet = await agent.generateTweet(trends, todayInfo);
-        logger.info(`[Test] 生成結果: ${tweet}`);
-        res.status(200).json({ ok: true, tweet, trendsUsed: trends.length });
+        logger.info(`[Test:AutoTweet] トレンド ${trends.length}件で生成開始`);
+        const result = await agent.generateTweet(trends, todayInfo);
+        logger.info(`[Test:AutoTweet] 生成結果: ${JSON.stringify(result)}`);
+
+        if (!dryRun && result) {
+          const eventBus = getEventBus();
+          eventBus.publish({
+            type: 'twitter:post_scheduled_message',
+            memoryZone: 'twitter:post',
+            data: {
+              text: result.text,
+              ...(result.type === 'quote_rt' && result.quoteUrl
+                ? { quoteTweetUrl: result.quoteUrl }
+                : {}),
+            } as any,
+          });
+          logger.info(`[Test:AutoTweet] Twitter投稿イベント発行 (type=${result.type})`);
+        }
+        res.status(200).json({
+          ok: true,
+          result,
+          trendsUsed: trends.length,
+          posted: !dryRun && !!result,
+        });
       } catch (err) {
-        logger.error('[Test] エラー', err);
+        logger.error('[Test:AutoTweet] エラー', err);
         res.status(500).json({ error: String(err) });
       }
     });
@@ -124,16 +241,13 @@ class Server {
           return;
         }
 
-        // デバッグ: 初回はペイロード構造を確認
         logger.info(
-          `[Webhook] Twitter webhook 受信: ${tweets.length}件 (rule: ${rule_tag})`
+          `[Webhook] Twitter webhook 受信: ${tweets.length}件 (rule: ${rule_tag})${tweets.length > 0 ? ` from:@${tweets[0].author?.userName ?? '?'} "${(tweets[0].text ?? '').slice(0, 60)}"` : ''}`
         );
-        if (tweets.length > 0) {
-          logger.info(`[Webhook] ペイロード例: ${JSON.stringify(tweets[0], null, 2).slice(0, 500)}`);
-        }
 
         const eventBus = getEventBus();
         const myUserId = config.twitter.userId;
+        const isQuoteRTWebhook = rule_tag?.includes('quote-rt') ?? false;
         let processed = 0;
 
         for (const tweet of tweets) {
@@ -157,6 +271,57 @@ class Server {
           this.twitterClient.processedTweetIds.add(tweetId);
           this.twitterClient.saveProcessedIds();
 
+          // ─── 引用RT検知 ───
+          if (isQuoteRTWebhook) {
+            const quotedTweet = tweet.quoted_tweet ?? tweet.quotedTweet ?? null;
+            const quotedText = quotedTweet?.text ?? '';
+            const quotedAuthor = quotedTweet?.author?.name ?? quotedTweet?.author?.userName ?? 'Shannon';
+
+            logger.info(
+              `[Webhook] 引用RT検知: @${authorUserName} が引用「${tweetText.slice(0, 60)}...」` +
+              ` (元ツイート: "${quotedText.slice(0, 60)}...")`,
+              'green'
+            );
+
+            // いいね
+            eventBus.publish({
+              type: 'twitter:like_tweet',
+              memoryZone: 'twitter:post',
+              data: { tweetId, text: '' } as any,
+            });
+
+            // 日次返信上限チェック
+            if (this.twitterClient.isReplyLimitReached()) {
+              logger.info(`[Webhook] 日次返信上限のため引用RTへの返信をスキップ: ${tweetId}`);
+              processed++;
+              continue;
+            }
+
+            this.twitterClient.incrementReplyCount();
+
+            // LLM に返信生成を依頼 (引用RTである文脈を conversationThread で伝える)
+            eventBus.publish({
+              type: 'llm:post_twitter_reply',
+              memoryZone: 'twitter:post',
+              data: {
+                replyId: tweetId,
+                text: tweetText,
+                authorName,
+                authorId: authorId || null,
+                repliedTweet: quotedText || null,
+                repliedTweetAuthorName: quotedAuthor,
+                conversationThread: [
+                  { authorName: quotedAuthor, text: `[元ツイート] ${quotedText}` },
+                  { authorName, text: `[引用RT] ${tweetText}` },
+                ],
+              } as TwitterReplyOutput,
+            });
+
+            processed++;
+            continue;
+          }
+
+          // ─── 通常リプライ処理 ───
           // 日次返信上限チェック
           if (this.twitterClient.isReplyLimitReached()) {
             logger.info(`[Webhook] 日次返信上限に到達: ${tweetId} (by @${authorUserName}) をスキップ`);

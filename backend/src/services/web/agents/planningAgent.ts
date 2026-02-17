@@ -63,7 +63,7 @@ export class PlanningAgent extends WebSocketServiceBase {
       });
     });
 
-    logger.error('planningAgent subscribe');
+    logger.debug('PlanningAgent subscribe');
   }
 
   public start() {
