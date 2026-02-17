@@ -3,6 +3,7 @@ import { StructuredTool } from '@langchain/core/tools';
 import {
   DiscordScheduledPostInput,
   DiscordSendTextMessageOutput,
+  MemberTweetInput,
   MemoryZone,
   OpenAICommandInput,
   OpenAIMessageOutput,
@@ -28,10 +29,12 @@ import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus/eventBus.js';
 import { getEventBus } from '../eventBus/index.js';
 import { AutoTweetAgent } from './agents/autoTweetAgent.js';
+import { MemberTweetAgent } from './agents/memberTweetAgent.js';
 import { PostAboutTodayAgent } from './agents/postAboutTodayAgent.js';
 import { PostFortuneAgent } from './agents/postFortuneAgent.js';
 import { PostNewsAgent } from './agents/postNewsAgent.js';
 import { PostWeatherAgent } from './agents/postWeatherAgent.js';
+import { generateImage } from './utils/generateImage.js';
 import { QuoteTwitterCommentAgent } from './agents/quoteTwitterComment.js';
 import { RealtimeAPIService } from './agents/realtimeApiAgent.js';
 import { ReplyTwitterCommentAgent } from './agents/replyTwitterComment.js';
@@ -56,6 +59,7 @@ export class LLMService {
   private replyYoutubeCommentAgent!: ReplyYoutubeCommentAgent;
   private replyYoutubeLiveCommentAgent!: ReplyYoutubeLiveCommentAgent;
   private autoTweetAgent!: AutoTweetAgent;
+  private memberTweetAgent!: MemberTweetAgent;
   private tools: StructuredTool[] = [];
   private isDevMode: boolean;
   constructor(isDevMode: boolean) {
@@ -89,6 +93,7 @@ export class LLMService {
       await ReplyYoutubeLiveCommentAgent.create();
     this.newsAgent = await PostNewsAgent.create();
     this.autoTweetAgent = await AutoTweetAgent.create();
+    this.memberTweetAgent = await MemberTweetAgent.create();
     logger.info('LLM Service initialized', 'cyan');
   }
 
@@ -115,6 +120,13 @@ export class LLMService {
     this.eventBus.subscribe('llm:post_twitter_quote_rt', (event) => {
       if (this.isDevMode) return;
       this.processTwitterQuoteRT(event.data as TwitterQuoteRTOutput);
+    });
+
+    this.eventBus.subscribe('llm:respond_member_tweet', (event) => {
+      if (this.isDevMode) return;
+      this.processMemberTweet(event.data as MemberTweetInput).catch((err) => {
+        logger.error('[MemberTweet] 未処理エラー:', err);
+      });
     });
 
     this.eventBus.subscribe('llm:generate_auto_tweet', (event) => {
@@ -299,6 +311,58 @@ export class LLMService {
     });
   }
 
+  private async processMemberTweet(data: MemberTweetInput) {
+    const { tweetId, tweetUrl, text, authorName } = data;
+
+    if (!tweetId || !text || !authorName) {
+      logger.error('MemberTweet data is invalid:', { tweetId, text, authorName });
+      return;
+    }
+
+    try {
+      logger.info(
+        `[MemberTweet] FCA開始: @${data.authorUserName} "${text.slice(0, 50)}"`,
+        'cyan',
+      );
+
+      const result = await this.memberTweetAgent.respond(data);
+      if (!result) {
+        logger.warn('[MemberTweet] FCA結果なし');
+        return;
+      }
+
+      if (result.type === 'quote_rt') {
+        logger.info(
+          `[MemberTweet] 引用RT選択: "${result.text.slice(0, 60)}" → ${tweetUrl}`,
+          'green',
+        );
+        this.eventBus.publish({
+          type: 'twitter:post_message',
+          memoryZone: 'twitter:post',
+          data: {
+            text: result.text,
+            quoteTweetUrl: tweetUrl,
+          } as TwitterClientInput,
+        });
+      } else {
+        logger.info(
+          `[MemberTweet] 返信選択: "${result.text.slice(0, 60)}"`,
+          'green',
+        );
+        this.eventBus.publish({
+          type: 'twitter:post_message',
+          memoryZone: 'twitter:post',
+          data: {
+            text: result.text,
+            replyId: tweetId,
+          } as TwitterClientInput,
+        });
+      }
+    } catch (error) {
+      logger.error('[MemberTweet] エラー:', error);
+    }
+  }
+
   private async processAutoTweet(data: TwitterAutoTweetInput) {
     try {
       const { trends, todayInfo } = data;
@@ -308,23 +372,33 @@ export class LLMService {
       }
 
       logger.info(`🐦 AutoTweet: ツイート生成中 (トレンド${trends.length}件)...`);
-      const tweetText = await this.autoTweetAgent.generateTweet(trends, todayInfo);
+      const result = await this.autoTweetAgent.generateTweet(trends, todayInfo);
 
-      if (!tweetText) {
-        logger.warn('🐦 AutoTweet: ツイート生成失敗（空の結果）');
+      if (!result) {
+        logger.warn('🐦 AutoTweet: ツイート生成失敗（レビュー不合格 or 空の結果）');
         return;
       }
 
-      logger.info(`🐦 AutoTweet: 生成完了「${tweetText}」`);
-
-      // 既存の定期投稿フローに合流して投稿
-      this.eventBus.publish({
-        type: 'twitter:post_scheduled_message',
-        memoryZone: 'twitter:post',
-        data: {
-          text: tweetText,
-        } as TwitterClientInput,
-      });
+      if (result.type === 'quote_rt' && result.quoteUrl) {
+        logger.info(`🐦 AutoTweet: 引用RT生成完了「${result.text}」→ ${result.quoteUrl}`);
+        this.eventBus.publish({
+          type: 'twitter:post_scheduled_message',
+          memoryZone: 'twitter:post',
+          data: {
+            text: result.text,
+            quoteTweetUrl: result.quoteUrl,
+          } as TwitterClientInput,
+        });
+      } else {
+        logger.info(`🐦 AutoTweet: 生成完了「${result.text}」`);
+        this.eventBus.publish({
+          type: 'twitter:post_scheduled_message',
+          memoryZone: 'twitter:post',
+          data: {
+            text: result.text,
+          } as TwitterClientInput,
+        });
+      }
     } catch (error) {
       logger.error('🐦 AutoTweet エラー:', error);
     }
@@ -427,19 +501,49 @@ export class LLMService {
   private async processCreateScheduledPost(message: TwitterClientInput) {
     let post = '';
     let postForToyama = '';
+    let imagePrompt: string | undefined;
+
     if (message.command === 'forecast') {
-      post = await this.weatherAgent.createPost();
+      const result = await this.weatherAgent.createPost();
+      post = result.text;
+      imagePrompt = result.imagePrompt;
       postForToyama = await this.weatherAgent.createPostForToyama();
     } else if (message.command === 'fortune') {
-      post = await this.fortuneAgent.createPost();
+      const result = await this.fortuneAgent.createPost();
+      post = result.text;
+      imagePrompt = result.imagePrompt;
       postForToyama = post;
     } else if (message.command === 'about_today') {
-      post = await this.aboutTodayAgent.createPost();
+      const result = await this.aboutTodayAgent.createPost();
+      post = result.text;
+      imagePrompt = result.imagePrompt;
       postForToyama = post;
     } else if (message.command === 'news_today') {
-      post = await this.newsAgent.createPost();
+      const result = await this.newsAgent.createPost();
+      post = result.text;
+      imagePrompt = result.imagePrompt;
       postForToyama = post;
     }
+
+    // 画像生成（全 command 共通）
+    let mediaId: string | null = null;
+    let imageBuffer: Buffer | null = null;
+    if (imagePrompt) {
+      try {
+        imageBuffer = await generateImage(imagePrompt, '1024x1024', 'low');
+        if (imageBuffer && !this.isDevMode) {
+          const { TwitterClient } = await import('../twitter/client.js');
+          const twitterClient = TwitterClient.getInstance();
+          mediaId = await twitterClient.uploadMedia(imageBuffer, `${message.command}.jpg`) ?? null;
+          if (mediaId) {
+            logger.info(`[ScheduledPost] ${message.command} 画像アップロード成功: ${mediaId}`, 'green');
+          }
+        }
+      } catch (imgErr) {
+        logger.warn(`[ScheduledPost] ${message.command} 画像生成/アップロード失敗（テキストのみ投稿）: ${imgErr}`);
+      }
+    }
+
     if (this.isDevMode) {
       this.eventBus.publish({
         type: 'discord:scheduled_post',
@@ -447,6 +551,7 @@ export class LLMService {
         data: {
           command: message.command,
           text: post,
+          ...(imageBuffer ? { imageBuffer } : {}),
         } as DiscordScheduledPostInput,
       });
       this.eventBus.publish({
@@ -455,6 +560,7 @@ export class LLMService {
         data: {
           command: message.command,
           text: postForToyama,
+          ...(imageBuffer ? { imageBuffer } : {}),
         } as DiscordScheduledPostInput,
       });
     } else {
@@ -465,7 +571,7 @@ export class LLMService {
         memoryZone: 'twitter:schedule_post',
         data: {
           text: post,
-          imageUrl: null,
+          imageUrl: mediaId,
         } as TwitterClientInput,
       });
       this.eventBus.publish({
@@ -474,6 +580,7 @@ export class LLMService {
         data: {
           command: message.command,
           text: postForToyama,
+          ...(imageBuffer ? { imageBuffer } : {}),
         } as DiscordScheduledPostInput,
       });
       this.eventBus.publish({
@@ -482,6 +589,7 @@ export class LLMService {
         data: {
           command: message.command,
           text: post,
+          ...(imageBuffer ? { imageBuffer } : {}),
         } as DiscordScheduledPostInput,
       });
     }

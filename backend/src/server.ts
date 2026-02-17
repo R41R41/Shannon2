@@ -77,35 +77,74 @@ class Server {
       }
       try {
         let post = '';
+        let imagePrompt: string | undefined;
+
         if (command === 'fortune') {
           const { PostFortuneAgent } = await import('./services/llm/agents/postFortuneAgent.js');
           const agent = await PostFortuneAgent.create();
-          post = await agent.createPost();
+          const result = await agent.createPost();
+          post = result.text;
+          imagePrompt = result.imagePrompt;
         } else if (command === 'forecast') {
           const { PostWeatherAgent } = await import('./services/llm/agents/postWeatherAgent.js');
           const agent = await PostWeatherAgent.create();
-          post = await agent.createPost();
+          const result = await agent.createPost();
+          post = result.text;
+          imagePrompt = result.imagePrompt;
         } else if (command === 'about_today') {
           const { PostAboutTodayAgent } = await import('./services/llm/agents/postAboutTodayAgent.js');
           const agent = await PostAboutTodayAgent.create();
-          post = await agent.createPost();
+          const result = await agent.createPost();
+          post = result.text;
+          imagePrompt = result.imagePrompt;
         } else if (command === 'news_today') {
           const { PostNewsAgent } = await import('./services/llm/agents/postNewsAgent.js');
           const agent = await PostNewsAgent.create();
-          post = await agent.createPost();
+          const result = await agent.createPost();
+          post = result.text;
+          imagePrompt = result.imagePrompt;
         }
         logger.info(`[Test:ScheduledPost] ${command} 生成完了: ${post.slice(0, 100)}...`);
+
+        // 画像生成 + アップロード（全 command 共通、dry_run でなければ）
+        let mediaId: string | null = null;
+        if (!dryRun && imagePrompt) {
+          try {
+            const { generateImage } = await import('./services/llm/utils/generateImage.js');
+            const imgBuf = await generateImage(imagePrompt, '1024x1024', 'low');
+            if (imgBuf) {
+              const { TwitterClient } = await import('./services/twitter/client.js');
+              const twitterClient = TwitterClient.getInstance();
+              mediaId = await twitterClient.uploadMedia(imgBuf, `${command}.jpg`) ?? null;
+              if (mediaId) {
+                logger.info(`[Test:ScheduledPost] ${command} 画像アップロード成功: ${mediaId}`);
+              }
+            }
+          } catch (imgErr) {
+            logger.warn(`[Test:ScheduledPost] ${command} 画像失敗（テキストのみ）: ${imgErr}`);
+          }
+        }
 
         if (!dryRun && post) {
           const eventBus = getEventBus();
           eventBus.publish({
             type: 'twitter:post_scheduled_message',
             memoryZone: 'twitter:schedule_post',
-            data: { text: post } as any,
+            data: {
+              text: post,
+              ...(mediaId ? { imageUrl: mediaId } : {}),
+            } as any,
           });
-          logger.info(`[Test:ScheduledPost] ${command} Twitter投稿イベント発行`);
+          logger.info(`[Test:ScheduledPost] ${command} Twitter投稿イベント発行${mediaId ? ' (画像付き)' : ''}`);
         }
-        res.status(200).json({ ok: true, command, tweet: post, posted: !dryRun });
+        res.status(200).json({
+          ok: true,
+          command,
+          tweet: post,
+          posted: !dryRun,
+          ...(dryRun && imagePrompt ? { imagePrompt } : {}),
+          ...(mediaId ? { mediaId } : {}),
+        });
       } catch (err) {
         logger.error(`[Test:ScheduledPost] ${command} エラー`, err);
         res.status(500).json({ error: String(err) });
@@ -130,12 +169,15 @@ class Server {
           headers: { 'X-API-Key': config.twitter.twitterApiIoKey },
           params: { woeid: '23424856' },
         });
-        const trends = (trendsRes.data?.trends ?? []).map((t: any, i: number) => ({
-          name: t.name ?? t.trend ?? '',
-          query: t.query ?? t.name ?? '',
-          rank: t.rank ?? i + 1,
-          metaDescription: t.meta_description ?? t.metaDescription ?? undefined,
-        }));
+        const trends = (trendsRes.data?.trends ?? []).map((t: any, i: number) => {
+          const trend = t.trend && typeof t.trend === 'object' ? t.trend : t;
+          return {
+            name: trend.name ?? '',
+            query: trend.target?.query ?? trend.query ?? trend.name ?? '',
+            rank: trend.rank ?? i + 1,
+            metaDescription: trend.meta_description ?? trend.metaDescription ?? undefined,
+          };
+        });
 
         const now = new Date();
         const month = now.getMonth() + 1;
@@ -144,19 +186,29 @@ class Server {
         const todayInfo = `今日: ${now.getFullYear()}年${month}月${day}日(${dayOfWeek})`;
 
         logger.info(`[Test:AutoTweet] トレンド ${trends.length}件で生成開始`);
-        const tweet = await agent.generateTweet(trends, todayInfo);
-        logger.info(`[Test:AutoTweet] 生成結果: ${tweet}`);
+        const result = await agent.generateTweet(trends, todayInfo);
+        logger.info(`[Test:AutoTweet] 生成結果: ${JSON.stringify(result)}`);
 
-        if (!dryRun && tweet) {
+        if (!dryRun && result) {
           const eventBus = getEventBus();
           eventBus.publish({
             type: 'twitter:post_scheduled_message',
             memoryZone: 'twitter:post',
-            data: { text: tweet } as any,
+            data: {
+              text: result.text,
+              ...(result.type === 'quote_rt' && result.quoteUrl
+                ? { quoteTweetUrl: result.quoteUrl }
+                : {}),
+            } as any,
           });
-          logger.info('[Test:AutoTweet] Twitter投稿イベント発行');
+          logger.info(`[Test:AutoTweet] Twitter投稿イベント発行 (type=${result.type})`);
         }
-        res.status(200).json({ ok: true, tweet, trendsUsed: trends.length, posted: !dryRun });
+        res.status(200).json({
+          ok: true,
+          result,
+          trendsUsed: trends.length,
+          posted: !dryRun && !!result,
+        });
       } catch (err) {
         logger.error('[Test:AutoTweet] エラー', err);
         res.status(500).json({ error: String(err) });

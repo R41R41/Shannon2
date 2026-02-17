@@ -1,4 +1,5 @@
 import {
+  MemberTweetInput,
   TwitterActionResult,
   TwitterAutoTweetInput,
   TwitterClientInput,
@@ -64,6 +65,8 @@ interface MonitoredAccountConfig {
   reply: boolean;
   /** 必ず引用RTするか */
   alwaysQuoteRT: boolean;
+  /** FCAで返信/引用RTを自動判断するか (メンバー用) */
+  memberFCA: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -331,13 +334,17 @@ export class TwitterClient extends BaseClient {
       config.twitter.usernames.aiminelab,
     ].filter(Boolean) as string[];
 
-    this.monitoredAccounts = allUserNames.map((userName) => ({
-      userName,
-      alwaysLike: true,
-      reply: true,
-      // ai_mine_lab のみ引用RT
-      alwaysQuoteRT: userName === this.officialAccountUserName,
-    }));
+    this.monitoredAccounts = allUserNames.map((userName) => {
+      const isOfficial = userName === this.officialAccountUserName;
+      return {
+        userName,
+        alwaysLike: true,
+        // メンバーは FCA で処理するので reply / alwaysQuoteRT は false
+        reply: isOfficial,
+        alwaysQuoteRT: isOfficial,
+        memberFCA: !isOfficial,
+      };
+    });
 
     const apiKey = config.twitter.apiKey;
     const apiKeySecret = config.twitter.apiKeySecret;
@@ -385,10 +392,12 @@ export class TwitterClient extends BaseClient {
 
     this.eventBus.subscribe('twitter:post_scheduled_message', async (event) => {
       if (this.status !== 'running') return;
-      const { text } = event.data as TwitterClientInput;
+      const { text, quoteTweetUrl, imageUrl } = event.data as TwitterClientInput;
       try {
-        if (text) {
-          await this.postTweet(text, null, null);
+        if (text && quoteTweetUrl) {
+          await this.postQuoteTweet(text, quoteTweetUrl);
+        } else if (text) {
+          await this.postTweet(text, imageUrl ?? null, null);
         }
       } catch (error) {
         logger.error('Twitter post error:', error);
@@ -706,8 +715,15 @@ export class TwitterClient extends BaseClient {
       // v2 形式: { status: 'error', message/msg: '...' }
       if (resData?.status === 'error') {
         const errMsg = resData?.message || resData?.msg || 'Unknown error';
-        logger.error(`[postTweet] APIエラー: ${errMsg}`);
         const errLower = errMsg.toLowerCase();
+
+        // Note Tweet: twitterapi.io が tweet_id をパースできないが投稿自体は成功している
+        if (errLower.includes('could not extract tweet_id')) {
+          logger.warn(`[postTweet] Note Tweet投稿: tweet_id取得失敗（投稿自体は成功の可能性あり）`);
+          return response;
+        }
+
+        logger.error(`[postTweet] APIエラー: ${errMsg}`);
 
         // セッション切れ → 再ログインしてリトライ（1回のみ）
         if (!_retried && (errLower.includes('cookie') || errLower.includes('login') || errLower.includes('auth'))) {
@@ -743,6 +759,52 @@ export class TwitterClient extends BaseClient {
         logger.error(`[postTweet] レスポンス: ${JSON.stringify(error.response?.data).slice(0, 300)}`);
       }
       throw error;
+    }
+  }
+
+  /**
+   * twitterapi.io v2 経由でメディアをアップロードし media_id を返す
+   * upload_media_v2 エンドポイント使用
+   */
+  public async uploadMedia(imageBuffer: Buffer, filename: string = 'image.png'): Promise<string | null> {
+    if (!this.login_cookies) {
+      logger.warn('[uploadMedia] login_cookies が未取得。loginV2 を実行します...');
+      await this.loginV2();
+    }
+
+    try {
+      const FormData = (await import('form-data')).default;
+      const form = new FormData();
+      form.append('file', imageBuffer, { filename, contentType: 'image/png' });
+      form.append('login_cookies', this.login_cookies);
+      form.append('proxy', this.proxy1);
+
+      const endpoint = 'https://api.twitterapi.io/twitter/upload_media_v2';
+      logger.info(`[uploadMedia] アップロード中... (${(imageBuffer.length / 1024).toFixed(1)} KB)`, 'cyan');
+
+      const response = await axios.post(endpoint, form, {
+        headers: {
+          ...form.getHeaders(),
+          'X-API-Key': this.apiKey,
+        },
+        maxContentLength: 10 * 1024 * 1024,
+        maxBodyLength: 10 * 1024 * 1024,
+      });
+
+      const resData = response.data;
+      if (resData?.status === 'success' && resData?.media_id) {
+        logger.info(`[uploadMedia] 成功: media_id=${resData.media_id}`, 'green');
+        return resData.media_id;
+      }
+
+      logger.error(`[uploadMedia] エラー: ${resData?.msg || JSON.stringify(resData).slice(0, 200)}`);
+      return null;
+    } catch (error: unknown) {
+      const errMsg = isAxiosError(error)
+        ? error.response?.data?.message || error.message
+        : error instanceof Error ? error.message : String(error);
+      logger.error(`[uploadMedia] 失敗: ${errMsg}`);
+      return null;
     }
   }
 
@@ -1039,7 +1101,7 @@ export class TwitterClient extends BaseClient {
           });
         }
 
-        // 3) 確率で返信
+        // 3) 確率で返信 (ai_mine_lab 用)
         if (accountConfig.reply && Math.random() < this.replyProbability) {
           let repliedTweetText = '';
           let repliedTweetAuthorName = '';
@@ -1073,6 +1135,43 @@ export class TwitterClient extends BaseClient {
             } as TwitterReplyOutput,
           });
         }
+
+        // 4) メンバーFCA: LLMが返信/引用RTを自動判断
+        if (accountConfig.memberFCA && Math.random() < this.replyProbability) {
+          const tweetUrl = tweet.url || `https://x.com/${authorUserName}/status/${tweet.id}`;
+          let repliedTweetText = '';
+          let repliedTweetAuthorName = '';
+
+          if (tweet.inReplyToId || tweet.in_reply_to_status_id || tweet.in_reply_to_tweet_id) {
+            const originalTweetId =
+              tweet.inReplyToId ||
+              tweet.in_reply_to_status_id ||
+              tweet.in_reply_to_tweet_id;
+            if (originalTweetId) {
+              try {
+                const original = await this.fetchTweetContent(originalTweetId);
+                repliedTweetText = original.text ?? '';
+                repliedTweetAuthorName = original.authorName ?? '';
+              } catch {
+                // 元ツイート取得失敗は無視
+              }
+            }
+          }
+
+          this.eventBus.publish({
+            type: 'llm:respond_member_tweet',
+            memoryZone: 'twitter:post',
+            data: {
+              tweetId: tweet.id,
+              tweetUrl,
+              text: tweet.text,
+              authorName: tweet.author.name,
+              authorUserName,
+              repliedTweet: repliedTweetText,
+              repliedTweetAuthorName,
+            } as MemberTweetInput,
+          });
+        }
       }
 
       // processedTweetIds が際限なく増えるのを防ぐ (最大1000件保持)
@@ -1103,12 +1202,16 @@ export class TwitterClient extends BaseClient {
       );
 
       if (res.data?.trends && Array.isArray(res.data.trends)) {
-        return res.data.trends.map((t: any, i: number) => ({
-          name: t.name ?? t.trend ?? '',
-          query: t.query ?? t.name ?? '',
-          rank: t.rank ?? i + 1,
-          metaDescription: t.meta_description ?? t.metaDescription ?? undefined,
-        }));
+        return res.data.trends.map((t: any, i: number) => {
+          // API v2: { trend: { name, target: { query }, rank } }
+          const trend = t.trend && typeof t.trend === 'object' ? t.trend : t;
+          return {
+            name: trend.name ?? '',
+            query: trend.target?.query ?? trend.query ?? trend.name ?? '',
+            rank: trend.rank ?? i + 1,
+            metaDescription: trend.meta_description ?? trend.metaDescription ?? undefined,
+          };
+        });
       }
 
       logger.warn('🐦 fetchTrends: 予期しないレスポンス形式');
