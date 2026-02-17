@@ -24,6 +24,7 @@ export type LLMEventType =
   | "llm:post_scheduled_message"
   | "llm:post_twitter_reply"
   | "llm:post_twitter_quote_rt"
+  | "llm:respond_member_tweet"
   | "llm:generate_auto_tweet"
   | "llm:reply_youtube_comment"
   | "llm:get_discord_message"

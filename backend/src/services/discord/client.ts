@@ -188,11 +188,6 @@ export class DiscordBot extends BaseClient {
     try {
       this.client.login(config.discord.token);
       logger.info('Discord bot started', 'blue');
-      this.eventBus.log(
-        'discord:aiminelab_server',
-        'blue',
-        'Discord bot started'
-      );
     } catch (error) {
       logger.error('Discord bot failed to start');
       this.eventBus.log(
@@ -1061,7 +1056,7 @@ export class DiscordBot extends BaseClient {
     });
     this.eventBus.subscribe('discord:scheduled_post', async (event) => {
       if (this.status !== 'running') return;
-      const { text, command } = event.data as DiscordScheduledPostInput;
+      const { text, command, imageBuffer } = event.data as DiscordScheduledPostInput;
       if (
         command === 'forecast' ||
         command === 'fortune' ||
@@ -1069,11 +1064,30 @@ export class DiscordBot extends BaseClient {
         command === 'news_today'
       ) {
         const message = text ?? '';
+
+        const sendScheduledPost = async (channel: TextChannel) => {
+          if (imageBuffer) {
+            try {
+              const attachment = new AttachmentBuilder(imageBuffer, { name: `${command}.jpg` });
+              const chunks = splitDiscordMessage(message);
+              await channel.send({ content: chunks[0], files: [attachment] });
+              for (let i = 1; i < chunks.length; i++) {
+                await channel.send(chunks[i]);
+              }
+            } catch (imgErr) {
+              logger.error('[Discord] 定期投稿の画像送信エラー:', imgErr);
+              await sendLongMessage(channel, message);
+            }
+          } else {
+            await sendLongMessage(channel, message);
+          }
+        };
+
         if (this.isDev) {
           const xChannelId = this.testXChannelId ?? '';
           const channel = this.client.channels.cache.get(xChannelId);
           if (channel?.isTextBased() && 'send' in channel) {
-            await sendLongMessage(channel as TextChannel, message);
+            await sendScheduledPost(channel as TextChannel);
           }
         } else {
           if (event.memoryZone === 'discord:colab_server') {
@@ -1081,33 +1095,33 @@ export class DiscordBot extends BaseClient {
               this.colabChannelId ?? ''
             );
             if (colabChannel?.isTextBased() && 'send' in colabChannel) {
-              await sendLongMessage(colabChannel as TextChannel, message);
+              await sendScheduledPost(colabChannel as TextChannel);
             }
           } else if (event.memoryZone === 'discord:douki_server') {
             const doukiChannel = this.client.channels.cache.get(
               this.doukiChannelId ?? ''
             );
             if (doukiChannel?.isTextBased() && 'send' in doukiChannel) {
-              await sendLongMessage(doukiChannel as TextChannel, message);
+              await sendScheduledPost(doukiChannel as TextChannel);
             }
           } else if (event.memoryZone === 'discord:toyama_server') {
             const toyamaChannel = this.client.channels.cache.get(
               this.toyamaChannelId ?? ''
             );
             if (toyamaChannel?.isTextBased() && 'send' in toyamaChannel) {
-              await sendLongMessage(toyamaChannel as TextChannel, message);
+              await sendScheduledPost(toyamaChannel as TextChannel);
             }
           } else if (event.memoryZone === 'discord:test_server') {
             const testChannelId = this.testXChannelId ?? '';
             const channel = this.client.channels.cache.get(testChannelId);
             if (channel?.isTextBased() && 'send' in channel) {
-              await sendLongMessage(channel as TextChannel, message);
+              await sendScheduledPost(channel as TextChannel);
             }
           } else {
             const xChannelId = this.aiminelabXChannelId ?? '';
             const channel = this.client.channels.cache.get(xChannelId);
             if (channel?.isTextBased() && 'send' in channel) {
-              await sendLongMessage(channel as TextChannel, message);
+              await sendScheduledPost(channel as TextChannel);
             }
           }
         }

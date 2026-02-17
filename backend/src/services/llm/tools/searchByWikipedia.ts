@@ -1,10 +1,9 @@
 import { StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import wikipedia from 'wikipedia';
+import axios from 'axios';
 import { logger } from '../../../utils/logger.js';
 
-// Wikipedia API は User-Agent 必須（ないと 403）
-wikipedia.setUserAgent('ShannonBot/1.0 (https://sh4nnon.com)');
+const USER_AGENT = 'ShannonBot/1.0 (https://sh4nnon.com; contact@sh4nnon.com)';
 
 export default class SearchByWikipediaTool extends StructuredTool {
     name = 'search-by-wikipedia';
@@ -20,23 +19,64 @@ export default class SearchByWikipediaTool extends StructuredTool {
     }
 
     async _call(data: z.infer<typeof this.schema>): Promise<string> {
+        const lang = data.lang || 'ja';
+        const baseUrl = `https://${lang}.wikipedia.org/w/api.php`;
+        const headers = {
+            'User-Agent': USER_AGENT,
+            'Api-User-Agent': USER_AGENT,
+        };
         try {
-            const lang = data.lang || 'ja';
-            wikipedia.setLang(lang);
-            const page = await wikipedia.page(data.query);
-            if (data.summary) {
-                const summary = await page.summary();
-                return summary.extract;
-            } else {
-                const content = await page.content();
-                return content;
-            }
-        } catch (error: any) {
-            if (error && error.message && error.message.includes('No article found')) {
+            // 1. まず検索して正しいページタイトルを取得
+            const searchRes = await axios.get(baseUrl, {
+                headers,
+                params: {
+                    action: 'query',
+                    list: 'search',
+                    srsearch: data.query,
+                    srlimit: 1,
+                    format: 'json',
+                    origin: '*',
+                },
+            });
+            const results = searchRes.data?.query?.search;
+            if (!results || results.length === 0) {
                 return `Wikipediaで「${data.query}」の記事が見つかりませんでした。`;
             }
-            logger.error('Wikipedia search error:', error);
-            return `Wikipedia検索中にエラーが発生しました: ${error}`;
+            const pageTitle = results[0].title;
+            const pageId = results[0].pageid;
+
+            if (data.summary) {
+                // REST API で要約取得
+                const summaryRes = await axios.get(
+                    `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle.replace(/ /g, '_'))}`,
+                    { headers }
+                );
+                return summaryRes.data?.extract || `「${pageTitle}」の要約を取得できませんでした。`;
+            } else {
+                // Legacy API で本文取得
+                const contentRes = await axios.get(baseUrl, {
+                    headers,
+                    params: {
+                        action: 'query',
+                        prop: 'extracts',
+                        explaintext: '',
+                        pageids: pageId,
+                        format: 'json',
+                        origin: '*',
+                    },
+                });
+                const pages = contentRes.data?.query?.pages;
+                const page = pages?.[pageId];
+                const extract = page?.extract;
+                if (!extract) {
+                    return `「${pageTitle}」の本文を取得できませんでした。`;
+                }
+                // 長すぎる場合は先頭2000文字に切り詰め
+                return extract.length > 2000 ? extract.slice(0, 2000) + '...' : extract;
+            }
+        } catch (error: any) {
+            logger.error('Wikipedia search error:', error?.message || error);
+            return `Wikipedia検索中にエラーが発生しました: ${error?.message || error}`;
         }
     }
 }

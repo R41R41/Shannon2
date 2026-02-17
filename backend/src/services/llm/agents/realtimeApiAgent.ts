@@ -191,13 +191,11 @@ export class RealtimeAPIService {
 
         switch (data.type) {
           case 'session.created':
-            logger.info('Session created', 'blue');
-            this.eventBus.log('web', 'blue', 'Session created');
+            logger.debug('Session created');
             break;
 
           case 'session.updated':
-            logger.info('Session updated', 'cyan');
-            this.eventBus.log('web', 'cyan', 'Session updated');
+            logger.debug('Session updated');
             break;
 
           case 'response.created':

@@ -28,6 +28,7 @@ import { NotionClientInput, NotionClientOutput } from './notion.js';
 import { SchedulerInput, SchedulerOutput } from './scheduler.js';
 import { EmotionType, TaskInput, TaskTreeState } from './taskGraph.js';
 import {
+  MemberTweetInput,
   TwitterActionResult,
   TwitterAutoTweetInput,
   TwitterClientInput,
@@ -115,6 +116,7 @@ export interface EventPayloadMap {
   'llm:post_scheduled_message': TwitterClientInput;
   'llm:post_twitter_reply': TwitterReplyOutput;
   'llm:post_twitter_quote_rt': TwitterQuoteRTOutput;
+  'llm:respond_member_tweet': MemberTweetInput;
   'llm:generate_auto_tweet': TwitterAutoTweetInput;
   'llm:reply_youtube_comment': YoutubeCommentOutput;
   'llm:get_discord_message': DiscordSendTextMessageOutput | DiscordClientInput;

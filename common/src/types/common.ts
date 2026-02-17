@@ -35,6 +35,7 @@ import {
 } from './taskGraph.js';
 import { ToolEventType } from './tools.js';
 import {
+  MemberTweetInput,
   TwitterClientInput,
   TwitterClientOutput,
   TwitterEventType,
@@ -187,6 +188,11 @@ export type PromptType =
   | 'reply_youtube_live_comment'
   | 'emergency'
   | 'auto_tweet'
+  | 'auto_tweet_review'
+  | 'respond_member_tweet'
+  | 'about_today_review'
+  | 'news_today_review'
+  | 'fortune_review'
   | 'extract_person_traits'
   | 'extract_memories';
 
@@ -273,7 +279,8 @@ export interface Event {
   | SkillParameters
   | SkillResult
   | NotionClientInput
-  | NotionClientOutput;
+  | NotionClientOutput
+  | MemberTweetInput;
   targetMemoryZones?: MemoryZone[];
 }
 

@@ -30,6 +30,7 @@ export interface DiscordSendTextMessageInput extends ServiceInput {
 export interface DiscordScheduledPostInput extends ServiceInput {
   command: TwitterSchedulePostEndpoint;
   text: string;
+  imageBuffer?: Buffer;
 }
 
 export interface DiscordPlanningInput extends ServiceInput {

@@ -63,7 +63,7 @@ export class EmotionAgent extends WebSocketServiceBase {
       });
     });
 
-    logger.error('EmotionAgent subscribe');
+    logger.debug('EmotionAgent subscribe');
   }
 
   public start() {

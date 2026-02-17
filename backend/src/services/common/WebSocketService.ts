@@ -25,7 +25,7 @@ export abstract class WebSocketServiceBase {
       logger.info(`WebSocketServer created with existing server for service ${this.serviceName}`);
     } else if (config.port) {
       this.wss = new WebSocketServer({ port: config.port });
-      logger.info(`WebSocketServer created on port ${config.port} for service ${this.serviceName}`);
+      logger.debug(`WebSocketServer created on port ${config.port} for service ${this.serviceName}`);
     } else {
       throw new Error('Invalid configuration');
     }

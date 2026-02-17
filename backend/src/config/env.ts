@@ -106,7 +106,7 @@ export const config = {
     /** ポーリング間隔 (ミリ秒) */
     monitorIntervalMs: parseInt(optional('TWITTER_MONITOR_INTERVAL_MS', '1800000'), 10),
     /** 自動投稿: 1日あたりの最大投稿数 */
-    maxAutoPostsPerDay: parseInt(optional('TWITTER_MAX_AUTO_POSTS_PER_DAY', '5'), 10),
+    maxAutoPostsPerDay: parseInt(optional('TWITTER_MAX_AUTO_POSTS_PER_DAY', '8'), 10),
     /** 自動投稿: 活動開始時間 (JST, 0-23) */
     autoPostStartHour: parseInt(optional('TWITTER_AUTO_POST_START_HOUR', '8'), 10),
     /** 自動投稿: 活動終了時間 (JST, 0-24) */
