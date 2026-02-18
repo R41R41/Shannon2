@@ -766,7 +766,7 @@ export class TwitterClient extends BaseClient {
    * twitterapi.io v2 経由でメディアをアップロードし media_id を返す
    * upload_media_v2 エンドポイント使用
    */
-  public async uploadMedia(imageBuffer: Buffer, filename: string = 'image.png'): Promise<string | null> {
+  public async uploadMedia(imageBuffer: Buffer, filename: string = 'image.png', isRetry: boolean = false): Promise<string | null> {
     if (!this.login_cookies) {
       logger.warn('[uploadMedia] login_cookies が未取得。loginV2 を実行します...');
       await this.loginV2();
@@ -780,7 +780,7 @@ export class TwitterClient extends BaseClient {
       form.append('proxy', this.proxy1);
 
       const endpoint = 'https://api.twitterapi.io/twitter/upload_media_v2';
-      logger.info(`[uploadMedia] アップロード中... (${(imageBuffer.length / 1024).toFixed(1)} KB)`, 'cyan');
+      logger.info(`[uploadMedia] アップロード中... (${(imageBuffer.length / 1024).toFixed(1)} KB)${isRetry ? ' [リトライ]' : ''}`, 'cyan');
 
       const response = await axios.post(endpoint, form, {
         headers: {
@@ -797,13 +797,30 @@ export class TwitterClient extends BaseClient {
         return resData.media_id;
       }
 
-      logger.error(`[uploadMedia] エラー: ${resData?.msg || JSON.stringify(resData).slice(0, 200)}`);
+      const errDetail = resData?.msg || resData?.message || JSON.stringify(resData).slice(0, 200);
+      logger.error(`[uploadMedia] エラー: ${errDetail}`);
+
+      if (!isRetry) {
+        logger.warn('[uploadMedia] セッション無効の可能性。再ログインしてリトライします...');
+        await this.loginV2();
+        return this.uploadMedia(imageBuffer, filename, true);
+      }
       return null;
     } catch (error: unknown) {
       const errMsg = isAxiosError(error)
         ? error.response?.data?.message || error.message
         : error instanceof Error ? error.message : String(error);
       logger.error(`[uploadMedia] 失敗: ${errMsg}`);
+
+      if (!isRetry) {
+        logger.warn('[uploadMedia] 再ログインしてリトライします...');
+        try {
+          await this.loginV2();
+          return this.uploadMedia(imageBuffer, filename, true);
+        } catch {
+          return null;
+        }
+      }
       return null;
     }
   }
