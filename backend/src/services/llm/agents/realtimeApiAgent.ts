@@ -280,6 +280,15 @@ export class RealtimeAPIService {
           case 'error':
             logger.error(`Server error: ${JSON.stringify(data)}`);
             this.eventBus.log('web', 'red', 'Server error', true);
+            if (data.error?.code === 'session_expired') {
+              logger.info('[RealtimeAPI] セッション期限切れ。自動再接続します...', 'cyan');
+              this.initialized = false;
+              setTimeout(() => {
+                this.initialize().catch((e) =>
+                  logger.error(`[RealtimeAPI] 再接続失敗: ${e}`)
+                );
+              }, 1000);
+            }
             break;
 
           default:
@@ -297,6 +306,16 @@ export class RealtimeAPIService {
         logger.error('WebSocket connection closed');
         this.eventBus.log('web', 'red', 'WebSocket connection closed');
         this.initialized = false;
+        // session_expired の場合は error イベント側で再接続するので、
+        // close イベントでは少し遅らせて接続が本当に切れた場合のみ再接続
+        setTimeout(() => {
+          if (!this.initialized) {
+            logger.info('[RealtimeAPI] 切断を検知。再接続します...', 'cyan');
+            this.initialize().catch((e) =>
+              logger.error(`[RealtimeAPI] 再接続失敗: ${e}`)
+            );
+          }
+        }, 3000);
       });
     });
   }
