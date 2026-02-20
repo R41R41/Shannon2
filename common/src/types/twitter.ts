@@ -87,6 +87,7 @@ export interface TwitterAutoTweetInput extends ServiceInput {
   trends: TwitterTrendData[];
   todayInfo: string;
   recentPosts?: string[];
+  recentQuoteUrls?: string[];
 }
 
 export type TwitterEventType =

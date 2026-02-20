@@ -365,14 +365,14 @@ export class LLMService {
 
   private async processAutoTweet(data: TwitterAutoTweetInput) {
     try {
-      const { trends, todayInfo, recentPosts } = data;
+      const { trends, todayInfo, recentPosts, recentQuoteUrls } = data;
       if (!trends || trends.length === 0) {
         logger.warn('🐦 processAutoTweet: トレンドデータなし');
         return;
       }
 
-      logger.info(`🐦 AutoTweet: ツイート生成中 (トレンド${trends.length}件, 直近ポスト${recentPosts?.length ?? 0}件)...`);
-      const result = await this.autoTweetAgent.generateTweet(trends, todayInfo, recentPosts);
+      logger.info(`🐦 AutoTweet: ツイート生成中 (トレンド${trends.length}件, 直近ポスト${recentPosts?.length ?? 0}件, 引用URL${recentQuoteUrls?.length ?? 0}件)...`);
+      const result = await this.autoTweetAgent.generateTweet(trends, todayInfo, recentPosts, recentQuoteUrls);
 
       if (!result) {
         logger.warn('🐦 AutoTweet: ツイート生成失敗（レビュー不合格 or 空の結果）');

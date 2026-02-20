@@ -112,15 +112,30 @@ export class TwitterClient extends BaseClient {
 
   /** 直近の自動投稿テキスト（重複回避用） */
   private recentAutoPosts: string[] = [];
+  /** 直近の引用元URL（同一ポスト引用RT重複回避用） */
+  private recentQuoteUrls: string[] = [];
 
   /** 直近ポストをファイルから読み込む */
   private loadRecentPosts(): void {
     try {
       if (fs.existsSync(RECENT_AUTO_POSTS_FILE)) {
-        const data = JSON.parse(fs.readFileSync(RECENT_AUTO_POSTS_FILE, 'utf-8'));
-        if (Array.isArray(data)) {
-          this.recentAutoPosts = data.slice(-MAX_RECENT_AUTO_POSTS);
-          logger.info(`📋 直近ポスト: ${this.recentAutoPosts.length}件を復元`, 'cyan');
+        const raw = JSON.parse(fs.readFileSync(RECENT_AUTO_POSTS_FILE, 'utf-8'));
+        if (Array.isArray(raw)) {
+          if (raw.length > 0 && typeof raw[0] === 'object' && raw[0] !== null) {
+            // 新フォーマット: { text, quoteUrl? }
+            this.recentAutoPosts = raw.map((r: any) => r.text || r).slice(-MAX_RECENT_AUTO_POSTS);
+            this.recentQuoteUrls = raw
+              .filter((r: any) => r.quoteUrl)
+              .map((r: any) => r.quoteUrl)
+              .slice(-MAX_RECENT_AUTO_POSTS);
+          } else {
+            // 旧フォーマット: string[]
+            this.recentAutoPosts = raw.slice(-MAX_RECENT_AUTO_POSTS);
+          }
+          logger.info(
+            `📋 直近ポスト: ${this.recentAutoPosts.length}件, 引用URL: ${this.recentQuoteUrls.length}件を復元`,
+            'cyan'
+          );
         }
       }
     } catch (err) {
@@ -129,16 +144,37 @@ export class TwitterClient extends BaseClient {
   }
 
   /** 直近ポストを追加してファイルに保存する */
-  private saveRecentPost(text: string): void {
+  private saveRecentPost(text: string, quoteUrl?: string): void {
     this.recentAutoPosts.push(text);
     if (this.recentAutoPosts.length > MAX_RECENT_AUTO_POSTS) {
       this.recentAutoPosts = this.recentAutoPosts.slice(-MAX_RECENT_AUTO_POSTS);
     }
+    if (quoteUrl) {
+      this.recentQuoteUrls.push(quoteUrl);
+      if (this.recentQuoteUrls.length > MAX_RECENT_AUTO_POSTS) {
+        this.recentQuoteUrls = this.recentQuoteUrls.slice(-MAX_RECENT_AUTO_POSTS);
+      }
+    }
     try {
-      fs.writeFileSync(RECENT_AUTO_POSTS_FILE, JSON.stringify(this.recentAutoPosts, null, 2));
+      const entries = this.recentAutoPosts.map((t, i) => {
+        const idx = this.recentAutoPosts.length - 1 - i;
+        return { text: t, ...(this.recentQuoteUrls[idx] ? { quoteUrl: this.recentQuoteUrls[idx] } : {}) };
+      });
+      fs.writeFileSync(RECENT_AUTO_POSTS_FILE, JSON.stringify(entries, null, 2));
     } catch (err) {
       logger.warn(`📋 直近ポスト保存失敗: ${err}`);
     }
+  }
+
+  /** 指定URLを最近引用RTしたか */
+  public hasRecentlyQuoted(url: string): boolean {
+    if (!url) return false;
+    const tweetId = url.match(/status\/(\d+)/)?.[1];
+    return this.recentQuoteUrls.some((u) => {
+      if (u === url) return true;
+      const existingId = u.match(/status\/(\d+)/)?.[1];
+      return tweetId && existingId && tweetId === existingId;
+    });
   }
 
   /** 処理済みIDをファイルから読み込む */
@@ -439,7 +475,7 @@ export class TwitterClient extends BaseClient {
       try {
         if (text && quoteTweetUrl) {
           await this.postQuoteTweet(text, quoteTweetUrl);
-          if (text) this.saveRecentPost(text);
+          this.saveRecentPost(text, quoteTweetUrl);
         } else if (text) {
           await this.postTweet(text, imageUrl ?? null, null);
           this.saveRecentPost(text);
@@ -1362,6 +1398,7 @@ export class TwitterClient extends BaseClient {
           trends,
           todayInfo,
           recentPosts: [...this.recentAutoPosts],
+          recentQuoteUrls: [...this.recentQuoteUrls],
         } as TwitterAutoTweetInput,
       });
 

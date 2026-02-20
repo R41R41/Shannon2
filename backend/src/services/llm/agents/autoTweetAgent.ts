@@ -128,10 +128,10 @@ class SearchTweetsTool extends StructuredTool {
         headers: getHeaders(),
         params: { queryType: 'Top', query: data.query },
       });
-      const tweets = (res.data?.tweets || res.data?.data?.tweets || []).slice(
-        0,
-        data.count || 10,
-      );
+      const allTweets = res.data?.tweets || res.data?.data?.tweets || [];
+      const worthy = allTweets.filter(isQuoteRTWorthy);
+      const base = worthy.length >= 3 ? worthy : allTweets;
+      const tweets = base.slice(0, data.count || 10);
       if (tweets.length === 0) return '検索結果なし';
       return tweets.map(formatTweet).join('\n---\n');
     } catch (e: any) {
@@ -497,6 +497,7 @@ export class AutoTweetAgent {
     trends: TwitterTrendData[],
     todayInfo: string,
     recentPosts?: string[],
+    recentQuoteUrls?: string[],
   ): Promise<AutoTweetOutput | null> {
     let feedback: string | undefined;
 
@@ -506,7 +507,7 @@ export class AutoTweetAgent {
         'cyan',
       );
 
-      const draft = await this.explore(trends, todayInfo, feedback, recentPosts);
+      const draft = await this.explore(trends, todayInfo, feedback, recentPosts, recentQuoteUrls);
       if (!draft) {
         logger.warn('[AutoTweet] 探索結果なし、リトライ');
         feedback = '前回は探索に失敗した。別のアプローチを試して。';
@@ -548,6 +549,7 @@ export class AutoTweetAgent {
     todayInfo: string,
     feedback?: string,
     recentPosts?: string[],
+    recentQuoteUrls?: string[],
   ): Promise<AutoTweetOutput | null> {
     const model = new ChatOpenAI({
       modelName: models.autoTweet,
@@ -586,6 +588,10 @@ export class AutoTweetAgent {
       '',
       recentPostsText
         ? `# 直近の自分のポスト（これらと同じ話題・同じ角度のツイートは厳禁。必ず違う話題か違う角度で）\n${recentPostsText}`
+        : '',
+      '',
+      recentQuoteUrls && recentQuoteUrls.length > 0
+        ? `# 既に引用RTしたURL（これらのポストを再度引用RTするのは絶対禁止）\n${recentQuoteUrls.map((u, i) => `${i + 1}. ${u}`).join('\n')}`
         : '',
       '',
       'ツールを使ってTwitter空間を探索し、面白い話題を見つけてください。',
