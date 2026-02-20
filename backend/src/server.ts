@@ -230,6 +230,112 @@ class Server {
       }
     });
 
+    // POST: メンバーTweetへの返信テスト (ライ・ヤミーなどのツイートに反応)
+    // body: { tweetUrl?: string }  省略時はライの最新ツイートを自動取得
+    // query: ?dry_run=true で投稿せずに生成結果のみ返す
+    app.post('/api/test/member-tweet', async (req, res) => {
+      const key = req.headers['x-api-key'] as string | undefined;
+      if (!key || key !== config.twitter.twitterApiIoKey) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const dryRun = req.query.dry_run === 'true';
+      const inputTweetUrl = (req.body as any)?.tweetUrl as string | undefined;
+      try {
+        const axios = (await import('axios')).default;
+        const { MemberTweetAgent } = await import('./services/llm/agents/memberTweetAgent.js');
+        const agent = await MemberTweetAgent.create();
+
+        // tweetUrl が指定されていればそのツイートを取得、なければライの最新ツイートを取得
+        let tweetId: string;
+        let tweetText: string;
+        let authorName: string;
+        let authorUserName: string;
+        let tweetUrl: string;
+
+        if (inputTweetUrl) {
+          // URL から tweetId を抽出
+          const match = inputTweetUrl.match(/\/status\/(\d+)/);
+          if (!match) {
+            res.status(400).json({ error: 'tweetUrl の形式が不正です (例: https://x.com/user/status/ID)' });
+            return;
+          }
+          tweetId = match[1];
+          const detailRes = await axios.get('https://api.twitterapi.io/twitter/tweet/detail', {
+            headers: { 'X-API-Key': config.twitter.twitterApiIoKey },
+            params: { tweetId },
+          });
+          const t = detailRes.data?.tweet || detailRes.data?.tweets?.[0];
+          if (!t) {
+            res.status(404).json({ error: `ツイート ${tweetId} が見つかりません` });
+            return;
+          }
+          tweetText = t.text ?? '';
+          authorName = t.author?.name ?? '';
+          authorUserName = t.author?.userName ?? '';
+          tweetUrl = t.url || inputTweetUrl;
+        } else {
+          // ライの最新ツイートを自動取得
+          const raiUserName = config.twitter.usernames?.rai || 'RaiDr_';
+          const tweetsRes = await axios.get('https://api.twitterapi.io/twitter/user/tweets', {
+            headers: { 'X-API-Key': config.twitter.twitterApiIoKey },
+            params: { userName: raiUserName, count: 1 },
+          });
+          const tweets = tweetsRes.data?.tweets ?? tweetsRes.data?.data?.tweets ?? [];
+          if (tweets.length === 0) {
+            res.status(404).json({ error: `@${raiUserName} のツイートが見つかりません` });
+            return;
+          }
+          const t = tweets[0];
+          tweetId = t.id;
+          tweetText = t.text ?? '';
+          authorName = t.author?.name ?? '';
+          authorUserName = t.author?.userName ?? '';
+          tweetUrl = t.url || `https://x.com/${authorUserName}/status/${tweetId}`;
+        }
+
+        logger.info(`[Test:MemberTweet] 対象: @${authorUserName} "${tweetText.slice(0, 60)}" (id=${tweetId})`);
+
+        const result = await agent.respond({
+          text: tweetText,
+          authorName,
+          authorUserName,
+          repliedTweet: '',
+          repliedTweetAuthorName: '',
+        });
+
+        logger.info(`[Test:MemberTweet] 生成結果: ${JSON.stringify(result)}`);
+
+        if (!dryRun && result) {
+          const eventBus = getEventBus();
+          if (result.type === 'quote_rt') {
+            eventBus.publish({
+              type: 'twitter:post_message',
+              memoryZone: 'twitter:post',
+              data: { text: result.text, quoteTweetUrl: tweetUrl } as any,
+            });
+          } else {
+            eventBus.publish({
+              type: 'twitter:post_message',
+              memoryZone: 'twitter:post',
+              data: { text: result.text, replyId: tweetId } as any,
+            });
+          }
+          logger.info(`[Test:MemberTweet] Twitter投稿イベント発行 (type=${result.type})`);
+        }
+
+        res.status(200).json({
+          ok: true,
+          result,
+          sourceTweet: { tweetId, tweetUrl, text: tweetText, authorName, authorUserName },
+          posted: !dryRun && !!result,
+        });
+      } catch (err) {
+        logger.error('[Test:MemberTweet] エラー', err);
+        res.status(500).json({ error: String(err) });
+      }
+    });
+
     // POST: 実際の Webhook ペイロード受信
     app.post('/api/webhook/twitter', (req, res) => {
       try {
