@@ -27,6 +27,8 @@ const LOGIN_COOKIES_FILE = path.resolve('saves/twitter_login_cookies.json');
 const AUTO_POST_COUNT_FILE = path.resolve('saves/auto_post_count.json');
 // 直近の自動投稿テキスト永続化ファイルパス
 const RECENT_AUTO_POSTS_FILE = path.resolve('saves/recent_auto_posts.json');
+// 当日の投稿予定時刻スケジュールの永続化ファイルパス
+const DAILY_SCHEDULE_FILE = path.resolve('saves/auto_post_daily_schedule.json');
 // 直近ポスト保持件数
 const MAX_RECENT_AUTO_POSTS = 20;
 import { BaseClient } from '../common/BaseClient.js';
@@ -310,12 +312,16 @@ export class TwitterClient extends BaseClient {
   private autoPostDate: string = '';
   /** 最後に自動投稿した時刻 (ms) */
   private lastAutoPostAt: number = 0;
-  /** 1日あたりの自動投稿上限 */
+  /** 1日あたりの自動投稿最小数 */
+  private minAutoPostsPerDay: number;
+  /** 1日あたりの自動投稿最大数 */
   private maxAutoPostsPerDay: number;
   /** 自動投稿の活動開始時間 (JST, 0-23) */
   private autoPostStartHour: number;
   /** 自動投稿の活動終了時間 (JST, 0-24) */
   private autoPostEndHour: number;
+  /** 当日の投稿予定時刻リスト (epoch ms, 昇順) */
+  private todayPostTimes: number[] = [];
   /** 次回自動投稿のタイマー */
   private autoPostTimer: ReturnType<typeof setTimeout> | null = null;
   /** 日次リセットのタイマー */
@@ -354,6 +360,7 @@ export class TwitterClient extends BaseClient {
     this.proxy3 = config.twitter.proxy3;
     this.replyProbability = config.twitter.replyProbability;
     this.monitorIntervalMs = config.twitter.monitorIntervalMs;
+    this.minAutoPostsPerDay = config.twitter.minAutoPostsPerDay;
     this.maxAutoPostsPerDay = config.twitter.maxAutoPostsPerDay;
     this.autoPostStartHour = config.twitter.autoPostStartHour;
     this.autoPostEndHour = config.twitter.autoPostEndHour;
@@ -1327,28 +1334,7 @@ export class TwitterClient extends BaseClient {
   private async autoPostTweet(): Promise<void> {
     if (this.status !== 'running') {
       logger.info('🐦 AutoPost: Twitter未起動、スキップ');
-      this.scheduleNextAutoPost();
-      return;
-    }
-
-    // 活動時間チェック
-    const currentHour = this.getJSTHour();
-    if (currentHour < this.autoPostStartHour || currentHour >= this.autoPostEndHour) {
-      logger.info(
-        `🐦 AutoPost: 活動時間外 (現在JST ${currentHour}時、${this.autoPostStartHour}-${this.autoPostEndHour}時)`,
-        'cyan'
-      );
-      this.scheduleNextAutoPost();
-      return;
-    }
-
-    // 日次上限チェック
-    if (this.autoPostCount >= this.maxAutoPostsPerDay) {
-      logger.info(
-        `🐦 AutoPost: 本日の上限に到達 (${this.autoPostCount}/${this.maxAutoPostsPerDay})`,
-        'cyan'
-      );
-      // 翌日まで停止 (resetDailyCounter で再開)
+      this.scheduleFromDailyPlan();
       return;
     }
 
@@ -1357,7 +1343,7 @@ export class TwitterClient extends BaseClient {
       const trends = await this.fetchTrends();
       if (trends.length === 0) {
         logger.warn('🐦 AutoPost: トレンド取得失敗、スキップ');
-        this.scheduleNextAutoPost();
+        this.scheduleFromDailyPlan();
         return;
       }
 
@@ -1383,7 +1369,7 @@ export class TwitterClient extends BaseClient {
       this.lastAutoPostAt = Date.now();
       this.saveAutoPostCount();
       logger.info(
-        `🐦 AutoPost: リクエスト送信完了 (本日 ${this.autoPostCount}/${this.maxAutoPostsPerDay})`,
+        `🐦 AutoPost: リクエスト送信完了 (本日 ${this.autoPostCount}/${this.todayPostTimes.length}件予定)`,
         'green'
       );
     } catch (error) {
@@ -1391,62 +1377,128 @@ export class TwitterClient extends BaseClient {
     }
 
     // 次回をスケジュール
-    this.scheduleNextAutoPost();
+    this.scheduleFromDailyPlan();
   }
 
   /**
-   * 次回の自動投稿をランダムタイミングでスケジュール
+   * 当日の投稿スケジュールをファイルから読み込む。
+   * 今日の分がなければ新規生成する。
    */
-  private scheduleNextAutoPost(): void {
-    // 既存タイマーをクリア
+  private loadDailySchedule(): void {
+    try {
+      if (fs.existsSync(DAILY_SCHEDULE_FILE)) {
+        const data = JSON.parse(fs.readFileSync(DAILY_SCHEDULE_FILE, 'utf-8'));
+        if (data.date === this.getTodayJST()) {
+          this.todayPostTimes = data.times || [];
+          logger.info(
+            `📋 投稿スケジュール読み込み: ${this.todayPostTimes.length}件 (${data.date})`,
+            'cyan'
+          );
+          this.logDailySchedule();
+          return;
+        }
+      }
+    } catch (err) {
+      logger.warn(`📋 投稿スケジュール読み込み失敗: ${err}`);
+    }
+    this.generateDailySchedule();
+  }
+
+  /**
+   * 当日分の投稿予定時刻をランダム生成してファイルに保存する。
+   * 件数は minAutoPostsPerDay ～ maxAutoPostsPerDay のランダム値。
+   */
+  private generateDailySchedule(): void {
+    const count =
+      Math.floor(
+        Math.random() * (this.maxAutoPostsPerDay - this.minAutoPostsPerDay + 1)
+      ) + this.minAutoPostsPerDay;
+
+    const jstNow = toZonedTime(new Date(), 'Asia/Tokyo');
+
+    // 活動開始時刻 (JST startHour:00)
+    const startJST = new Date(jstNow);
+    startJST.setHours(this.autoPostStartHour, 0, 0, 0);
+    const startMs = startJST.getTime();
+
+    // 活動終了時刻 (JST endHour:00、24 なら翌 0:00)
+    const endJST = new Date(jstNow);
+    if (this.autoPostEndHour >= 24) {
+      endJST.setDate(endJST.getDate() + 1);
+      endJST.setHours(0, 0, 0, 0);
+    } else {
+      endJST.setHours(this.autoPostEndHour, 0, 0, 0);
+    }
+    const endMs = endJST.getTime();
+    const range = endMs - startMs;
+
+    const times: number[] = [];
+    for (let i = 0; i < count; i++) {
+      times.push(Math.floor(startMs + Math.random() * range));
+    }
+    times.sort((a, b) => a - b);
+
+    this.todayPostTimes = times;
+    this.saveDailySchedule();
+
+    logger.info(
+      `📋 投稿スケジュール生成: ${count}件 (${this.getTodayJST()})`,
+      'green'
+    );
+    this.logDailySchedule();
+  }
+
+  /** スケジュールをファイルに保存 */
+  private saveDailySchedule(): void {
+    try {
+      const dir = path.dirname(DAILY_SCHEDULE_FILE);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        DAILY_SCHEDULE_FILE,
+        JSON.stringify(
+          { date: this.getTodayJST(), times: this.todayPostTimes },
+          null,
+          2
+        )
+      );
+    } catch (err) {
+      logger.warn(`📋 投稿スケジュール保存失敗: ${err}`);
+    }
+  }
+
+  /** スケジュール一覧をログ出力 */
+  private logDailySchedule(): void {
+    const now = Date.now();
+    this.todayPostTimes.forEach((t, i) => {
+      const jst = toZonedTime(new Date(t), 'Asia/Tokyo');
+      const timeStr = format(jst, 'HH:mm');
+      const status = t <= now ? '✅済' : '⏳予定';
+      logger.info(`  ${i + 1}. ${timeStr} ${status}`, 'cyan');
+    });
+  }
+
+  /**
+   * 今日のスケジュールから次回投稿時刻を探してタイマーをセットする。
+   * 過去の時刻はスキップし、すべて過ぎていたら終了。
+   */
+  private scheduleFromDailyPlan(): void {
     if (this.autoPostTimer) {
       clearTimeout(this.autoPostTimer);
       this.autoPostTimer = null;
     }
 
-    // 日次上限に達していたらスケジュールしない
-    if (this.autoPostCount >= this.maxAutoPostsPerDay) {
-      logger.info('🐦 AutoPost: 本日の上限に到達。翌日リセットまで待機', 'cyan');
+    const now = Date.now();
+    const nextTime = this.todayPostTimes.find((t) => t > now);
+
+    if (!nextTime) {
+      logger.info('🐦 AutoPost: 本日のスケジュールをすべて消化。翌日まで待機', 'cyan');
       return;
     }
 
-    // 2-4時間 (7,200,000 - 14,400,000ms) + jitter (±30分 = ±1,800,000ms)
-    const baseDelay = 2 * 60 * 60 * 1000 + Math.random() * 2 * 60 * 60 * 1000;
-    const jitter = (Math.random() - 0.5) * 2 * 30 * 60 * 1000;
-    let delay = Math.max(baseDelay + jitter, 30 * 60 * 1000); // 最低30分
-
-    // 最後の投稿からの経過時間を考慮（再起動対策）
-    // 前回投稿から2時間未満なら、2時間経過まで待つ
-    if (this.lastAutoPostAt > 0) {
-      const elapsed = Date.now() - this.lastAutoPostAt;
-      const minInterval = 2 * 60 * 60 * 1000; // 最低2時間
-      if (elapsed < minInterval) {
-        const remaining = minInterval - elapsed;
-        delay = Math.max(delay, remaining + Math.random() * 30 * 60 * 1000);
-        logger.info(
-          `🐦 AutoPost: 前回投稿から${Math.round(elapsed / 60000)}分しか経過していないため、間隔を調整`,
-          'cyan'
-        );
-      }
-    }
-
-    // 現在が活動時間前なら、活動開始まで待つ
-    const currentHour = this.getJSTHour();
-    if (currentHour < this.autoPostStartHour) {
-      const hoursUntilStart = this.autoPostStartHour - currentHour;
-      const msUntilStart = hoursUntilStart * 60 * 60 * 1000;
-      // 活動開始後にランダムな時間を加える (0-60分)
-      delay = msUntilStart + Math.random() * 60 * 60 * 1000;
-    } else if (currentHour >= this.autoPostEndHour) {
-      // 活動時間後なら翌日の活動開始まで
-      const hoursUntilStart = 24 - currentHour + this.autoPostStartHour;
-      const msUntilStart = hoursUntilStart * 60 * 60 * 1000;
-      delay = msUntilStart + Math.random() * 60 * 60 * 1000;
-    }
-
-    const delayMinutes = Math.round(delay / 60000);
+    const delay = nextTime - now;
+    const nextJST = toZonedTime(new Date(nextTime), 'Asia/Tokyo');
     logger.info(
-      `🐦 AutoPost: 次回投稿を ${delayMinutes}分後にスケジュール`,
+      `🐦 AutoPost: 次回投稿 ${format(nextJST, 'HH:mm')} (${Math.round(delay / 60000)}分後)`,
       'cyan'
     );
 
@@ -1454,21 +1506,18 @@ export class TwitterClient extends BaseClient {
   }
 
   /**
-   * 毎日 0:00 JST に自動投稿カウンターをリセット
+   * 毎日 0:00 JST に自動投稿カウンターをリセットし、翌日のスケジュールを生成する
    */
   private scheduleDailyReset(): void {
     const scheduleNext = () => {
       const now = new Date();
       const jstNow = toZonedTime(now, 'Asia/Tokyo');
 
-      // 次の0:00 JST までのmsを計算
       const nextMidnight = new Date(jstNow);
       nextMidnight.setDate(nextMidnight.getDate() + 1);
       nextMidnight.setHours(0, 0, 0, 0);
 
-      // JST → UTC 変換 (JST = UTC+9)
-      const msUntilMidnight =
-        nextMidnight.getTime() - jstNow.getTime();
+      const msUntilMidnight = nextMidnight.getTime() - jstNow.getTime();
 
       logger.info(
         `🐦 AutoPost: 日次リセットを ${Math.round(msUntilMidnight / 60000)}分後にスケジュール`,
@@ -1476,13 +1525,15 @@ export class TwitterClient extends BaseClient {
       );
 
       this.dailyResetTimer = setTimeout(() => {
+        // カウンタリセット
         this.autoPostCount = 0;
         this.autoPostDate = this.getTodayJST();
         this.lastAutoPostAt = 0;
         this.saveAutoPostCount();
-        logger.info('🐦 AutoPost: 日次カウンターリセット (0)', 'green');
-        // リセット後に自動投稿を再スケジュール
-        this.scheduleNextAutoPost();
+        // 翌日スケジュール生成 & タイマーセット
+        this.generateDailySchedule();
+        this.scheduleFromDailyPlan();
+        logger.info('🐦 AutoPost: 日次リセット完了。新しいスケジュールで再開', 'green');
         // 翌日のリセットもスケジュール
         scheduleNext();
       }, msUntilMidnight);
@@ -1777,15 +1828,18 @@ export class TwitterClient extends BaseClient {
       // 自動投稿カウンタをファイルから復元
       this.loadAutoPostCount();
 
+      // 当日の投稿スケジュールをファイルから復元（なければ新規生成）
+      this.loadDailySchedule();
+
       // 自動投稿スケジューラ起動 (dev/test モードでもテスト可能)
       this.scheduleDailyReset();
       logger.info(
-        `🐦 AutoPost: 初期化完了 (上限${this.maxAutoPostsPerDay}/日, ${this.autoPostStartHour}時-${this.autoPostEndHour}時 JST, 本日${this.autoPostCount}件投稿済み)`,
+        `🐦 AutoPost: 初期化完了 (${this.minAutoPostsPerDay}-${this.maxAutoPostsPerDay}/日, ${this.autoPostStartHour}時-${this.autoPostEndHour}時 JST, 本日${this.todayPostTimes.length}件予定・${this.autoPostCount}件投稿済み)`,
         'green'
       );
 
-      // test/dev/prod 共通: scheduleNextAutoPost で前回投稿時刻を考慮してスケジュール
-      this.scheduleNextAutoPost();
+      // スケジュール済み時刻から次回タイマーをセット
+      this.scheduleFromDailyPlan();
       this.setupEventHandlers();
     } catch (error) {
       if (error instanceof Error && error.message.includes('429')) {
