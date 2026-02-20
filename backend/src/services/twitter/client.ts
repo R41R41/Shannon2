@@ -865,16 +865,18 @@ export class TwitterClient extends BaseClient {
 
   /**
    * twitterapi.io v2 経由で引用リツイート
-   * create_tweet_v2 の attachment_url パラメータを使用
+   * Twitterの仕様: ツイートURLをテキスト末尾に付加することで引用RTとして認識される
+   * (attachment_url パラメータは引用RTとして機能しないため使用しない)
    */
   private async postQuoteTweet(content: string, quoteTweetUrl: string) {
     if (this.status !== 'running') return;
     try {
       const endpoint = 'https://api.twitterapi.io/twitter/create_tweet_v2';
+      // URLをテキスト末尾に追加（Twitterが引用RTとして認識する）
+      const tweetText = `${content} ${quoteTweetUrl}`;
       const data = {
         login_cookies: this.login_cookies,
-        tweet_text: content,
-        attachment_url: quoteTweetUrl,
+        tweet_text: tweetText,
         proxy: this.proxy1,
       };
       const reqConfig = { headers: { 'X-API-Key': this.apiKey } };
