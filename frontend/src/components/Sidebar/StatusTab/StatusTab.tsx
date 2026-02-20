@@ -32,9 +32,11 @@ const SERVICE_CATEGORIES = [
     label: "Minecraft",
     services: [
       { id: "minecraft", name: "Minecraft Client" },
+      { id: "minecraft:1.21.11-fabric-youtube", name: "MC 1.21.11-fabric-youtube" },
       { id: "minecraft:1.19.0-youtube", name: "MC 1.19.0-youtube" },
       { id: "minecraft:1.21.4-test", name: "MC 1.21.4-test" },
       { id: "minecraft:1.21.1-play", name: "MC 1.21.1-play" },
+      { id: "minecraft:1.21.11-fabric-test", name: "MC 1.21.11-fabric-test" },
     ],
   },
   {

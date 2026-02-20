@@ -10,9 +10,11 @@ interface MinebotBotItemProps {
 }
 
 const SERVERS = [
+  { id: "1.21.11-fabric-youtube", label: "1.21.11-fabric-youtube" },
   { id: "1.21.4-test", label: "1.21.4-test" },
   { id: "1.19.0-youtube", label: "1.19.0-youtube" },
   { id: "1.21.1-play", label: "1.21.1-play" },
+  { id: "1.21.11-fabric-test", label: "1.21.11-fabric-test" },
 ];
 
 export const MinebotBotItem: React.FC<MinebotBotItemProps> = ({

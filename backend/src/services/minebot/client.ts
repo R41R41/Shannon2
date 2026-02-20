@@ -107,6 +107,8 @@ export class MinebotClient extends BaseClient {
     this.bot.isTest = CONFIG.IS_DEV;
     this.bot.chatMode = true;
     this.bot.connectedServerName = serverName as string;
+    CONFIG.setCurrentUiModBaseUrl(serverName as string);
+    log.info(`🌐 UI Mod BaseURL: ${CONFIG.UI_MOD_BASE_URL}`);
     this.bot.attackEntity = null;
     this.bot.runFromEntity = null;
     this.bot.goal = null;

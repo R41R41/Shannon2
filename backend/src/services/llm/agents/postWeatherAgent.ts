@@ -220,13 +220,13 @@ export class PostWeatherAgent {
 
   private getChanceOfRain(forecastData: WeatherApiForecastItem): string {
     const chanceOfRainData = forecastData.chanceOfRain;
-    logger.info(`chanceOfRainData: ${JSON.stringify(chanceOfRainData)}`);
+    logger.debug(`chanceOfRainData: ${JSON.stringify(chanceOfRainData)}`);
     const t00_06 = chanceOfRainData['T00_06'] || '0%';
     const t06_12 = chanceOfRainData['T06_12'] || '0%';
     const t12_18 = chanceOfRainData['T12_18'] || '0%';
     const t18_24 = chanceOfRainData['T18_24'] || '0%';
     const result = `${t00_06}${t06_12}${t12_18}${t18_24}`;
-    logger.info(`chanceOfRain result: ${result}`);
+    logger.debug(`chanceOfRain result: ${result}`);
     return result;
   }
 
@@ -275,12 +275,12 @@ export class PostWeatherAgent {
   }
 
   private async getMaxChanceOfRain(chanceOfRain: string): Promise<string> {
-    logger.info(`Input chanceOfRain: ${chanceOfRain}`);
+    logger.debug(`Input chanceOfRain: ${chanceOfRain}`);
     const chanceOfRainList = chanceOfRain
       .split('%')
       .map(Number)
       .filter((n) => !isNaN(n));
-    logger.info(`chanceOfRainList: ${JSON.stringify(chanceOfRainList)}`);
+    logger.debug(`chanceOfRainList: ${JSON.stringify(chanceOfRainList)}`);
 
     if (chanceOfRainList.length === 0) {
       return '0%';
