@@ -882,12 +882,14 @@ export class TwitterClient extends BaseClient {
       const reqConfig = { headers: { 'X-API-Key': this.apiKey } };
       const response = await axios.post(endpoint, data, reqConfig);
       const resData = response.data;
+      logger.debug(`[postQuoteTweet] API response: ${JSON.stringify(resData).slice(0, 300)}`);
       // v2 レスポンス形式: { tweet_id, status, msg }
       if (resData?.status === 'error') {
-        logger.error(`引用RT投稿失敗: ${resData?.msg || 'Unknown error'}`);
-        throw new Error(`Twitter API error: ${resData?.msg || 'Unknown'}`);
+        const errMsg = resData?.msg || resData?.message || JSON.stringify(resData);
+        logger.error(`引用RT投稿失敗: ${errMsg}`);
+        throw new Error(`Twitter API error: ${errMsg}`);
       }
-      logger.success(`引用RT投稿成功: tweet_id=${resData?.tweet_id ?? 'OK'}`);
+      logger.success(`引用RT投稿成功: tweet_id=${resData?.tweet_id ?? 'OK'} text_len=${tweetText.length}`);
       return response;
     } catch (error: unknown) {
       logger.error(`引用RT投稿失敗: ${error instanceof Error ? error.message : String(error)}`);
