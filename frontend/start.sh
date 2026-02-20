@@ -36,9 +36,9 @@ sleep 2
 
 # フロントエンドを起動
 if [ "$IS_DEV" = true ]; then
-    tmux new-session -d -s $FRONTEND_SESSION "cd /home/azureuser/Shannon-dev/frontend && PORT=$PORT npm run dev:dev"
+    tmux new-session -d -s $FRONTEND_SESSION "cd /home/azureuser/Shannon-prod/frontend && PORT=$PORT npm run dev:dev"
 else
-    tmux new-session -d -s $FRONTEND_SESSION "cd /home/azureuser/Shannon-dev/frontend && PORT=$PORT npm run dev"
+    tmux new-session -d -s $FRONTEND_SESSION "cd /home/azureuser/Shannon-prod/frontend && PORT=$PORT npm run dev"
 fi
 echo "Frontend started in tmux session: $FRONTEND_SESSION"
 
