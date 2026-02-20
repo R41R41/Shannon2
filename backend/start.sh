@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# スクリプトのディレクトリを動的に取得（どの環境でも正しく動作する）
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # テストモードフラグをチェック
 IS_DEV=false
 PORT=5001
@@ -43,17 +46,17 @@ sleep 2
 if [ "$IS_DEV" = true ]; then
     # 事前にビルド
     echo "Building backend..."
-    cd /home/azureuser/Shannon-prod/backend && npm run build > /dev/null 2>&1
+    cd "$SCRIPT_DIR" && npm run build > /dev/null 2>&1
     
     # tmuxでセッションを作成（tsc-watchでコンパイル＋サーバー自動再起動）
-    tmux new-session -d -s $BACKEND_SESSION -n "server" "cd /home/azureuser/Shannon-prod/backend && PORT=$PORT WS_OPENAI_PORT=${WS_PORTS[0]} WS_MONITORING_PORT=${WS_PORTS[1]} WS_STATUS_PORT=${WS_PORTS[2]} WS_SCHEDULE_PORT=${WS_PORTS[3]} WS_PLANNING_PORT=${WS_PORTS[4]} WS_EMOTION_PORT=${WS_PORTS[5]} WS_SKILL_PORT=${WS_PORTS[6]} WS_AUTH_PORT=${WS_PORTS[7]} exec npx tsc-watch --onSuccess 'node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js --dev'"
+    tmux new-session -d -s $BACKEND_SESSION -n "server" "cd $SCRIPT_DIR && PORT=$PORT WS_OPENAI_PORT=${WS_PORTS[0]} WS_MONITORING_PORT=${WS_PORTS[1]} WS_STATUS_PORT=${WS_PORTS[2]} WS_SCHEDULE_PORT=${WS_PORTS[3]} WS_PLANNING_PORT=${WS_PORTS[4]} WS_EMOTION_PORT=${WS_PORTS[5]} WS_SKILL_PORT=${WS_PORTS[6]} WS_AUTH_PORT=${WS_PORTS[7]} exec npx tsc-watch --onSuccess 'node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js --dev'"
 else
     # 事前にビルド
     echo "Building backend..."
-    cd /home/azureuser/Shannon-prod/backend && npm run build > /dev/null 2>&1
+    cd "$SCRIPT_DIR" && npm run build > /dev/null 2>&1
     
     # tmuxでセッションを作成（ビルド済みJSをnodeで直接起動）
-    tmux new-session -d -s $BACKEND_SESSION "cd /home/azureuser/Shannon-prod/backend && PORT=$PORT WS_OPENAI_PORT=${WS_PORTS[0]} WS_MONITORING_PORT=${WS_PORTS[1]} WS_STATUS_PORT=${WS_PORTS[2]} WS_SCHEDULE_PORT=${WS_PORTS[3]} WS_PLANNING_PORT=${WS_PORTS[4]} WS_EMOTION_PORT=${WS_PORTS[5]} WS_SKILL_PORT=${WS_PORTS[6]} WS_AUTH_PORT=${WS_PORTS[7]} node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js"
+    tmux new-session -d -s $BACKEND_SESSION "cd $SCRIPT_DIR && PORT=$PORT WS_OPENAI_PORT=${WS_PORTS[0]} WS_MONITORING_PORT=${WS_PORTS[1]} WS_STATUS_PORT=${WS_PORTS[2]} WS_SCHEDULE_PORT=${WS_PORTS[3]} WS_PLANNING_PORT=${WS_PORTS[4]} WS_EMOTION_PORT=${WS_PORTS[5]} WS_SKILL_PORT=${WS_PORTS[6]} WS_AUTH_PORT=${WS_PORTS[7]} node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js"
 fi
 echo "Backend started in tmux session: $BACKEND_SESSION"
 echo "  dev mode: tsc-watch with auto-restart on changes"
@@ -64,4 +67,4 @@ echo -e "\nActive tmux sessions:"
 tmux list-sessions
 
 echo -e "\nTo attach to the session:"
-echo "  tmux attach -t $BACKEND_SESSION" 
+echo "  tmux attach -t $BACKEND_SESSION"

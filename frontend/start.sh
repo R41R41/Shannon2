@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# スクリプトのディレクトリを動的に取得（どの環境でも正しく動作する）
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # テストモードフラグをチェック
 IS_DEV=false
 PORT=3001
@@ -36,9 +39,9 @@ sleep 2
 
 # フロントエンドを起動
 if [ "$IS_DEV" = true ]; then
-    tmux new-session -d -s $FRONTEND_SESSION "cd /home/azureuser/Shannon-prod/frontend && PORT=$PORT npm run dev:dev"
+    tmux new-session -d -s $FRONTEND_SESSION "cd $SCRIPT_DIR && PORT=$PORT npm run dev:dev"
 else
-    tmux new-session -d -s $FRONTEND_SESSION "cd /home/azureuser/Shannon-prod/frontend && PORT=$PORT npm run dev"
+    tmux new-session -d -s $FRONTEND_SESSION "cd $SCRIPT_DIR && PORT=$PORT npm run dev"
 fi
 echo "Frontend started in tmux session: $FRONTEND_SESSION"
 
@@ -47,4 +50,4 @@ echo -e "\nActive tmux sessions:"
 tmux list-sessions
 
 echo -e "\nTo attach to the session:"
-echo "  tmux attach -t $FRONTEND_SESSION" 
+echo "  tmux attach -t $FRONTEND_SESSION"
