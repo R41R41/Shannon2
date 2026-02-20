@@ -79,18 +79,29 @@ function extractMediaUrls(t: any): string[] {
   return [...new Set(media)];
 }
 
+/** いいね・RT・ビュー数が低い一般人ポストは引用RT対象にしない */
+function isQuoteRTWorthy(t: any): boolean {
+  const likes = t.likeCount ?? 0;
+  const rts = t.retweetCount ?? 0;
+  const views = t.viewCount ?? 0;
+  const verified = t.author?.isBlueVerified || t.author?.isVerified;
+  return verified || likes >= 20 || rts >= 5 || views >= 2000;
+}
+
 function formatTweet(t: any): string {
   const a = t.author || {};
   const mediaUrls = extractMediaUrls(t);
   const mediaInfo = mediaUrls.length > 0
     ? `  Images(${mediaUrls.length}): ${mediaUrls.join(', ')}`
     : '';
+  const engagementLabel = isQuoteRTWorthy(t) ? '' : '  [⚠️低エンゲージメント: 引用RT不可]';
   return [
     `@${a.userName || '?'} (${a.name || '?'})`,
     `  "${t.text?.slice(0, 200) || ''}"`,
     `  URL: ${t.url || ''}`,
     `  Likes: ${t.likeCount ?? 0} | RT: ${t.retweetCount ?? 0} | Replies: ${t.replyCount ?? 0} | Views: ${t.viewCount ?? 0}`,
     `  Date: ${t.createdAt || ''}`,
+    engagementLabel,
     mediaInfo,
   ].filter(Boolean).join('\n');
 }
@@ -330,12 +341,16 @@ class ExploreTrendTweetsTool extends StructuredTool {
         headers: getHeaders(),
         params: { queryType: 'Latest', query: data.keyword },
       });
-      const tweets = (res.data?.tweets || res.data?.data?.tweets || []).slice(
-        0,
-        data.count || 15,
-      );
+      const allTweets = res.data?.tweets || res.data?.data?.tweets || [];
+      const worthyTweets = allTweets.filter(isQuoteRTWorthy);
+      // 十分な件数がある場合はフィルタ済みのみ返す。少なすぎる場合は全件返す（LLMへ低エンゲージメントラベルで通知）
+      const base = worthyTweets.length >= 3 ? worthyTweets : allTweets;
+      const tweets = base.slice(0, data.count || 15);
       if (tweets.length === 0) return `"${data.keyword}" のツイートなし`;
-      const summary = `"${data.keyword}" の最新ツイート ${tweets.length}件:\n`;
+      const filteredNote = worthyTweets.length < allTweets.length
+        ? `（低エンゲージメントポストは除外済み: ${allTweets.length - worthyTweets.length}件）`
+        : '';
+      const summary = `"${data.keyword}" の最新ツイート ${tweets.length}件${filteredNote}:\n`;
       return summary + tweets.map(formatTweet).join('\n---\n');
     } catch (e: any) {
       return `トレンド探索エラー: ${e.message}`;
