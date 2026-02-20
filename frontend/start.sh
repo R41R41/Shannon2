@@ -17,11 +17,6 @@ fi
 # 既存のセッションを確認・終了
 tmux kill-session -t $FRONTEND_SESSION 2>/dev/null
 
-# 既存のNode.jsプロセスを終了
-echo "Killing existing Node.js processes..."
-pkill -f "node.*npm run dev"
-pkill -f "node.*npm run dev:dev"
-
 # 使用中のポートをチェックして解放
 kill_port() {
     local port=$1
