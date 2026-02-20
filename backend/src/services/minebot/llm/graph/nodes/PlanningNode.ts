@@ -7,6 +7,7 @@ import { CentralLogManager, LogManager } from '../logging/index.js';
 import { Prompt } from '../prompt.js';
 import { config } from '../../../../../config/env.js';
 import { models } from '../../../../../config/models.js';
+import { CONFIG } from '../../../config/MinebotConfig.js';
 
 const log = createLogger('Minebot:Planning');
 
@@ -22,7 +23,7 @@ interface FailedSubTaskInfo {
 async function sendTaskTreeToServer(taskTree: any) {
   try {
     const fetch = (await import('node-fetch')).default;
-    const response = await fetch('http://localhost:8081/task', {
+    const response = await fetch(`${CONFIG.UI_MOD_BASE_URL}/task`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json; charset=UTF-8',

@@ -51,6 +51,24 @@ function stripAnsi(text: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Log level filtering for file output
+// ---------------------------------------------------------------------------
+
+/**
+ * LOG_FILE_MIN_LEVEL: minimum level written to log file.
+ *   'debug' — write everything (DEBUG / INFO / WARN / ERROR / SUCCESS)
+ *   'info'  — skip DEBUG (default, keeps log files clean in prod)
+ * Set via env: LOG_FILE_MIN_LEVEL=debug
+ */
+const LOG_FILE_MIN_LEVEL: 'debug' | 'info' =
+  (process.env.LOG_FILE_MIN_LEVEL === 'debug') ? 'debug' : 'info';
+
+function shouldWriteToFile(level: Level): boolean {
+  if (LOG_FILE_MIN_LEVEL === 'debug') return true;
+  return level !== 'DEBUG';
+}
+
+// ---------------------------------------------------------------------------
 // File logging (optional, call initFileLogging() to enable)
 // ---------------------------------------------------------------------------
 let fileStream: WriteStream | null = null;
@@ -195,7 +213,7 @@ export const logger = {
   debug(message: string): void {
     const line = `${formatPrefix('DEBUG')} ${colorize(message, 'cyan')}`;
     console.log(line);
-    writeToFile(line);
+    if (shouldWriteToFile('DEBUG')) writeToFile(line);
   },
 
   /** Colorize a string without logging (for embedding in other logs) */

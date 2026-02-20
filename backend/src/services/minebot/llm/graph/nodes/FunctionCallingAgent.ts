@@ -14,6 +14,7 @@ import { UpdatePlanTool } from '../tools/UpdatePlanTool.js';
 import { config } from '../../../../../config/env.js';
 import { models } from '../../../../../config/models.js';
 import { createLogger } from '../../../../../utils/logger.js';
+import { CONFIG } from '../../../config/MinebotConfig.js';
 
 const log = createLogger('Minebot:FCA');
 
@@ -21,7 +22,7 @@ const log = createLogger('Minebot:FCA');
 async function sendTaskTreeToServer(taskTree: any) {
   try {
     const fetch = (await import('node-fetch')).default;
-    const response = await fetch('http://localhost:8081/task', {
+    const response = await fetch(`${CONFIG.UI_MOD_BASE_URL}/task`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=UTF-8' },
       body: JSON.stringify(taskTree),

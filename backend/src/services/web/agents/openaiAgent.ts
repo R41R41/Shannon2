@@ -52,7 +52,7 @@ export class OpenAIClientService extends WebSocketServiceBase {
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        logger.error('OpenAI client disconnected');
+        logger.debug('OpenAI client disconnected');
       });
 
       ws.on('message', (message) => {

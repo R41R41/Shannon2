@@ -49,7 +49,7 @@ export class StatusAgent extends WebSocketServiceBase {
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        logger.error('Status client disconnected');
+        logger.debug('Status client disconnected');
       });
 
       ws.on('message', async (message) => {
