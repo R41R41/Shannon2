@@ -51,8 +51,8 @@
       "category": "ai_vtuber"
     },
     {
-      "userName": "shizuku_ai",
-      "label": "AIのしずく / AI VTuber",
+      "userName": "Shizuku_AItuber",
+      "label": "しずく / AI VTuber",
       "category": "ai_vtuber"
     },
     {
@@ -68,11 +68,6 @@
     {
       "userName": "ui_shig",
       "label": "しぐれうい / イラストレーター・VTuberママ",
-      "category": "vtuber_creator"
-    },
-    {
-      "userName": "ShibuyaHAL",
-      "label": "渋谷ハル / VTuber・APEX",
       "category": "vtuber_creator"
     },
     {
