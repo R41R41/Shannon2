@@ -26,7 +26,7 @@ export class AuthAgent extends WebSocketServiceBase {
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        logger.error('Auth client disconnected');
+        logger.debug('Auth client disconnected');
       });
 
       ws.on('message', async (message) => {
@@ -112,7 +112,7 @@ export class AuthAgent extends WebSocketServiceBase {
       });
 
       ws.on('close', () => {
-        logger.error('Auth Client disconnected');
+        logger.debug('Auth Client disconnected');
       });
     });
   }

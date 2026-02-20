@@ -46,7 +46,7 @@ export class MonitoringAgent extends WebSocketServiceBase {
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        logger.error('Monitoring client disconnected');
+        logger.debug('Monitoring client disconnected');
       });
 
       const logs = await Log.find().sort({ timestamp: -1 }).limit(200);
@@ -85,7 +85,7 @@ export class MonitoringAgent extends WebSocketServiceBase {
       });
 
       ws.on('close', () => {
-        logger.error('Monitoring Client disconnected');
+        logger.debug('Monitoring Client disconnected');
       });
 
       ws.on('error', (error) => {

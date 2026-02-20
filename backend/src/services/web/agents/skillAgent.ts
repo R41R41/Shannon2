@@ -45,7 +45,7 @@ export class SkillAgent extends WebSocketServiceBase {
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        logger.error('Skill client disconnected');
+        logger.debug('Skill client disconnected');
       });
 
       ws.on('message', async (message) => {
@@ -66,7 +66,7 @@ export class SkillAgent extends WebSocketServiceBase {
       });
 
       ws.on('close', () => {
-        logger.error('Skill Client disconnected');
+        logger.debug('Skill Client disconnected');
       });
 
       ws.on('error', (error) => {

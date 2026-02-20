@@ -48,7 +48,7 @@ export class ScheduleAgent extends WebSocketServiceBase {
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        logger.error('Schedule client disconnected');
+        logger.debug('Schedule client disconnected');
       });
 
       ws.on('message', async (message) => {
@@ -85,7 +85,7 @@ export class ScheduleAgent extends WebSocketServiceBase {
       });
 
       ws.on('close', () => {
-        logger.error('Monitoring Client disconnected');
+        logger.debug('Monitoring Client disconnected');
       });
 
       ws.on('error', (error) => {

@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 import { createLogger } from '../../../../../utils/logger.js';
 import { DetailedLog, LogManager } from './detailedLogTypes.js';
+import { CONFIG } from '../../../config/MinebotConfig.js';
 
 const log = createLogger('Minebot:CentralLog');
 
@@ -114,7 +115,7 @@ export class CentralLogManager {
                 metadata: log.metadata,
             }));
 
-            await fetch('http://localhost:8081/task_logs', {
+            await fetch(`${CONFIG.UI_MOD_BASE_URL}/task_logs`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json; charset=UTF-8' },
                 body: JSON.stringify({

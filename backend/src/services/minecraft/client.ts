@@ -20,6 +20,12 @@ const SERVER_TMUX_SESSIONS: Record<string, string> = {
   '1.21.4-test': 'minecraft-test',
   '1.19.0-youtube': 'minecraft-youtube-old',
   '1.21.1-play': 'minecraft-play',
+  '1.21.11-fabric-test': 'minecraft-test-12111',
+};
+
+// start.sh に渡す追加引数のマッピング（ワールド名など）
+const SERVER_START_ARGS: Record<string, string> = {
+  '1.21.11-fabric-test': 'world_test',
 };
 
 export class MinecraftClient extends BaseClient {
@@ -31,6 +37,7 @@ export class MinecraftClient extends BaseClient {
     '1.21.4-test',
     '1.19.0-youtube',
     '1.21.1-play',
+    '1.21.11-fabric-test',
   ];
   private readonly SERVER_BASE_PATH = config.minecraft.serverBasePath;
   public isDev: boolean = false;
@@ -65,8 +72,9 @@ export class MinecraftClient extends BaseClient {
 
     try {
       const serverPath = `${this.SERVER_BASE_PATH}/${serverName}`;
+      const startArgs = SERVER_START_ARGS[serverName] || '';
       logger.info(`Starting server at ${serverPath}`);
-      await execAsync(`cd ${serverPath} && ./start.sh`);
+      await execAsync(`cd ${serverPath} && ./start.sh ${startArgs}`);
       this.serverStatuses.set(serverName, true);
       return { success: true, message: `${serverName}を起動しました` };
     } catch (error: any) {

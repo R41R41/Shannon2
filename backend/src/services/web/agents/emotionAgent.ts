@@ -42,7 +42,7 @@ export class EmotionAgent extends WebSocketServiceBase {
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        logger.error('Emotion client disconnected');
+        logger.debug('Emotion client disconnected');
       });
 
       ws.on('message', async (message) => {
@@ -55,7 +55,7 @@ export class EmotionAgent extends WebSocketServiceBase {
       });
 
       ws.on('close', () => {
-        logger.error('Emotion Client disconnected');
+        logger.debug('Emotion Client disconnected');
       });
 
       ws.on('error', (error) => {

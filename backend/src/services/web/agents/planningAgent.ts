@@ -42,7 +42,7 @@ export class PlanningAgent extends WebSocketServiceBase {
       this.handleNewConnection(ws);
 
       ws.on('close', () => {
-        logger.error('Planning client disconnected');
+        logger.debug('Planning client disconnected');
       });
 
       ws.on('message', async (message) => {
@@ -55,7 +55,7 @@ export class PlanningAgent extends WebSocketServiceBase {
       });
 
       ws.on('close', () => {
-        logger.error('Planning Client disconnected');
+        logger.debug('Planning Client disconnected');
       });
 
       ws.on('error', (error) => {

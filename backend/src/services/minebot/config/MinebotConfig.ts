@@ -36,7 +36,7 @@ export class MinebotConfig {
   /** MinebotのAPIサーバーポート */
   readonly MINEBOT_API_PORT = 8082;
 
-  /** UI Modのサーバーポート */
+  /** UI Modのサーバーポート（デフォルト） */
   readonly UI_MOD_PORT = 8081;
 
   /** UI Mod クライアントサイドHTTPサーバーのポート（スクリーンショット用） */
@@ -45,9 +45,37 @@ export class MinebotConfig {
   /** UI Modのサーバーホスト */
   readonly UI_MOD_HOST = config.minecraft.uiModHost;
 
-  /** UI ModサーバーのベースURL */
+  /** サーバー名ごとのUI Mod HTTPサーバーポートマッピング */
+  readonly MINECRAFT_UI_MOD_PORTS: Record<string, number> = {
+    '1.21.4-test': 8081,
+    '1.19.0-youtube': 8081,
+    '1.21.1-play': 8081,
+    '1.21.4-fabric-youtube': 8081,
+    '1.21.11-fabric-youtube': 8081,
+    '1.21.11-fabric-test': 8085,
+  };
+
+  /** 指定サーバーのUI Mod HTTPポートを取得 */
+  getUiModPort(serverName: string): number {
+    return this.MINECRAFT_UI_MOD_PORTS[serverName] ?? this.UI_MOD_PORT;
+  }
+
+  /** 指定サーバーのUI ModサーバーのベースURLを取得 */
+  getUiModBaseUrl(serverName: string): string {
+    return `http://${this.UI_MOD_HOST}:${this.getUiModPort(serverName)}`;
+  }
+
+  /** 現在接続中のサーバーのUI Mod BaseURL（接続時に更新される） */
+  private _currentUiModBaseUrl: string = `http://${config.minecraft.uiModHost}:8081`;
+
+  /** 現在のUI ModサーバーURLを設定（ボット接続時に呼び出す） */
+  setCurrentUiModBaseUrl(serverName: string): void {
+    this._currentUiModBaseUrl = this.getUiModBaseUrl(serverName);
+  }
+
+  /** 現在接続中サーバーのUI ModサーバーのベースURL */
   get UI_MOD_BASE_URL(): string {
-    return `http://${this.UI_MOD_HOST}:${this.UI_MOD_PORT}`;
+    return this._currentUiModBaseUrl;
   }
 
   /** UI Mod クライアントサーバーのベースURL（スクリーンショット用） */
@@ -110,7 +138,9 @@ export class MinebotConfig {
     '1.21.4-test': 25566,
     '1.19.0-youtube': 25564,
     '1.21.1-play': 25565,
-    '1.21.4-fabric-youtube': 25566,  // 実際のサーバーポート
+    '1.21.4-fabric-youtube': 25566,
+    '1.21.11-fabric-youtube': 25566,
+    '1.21.11-fabric-test': 25567,
   };
 
   /** チェックタイムアウト間隔（ミリ秒） - サーバーのKeep-Alive応答用 */
