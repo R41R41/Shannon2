@@ -261,11 +261,11 @@ class Server {
             return;
           }
           tweetId = match[1];
-          const detailRes = await axios.get('https://api.twitterapi.io/twitter/tweet/detail', {
+          const detailRes = await axios.get('https://api.twitterapi.io/twitter/tweets', {
             headers: { 'X-API-Key': config.twitter.twitterApiIoKey },
-            params: { tweetId },
+            params: { tweet_ids: tweetId },
           });
-          const t = detailRes.data?.tweet || detailRes.data?.tweets?.[0];
+          const t = detailRes.data?.tweets?.[0];
           if (!t) {
             res.status(404).json({ error: `ツイート ${tweetId} が見つかりません` });
             return;
@@ -275,13 +275,13 @@ class Server {
           authorUserName = t.author?.userName ?? '';
           tweetUrl = t.url || inputTweetUrl;
         } else {
-          // ライの最新ツイートを自動取得
-          const raiUserName = config.twitter.usernames?.rai || 'RaiDr_';
-          const tweetsRes = await axios.get('https://api.twitterapi.io/twitter/user/tweets', {
+          // ライの最新ツイートを advanced_search で取得（user/tweets より安定）
+          const raiUserName = config.twitter.usernames?.rai || 'R4iR4i000';
+          const tweetsRes = await axios.get('https://api.twitterapi.io/twitter/tweet/advanced_search', {
             headers: { 'X-API-Key': config.twitter.twitterApiIoKey },
-            params: { userName: raiUserName, count: 1 },
+            params: { query: `from:${raiUserName} -is:reply`, queryType: 'Latest', count: 1 },
           });
-          const tweets = tweetsRes.data?.tweets ?? tweetsRes.data?.data?.tweets ?? [];
+          const tweets = tweetsRes.data?.tweets ?? [];
           if (tweets.length === 0) {
             res.status(404).json({ error: `@${raiUserName} のツイートが見つかりません` });
             return;
