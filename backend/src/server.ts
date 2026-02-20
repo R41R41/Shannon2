@@ -1,5 +1,6 @@
 import express from 'express';
 import http from 'http';
+import path from 'path';
 import mongoose from 'mongoose';
 import { TwitterReplyOutput } from '@shannon/common';
 import { PORTS } from './config/ports.js';
@@ -185,8 +186,20 @@ class Server {
         const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][now.getDay()];
         const todayInfo = `今日: ${now.getFullYear()}年${month}月${day}日(${dayOfWeek})`;
 
-        logger.info(`[Test:AutoTweet] トレンド ${trends.length}件で生成開始`);
-        const result = await agent.generateTweet(trends, todayInfo);
+        // recent_auto_posts.json から直近投稿を読み込む
+        let recentPosts: string[] = [];
+        try {
+          const fs = await import('fs');
+          const recentPostsPath = path.resolve('saves/recent_auto_posts.json');
+          if (fs.existsSync(recentPostsPath)) {
+            recentPosts = JSON.parse(fs.readFileSync(recentPostsPath, 'utf-8'));
+          }
+        } catch {
+          // ファイルが存在しない or 読み込み失敗は無視
+        }
+
+        logger.info(`[Test:AutoTweet] トレンド ${trends.length}件・直近投稿 ${recentPosts.length}件で生成開始`);
+        const result = await agent.generateTweet(trends, todayInfo, recentPosts);
         logger.info(`[Test:AutoTweet] 生成結果: ${JSON.stringify(result)}`);
 
         if (!dryRun && result) {
@@ -207,6 +220,8 @@ class Server {
           ok: true,
           result,
           trendsUsed: trends.length,
+          recentPostsLoaded: recentPosts.length,
+          recentPosts: recentPosts.slice(-10),
           posted: !dryRun && !!result,
         });
       } catch (err) {
