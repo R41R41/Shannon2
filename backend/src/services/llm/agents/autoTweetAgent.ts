@@ -342,6 +342,7 @@ export class AutoTweetAgent {
   public async generateTweet(
     trends: TwitterTrendData[],
     todayInfo: string,
+    recentPosts?: string[],
   ): Promise<AutoTweetOutput | null> {
     let feedback: string | undefined;
 
@@ -351,7 +352,7 @@ export class AutoTweetAgent {
         'cyan',
       );
 
-      const draft = await this.explore(trends, todayInfo, feedback);
+      const draft = await this.explore(trends, todayInfo, feedback, recentPosts);
       if (!draft) {
         logger.warn('[AutoTweet] 探索結果なし、リトライ');
         feedback = '前回は探索に失敗した。別のアプローチを試して。';
@@ -392,6 +393,7 @@ export class AutoTweetAgent {
     trends: TwitterTrendData[],
     todayInfo: string,
     feedback?: string,
+    recentPosts?: string[],
   ): Promise<AutoTweetOutput | null> {
     const model = new ChatOpenAI({
       modelName: models.autoTweet,
@@ -412,6 +414,10 @@ export class AutoTweetAgent {
       ? `\n特に注目すべきジャンル: ${this.watchlist.topicBias.join(', ')}`
       : '';
 
+    const recentPostsText = recentPosts && recentPosts.length > 0
+      ? recentPosts.slice(-10).map((p, i) => `${i + 1}. ${p}`).join('\n')
+      : null;
+
     const userContent = [
       `# 今日の情報`,
       todayInfo,
@@ -424,9 +430,13 @@ export class AutoTweetAgent {
         ? `# ウォッチリストの最新投稿\n${watchlistContext}`
         : '',
       '',
+      recentPostsText
+        ? `# 直近の自分のポスト（これらと同じ話題・同じ角度のツイートは厳禁。必ず違う話題か違う角度で）\n${recentPostsText}`
+        : '',
+      '',
       'ツールを使ってTwitter空間を探索し、面白い話題を見つけてください。',
       '探索が十分にできたら submit_tweet ツールで最終的なツイートを提出してください。',
-      'オリジナルツイートでも、面白い投稿を見つけたら引用RTでもOK。',
+      'トレンドに気になる投稿があれば積極的に引用RTすること。オリジナルツイートでも可。',
       config.isDev
         ? '140文字以内。'
         : '文字数制限なし（長文OK）。',

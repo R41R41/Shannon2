@@ -25,6 +25,10 @@ const DAILY_REPLY_COUNT_FILE = path.resolve('saves/daily_reply_count.json');
 const LOGIN_COOKIES_FILE = path.resolve('saves/twitter_login_cookies.json');
 // 自動投稿カウンタの永続化ファイルパス
 const AUTO_POST_COUNT_FILE = path.resolve('saves/auto_post_count.json');
+// 直近の自動投稿テキスト永続化ファイルパス
+const RECENT_AUTO_POSTS_FILE = path.resolve('saves/recent_auto_posts.json');
+// 直近ポスト保持件数
+const MAX_RECENT_AUTO_POSTS = 20;
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
 
@@ -103,6 +107,37 @@ export class TwitterClient extends BaseClient {
   private dailyReplyDate = '';
   /** 1日の返信上限 */
   private maxRepliesPerDay: number;
+
+  /** 直近の自動投稿テキスト（重複回避用） */
+  private recentAutoPosts: string[] = [];
+
+  /** 直近ポストをファイルから読み込む */
+  private loadRecentPosts(): void {
+    try {
+      if (fs.existsSync(RECENT_AUTO_POSTS_FILE)) {
+        const data = JSON.parse(fs.readFileSync(RECENT_AUTO_POSTS_FILE, 'utf-8'));
+        if (Array.isArray(data)) {
+          this.recentAutoPosts = data.slice(-MAX_RECENT_AUTO_POSTS);
+          logger.info(`📋 直近ポスト: ${this.recentAutoPosts.length}件を復元`, 'cyan');
+        }
+      }
+    } catch (err) {
+      logger.warn(`📋 直近ポストファイル読み込み失敗: ${err}`);
+    }
+  }
+
+  /** 直近ポストを追加してファイルに保存する */
+  private saveRecentPost(text: string): void {
+    this.recentAutoPosts.push(text);
+    if (this.recentAutoPosts.length > MAX_RECENT_AUTO_POSTS) {
+      this.recentAutoPosts = this.recentAutoPosts.slice(-MAX_RECENT_AUTO_POSTS);
+    }
+    try {
+      fs.writeFileSync(RECENT_AUTO_POSTS_FILE, JSON.stringify(this.recentAutoPosts, null, 2));
+    } catch (err) {
+      logger.warn(`📋 直近ポスト保存失敗: ${err}`);
+    }
+  }
 
   /** 処理済みIDをファイルから読み込む */
   private loadProcessedIds(): void {
@@ -365,6 +400,7 @@ export class TwitterClient extends BaseClient {
     // コンストラクタ段階で処理済みIDを復元 (webhook は initialize() 前に届く可能性がある)
     this.loadProcessedIds();
     this.loadDailyReplyCount();
+    this.loadRecentPosts();
   }
 
   // =========================================================================
@@ -396,8 +432,10 @@ export class TwitterClient extends BaseClient {
       try {
         if (text && quoteTweetUrl) {
           await this.postQuoteTweet(text, quoteTweetUrl);
+          if (text) this.saveRecentPost(text);
         } else if (text) {
           await this.postTweet(text, imageUrl ?? null, null);
+          this.saveRecentPost(text);
         }
       } catch (error) {
         logger.error('Twitter post error:', error);
@@ -1153,8 +1191,8 @@ export class TwitterClient extends BaseClient {
           });
         }
 
-        // 4) メンバーFCA: LLMが返信/引用RTを自動判断
-        if (accountConfig.memberFCA && Math.random() < this.replyProbability) {
+        // 4) メンバーFCA: LLMが返信/引用RTを自動判断（メンバーには必ず反応）
+        if (accountConfig.memberFCA) {
           const tweetUrl = tweet.url || `https://x.com/${authorUserName}/status/${tweet.id}`;
           let repliedTweetText = '';
           let repliedTweetAuthorName = '';
@@ -1333,6 +1371,7 @@ export class TwitterClient extends BaseClient {
         data: {
           trends,
           todayInfo,
+          recentPosts: [...this.recentAutoPosts],
         } as TwitterAutoTweetInput,
       });
 
