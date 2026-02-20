@@ -46,8 +46,8 @@ interface WatchlistConfig {
 // Constants
 // ---------------------------------------------------------------------------
 
-const MAX_TOOL_CALLS = 8;
-const MAX_EXPLORATION_ITERATIONS = 12;
+const MAX_TOOL_CALLS = 12;
+const MAX_EXPLORATION_ITERATIONS = 18;
 const MAX_REVIEW_RETRIES = 3;
 const API_BASE = 'https://api.twitterapi.io';
 const WATCHLIST_PATH = resolve('saves/watchlist.json');
@@ -60,15 +60,39 @@ function getHeaders(): Record<string, string> {
   return { 'x-api-key': config.twitter.twitterApiIoKey };
 }
 
+function extractMediaUrls(t: any): string[] {
+  const media: string[] = [];
+  const sources = [
+    t.entities?.media,
+    t.extended_entities?.media,
+    t.media,
+    t.photos,
+  ];
+  for (const src of sources) {
+    if (Array.isArray(src)) {
+      for (const m of src) {
+        const url = m.media_url_https || m.url || m.media_url || m.fullUrl;
+        if (url && typeof url === 'string') media.push(url);
+      }
+    }
+  }
+  return [...new Set(media)];
+}
+
 function formatTweet(t: any): string {
   const a = t.author || {};
+  const mediaUrls = extractMediaUrls(t);
+  const mediaInfo = mediaUrls.length > 0
+    ? `  Images(${mediaUrls.length}): ${mediaUrls.join(', ')}`
+    : '';
   return [
     `@${a.userName || '?'} (${a.name || '?'})`,
     `  "${t.text?.slice(0, 200) || ''}"`,
     `  URL: ${t.url || ''}`,
     `  Likes: ${t.likeCount ?? 0} | RT: ${t.retweetCount ?? 0} | Replies: ${t.replyCount ?? 0} | Views: ${t.viewCount ?? 0}`,
     `  Date: ${t.createdAt || ''}`,
-  ].join('\n');
+    mediaInfo,
+  ].filter(Boolean).join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -254,7 +278,119 @@ class GetUserProfileTool extends StructuredTool {
 }
 
 // ---------------------------------------------------------------------------
-// Tool 6: submit_tweet (output tool - signals the agent to stop)
+// Tool 6: google_search
+// ---------------------------------------------------------------------------
+
+class GoogleSearchTool extends StructuredTool {
+  name = 'google_search';
+  description =
+    'Googleでキーワード検索する。トレンドの背景情報・ニュース・詳細をWeb上から調べるのに使う。Twitterだけでは分からない文脈を把握できる。';
+  schema = z.object({
+    query: z.string().describe('検索クエリ（日本語・英語どちらもOK）'),
+    count: z.number().optional().describe('取得件数（デフォルト5、最大10）'),
+  });
+
+  async _call(data: z.infer<typeof this.schema>): Promise<string> {
+    const apiKey = config.google.apiKey;
+    const cx = config.google.searchEngineId;
+    if (!apiKey || !cx) return 'Google Search APIが設定されていません';
+    try {
+      const res = await axios.get('https://www.googleapis.com/customsearch/v1', {
+        params: { key: apiKey, cx, q: data.query, num: Math.min(data.count || 5, 10) },
+      });
+      const items: any[] = res.data?.items || [];
+      if (items.length === 0) return '検索結果なし';
+      return items
+        .map((item) =>
+          [`タイトル: ${item.title}`, `URL: ${item.link}`, `概要: ${item.snippet}`].join('\n'),
+        )
+        .join('\n---\n');
+    } catch (e: any) {
+      return `Google検索エラー: ${e.message}`;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tool 7: explore_trend_tweets (Latest検索でトレンドをリアルタイム探索)
+// ---------------------------------------------------------------------------
+
+class ExploreTrendTweetsTool extends StructuredTool {
+  name = 'explore_trend_tweets';
+  description =
+    'トレンドキーワードの最新ツイートをリアルタイムで探索する。Topではなく最新順で取得し「今まさに何が起きているか」を把握できる。search_tweetsより多くの多様なポストが見られる。';
+  schema = z.object({
+    keyword: z.string().describe('トレンドキーワードまたは検索クエリ'),
+    count: z.number().optional().describe('取得件数（デフォルト15、最大30）'),
+  });
+
+  async _call(data: z.infer<typeof this.schema>): Promise<string> {
+    try {
+      const res = await axios.get(`${API_BASE}/twitter/tweet/advanced_search`, {
+        headers: getHeaders(),
+        params: { queryType: 'Latest', query: data.keyword },
+      });
+      const tweets = (res.data?.tweets || res.data?.data?.tweets || []).slice(
+        0,
+        data.count || 15,
+      );
+      if (tweets.length === 0) return `"${data.keyword}" のツイートなし`;
+      const summary = `"${data.keyword}" の最新ツイート ${tweets.length}件:\n`;
+      return summary + tweets.map(formatTweet).join('\n---\n');
+    } catch (e: any) {
+      return `トレンド探索エラー: ${e.message}`;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tool 8: analyze_tweet_image (gpt-4o visionでツイート画像を解析)
+// ---------------------------------------------------------------------------
+
+class AnalyzeTweetImageTool extends StructuredTool {
+  name = 'analyze_tweet_image';
+  description =
+    'ツイートに添付された画像をAIで解析する。画像の内容を説明し、ツイートの文脈理解や引用RTのネタ探しに使える。まず get_tweet_details でツイートのImages情報を確認してから使うこと。';
+  schema = z.object({
+    tweetId: z.string().describe('解析するツイートのID'),
+  });
+
+  async _call(data: z.infer<typeof this.schema>): Promise<string> {
+    try {
+      const res = await axios.get(`${API_BASE}/twitter/tweets`, {
+        headers: getHeaders(),
+        params: { tweet_ids: data.tweetId },
+      });
+      const tweet = (res.data?.tweets || res.data?.data?.tweets || [])[0];
+      if (!tweet) return 'ツイートが見つかりません';
+
+      const imageUrls = extractMediaUrls(tweet);
+      if (imageUrls.length === 0) return 'このツイートには画像がありません';
+
+      const model = new ChatOpenAI({ modelName: 'gpt-4o', temperature: 0 });
+      const result = await model.invoke([
+        new HumanMessage({
+          content: [
+            {
+              type: 'text',
+              text: `以下のツイートの画像を分析して日本語で説明してください。\nツイート本文: "${tweet.text?.slice(0, 300) || ''}"`,
+            },
+            ...imageUrls.slice(0, 4).map((url) => ({
+              type: 'image_url' as const,
+              image_url: { url, detail: 'low' as const },
+            })),
+          ],
+        }),
+      ]);
+      return `画像解析結果 (${imageUrls.length}枚):\n${result.content}`;
+    } catch (e: any) {
+      return `画像解析エラー: ${e.message}`;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tool 9: submit_tweet (output tool - signals the agent to stop)
 // ---------------------------------------------------------------------------
 
 class SubmitTweetTool extends StructuredTool {
@@ -307,6 +443,9 @@ export class AutoTweetAgent {
       new GetTweetDetailsTool(),
       new GetUserTweetsTool(),
       new GetUserProfileTool(),
+      new GoogleSearchTool(),
+      new ExploreTrendTweetsTool(),
+      new AnalyzeTweetImageTool(),
       new SubmitTweetTool(),
     ];
     this.toolMap = new Map(this.tools.map((t) => [t.name, t]));
