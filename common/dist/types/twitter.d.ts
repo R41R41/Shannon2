@@ -74,9 +74,15 @@ export interface MemberTweetInput extends ServiceInput {
         text: string;
     }> | null;
 }
+/** 自動投稿モード */
+export type AutoTweetMode = 'original' | 'trend' | 'watchlist' | 'big_account_quote';
 /** 自動投稿用イベントデータ */
 export interface TwitterAutoTweetInput extends ServiceInput {
+    mode: AutoTweetMode;
     trends: TwitterTrendData[];
     todayInfo: string;
+    recentPosts?: string[];
+    recentQuoteUrls?: string[];
+    recentTopics?: string[];
 }
 export type TwitterEventType = "twitter:status" | "twitter:start" | "twitter:stop" | "twitter:post_scheduled_message" | "twitter:post_message" | "twitter:post_quote_tweet" | "twitter:like_tweet" | "twitter:retweet_tweet" | "twitter:quote_retweet" | "twitter:check_replies" | "twitter:get_message" | "twitter:get_tweet_content";

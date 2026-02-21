@@ -1,4 +1,5 @@
 import {
+  AutoTweetMode,
   MemberTweetInput,
   TwitterActionResult,
   TwitterAutoTweetInput,
@@ -114,6 +115,8 @@ export class TwitterClient extends BaseClient {
   private recentAutoPosts: string[] = [];
   /** 直近の引用元URL（同一ポスト引用RT重複回避用） */
   private recentQuoteUrls: string[] = [];
+  /** 直近のトピック（トピック重複回避用） */
+  private recentTopics: string[] = [];
 
   /** 直近ポストをファイルから読み込む */
   private loadRecentPosts(): void {
@@ -122,18 +125,20 @@ export class TwitterClient extends BaseClient {
         const raw = JSON.parse(fs.readFileSync(RECENT_AUTO_POSTS_FILE, 'utf-8'));
         if (Array.isArray(raw)) {
           if (raw.length > 0 && typeof raw[0] === 'object' && raw[0] !== null) {
-            // 新フォーマット: { text, quoteUrl? }
             this.recentAutoPosts = raw.map((r: any) => r.text || r).slice(-MAX_RECENT_AUTO_POSTS);
             this.recentQuoteUrls = raw
               .filter((r: any) => r.quoteUrl)
               .map((r: any) => r.quoteUrl)
               .slice(-MAX_RECENT_AUTO_POSTS);
+            this.recentTopics = raw
+              .filter((r: any) => r.topic)
+              .map((r: any) => r.topic)
+              .slice(-MAX_RECENT_AUTO_POSTS);
           } else {
-            // 旧フォーマット: string[]
             this.recentAutoPosts = raw.slice(-MAX_RECENT_AUTO_POSTS);
           }
           logger.info(
-            `📋 直近ポスト: ${this.recentAutoPosts.length}件, 引用URL: ${this.recentQuoteUrls.length}件を復元`,
+            `📋 直近ポスト: ${this.recentAutoPosts.length}件, 引用URL: ${this.recentQuoteUrls.length}件, トピック: ${this.recentTopics.length}件を復元`,
             'cyan'
           );
         }
@@ -144,7 +149,7 @@ export class TwitterClient extends BaseClient {
   }
 
   /** 直近ポストを追加してファイルに保存する */
-  private saveRecentPost(text: string, quoteUrl?: string): void {
+  private saveRecentPost(text: string, quoteUrl?: string, topic?: string): void {
     this.recentAutoPosts.push(text);
     if (this.recentAutoPosts.length > MAX_RECENT_AUTO_POSTS) {
       this.recentAutoPosts = this.recentAutoPosts.slice(-MAX_RECENT_AUTO_POSTS);
@@ -155,10 +160,19 @@ export class TwitterClient extends BaseClient {
         this.recentQuoteUrls = this.recentQuoteUrls.slice(-MAX_RECENT_AUTO_POSTS);
       }
     }
+    if (topic) {
+      this.recentTopics.push(topic);
+      if (this.recentTopics.length > MAX_RECENT_AUTO_POSTS) {
+        this.recentTopics = this.recentTopics.slice(-MAX_RECENT_AUTO_POSTS);
+      }
+    }
     try {
       const entries = this.recentAutoPosts.map((t, i) => {
-        const idx = this.recentAutoPosts.length - 1 - i;
-        return { text: t, ...(this.recentQuoteUrls[idx] ? { quoteUrl: this.recentQuoteUrls[idx] } : {}) };
+        return {
+          text: t,
+          ...(this.recentQuoteUrls[i] ? { quoteUrl: this.recentQuoteUrls[i] } : {}),
+          ...(this.recentTopics[i] ? { topic: this.recentTopics[i] } : {}),
+        };
       });
       fs.writeFileSync(RECENT_AUTO_POSTS_FILE, JSON.stringify(entries, null, 2));
     } catch (err) {
@@ -175,6 +189,23 @@ export class TwitterClient extends BaseClient {
       const existingId = u.match(/status\/(\d+)/)?.[1];
       return tweetId && existingId && tweetId === existingId;
     });
+  }
+
+  /** 加重ランダムでAutoTweetモードを選択 */
+  private selectAutoTweetMode(): AutoTweetMode {
+    const weights: [AutoTweetMode, number][] = [
+      ['original', 30],
+      ['trend', 30],
+      ['watchlist', 20],
+      ['big_account_quote', 20],
+    ];
+    const total = weights.reduce((s, [, w]) => s + w, 0);
+    let r = Math.random() * total;
+    for (const [mode, weight] of weights) {
+      r -= weight;
+      if (r <= 0) return mode;
+    }
+    return 'trend';
   }
 
   /** 処理済みIDをファイルから読み込む */
@@ -1375,30 +1406,36 @@ export class TwitterClient extends BaseClient {
     }
 
     try {
-      logger.info(`🐦 AutoPost: トレンド取得中...`, 'cyan');
-      const trends = await this.fetchTrends();
-      if (trends.length === 0) {
-        logger.warn('🐦 AutoPost: トレンド取得失敗、スキップ');
-        this.scheduleFromDailyPlan();
-        return;
+      const mode = this.selectAutoTweetMode();
+
+      let trends: TwitterTrendData[] = [];
+      if (mode === 'trend') {
+        logger.info(`🐦 AutoPost: トレンド取得中...`, 'cyan');
+        trends = await this.fetchTrends();
+        if (trends.length === 0) {
+          logger.warn('🐦 AutoPost: トレンド取得失敗、スキップ');
+          this.scheduleFromDailyPlan();
+          return;
+        }
       }
 
       const todayInfo = this.getTodayInfo();
 
       logger.info(
-        `🐦 AutoPost: LLMにツイート生成をリクエスト (トレンド${trends.length}件)`,
+        `🐦 AutoPost: LLMにツイート生成をリクエスト (mode=${mode}, トレンド${trends.length}件)`,
         'cyan'
       );
 
-      // LLM にツイート生成を依頼
       this.eventBus.publish({
         type: 'llm:generate_auto_tweet',
         memoryZone: 'twitter:post',
         data: {
+          mode,
           trends,
           todayInfo,
           recentPosts: [...this.recentAutoPosts],
           recentQuoteUrls: [...this.recentQuoteUrls],
+          recentTopics: [...this.recentTopics],
         } as TwitterAutoTweetInput,
       });
 

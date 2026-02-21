@@ -135,6 +135,7 @@ export const config = {
 
   google: {
     apiKey: optional('GOOGLE_API_KEY', ''),
+    geminiApiKey: optional('GEMINI_API_KEY', optional('GOOGLE_API_KEY', '')),
     searchEngineId: optional('SEARCH_ENGINE_ID', ''),
   },
 

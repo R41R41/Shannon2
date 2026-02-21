@@ -82,12 +82,17 @@ export interface MemberTweetInput extends ServiceInput {
   conversationThread?: Array<{ authorName: string; text: string }> | null;
 }
 
+/** 自動投稿モード */
+export type AutoTweetMode = 'original' | 'trend' | 'watchlist' | 'big_account_quote';
+
 /** 自動投稿用イベントデータ */
 export interface TwitterAutoTweetInput extends ServiceInput {
+  mode: AutoTweetMode;
   trends: TwitterTrendData[];
   todayInfo: string;
   recentPosts?: string[];
   recentQuoteUrls?: string[];
+  recentTopics?: string[];
 }
 
 export type TwitterEventType =

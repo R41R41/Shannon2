@@ -25,7 +25,16 @@ export const models = {
   /** Scheduled posting agents (weather, news, about-today) */
   scheduledPost: 'gpt-5-mini',
 
-  /** Auto-tweet generation (prompt-based, using few-shot examples) */
+  /** Auto-tweet: exploration phase (tool-calling agent) */
+  autoTweetExplore: 'gpt-4.1-mini',
+
+  /** Auto-tweet: creative generation phase (Gemini) */
+  autoTweetGenerate: 'gemini-3.1-pro-preview',
+
+  /** Auto-tweet: review phase */
+  autoTweetReview: 'gpt-4.1-mini',
+
+  /** Legacy alias: used by generateTweetText, scheduled post review, etc. */
   autoTweet: 'gpt-4.1-mini',
 
   /** Vision / image description (gpt-4.1-mini: no thinking tokens, good vision support) */

@@ -188,6 +188,7 @@ export type PromptType =
   | 'reply_youtube_live_comment'
   | 'emergency'
   | 'auto_tweet'
+  | 'auto_tweet_explore'
   | 'auto_tweet_review'
   | 'respond_member_tweet'
   | 'about_today_review'
