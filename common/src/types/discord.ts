@@ -117,6 +117,12 @@ export interface DiscordVoiceQueueEndInput extends ServiceInput {
   text: string;
 }
 
+export interface DiscordVoiceStreamTextInput extends ServiceInput {
+  guildId: string;
+  channelId: string;
+  sentence: string;
+}
+
 export type VoiceStatus =
   | "listening"
   | "stt"
@@ -146,4 +152,5 @@ export type DiscordEventType =
   | "discord:voice_queue_start"
   | "discord:voice_enqueue"
   | "discord:voice_queue_end"
+  | "discord:voice_stream_text"
   | "discord:voice_status";

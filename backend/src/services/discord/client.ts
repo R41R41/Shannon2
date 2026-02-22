@@ -16,6 +16,7 @@ import {
   DiscordVoiceQueueStartInput,
   DiscordVoiceResponseInput,
   DiscordVoiceStatusInput,
+  DiscordVoiceStreamTextInput,
   MinebotInput,
   MinecraftServerName,
   ServiceInput,
@@ -34,6 +35,7 @@ import {
   EmbedBuilder,
   GatewayIntentBits,
   GuildMember,
+  Message,
   Partials,
   SlashCommandBuilder,
   TextChannel,
@@ -153,6 +155,7 @@ export class DiscordBot extends BaseClient {
     text: string;
   }> = new Map();
   private voicePttMessages: Map<string, { channelId: string; messageId: string }> = new Map(); // guildId -> PTT message
+  private voiceStreamMessages: Map<string, { message: Message; accumulatedText: string }> = new Map(); // guildId -> streaming Discord message
   public static getInstance(isDev?: boolean) {
     if (!DiscordBot.instance) {
       DiscordBot.instance = new DiscordBot('discord', isDev ?? false);
@@ -1356,6 +1359,7 @@ export class DiscordBot extends BaseClient {
     this.eventBus.subscribe('discord:voice_queue_start', async (event) => {
       if (this.status !== 'running') return;
       const { guildId, channelId } = event.data as DiscordVoiceQueueStartInput;
+      this.voiceStreamMessages.delete(guildId);
       this.voiceQueues.set(guildId, {
         buffers: [],
         done: false,
@@ -1389,6 +1393,26 @@ export class DiscordBot extends BaseClient {
       if (queue.notify) {
         queue.notify();
         queue.notify = null;
+      }
+    });
+
+    this.eventBus.subscribe('discord:voice_stream_text', async (event) => {
+      if (this.status !== 'running') return;
+      const { guildId, channelId, sentence } = event.data as DiscordVoiceStreamTextInput;
+      try {
+        const textChannel = this.client.channels.cache.get(channelId);
+        if (!textChannel?.isTextBased() || !('send' in textChannel)) return;
+
+        const existing = this.voiceStreamMessages.get(guildId);
+        if (existing) {
+          existing.accumulatedText += sentence;
+          await existing.message.edit(`🔊 シャノン: ${existing.accumulatedText}`);
+        } else {
+          const msg = await (textChannel as TextChannel).send(`🔊 シャノン: ${sentence}`);
+          this.voiceStreamMessages.set(guildId, { message: msg, accumulatedText: sentence });
+        }
+      } catch (err) {
+        logger.warn(`[Discord Voice] Stream text update failed: ${err}`);
       }
     });
 
@@ -1924,14 +1948,27 @@ export class DiscordBot extends BaseClient {
       }
 
       if (queue.text) {
-        const textChannel = this.client.channels.cache.get(queue.channelId);
-        if (textChannel?.isTextBased() && 'send' in textChannel) {
-          await sendLongMessage(textChannel as TextChannel, `🔊 シャノン: ${queue.text}`);
+        const streamMsg = this.voiceStreamMessages.get(guildId);
+        if (streamMsg) {
+          try {
+            await streamMsg.message.edit(`🔊 シャノン: ${queue.text}`);
+          } catch {
+            const textChannel = this.client.channels.cache.get(queue.channelId);
+            if (textChannel?.isTextBased() && 'send' in textChannel) {
+              await sendLongMessage(textChannel as TextChannel, `🔊 シャノン: ${queue.text}`);
+            }
+          }
+        } else {
+          const textChannel = this.client.channels.cache.get(queue.channelId);
+          if (textChannel?.isTextBased() && 'send' in textChannel) {
+            await sendLongMessage(textChannel as TextChannel, `🔊 シャノン: ${queue.text}`);
+          }
         }
       }
     } catch (error) {
       logger.error('[Discord Voice] Queue playback error:', error);
     } finally {
+      this.voiceStreamMessages.delete(guildId);
       this.voiceQueues.delete(guildId);
       await this.updateVoiceStatusDisplay(guildId, 'idle');
     }

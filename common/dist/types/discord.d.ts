@@ -87,10 +87,15 @@ export interface DiscordVoiceQueueEndInput extends ServiceInput {
     channelId: string;
     text: string;
 }
+export interface DiscordVoiceStreamTextInput extends ServiceInput {
+    guildId: string;
+    channelId: string;
+    sentence: string;
+}
 export type VoiceStatus = "listening" | "stt" | "filler_select" | "llm" | "tts" | "speaking" | "idle";
 export interface DiscordVoiceStatusInput extends ServiceInput {
     guildId: string;
     status: VoiceStatus;
     detail?: string;
 }
-export type DiscordEventType = "discord:start" | "discord:stop" | "discord:status" | "discord:post_message" | "discord:scheduled_post" | "discord:get_server_emoji" | "discord:send_server_emoji" | "discord:planning" | "discord:post_voice_response" | "discord:play_voice_filler" | "discord:voice_queue_start" | "discord:voice_enqueue" | "discord:voice_queue_end" | "discord:voice_status";
+export type DiscordEventType = "discord:start" | "discord:stop" | "discord:status" | "discord:post_message" | "discord:scheduled_post" | "discord:get_server_emoji" | "discord:send_server_emoji" | "discord:planning" | "discord:post_voice_response" | "discord:play_voice_filler" | "discord:voice_queue_start" | "discord:voice_enqueue" | "discord:voice_queue_end" | "discord:voice_stream_text" | "discord:voice_status";

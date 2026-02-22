@@ -9,6 +9,7 @@ import {
   DiscordVoiceQueueStartInput,
   DiscordVoiceResponseInput,
   DiscordVoiceStatusInput,
+  DiscordVoiceStreamTextInput,
   EmotionType,
   MemberTweetInput,
   MemoryZone,
@@ -848,6 +849,11 @@ export class LLMService {
         this.publishVoiceStatus(memoryZone, message.guildId, 'tts');
       }
       try {
+        this.eventBus.publish({
+          type: 'discord:voice_stream_text',
+          memoryZone,
+          data: { guildId: message.guildId, channelId: message.channelId, sentence } as DiscordVoiceStreamTextInput,
+        });
         const wavBuf = await this.voicepeakClient.synthesize(sentence, { emotion: voiceEmotion });
         this.eventBus.publish({
           type: 'discord:voice_enqueue',
