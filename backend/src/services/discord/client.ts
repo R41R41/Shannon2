@@ -1759,6 +1759,10 @@ export class DiscordBot extends BaseClient {
         end: { behavior: EndBehaviorType.AfterSilence, duration: 1000 },
       });
 
+      opusStream.on('error', (err) => {
+        logger.warn(`[Discord Voice] AudioReceiveStream error (${userId}): ${err.message}`);
+      });
+
       opusStream.on('data', (chunk: Buffer) => {
         if (this.activeVoiceUsers.get(guildId) !== userId) return;
         const buffers = this.userAudioBuffers.get(bufferKey);
