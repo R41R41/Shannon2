@@ -1,0 +1,12 @@
+{
+  "name": "voicepeak-server",
+  "version": "1.0.0",
+  "description": "Simple HTTP server wrapping VOICEPEAK CLI for TTS. Run on Windows PC where VOICEPEAK is installed.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

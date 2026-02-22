@@ -33,7 +33,7 @@ const __dirname = dirname(__filename);
  * TaskGraph: EmotionNode(擬似並列) + FunctionCallingAgent 構成
  * 
  * フロー:
- * 1. EmotionNode で初回感情分析 (同期)
+ * 1. EmotionNode + MemoryNode を並列実行
  * 2. FunctionCallingAgent でタスク実行 (反復ループ)
  * 3. ツール実行後、EmotionNode で非同期感情再評価 (fire-and-forget)
  * 4. FunctionCallingAgent は各イテレーションで最新の感情を読み込み
@@ -125,8 +125,7 @@ export class TaskGraph {
    * タスクを実行
    * 
    * 新フロー:
-   * 1. EmotionNode で初回感情分析 (同期)
-   * 2. MemoryNode.preProcess で記憶取得 (同期)
+   * 1+2. EmotionNode + MemoryNode.preProcess を並列実行
    * 3. FunctionCallingAgent.run() でタスク実行
    *    - 各イテレーションで emotionState.current を読み込み
    *    - ツール実行後に onToolsExecuted で非同期感情再評価をトリガー
@@ -180,35 +179,38 @@ export class TaskGraph {
     try {
       logger.info(`🚀 タスク実行開始 ID: ${taskId}`);
 
-      // === Step 1: EmotionNode 初回評価 (同期) ===
-      if (this.emotionNode) {
-        try {
-          const emotionResult = await this.emotionNode.invoke({
+      // === Step 1+2: EmotionNode + MemoryNode 並列実行 ===
+      let memoryState: MemoryState = { person: null, experiences: [], knowledge: [] };
+
+      const emotionPromise = this.emotionNode
+        ? this.emotionNode.invoke({
             userMessage: state.userMessage,
             messages: state.messages,
             environmentState: state.environmentState,
             emotion: emotionState.current,
-          });
-          emotionState.current = emotionResult.emotion;
-          logger.info(`💭 初回感情: ${emotionState.current?.emotion}`);
-        } catch (error) {
-          logger.error('❌ 初回感情分析エラー:', error);
-          // エラーでも続行（感情なしでFunctionCallingAgentを実行）
-        }
-      }
+          }).then(result => {
+            emotionState.current = result.emotion;
+            logger.info(`💭 初回感情: ${emotionState.current?.emotion}`);
+          }).catch(error => {
+            logger.error('❌ 初回感情分析エラー:', error);
+          })
+        : Promise.resolve();
 
-      // === Step 2: MemoryNode.preProcess (同期) ===
-      let memoryState: MemoryState = { person: null, experiences: [], knowledge: [] };
-      if (this.memoryNode) {
-        try {
-          memoryState = await this.memoryNode.preProcess({
+      const memoryPromise = this.memoryNode
+        ? this.memoryNode.preProcess({
             userMessage: state.userMessage,
             context,
-          });
-        } catch (error) {
-          logger.error('❌ MemoryNode preProcess エラー:', error);
-          // エラーでも続行（記憶なしでFCAを実行）
-        }
+          }).then(result => {
+            memoryState = result;
+          }).catch(error => {
+            logger.error('❌ MemoryNode preProcess エラー:', error);
+          })
+        : Promise.resolve();
+
+      await Promise.all([emotionPromise, memoryPromise]);
+
+      if (partialState.onEmotionResolved) {
+        try { partialState.onEmotionResolved(emotionState.current); } catch { /* fire-and-forget */ }
       }
 
       // === Step 3: FunctionCallingAgent 実行 ===
@@ -227,6 +229,10 @@ export class TaskGraph {
           channelId: state.channelId,
           environmentState: state.environmentState,
           isEmergency: state.isEmergency,
+
+          allowedTools: partialState.allowedTools,
+          onToolStarting: partialState.onToolStarting,
+          onStreamSentence: partialState.onStreamSentence,
 
           // ツール実行後のコールバック: 非同期感情再評価
           onToolsExecuted: (messages: BaseMessage[], results: ExecutionResult[]) => {

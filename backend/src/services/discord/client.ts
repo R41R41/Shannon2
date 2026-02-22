@@ -9,6 +9,13 @@ import {
   DiscordSendServerEmojiOutput,
   DiscordSendTextMessageInput,
   DiscordSendTextMessageOutput,
+  DiscordVoiceEnqueueInput,
+  DiscordVoiceFillerInput,
+  DiscordVoiceMessageOutput,
+  DiscordVoiceQueueEndInput,
+  DiscordVoiceQueueStartInput,
+  DiscordVoiceResponseInput,
+  DiscordVoiceStatusInput,
   MinebotInput,
   MinecraftServerName,
   ServiceInput,
@@ -18,6 +25,7 @@ import {
   ActionRowBuilder,
   AttachmentBuilder,
   ButtonBuilder,
+  ButtonInteraction,
   ButtonStyle,
   ChannelType,
   ChatInputCommandInteraction,
@@ -25,12 +33,28 @@ import {
   ComponentType,
   EmbedBuilder,
   GatewayIntentBits,
+  GuildMember,
   Partials,
   SlashCommandBuilder,
   TextChannel,
   ThreadChannel,
   User,
+  VoiceChannel,
 } from 'discord.js';
+import {
+  AudioPlayer,
+  AudioPlayerStatus,
+  EndBehaviorType,
+  VoiceConnection,
+  VoiceConnectionStatus,
+  createAudioPlayer,
+  createAudioResource,
+  getVoiceConnection,
+  joinVoiceChannel,
+} from '@discordjs/voice';
+import OpusPackage from '@discordjs/opus';
+const { OpusEncoder } = OpusPackage;
+import { Readable } from 'stream';
 import fs from 'fs';
 import * as Jimp from 'jimp';
 import path from 'path';
@@ -38,6 +62,8 @@ import { fileURLToPath } from 'url';
 import { config } from '../../config/env.js';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { logger } from '../../utils/logger.js';
+import { voiceResponseChannelIds } from './voiceState.js';
+import { loadFillers, generateAllFillers } from './voiceFiller.js';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
 
@@ -112,6 +138,21 @@ export class DiscordBot extends BaseClient {
   private colabChannelId: string | null = null;
   private static instance: DiscordBot;
   public isDev: boolean = false;
+  private voiceConnections: Map<string, VoiceConnection> = new Map();
+  private audioPlayers: Map<string, AudioPlayer> = new Map();
+  private userAudioBuffers: Map<string, Buffer[]> = new Map();
+  private userSpeakingTimers: Map<string, NodeJS.Timeout> = new Map();
+  private voiceProcessingLock: Map<string, boolean> = new Map();
+  private activeVoiceUsers: Map<string, string | null> = new Map(); // guildId -> userId or null
+  private voiceTextChannelIds: Map<string, string> = new Map(); // guildId -> textChannelId
+  private voiceQueues: Map<string, {
+    buffers: Buffer[];
+    done: boolean;
+    notify: (() => void) | null;
+    channelId: string;
+    text: string;
+  }> = new Map();
+  private voicePttMessages: Map<string, { channelId: string; messageId: string }> = new Map(); // guildId -> PTT message
   public static getInstance(isDev?: boolean) {
     if (!DiscordBot.instance) {
       DiscordBot.instance = new DiscordBot('discord', isDev ?? false);
@@ -146,6 +187,7 @@ export class DiscordBot extends BaseClient {
 
     this.client.once('ready', async () => {
       this.setupSlashCommands();
+      loadFillers().catch(err => logger.warn(`[Discord] Filler loading failed: ${err}`));
 
       // 既存のアクティブスレッドに参加
       for (const [, guild] of this.client.guilds.cache) {
@@ -294,6 +336,15 @@ export class DiscordBot extends BaseClient {
               .setMinValue(1)
               .setMaxValue(10)
           ),
+        new SlashCommandBuilder()
+          .setName('voice_join')
+          .setDescription('シャノンをボイスチャンネルに参加させる'),
+        new SlashCommandBuilder()
+          .setName('voice_leave')
+          .setDescription('シャノンをボイスチャンネルから退出させる'),
+        new SlashCommandBuilder()
+          .setName('generate_fillers')
+          .setDescription('フィラー音声を生成する（初回のみ必要）'),
       ];
 
       // コマンドをJSON形式に変換
@@ -322,6 +373,15 @@ export class DiscordBot extends BaseClient {
       }
 
       this.client.on('interactionCreate', async (interaction) => {
+        if (interaction.isButton() && interaction.customId === 'voice_ptt') {
+          await this.handleVoicePttButton(interaction);
+          return;
+        }
+        if (interaction.isButton() && interaction.customId === 'voice_generate_response') {
+          await this.handleVoiceGenerateResponse(interaction);
+          return;
+        }
+
         if (!interaction.isCommand()) return;
 
         switch (interaction.commandName) {
@@ -565,6 +625,26 @@ export class DiscordBot extends BaseClient {
             if (interaction.isChatInputCommand()) {
               const count = interaction.options.getInteger('count', true);
               await this.sendDiceMessage(interaction, count);
+            }
+            break;
+
+          case 'voice_join':
+            if (interaction.isChatInputCommand()) {
+              await this.handleVoiceJoin(interaction);
+            }
+            break;
+
+          case 'voice_leave':
+            if (interaction.isChatInputCommand()) {
+              await this.handleVoiceLeave(interaction);
+            }
+            break;
+
+          case 'generate_fillers':
+            if (interaction.isChatInputCommand()) {
+              await interaction.deferReply({ flags: 64 });
+              const count = await generateAllFillers();
+              await interaction.editReply(`フィラー音声を ${count} 個生成しました。`);
             }
             break;
         }
@@ -1012,6 +1092,12 @@ export class DiscordBot extends BaseClient {
       if (this.status !== 'running') return;
       let { text, channelId, guildId, imageUrl } =
         event.data as DiscordSendTextMessageInput;
+
+      if (voiceResponseChannelIds.has(channelId) && !text?.startsWith('🎤')) {
+        logger.info(`[Discord] Voice processing active, skipping normal text post for channel ${channelId}`, 'yellow');
+        return;
+      }
+
       const channel = this.client.channels.cache.get(channelId);
       const channelName = this.getChannelName(channelId);
       const guildName = this.getGuildName(channelId);
@@ -1266,6 +1352,88 @@ export class DiscordBot extends BaseClient {
         }
       }
     });
+    // --- Voice queue events (streaming pipeline) ---
+    this.eventBus.subscribe('discord:voice_queue_start', async (event) => {
+      if (this.status !== 'running') return;
+      const { guildId, channelId } = event.data as DiscordVoiceQueueStartInput;
+      this.voiceQueues.set(guildId, {
+        buffers: [],
+        done: false,
+        notify: null,
+        channelId,
+        text: '',
+      });
+      this.consumeVoiceQueue(guildId);
+    });
+
+    this.eventBus.subscribe('discord:voice_enqueue', async (event) => {
+      if (this.status !== 'running') return;
+      const { guildId, audioBuffer } = event.data as DiscordVoiceEnqueueInput;
+      const queue = this.voiceQueues.get(guildId);
+      if (!queue) return;
+      queue.buffers.push(audioBuffer);
+      if (queue.notify) {
+        queue.notify();
+        queue.notify = null;
+      }
+    });
+
+    this.eventBus.subscribe('discord:voice_queue_end', async (event) => {
+      if (this.status !== 'running') return;
+      const { guildId, channelId, text } = event.data as DiscordVoiceQueueEndInput;
+      const queue = this.voiceQueues.get(guildId);
+      if (!queue) return;
+      queue.done = true;
+      queue.text = text;
+      queue.channelId = channelId;
+      if (queue.notify) {
+        queue.notify();
+        queue.notify = null;
+      }
+    });
+
+    this.eventBus.subscribe('discord:voice_status', async (event) => {
+      if (this.status !== 'running') return;
+      const { guildId, status, detail } = event.data as DiscordVoiceStatusInput;
+      await this.updateVoiceStatusDisplay(guildId, status, detail);
+    });
+
+    // --- Legacy voice events (fallback) ---
+    this.eventBus.subscribe('discord:play_voice_filler', async (event) => {
+      if (this.status !== 'running') return;
+      const { guildId, audioBuffers } = event.data as DiscordVoiceFillerInput;
+      try {
+        for (const buf of audioBuffers) {
+          await this.playAudioInVoiceChannel(guildId, buf);
+        }
+      } catch (error) {
+        logger.error('[Discord Voice] Filler playback error:', error);
+      }
+    });
+
+    this.eventBus.subscribe('discord:post_voice_response', async (event) => {
+      if (this.status !== 'running') return;
+      const { channelId, voiceChannelId, guildId, text, audioBuffer, audioBuffers } =
+        event.data as DiscordVoiceResponseInput;
+
+      try {
+        const textChannel = this.client.channels.cache.get(channelId);
+        if (textChannel?.isTextBased() && 'send' in textChannel) {
+          await sendLongMessage(textChannel as TextChannel, `🔊 シャノン: ${text}`);
+        }
+
+        if (audioBuffers && audioBuffers.length > 0) {
+          for (const buf of audioBuffers) {
+            await this.playAudioInVoiceChannel(guildId, buf);
+          }
+        } else {
+          await this.playAudioInVoiceChannel(guildId, audioBuffer);
+        }
+      } catch (error) {
+        logger.error('[Discord Voice] Error playing voice response:', error);
+      }
+    });
+
     this.eventBus.subscribe('youtube:subscriber_update', async (event) => {
       if (this.status !== 'running') return;
       const data = event.data as YoutubeSubscriberUpdateOutput;
@@ -1281,6 +1449,488 @@ export class DiscordBot extends BaseClient {
         }
       }
     });
+  }
+
+  // ========== Voice Channel Methods ==========
+
+  private async handleVoiceJoin(interaction: ChatInputCommandInteraction) {
+    const member = interaction.member as GuildMember;
+    const voiceChannel = member.voice.channel;
+
+    if (!voiceChannel) {
+      await interaction.reply({ content: 'ボイスチャンネルに参加してから実行してください。', ephemeral: true });
+      return;
+    }
+
+    if (this.voiceConnections.has(interaction.guildId!)) {
+      await interaction.reply({ content: '既にボイスチャンネルに参加しています。', ephemeral: true });
+      return;
+    }
+
+    await interaction.deferReply();
+    const guildId = interaction.guildId!;
+
+    try {
+      const connection = joinVoiceChannel({
+        channelId: voiceChannel.id,
+        guildId,
+        adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+        selfDeaf: false,
+      });
+
+      const player = createAudioPlayer();
+      connection.subscribe(player);
+
+      this.voiceConnections.set(guildId, connection);
+      this.audioPlayers.set(guildId, player);
+      this.activeVoiceUsers.set(guildId, null);
+      this.voiceTextChannelIds.set(guildId, interaction.channelId);
+
+      connection.on(VoiceConnectionStatus.Ready, () => {
+        logger.success(`[Discord Voice] Connected to ${voiceChannel.name}`);
+        this.setupVoiceReceiver(connection, guildId, interaction.channelId);
+      });
+
+      connection.on(VoiceConnectionStatus.Disconnected, () => {
+        logger.info('[Discord Voice] Disconnected', 'yellow');
+        this.cleanupVoiceConnection(guildId);
+      });
+
+      connection.on(VoiceConnectionStatus.Destroyed, () => {
+        logger.info('[Discord Voice] Connection destroyed', 'yellow');
+        this.cleanupVoiceConnection(guildId);
+      });
+
+      const row = this.buildVoiceButtonRow({ isActive: false });
+
+      const reply = await interaction.editReply({
+        content: `🎙️ **${voiceChannel.name}** に参加しました！\n下のボタンを押すと通話が始まり、もう一度押すと終了します。`,
+        components: [row],
+      });
+      this.voicePttMessages.set(guildId, { channelId: interaction.channelId, messageId: reply.id });
+    } catch (error) {
+      logger.error('[Discord Voice] Failed to join:', error);
+      await interaction.editReply('ボイスチャンネルへの参加に失敗しました。');
+    }
+  }
+
+  private async handleVoiceLeave(interaction: ChatInputCommandInteraction) {
+    const guildId = interaction.guildId!;
+    const connection = this.voiceConnections.get(guildId) || getVoiceConnection(guildId);
+
+    if (!connection) {
+      await interaction.reply({ content: 'ボイスチャンネルに参加していません。', ephemeral: true });
+      return;
+    }
+
+    connection.destroy();
+    this.cleanupVoiceConnection(guildId);
+    await interaction.reply('👋 ボイスチャンネルから退出しました。');
+  }
+
+  private async handleVoicePttButton(interaction: ButtonInteraction) {
+    const guildId = interaction.guildId!;
+    const userId = interaction.user.id;
+    const activeUser = this.activeVoiceUsers.get(guildId);
+
+    if (!this.voiceConnections.has(guildId)) {
+      await interaction.reply({ content: 'シャノンはボイスチャンネルに参加していません。', ephemeral: true });
+      return;
+    }
+
+    if (activeUser && activeUser !== userId) {
+      const activeUserObj = this.client.users.cache.get(activeUser);
+      const activeName = activeUserObj ? this.getUserNickname(activeUserObj, guildId) : 'Unknown';
+      await interaction.reply({ content: `現在 **${activeName}** が通話中です。終了するまでお待ちください。`, ephemeral: true });
+      return;
+    }
+
+    if (activeUser === userId) {
+      this.activeVoiceUsers.set(guildId, null);
+      logger.info(`[Discord Voice] PTT OFF: ${interaction.user.username}`, 'yellow');
+
+      const row = this.buildVoiceButtonRow({ isActive: false });
+
+      await interaction.update({
+        content: `🎙️ ボイスチャンネルに参加中\n下のボタンを押すと通話が始まり、もう一度押すと終了します。`,
+        components: [row],
+      });
+    } else {
+      this.activeVoiceUsers.set(guildId, userId);
+      const nickname = this.getUserNickname(interaction.user, guildId);
+      logger.info(`[Discord Voice] PTT ON: ${interaction.user.username}`, 'cyan');
+
+      const row = this.buildVoiceButtonRow({ isActive: true, nickname });
+
+      await interaction.update({
+        content: `🎙️ **${nickname}** が通話中です。シャノンが音声を聞いています。`,
+        components: [row],
+      });
+    }
+  }
+
+  private async handleVoiceGenerateResponse(interaction: ButtonInteraction) {
+    const guildId = interaction.guildId!;
+    const channelId = interaction.channelId;
+
+    if (!this.voiceConnections.has(guildId)) {
+      await interaction.reply({ content: 'シャノンはボイスチャンネルに参加していません。', ephemeral: true });
+      return;
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      const channel = this.client.channels.cache.get(channelId);
+      if (!channel?.isTextBased() || !('messages' in channel)) {
+        await interaction.editReply('テキストチャンネルが見つかりません。');
+        return;
+      }
+
+      const rawMessages = await (channel as TextChannel).messages.fetch({ limit: 15 });
+      const sorted = rawMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+
+      let lastUserText: string | null = null;
+      let lastUserName: string | null = null;
+      let lastUserId: string | null = null;
+
+      for (const msg of sorted.reverse().values()) {
+        if (msg.author.bot) continue;
+
+        lastUserText = msg.content;
+        lastUserName = this.getUserNickname(msg.author, guildId);
+        lastUserId = msg.author.id;
+        break;
+      }
+
+      if (!lastUserText) {
+        const shannonMessages = [...sorted.values()].reverse();
+        for (const msg of shannonMessages) {
+          if (!msg.author.bot) continue;
+          const match = msg.content.match(/^🎤\s*(.+?):\s*(.+)$/);
+          if (match) {
+            lastUserName = match[1];
+            lastUserText = match[2];
+            lastUserId = interaction.user.id;
+            break;
+          }
+        }
+      }
+
+      if (!lastUserText) {
+        await interaction.editReply('直近のユーザーメッセージが見つかりませんでした。');
+        return;
+      }
+
+      const guild = this.client.guilds.cache.get(guildId);
+      const guildName = guild?.name ?? '';
+      const channelName = 'name' in channel ? (channel as TextChannel).name : '';
+      const voiceConnection = this.voiceConnections.get(guildId);
+      const voiceChannelId = voiceConnection?.joinConfig.channelId ?? '';
+      const memoryZone = await getDiscordMemoryZone(guildId);
+      const recentMessages = await this.getRecentMessages(channelId, 10);
+
+      this.eventBus.publish({
+        type: 'llm:get_discord_message',
+        memoryZone,
+        data: {
+          type: 'voice',
+          text: lastUserText,
+          audioBuffer: Buffer.alloc(0),
+          guildId,
+          guildName,
+          channelId,
+          channelName,
+          voiceChannelId,
+          userId: lastUserId ?? interaction.user.id,
+          userName: lastUserName ?? this.getUserNickname(interaction.user, guildId),
+          recentMessages,
+        } as unknown as DiscordClientInput,
+      });
+
+      logger.info(`[Discord Voice] Generate response from text: "${lastUserText}" by ${lastUserName}`, 'cyan');
+      await interaction.editReply(`💬 「${lastUserText}」に対する音声回答を生成中…`);
+    } catch (error) {
+      logger.error('[Discord Voice] Generate response failed:', error);
+      await interaction.editReply('音声回答の生成に失敗しました。');
+    }
+  }
+
+  private buildVoiceButtonRow(options: { isActive: boolean; nickname?: string | null }): ActionRowBuilder<ButtonBuilder> {
+    return new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId('voice_ptt')
+        .setLabel(options.isActive ? `🔴 ${options.nickname ?? 'ユーザー'} が通話中... (押して終了)` : '🎤 話す')
+        .setStyle(options.isActive ? ButtonStyle.Danger : ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('voice_generate_response')
+        .setLabel('💬 音声回答を生成')
+        .setStyle(ButtonStyle.Primary),
+    );
+  }
+
+  private cleanupVoiceConnection(guildId: string) {
+    this.voiceConnections.delete(guildId);
+    this.audioPlayers.delete(guildId);
+    this.activeVoiceUsers.delete(guildId);
+    this.voiceTextChannelIds.delete(guildId);
+    for (const [key, timer] of this.userSpeakingTimers) {
+      if (key.startsWith(guildId)) {
+        clearTimeout(timer);
+        this.userSpeakingTimers.delete(key);
+      }
+    }
+    for (const key of this.userAudioBuffers.keys()) {
+      if (key.startsWith(guildId)) {
+        this.userAudioBuffers.delete(key);
+      }
+    }
+    this.voiceProcessingLock.delete(guildId);
+    this.voicePttMessages.delete(guildId);
+  }
+
+  private static readonly VOICE_STATUS_LABELS: Record<string, string> = {
+    listening: '👂 聞き取り中…',
+    stt: '📝 音声認識中…',
+    filler_select: '🎯 フィラー選択中…',
+    llm: '🧠 回答生成中…',
+    tts: '🔊 音声生成中…',
+    speaking: '🗣️ 再生中…',
+    idle: '',
+  };
+
+  private async updateVoiceStatusDisplay(guildId: string, status: string, detail?: string): Promise<void> {
+    const pttMsg = this.voicePttMessages.get(guildId);
+    if (!pttMsg) return;
+
+    try {
+      const channel = this.client.channels.cache.get(pttMsg.channelId);
+      if (!channel?.isTextBased() || !('messages' in channel)) return;
+
+      const message = await (channel as TextChannel).messages.fetch(pttMsg.messageId).catch(() => null);
+      if (!message) return;
+
+      const activeUserId = this.activeVoiceUsers.get(guildId);
+      const activeUser = activeUserId ? this.client.users.cache.get(activeUserId) : null;
+      const nickname = activeUser ? this.getUserNickname(activeUser, guildId) : null;
+
+      const statusLabel = DiscordBot.VOICE_STATUS_LABELS[status] || '';
+      const statusLine = statusLabel
+        ? `\n${statusLabel}${detail ? ` ${detail}` : ''}`
+        : '';
+
+      const isActive = !!activeUserId;
+      const row = this.buildVoiceButtonRow({ isActive, nickname });
+
+      const baseContent = isActive
+        ? `🎙️ **${nickname}** が通話中です。シャノンが音声を聞いています。`
+        : '🎙️ ボイスチャンネルに参加中\n下のボタンを押すと通話が始まり、もう一度押すと終了します。';
+
+      await message.edit({
+        content: `${baseContent}${statusLine}`,
+        components: [row],
+      });
+    } catch {
+      // best-effort UI update
+    }
+  }
+
+  private setupVoiceReceiver(connection: VoiceConnection, guildId: string, textChannelId: string) {
+    const receiver = connection.receiver;
+
+    receiver.speaking.on('start', (userId) => {
+      const activeUser = this.activeVoiceUsers.get(guildId);
+      if (!activeUser || activeUser !== userId) return;
+      if (this.voiceProcessingLock.get(guildId)) return;
+
+      const bufferKey = `${guildId}:${userId}`;
+
+      const existingTimer = this.userSpeakingTimers.get(bufferKey);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        this.userSpeakingTimers.delete(bufferKey);
+      }
+
+      if (!this.userAudioBuffers.has(bufferKey)) {
+        this.userAudioBuffers.set(bufferKey, []);
+      }
+
+      const opusStream = receiver.subscribe(userId, {
+        end: { behavior: EndBehaviorType.AfterSilence, duration: 1000 },
+      });
+
+      opusStream.on('data', (chunk: Buffer) => {
+        if (this.activeVoiceUsers.get(guildId) !== userId) return;
+        const buffers = this.userAudioBuffers.get(bufferKey);
+        if (buffers) {
+          buffers.push(chunk);
+        }
+      });
+
+      opusStream.on('end', () => {
+        const timer = setTimeout(async () => {
+          this.userSpeakingTimers.delete(bufferKey);
+          const audioBuffers = this.userAudioBuffers.get(bufferKey);
+          this.userAudioBuffers.delete(bufferKey);
+
+          if (!audioBuffers || audioBuffers.length === 0) return;
+          if (this.activeVoiceUsers.get(guildId) !== userId) return;
+
+          try {
+            const pcmBuffer = this.decodeOpusBuffers(audioBuffers);
+            if (pcmBuffer.length < 48000) return; // 0.5秒未満は無視（ノイズ防止）
+
+            await this.processVoiceInput(pcmBuffer, userId, guildId, textChannelId);
+          } catch (err) {
+            logger.error('[Discord Voice] Error processing audio:', err);
+          }
+        }, 300);
+        this.userSpeakingTimers.set(bufferKey, timer);
+      });
+    });
+  }
+
+  private decodeOpusBuffers(opusBuffers: Buffer[]): Buffer {
+    const encoder = new OpusEncoder(48000, 2);
+    const pcmChunks: Buffer[] = [];
+
+    for (const opusPacket of opusBuffers) {
+      try {
+        const pcm = encoder.decode(opusPacket);
+        pcmChunks.push(pcm);
+      } catch {
+        // skip corrupted packets
+      }
+    }
+
+    return Buffer.concat(pcmChunks);
+  }
+
+  private createWavBuffer(pcmBuffer: Buffer, sampleRate: number = 48000, channels: number = 2, bitsPerSample: number = 16): Buffer {
+    const dataSize = pcmBuffer.length;
+    const header = Buffer.alloc(44);
+
+    header.write('RIFF', 0);
+    header.writeUInt32LE(36 + dataSize, 4);
+    header.write('WAVE', 8);
+    header.write('fmt ', 12);
+    header.writeUInt32LE(16, 16);
+    header.writeUInt16LE(1, 20); // PCM
+    header.writeUInt16LE(channels, 22);
+    header.writeUInt32LE(sampleRate, 24);
+    header.writeUInt32LE(sampleRate * channels * (bitsPerSample / 8), 28);
+    header.writeUInt16LE(channels * (bitsPerSample / 8), 32);
+    header.writeUInt16LE(bitsPerSample, 34);
+    header.write('data', 36);
+    header.writeUInt32LE(dataSize, 40);
+
+    return Buffer.concat([header, pcmBuffer]);
+  }
+
+  private async processVoiceInput(pcmBuffer: Buffer, userId: string, guildId: string, textChannelId: string) {
+    if (this.voiceProcessingLock.get(guildId)) return;
+    this.voiceProcessingLock.set(guildId, true);
+
+    try {
+      const wavBuffer = this.createWavBuffer(pcmBuffer);
+
+      const user = this.client.users.cache.get(userId);
+      const nickname = user ? this.getUserNickname(user, guildId) : 'Unknown';
+      const memoryZone = await getDiscordMemoryZone(guildId);
+
+      const guild = this.client.guilds.cache.get(guildId);
+      const guildName = guild?.name ?? '';
+      const textChannel = this.client.channels.cache.get(textChannelId);
+      const channelName = textChannel && 'name' in textChannel ? textChannel.name : '';
+
+      const voiceConnection = this.voiceConnections.get(guildId);
+      const voiceChannelId = voiceConnection?.joinConfig.channelId ?? '';
+
+      const recentMessages = await this.getRecentMessages(textChannelId, 10);
+
+      this.eventBus.publish({
+        type: 'llm:get_discord_message',
+        memoryZone: memoryZone,
+        data: {
+          type: 'voice',
+          text: '',
+          audioBuffer: wavBuffer,
+          guildId,
+          guildName,
+          channelId: textChannelId,
+          channelName,
+          voiceChannelId,
+          userId,
+          userName: nickname,
+          recentMessages,
+        } as unknown as DiscordClientInput,
+      });
+    } finally {
+      this.voiceProcessingLock.set(guildId, false);
+    }
+  }
+
+  private async playAudioInVoiceChannel(guildId: string, wavBuffer: Buffer): Promise<void> {
+    const player = this.audioPlayers.get(guildId);
+    if (!player) {
+      logger.warn('[Discord Voice] No audio player for guild');
+      return;
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      try {
+        const stream = Readable.from(wavBuffer);
+        const resource = createAudioResource(stream);
+
+        player.play(resource);
+
+        player.once(AudioPlayerStatus.Idle, () => resolve());
+        player.once('error', (err) => {
+          logger.error('[Discord Voice] Playback error:', err);
+          reject(err);
+        });
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  private async consumeVoiceQueue(guildId: string): Promise<void> {
+    const queue = this.voiceQueues.get(guildId);
+    if (!queue) return;
+
+    try {
+      let isFirstPlay = true;
+      while (true) {
+        if (queue.buffers.length > 0) {
+          if (isFirstPlay) {
+            await this.updateVoiceStatusDisplay(guildId, 'speaking');
+            isFirstPlay = false;
+          }
+          const buf = queue.buffers.shift()!;
+          await this.playAudioInVoiceChannel(guildId, buf);
+          continue;
+        }
+
+        if (queue.done) break;
+
+        await new Promise<void>((resolve) => {
+          queue.notify = resolve;
+        });
+      }
+
+      if (queue.text) {
+        const textChannel = this.client.channels.cache.get(queue.channelId);
+        if (textChannel?.isTextBased() && 'send' in textChannel) {
+          await sendLongMessage(textChannel as TextChannel, `🔊 シャノン: ${queue.text}`);
+        }
+      }
+    } catch (error) {
+      logger.error('[Discord Voice] Queue playback error:', error);
+    } finally {
+      this.voiceQueues.delete(guildId);
+      await this.updateVoiceStatusDisplay(guildId, 'idle');
+    }
   }
 
   /**
@@ -1327,6 +1977,21 @@ export class DiscordBot extends BaseClient {
               : msg.content;
 
           if (msg.author.bot) {
+            const voiceUserMatch = contentWithImages.match(/^🎤\s*(.+?):\s*/);
+            if (voiceUserMatch) {
+              const voiceUserName = voiceUserMatch[1];
+              const voiceText = contentWithImages.replace(/^🎤\s*.+?:\s*/, '');
+              return new HumanMessage(
+                timestamp + ' ' + voiceUserName + ': ' + voiceText
+              );
+            }
+            const shannonVoiceMatch = contentWithImages.match(/^🔊\s*シャノン:\s*/);
+            if (shannonVoiceMatch) {
+              const shannonText = contentWithImages.replace(/^🔊\s*シャノン:\s*/, '');
+              return new AIMessage(
+                timestamp + ' シャノン: ' + shannonText
+              );
+            }
             return new AIMessage(
               timestamp + ' ' + nickname + 'AI: ' + contentWithImages
             );

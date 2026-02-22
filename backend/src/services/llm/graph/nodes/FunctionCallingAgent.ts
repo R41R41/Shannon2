@@ -3,6 +3,7 @@ import { config } from '../../../../config/env.js';
 import { models } from '../../../../config/models.js';
 import {
     AIMessage,
+    AIMessageChunk,
     BaseMessage,
     HumanMessage,
     SystemMessage,
@@ -37,6 +38,13 @@ export interface FunctionCallingAgentState {
         messages: BaseMessage[],
         results: ExecutionResult[]
     ) => void;
+
+    /** 音声向け: 使用を許可するツール名リスト。指定時はこれ以外のツールは bind しない */
+    allowedTools?: string[];
+    /** 音声向け: 各ツール実行直前に呼ばれるコールバック */
+    onToolStarting?: (toolName: string) => void;
+    /** 音声向け: LLMストリーミング中に1文完成するたびに呼ばれるコールバック */
+    onStreamSentence?: (sentence: string) => Promise<void>;
 }
 
 /**
@@ -124,6 +132,16 @@ export class FunctionCallingAgent {
         const isEmergency = state.isEmergency || false;
 
         logger.info(`🤖 FunctionCallingAgent: タスク実行開始 "${goal}"${isEmergency ? ' [緊急]' : ''}`, 'cyan');
+
+        // allowedTools が指定されている場合、フィルタリングした modelWithTools を使う
+        let effectiveModelWithTools = this.modelWithTools;
+        let effectiveToolMap = this.toolMap;
+        if (state.allowedTools && state.allowedTools.length > 0) {
+            const filteredTools = this.tools.filter(t => state.allowedTools!.includes(t.name));
+            effectiveModelWithTools = this.model.bindTools(filteredTools);
+            effectiveToolMap = new Map(filteredTools.map(t => [t.name, t]));
+            logger.info(`🔒 allowedTools: ${state.allowedTools.join(', ')} (${filteredTools.length}/${this.tools.length})`, 'cyan');
+        }
 
         // update-plan ツールにコンテキストを設定
         if (this.updatePlanTool) {
@@ -230,9 +248,75 @@ export class FunctionCallingAgent {
                 const llmStart = Date.now();
                 let response: AIMessage;
                 try {
-                    response = (await this.modelWithTools.invoke(messages, {
-                        signal: callAbort.signal,
-                    })) as AIMessage;
+                    if (state.onStreamSentence) {
+                        // ── ストリーミングモード ──
+                        const stream = await effectiveModelWithTools.stream(messages, {
+                            signal: callAbort.signal,
+                        });
+
+                        let accumulatedContent = '';
+                        let sentenceBuffer = '';
+                        let hasToolCalls = false;
+                        let accumulatedChunk: AIMessageChunk | null = null;
+
+                        const SENTENCE_BOUNDARY = /[。！？!?]/;
+
+                        for await (const chunk of stream) {
+                            if (accumulatedChunk === null) {
+                                accumulatedChunk = chunk as AIMessageChunk;
+                            } else {
+                                accumulatedChunk = accumulatedChunk.concat(chunk as AIMessageChunk);
+                            }
+
+                            if ((chunk as AIMessageChunk).tool_call_chunks?.length) {
+                                hasToolCalls = true;
+                            }
+
+                            const textPart = typeof chunk.content === 'string' ? chunk.content : '';
+                            if (textPart && !hasToolCalls) {
+                                accumulatedContent += textPart;
+                                sentenceBuffer += textPart;
+
+                                let boundaryIdx: number;
+                                while ((boundaryIdx = sentenceBuffer.search(SENTENCE_BOUNDARY)) !== -1) {
+                                    const sentence = sentenceBuffer.slice(0, boundaryIdx + 1).trim();
+                                    sentenceBuffer = sentenceBuffer.slice(boundaryIdx + 1);
+                                    if (sentence) {
+                                        try {
+                                            await state.onStreamSentence!(sentence);
+                                        } catch (err) {
+                                            logger.error('onStreamSentence error:', err);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 残りバッファを emit
+                        if (!hasToolCalls && sentenceBuffer.trim()) {
+                            try {
+                                await state.onStreamSentence!(sentenceBuffer.trim());
+                            } catch (err) {
+                                logger.error('onStreamSentence (tail) error:', err);
+                            }
+                        }
+
+                        // AIMessageChunk → AIMessage に変換
+                        if (accumulatedChunk) {
+                            response = new AIMessage({
+                                content: accumulatedChunk.content,
+                                tool_calls: accumulatedChunk.tool_calls,
+                                additional_kwargs: accumulatedChunk.additional_kwargs,
+                            });
+                        } else {
+                            response = new AIMessage({ content: '' });
+                        }
+                    } else {
+                        // ── 通常モード（既存の .invoke()）──
+                        response = (await effectiveModelWithTools.invoke(messages, {
+                            signal: callAbort.signal,
+                        })) as AIMessage;
+                    }
                     clearTimeout(callTimeout);
                     logger.success(`⏱ LLM応答: ${Date.now() - llmStart}ms (iteration ${iteration + 1})`);
                 } catch (e: any) {
@@ -321,7 +405,11 @@ export class FunctionCallingAgent {
                         }, state.channelId, state.taskId);
                     }
 
-                    const tool = this.toolMap.get(toolCall.name);
+                    if (state.onToolStarting) {
+                        try { state.onToolStarting(toolCall.name); } catch { /* fire-and-forget */ }
+                    }
+
+                    const tool = effectiveToolMap.get(toolCall.name);
                     if (!tool) {
                         const errorMsg = `ツール "${toolCall.name}" が見つかりません`;
                         logger.error(`  ✗ ${errorMsg}`);

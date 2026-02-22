@@ -3,6 +3,13 @@ import {
   DiscordClientOutput,
   DiscordEventType,
   DiscordGuild,
+  DiscordVoiceEnqueueInput,
+  DiscordVoiceFillerInput,
+  DiscordVoiceMessageOutput,
+  DiscordVoiceQueueEndInput,
+  DiscordVoiceQueueStartInput,
+  DiscordVoiceResponseInput,
+  DiscordVoiceStatusInput,
 } from './discord.js';
 import { LLMEventType, SkillInfo } from './llm.js';
 import {
@@ -281,7 +288,14 @@ export interface Event {
   | SkillResult
   | NotionClientInput
   | NotionClientOutput
-  | MemberTweetInput;
+  | MemberTweetInput
+  | DiscordVoiceMessageOutput
+  | DiscordVoiceResponseInput
+  | DiscordVoiceFillerInput
+  | DiscordVoiceQueueStartInput
+  | DiscordVoiceEnqueueInput
+  | DiscordVoiceQueueEndInput
+  | DiscordVoiceStatusInput;
   targetMemoryZones?: MemoryZone[];
 }
 

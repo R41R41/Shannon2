@@ -49,4 +49,48 @@ export interface DiscordSendTextMessageOutput extends ServiceOutput {
     recentMessages: BaseMessage[];
 }
 export type DiscordClientOutput = DiscordGetServerEmojiOutput | DiscordSendTextMessageOutput | DiscordSendServerEmojiOutput;
-export type DiscordEventType = "discord:start" | "discord:stop" | "discord:status" | "discord:post_message" | "discord:scheduled_post" | "discord:get_server_emoji" | "discord:send_server_emoji" | "discord:planning";
+export interface DiscordVoiceMessageOutput extends ServiceOutput {
+    type: "voice";
+    guildName: string;
+    channelName: string;
+    guildId: string;
+    channelId: string;
+    voiceChannelId: string;
+    userId: string;
+    userName: string;
+    text: string;
+    recentMessages: BaseMessage[];
+}
+export interface DiscordVoiceResponseInput extends ServiceInput {
+    channelId: string;
+    voiceChannelId: string;
+    guildId: string;
+    text: string;
+    audioBuffer: Buffer;
+    /** When set, play these buffers sequentially instead of audioBuffer */
+    audioBuffers?: Buffer[];
+}
+export interface DiscordVoiceFillerInput extends ServiceInput {
+    guildId: string;
+    audioBuffers: Buffer[];
+}
+export interface DiscordVoiceQueueStartInput extends ServiceInput {
+    guildId: string;
+    channelId: string;
+}
+export interface DiscordVoiceEnqueueInput extends ServiceInput {
+    guildId: string;
+    audioBuffer: Buffer;
+}
+export interface DiscordVoiceQueueEndInput extends ServiceInput {
+    guildId: string;
+    channelId: string;
+    text: string;
+}
+export type VoiceStatus = "listening" | "stt" | "filler_select" | "llm" | "tts" | "speaking" | "idle";
+export interface DiscordVoiceStatusInput extends ServiceInput {
+    guildId: string;
+    status: VoiceStatus;
+    detail?: string;
+}
+export type DiscordEventType = "discord:start" | "discord:stop" | "discord:status" | "discord:post_message" | "discord:scheduled_post" | "discord:get_server_emoji" | "discord:send_server_emoji" | "discord:planning" | "discord:post_voice_response" | "discord:play_voice_filler" | "discord:voice_queue_start" | "discord:voice_enqueue" | "discord:voice_queue_end" | "discord:voice_status";

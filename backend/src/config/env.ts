@@ -143,6 +143,15 @@ export const config = {
     appId: optional('WOLFRAM_ALPHA_APPID', ''),
   },
 
+  groq: {
+    apiKey: optional('GROQ_API_KEY', ''),
+  },
+
+  voicepeak: {
+    serverUrl: optional('VOICEPEAK_SERVER_URL', 'http://localhost:8090'),
+    narrator: optional('VOICEPEAK_NARRATOR', 'Japanese Female4'),
+  },
+
   ports: {
     http: optional('HTTP_PORT', '5000'),
     frontend: optional('FRONTEND_PORT', '5000'),

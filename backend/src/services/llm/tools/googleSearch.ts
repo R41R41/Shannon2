@@ -48,6 +48,11 @@ export default class GoogleSearchTool extends StructuredTool {
       const response = await fetch(url);
       const result = await response.json() as any;
 
+      if (result.error) {
+        logger.error(`Google search API error: ${result.error.code} ${result.error.message}`);
+        return `Google検索APIエラー (${result.error.code}): ${result.error.message}`;
+      }
+
       if (result.items && result.items.length > 0) {
         // タイトル、スニペット、URLを含む詳細な結果を返す
         const formattedResults = result.items.map((item: any, index: number) => {

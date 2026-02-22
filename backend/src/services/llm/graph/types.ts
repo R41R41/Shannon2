@@ -43,6 +43,12 @@ export interface TaskStateInput {
 
   // === 実行結果 ===
   executionResults?: ExecutionResult[] | null;
+
+  // === 音声パイプライン向け ===
+  allowedTools?: string[];
+  onToolStarting?: (toolName: string) => void;
+  onStreamSentence?: (sentence: string) => Promise<void>;
+  onEmotionResolved?: (emotion: EmotionType | null) => void;
 }
 
 /**
