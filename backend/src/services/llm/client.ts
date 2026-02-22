@@ -376,6 +376,18 @@ export class LLMService {
       }
 
       if (result.type === 'quote_rt' && result.quoteUrl) {
+        if (recentQuoteUrls && recentQuoteUrls.length > 0) {
+          const resultId = result.quoteUrl.match(/status\/(\d+)/)?.[1];
+          const isDuplicate = recentQuoteUrls.some((u) => {
+            if (u === result.quoteUrl) return true;
+            const existingId = u.match(/status\/(\d+)/)?.[1];
+            return resultId && existingId && resultId === existingId;
+          });
+          if (isDuplicate) {
+            logger.warn(`🐦 AutoTweet: 引用RT重複検出、投稿スキップ → ${result.quoteUrl}`);
+            return;
+          }
+        }
         logger.info(`🐦 AutoTweet: 引用RT生成完了「${result.text}」→ ${result.quoteUrl}`);
         this.eventBus.publish({
           type: 'twitter:post_scheduled_message',

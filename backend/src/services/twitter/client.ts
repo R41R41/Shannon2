@@ -496,6 +496,10 @@ export class TwitterClient extends BaseClient {
       const { text, quoteTweetUrl, imageUrl, topic } = event.data as TwitterClientInput;
       try {
         if (text && quoteTweetUrl) {
+          if (this.hasRecentlyQuoted(quoteTweetUrl)) {
+            logger.warn(`🐦 引用RT重複ブロック: ${quoteTweetUrl} は既に引用済み`);
+            return;
+          }
           await this.postQuoteTweet(text, quoteTweetUrl);
           this.saveRecentPost(text, quoteTweetUrl, topic ?? undefined);
         } else if (text) {
