@@ -111,12 +111,23 @@ export class TwitterClient extends BaseClient {
   /** 1日の返信上限 */
   private maxRepliesPerDay: number;
 
-  /** 直近の自動投稿テキスト（重複回避用） */
-  private recentAutoPosts: string[] = [];
-  /** 直近の引用元URL（同一ポスト引用RT重複回避用） */
-  private recentQuoteUrls: string[] = [];
-  /** 直近のトピック（トピック重複回避用） */
-  private recentTopics: string[] = [];
+  /** 直近の自動投稿エントリ（text / quoteUrl / topic を一体管理） */
+  private recentPostEntries: Array<{ text: string; quoteUrl?: string; topic?: string }> = [];
+
+  /** recentPostEntries から text 配列を生成 */
+  private get recentAutoPosts(): string[] {
+    return this.recentPostEntries.map((e) => e.text);
+  }
+
+  /** recentPostEntries から quoteUrl 配列を生成（undefined は除く） */
+  private get recentQuoteUrls(): string[] {
+    return this.recentPostEntries.filter((e) => e.quoteUrl).map((e) => e.quoteUrl!);
+  }
+
+  /** recentPostEntries から topic 配列を生成（undefined は除く） */
+  private get recentTopics(): string[] {
+    return this.recentPostEntries.filter((e) => e.topic).map((e) => e.topic!);
+  }
 
   /** 直近ポストをファイルから読み込む */
   private loadRecentPosts(): void {
@@ -124,21 +135,16 @@ export class TwitterClient extends BaseClient {
       if (fs.existsSync(RECENT_AUTO_POSTS_FILE)) {
         const raw = JSON.parse(fs.readFileSync(RECENT_AUTO_POSTS_FILE, 'utf-8'));
         if (Array.isArray(raw)) {
-          if (raw.length > 0 && typeof raw[0] === 'object' && raw[0] !== null) {
-            this.recentAutoPosts = raw.map((r: any) => r.text || r).slice(-MAX_RECENT_AUTO_POSTS);
-            this.recentQuoteUrls = raw
-              .filter((r: any) => r.quoteUrl)
-              .map((r: any) => r.quoteUrl)
-              .slice(-MAX_RECENT_AUTO_POSTS);
-            this.recentTopics = raw
-              .filter((r: any) => r.topic)
-              .map((r: any) => r.topic)
-              .slice(-MAX_RECENT_AUTO_POSTS);
-          } else {
-            this.recentAutoPosts = raw.slice(-MAX_RECENT_AUTO_POSTS);
-          }
+          this.recentPostEntries = raw
+            .map((r: any) => ({
+              text: typeof r === 'string' ? r : (r.text || ''),
+              ...(r.quoteUrl ? { quoteUrl: r.quoteUrl } : {}),
+              ...(r.topic ? { topic: r.topic } : {}),
+            }))
+            .filter((e) => e.text)
+            .slice(-MAX_RECENT_AUTO_POSTS);
           logger.info(
-            `📋 直近ポスト: ${this.recentAutoPosts.length}件, 引用URL: ${this.recentQuoteUrls.length}件, トピック: ${this.recentTopics.length}件を復元`,
+            `📋 直近ポスト: ${this.recentPostEntries.length}件, 引用URL: ${this.recentQuoteUrls.length}件, トピック: ${this.recentTopics.length}件を復元`,
             'cyan'
           );
         }
@@ -150,31 +156,16 @@ export class TwitterClient extends BaseClient {
 
   /** 直近ポストを追加してファイルに保存する */
   private saveRecentPost(text: string, quoteUrl?: string, topic?: string): void {
-    this.recentAutoPosts.push(text);
-    if (this.recentAutoPosts.length > MAX_RECENT_AUTO_POSTS) {
-      this.recentAutoPosts = this.recentAutoPosts.slice(-MAX_RECENT_AUTO_POSTS);
-    }
-    if (quoteUrl) {
-      this.recentQuoteUrls.push(quoteUrl);
-      if (this.recentQuoteUrls.length > MAX_RECENT_AUTO_POSTS) {
-        this.recentQuoteUrls = this.recentQuoteUrls.slice(-MAX_RECENT_AUTO_POSTS);
-      }
-    }
-    if (topic) {
-      this.recentTopics.push(topic);
-      if (this.recentTopics.length > MAX_RECENT_AUTO_POSTS) {
-        this.recentTopics = this.recentTopics.slice(-MAX_RECENT_AUTO_POSTS);
-      }
+    this.recentPostEntries.push({
+      text,
+      ...(quoteUrl ? { quoteUrl } : {}),
+      ...(topic ? { topic } : {}),
+    });
+    if (this.recentPostEntries.length > MAX_RECENT_AUTO_POSTS) {
+      this.recentPostEntries = this.recentPostEntries.slice(-MAX_RECENT_AUTO_POSTS);
     }
     try {
-      const entries = this.recentAutoPosts.map((t, i) => {
-        return {
-          text: t,
-          ...(this.recentQuoteUrls[i] ? { quoteUrl: this.recentQuoteUrls[i] } : {}),
-          ...(this.recentTopics[i] ? { topic: this.recentTopics[i] } : {}),
-        };
-      });
-      fs.writeFileSync(RECENT_AUTO_POSTS_FILE, JSON.stringify(entries, null, 2));
+      fs.writeFileSync(RECENT_AUTO_POSTS_FILE, JSON.stringify(this.recentPostEntries, null, 2));
     } catch (err) {
       logger.warn(`📋 直近ポスト保存失敗: ${err}`);
     }
@@ -502,14 +493,14 @@ export class TwitterClient extends BaseClient {
 
     this.eventBus.subscribe('twitter:post_scheduled_message', async (event) => {
       if (this.status !== 'running') return;
-      const { text, quoteTweetUrl, imageUrl } = event.data as TwitterClientInput;
+      const { text, quoteTweetUrl, imageUrl, topic } = event.data as TwitterClientInput;
       try {
         if (text && quoteTweetUrl) {
           await this.postQuoteTweet(text, quoteTweetUrl);
-          this.saveRecentPost(text, quoteTweetUrl);
+          this.saveRecentPost(text, quoteTweetUrl, topic ?? undefined);
         } else if (text) {
           await this.postTweet(text, imageUrl ?? null, null);
-          this.saveRecentPost(text);
+          this.saveRecentPost(text, undefined, topic ?? undefined);
         }
       } catch (error) {
         logger.error('Twitter post error:', error);

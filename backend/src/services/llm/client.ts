@@ -383,6 +383,7 @@ export class LLMService {
           data: {
             text: result.text,
             quoteTweetUrl: result.quoteUrl,
+            topic: result.topic,
           } as TwitterClientInput,
         });
       } else {
@@ -392,6 +393,7 @@ export class LLMService {
           memoryZone: 'twitter:post',
           data: {
             text: result.text,
+            topic: result.topic,
           } as TwitterClientInput,
         });
       }

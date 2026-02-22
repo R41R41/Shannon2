@@ -8,6 +8,8 @@ export interface TwitterClientInput extends ServiceInput {
     command?: TwitterSchedulePostEndpoint | null;
     /** 引用RTする場合の元ツイートURL (e.g. https://x.com/user/status/123) */
     quoteTweetUrl?: string | null;
+    /** 自動投稿のトピック（重複回避に使用） */
+    topic?: string | null;
 }
 export interface TwitterClientOutput extends ServiceInput {
     text: string;
