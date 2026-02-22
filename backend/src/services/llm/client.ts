@@ -363,42 +363,57 @@ export class LLMService {
     }
   }
 
+  private isQuoteUrlDuplicate(quoteUrl: string, urls: string[]): boolean {
+    const resultId = quoteUrl.match(/status\/(\d+)/)?.[1];
+    return urls.some((u) => {
+      if (u === quoteUrl) return true;
+      const existingId = u.match(/status\/(\d+)/)?.[1];
+      return resultId && existingId && resultId === existingId;
+    });
+  }
+
   private async processAutoTweet(data: TwitterAutoTweetInput) {
+    const MAX_DUPLICATE_RETRIES = 2;
     try {
-      const { trends, todayInfo, recentPosts, recentQuoteUrls, mode, recentTopics } = data;
+      const { trends, todayInfo, recentPosts, recentQuoteUrls: originalQuoteUrls, mode, recentTopics } = data;
+      const blockedUrls = [...(originalQuoteUrls || [])];
 
       logger.info(`🐦 AutoTweet: ツイート生成中 (mode=${mode}, トレンド${trends.length}件, 直近ポスト${recentPosts?.length ?? 0}件, トピック${recentTopics?.length ?? 0}件)...`);
-      const result = await this.autoTweetAgent.generateTweet(trends, todayInfo, recentPosts, recentQuoteUrls, mode, recentTopics);
 
-      if (!result) {
-        logger.warn('🐦 AutoTweet: ツイート生成失敗（レビュー不合格 or 空の結果）');
-        return;
-      }
+      for (let attempt = 0; attempt <= MAX_DUPLICATE_RETRIES; attempt++) {
+        const result = await this.autoTweetAgent.generateTweet(
+          trends, todayInfo, recentPosts, blockedUrls, mode, recentTopics,
+        );
 
-      if (result.type === 'quote_rt' && result.quoteUrl) {
-        if (recentQuoteUrls && recentQuoteUrls.length > 0) {
-          const resultId = result.quoteUrl.match(/status\/(\d+)/)?.[1];
-          const isDuplicate = recentQuoteUrls.some((u) => {
-            if (u === result.quoteUrl) return true;
-            const existingId = u.match(/status\/(\d+)/)?.[1];
-            return resultId && existingId && resultId === existingId;
-          });
-          if (isDuplicate) {
-            logger.warn(`🐦 AutoTweet: 引用RT重複検出、投稿スキップ → ${result.quoteUrl}`);
+        if (!result) {
+          logger.warn('🐦 AutoTweet: ツイート生成失敗（レビュー不合格 or 空の結果）');
+          return;
+        }
+
+        if (result.type === 'quote_rt' && result.quoteUrl) {
+          if (this.isQuoteUrlDuplicate(result.quoteUrl, blockedUrls)) {
+            if (attempt < MAX_DUPLICATE_RETRIES) {
+              blockedUrls.push(result.quoteUrl);
+              logger.warn(`🐦 AutoTweet: 引用RT重複検出、リトライ ${attempt + 1}/${MAX_DUPLICATE_RETRIES} → ${result.quoteUrl}`);
+              continue;
+            }
+            logger.warn(`🐦 AutoTweet: 引用RT重複がリトライ上限に達した、投稿スキップ → ${result.quoteUrl}`);
             return;
           }
+
+          logger.info(`🐦 AutoTweet: 引用RT生成完了「${result.text}」→ ${result.quoteUrl}`);
+          this.eventBus.publish({
+            type: 'twitter:post_scheduled_message',
+            memoryZone: 'twitter:post',
+            data: {
+              text: result.text,
+              quoteTweetUrl: result.quoteUrl,
+              topic: result.topic,
+            } as TwitterClientInput,
+          });
+          return;
         }
-        logger.info(`🐦 AutoTweet: 引用RT生成完了「${result.text}」→ ${result.quoteUrl}`);
-        this.eventBus.publish({
-          type: 'twitter:post_scheduled_message',
-          memoryZone: 'twitter:post',
-          data: {
-            text: result.text,
-            quoteTweetUrl: result.quoteUrl,
-            topic: result.topic,
-          } as TwitterClientInput,
-        });
-      } else {
+
         logger.info(`🐦 AutoTweet: 生成完了「${result.text}」`);
         this.eventBus.publish({
           type: 'twitter:post_scheduled_message',
@@ -408,6 +423,7 @@ export class LLMService {
             topic: result.topic,
           } as TwitterClientInput,
         });
+        return;
       }
     } catch (error) {
       logger.error('🐦 AutoTweet エラー:', error);
