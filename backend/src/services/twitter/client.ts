@@ -185,9 +185,9 @@ export class TwitterClient extends BaseClient {
   /** 加重ランダムでAutoTweetモードを選択 */
   private selectAutoTweetMode(): AutoTweetMode {
     const weights: [AutoTweetMode, number][] = [
-      ['original', 30],
+      ['original', 20],
       ['trend', 30],
-      ['watchlist', 20],
+      ['watchlist', 30],
       ['big_account_quote', 20],
     ];
     const total = weights.reduce((s, [, w]) => s + w, 0);

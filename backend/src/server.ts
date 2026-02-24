@@ -152,7 +152,8 @@ class Server {
       }
     });
 
-    // POST: トレンドベース自動ツイートテスト (生成 → Twitter実投稿)
+    // POST: 自動ツイートテスト (生成 → Twitter実投稿)
+    // body: { mode?: 'trend' | 'watchlist' | 'big_account_quote' | 'original' }
     // query: ?dry_run=true で投稿せずに生成結果のみ返す
     app.post('/api/test/auto-tweet', async (req, res) => {
       const key = req.headers['x-api-key'] as string | undefined;
@@ -161,24 +162,33 @@ class Server {
         return;
       }
       const dryRun = req.query.dry_run === 'true';
+      const mode = ((req.body as any)?.mode as string) || 'trend';
+      const validModes = ['trend', 'watchlist', 'big_account_quote', 'original'];
+      if (!validModes.includes(mode)) {
+        res.status(400).json({ error: `mode must be one of: ${validModes.join(', ')}` });
+        return;
+      }
       try {
         const axios = (await import('axios')).default;
         const { AutoTweetAgent } = await import('./services/llm/agents/autoTweetAgent.js');
         const agent = await AutoTweetAgent.create();
 
-        const trendsRes = await axios.get('https://api.twitterapi.io/twitter/trends', {
-          headers: { 'X-API-Key': config.twitter.twitterApiIoKey },
-          params: { woeid: '23424856' },
-        });
-        const trends = (trendsRes.data?.trends ?? []).map((t: any, i: number) => {
-          const trend = t.trend && typeof t.trend === 'object' ? t.trend : t;
-          return {
-            name: trend.name ?? '',
-            query: trend.target?.query ?? trend.query ?? trend.name ?? '',
-            rank: trend.rank ?? i + 1,
-            metaDescription: trend.meta_description ?? trend.metaDescription ?? undefined,
-          };
-        });
+        let trends: any[] = [];
+        if (mode === 'trend') {
+          const trendsRes = await axios.get('https://api.twitterapi.io/twitter/trends', {
+            headers: { 'X-API-Key': config.twitter.twitterApiIoKey },
+            params: { woeid: '23424856' },
+          });
+          trends = (trendsRes.data?.trends ?? []).map((t: any, i: number) => {
+            const trend = t.trend && typeof t.trend === 'object' ? t.trend : t;
+            return {
+              name: trend.name ?? '',
+              query: trend.target?.query ?? trend.query ?? trend.name ?? '',
+              rank: trend.rank ?? i + 1,
+              metaDescription: trend.meta_description ?? trend.metaDescription ?? undefined,
+            };
+          });
+        }
 
         const now = new Date();
         const month = now.getMonth() + 1;
@@ -186,7 +196,6 @@ class Server {
         const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][now.getDay()];
         const todayInfo = `今日: ${now.getFullYear()}年${month}月${day}日(${dayOfWeek})`;
 
-        // recent_auto_posts.json から直近投稿を読み込む
         let recentPosts: string[] = [];
         try {
           const fs = await import('fs');
@@ -194,12 +203,10 @@ class Server {
           if (fs.existsSync(recentPostsPath)) {
             recentPosts = JSON.parse(fs.readFileSync(recentPostsPath, 'utf-8'));
           }
-        } catch {
-          // ファイルが存在しない or 読み込み失敗は無視
-        }
+        } catch { /* ignore */ }
 
-        logger.info(`[Test:AutoTweet] トレンド ${trends.length}件・直近投稿 ${recentPosts.length}件で生成開始`);
-        const result = await agent.generateTweet(trends, todayInfo, recentPosts);
+        logger.info(`[Test:AutoTweet] mode=${mode}, トレンド${trends.length}件, 直近投稿${recentPosts.length}件`);
+        const result = await agent.generateTweet(trends, todayInfo, recentPosts, undefined, mode as any);
         logger.info(`[Test:AutoTweet] 生成結果: ${JSON.stringify(result)}`);
 
         if (!dryRun && result) {
@@ -218,10 +225,10 @@ class Server {
         }
         res.status(200).json({
           ok: true,
+          mode,
           result,
           trendsUsed: trends.length,
           recentPostsLoaded: recentPosts.length,
-          recentPosts: recentPosts.slice(-10),
           posted: !dryRun && !!result,
         });
       } catch (err) {
@@ -332,6 +339,84 @@ class Server {
         });
       } catch (err) {
         logger.error('[Test:MemberTweet] エラー', err);
+        res.status(500).json({ error: String(err) });
+      }
+    });
+
+    // POST: 一般返信テスト (シャノンの投稿への返信に対して返信を生成)
+    // body: { text?: string, authorName?: string }  省略時はシャノン宛リプライを自動取得
+    // query: ?dry_run=true で投稿せずに生成結果のみ返す
+    app.post('/api/test/reply-comment', async (req, res) => {
+      const key = req.headers['x-api-key'] as string | undefined;
+      if (!key || key !== config.twitter.twitterApiIoKey) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const dryRun = req.query.dry_run === 'true';
+      const inputText = (req.body as any)?.text as string | undefined;
+      const inputAuthorName = (req.body as any)?.authorName as string | undefined;
+      try {
+        const axios = (await import('axios')).default;
+        const { ReplyTwitterCommentAgent } = await import('./services/llm/agents/replyTwitterComment.js');
+        const agent = await ReplyTwitterCommentAgent.create();
+
+        let commentText: string;
+        let authorName: string;
+        let repliedTweet: string | null = null;
+        let repliedTweetAuthorName: string | null = null;
+
+        if (inputText && inputAuthorName) {
+          commentText = inputText;
+          authorName = inputAuthorName;
+        } else {
+          const shannonUserName = config.twitter.userName || 'Sh4nnon_AI';
+          const mentionsRes = await axios.get('https://api.twitterapi.io/twitter/tweet/advanced_search', {
+            headers: { 'X-API-Key': config.twitter.twitterApiIoKey },
+            params: { query: `to:${shannonUserName} -from:${shannonUserName}`, queryType: 'Latest', count: 5 },
+          });
+          const mentions = mentionsRes.data?.tweets ?? [];
+          if (mentions.length === 0) {
+            res.status(404).json({ error: `@${shannonUserName} へのリプライが見つかりません` });
+            return;
+          }
+          const pick = mentions[Math.floor(Math.random() * mentions.length)];
+          commentText = pick.text ?? '';
+          authorName = pick.author?.name ?? pick.author?.userName ?? 'unknown';
+
+          if (pick.inReplyToId) {
+            try {
+              const parentRes = await axios.get('https://api.twitterapi.io/twitter/tweets', {
+                headers: { 'X-API-Key': config.twitter.twitterApiIoKey },
+                params: { tweet_ids: pick.inReplyToId },
+              });
+              const parent = parentRes.data?.tweets?.[0];
+              if (parent) {
+                repliedTweet = parent.text ?? null;
+                repliedTweetAuthorName = parent.author?.name ?? null;
+              }
+            } catch { /* ignore */ }
+          }
+        }
+
+        logger.info(`[Test:ReplyComment] 対象: ${authorName}「${commentText.slice(0, 60)}」`);
+
+        const replyText = await agent.reply(
+          commentText,
+          authorName,
+          repliedTweet,
+          repliedTweetAuthorName,
+        );
+
+        logger.info(`[Test:ReplyComment] 生成結果: ${replyText}`);
+
+        res.status(200).json({
+          ok: true,
+          generatedReply: replyText,
+          sourceComment: { text: commentText, authorName, repliedTweet, repliedTweetAuthorName },
+          posted: false,
+        });
+      } catch (err) {
+        logger.error('[Test:ReplyComment] エラー', err);
         res.status(500).json({ error: String(err) });
       }
     });

@@ -64,6 +64,17 @@ const BIG_ACCOUNTS = [
   'xaborsa', 'nvidia', 'Shizuku_AItuber', 'cumulo_autumn',
 ];
 
+const GENRE_SEARCH_QUERIES = [
+  { genre: 'AI・テクノロジー', query: '"AI" OR "LLM" OR "ChatGPT" OR "GPT" min_faves:100 lang:ja' },
+  { genre: 'ゲーム', query: '"Minecraft" OR "マイクラ" OR "Nintendo" OR "ゲーム" min_faves:100 lang:ja' },
+  { genre: 'アニメ・漫画', query: '"アニメ" OR "漫画" OR "今期アニメ" min_faves:200 lang:ja' },
+  { genre: '食・グルメ', query: '"マクドナルド" OR "新商品" OR "期間限定" min_faves:100 lang:ja filter:media' },
+  { genre: '音楽', query: '"新曲" OR "MV" OR "ライブ" min_faves:150 lang:ja' },
+  { genre: 'VTuber', query: '"VTuber" OR "ホロライブ" OR "にじさんじ" OR "配信" min_faves:100 lang:ja' },
+  { genre: '科学・宇宙', query: '"科学" OR "宇宙" OR "NASA" OR "研究" min_faves:100 lang:ja' },
+  { genre: 'スポーツ', query: '"サッカー" OR "野球" OR "大谷" OR "オリンピック" min_faves:200 lang:ja' },
+];
+
 // ---------------------------------------------------------------------------
 // Twitter API helpers
 // ---------------------------------------------------------------------------
@@ -123,9 +134,14 @@ function formatTweet(t: any): string {
 
 class SearchTweetsTool extends StructuredTool {
   name = 'search_tweets';
-  description = 'キーワードでツイートを検索する。人気ツイートを見つけたり、トレンドの文脈を把握するのに使う。';
+  description = `キーワードでツイートを検索する（人気順）。Twitterの高度検索構文をフルサポート。
+使用例:
+  "AI" OR "LLM" min_faves:100 lang:ja  → AI関連で100いいね以上の日本語ツイート
+  "Minecraft" min_faves:50 lang:ja      → マイクラ関連でバズってるやつ
+  from:elonmusk min_faves:1000          → イーロンの人気ツイート
+演算子: min_faves:N, min_retweets:N, lang:ja, since:YYYY-MM-DD, until:YYYY-MM-DD, from:user, to:user, filter:media, OR, AND, -（除外）`;
   schema = z.object({
-    query: z.string().describe('検索クエリ（日本語・英語どちらもOK）'),
+    query: z.string().describe('検索クエリ（Twitter高度検索構文対応）'),
     count: z.number().optional().describe('取得件数（デフォルト10、最大20）'),
   });
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
@@ -419,13 +435,7 @@ export class AutoTweetAgent {
     // Phase 1: 探索 (original モードはスキップ)
     let exploration: ExplorationResult | null = null;
 
-    if (mode === 'original') {
-      exploration = {
-        type: 'tweet',
-        topic: 'オリジナル',
-        context: `今日の情報:\n${todayInfo}`,
-      };
-    } else {
+    {
       for (let attempt = 1; attempt <= 2; attempt++) {
         logger.info(`[AutoTweet] 探索 (試行 ${attempt}/2)`, 'cyan');
         exploration = await this.explore(mode, trends, todayInfo, recentPosts, recentQuoteUrls, recentTopics);
@@ -496,7 +506,7 @@ export class AutoTweetAgent {
     });
     const modelWithTools = model.bindTools(this.tools);
 
-    const userContent = this.buildExploreUserContent(
+    const userContent = await this.buildExploreUserContent(
       mode, trends, todayInfo, recentPosts, recentQuoteUrls, recentTopics,
     );
 
@@ -570,14 +580,34 @@ export class AutoTweetAgent {
     return null;
   }
 
-  private buildExploreUserContent(
+  private async fetchGenreBuzzTweets(): Promise<string> {
+    const shuffled = [...GENRE_SEARCH_QUERIES].sort(() => Math.random() - 0.5);
+    const selected = shuffled.slice(0, 3);
+    const searchTool = this.toolMap.get('search_tweets')!;
+    const results: string[] = [];
+
+    for (const { genre, query } of selected) {
+      try {
+        const result = await searchTool.invoke({ query, count: 5 });
+        if (typeof result === 'string' && !result.includes('エラー') && result !== '検索結果なし') {
+          results.push(`## ${genre}\n${result}`);
+        }
+      } catch { /* skip */ }
+    }
+
+    return results.length > 0
+      ? `# ジャンル別バズツイート（素材候補）\n\n${results.join('\n\n')}`
+      : '';
+  }
+
+  private async buildExploreUserContent(
     mode: AutoTweetMode,
     trends: TwitterTrendData[],
     todayInfo: string,
     recentPosts?: string[],
     recentQuoteUrls?: string[],
     recentTopics?: string[],
-  ): string {
+  ): Promise<string> {
     const parts: string[] = [
       `# モード: ${mode}`,
       '',
@@ -596,14 +626,45 @@ export class AutoTweetAgent {
       parts.push(`# 現在のトレンド (日本)\n${trendsText}${topicBiasText}`, '');
     }
 
+    if (mode === 'trend' || mode === 'original') {
+      const genreBuzz = await this.fetchGenreBuzzTweets();
+      if (genreBuzz) {
+        parts.push(genreBuzz, '');
+      }
+    }
+
     if (mode === 'watchlist' || mode === 'trend') {
-      parts.push('ウォッチリストの投稿は get_user_tweets ツールで取得できます。', '');
+      let accountsToShow = this.watchlist.accounts;
+      if (mode === 'watchlist' && accountsToShow.length > 6) {
+        const shuffled = [...accountsToShow].sort(() => Math.random() - 0.5);
+        accountsToShow = shuffled.slice(0, 6);
+      }
+      const watchlistAccounts = accountsToShow.length > 0
+        ? accountsToShow.map((a) => `- @${a.userName} (${a.label})`).join('\n')
+        : '';
+      parts.push(
+        `# ウォッチリスト（get_user_tweets で最新投稿を取得して面白いものを探せ）`,
+        `**必ず複数アカウントを確認すること。1人目で決めるな。全員チェックしてから選べ。**`,
+        watchlistAccounts || 'ウォッチリストの投稿は get_user_tweets ツールで取得できます。',
+        '',
+      );
     }
 
     if (mode === 'big_account_quote') {
+      const shuffled = [...BIG_ACCOUNTS].sort(() => Math.random() - 0.5);
+      const selected = shuffled.slice(0, 5);
       parts.push(
-        `# 大物アカウントリスト（これらの最新投稿を get_user_tweets で確認し、バズっているものを引用RT素材にせよ）`,
-        BIG_ACCOUNTS.map((a) => `- @${a}`).join('\n'),
+        `# 大物アカウントリスト（以下の全アカウントの最新投稿を get_user_tweets で確認し、最もバズっているものを引用RT素材にせよ）`,
+        `**必ず複数アカウントを確認すること。1人目で決めるな。全員チェックしてから選べ。**`,
+        selected.map((a) => `- @${a}`).join('\n'),
+        '',
+      );
+    }
+
+    if (mode === 'original') {
+      parts.push(
+        '# originalモード: ジャンル別バズツイートからインスピレーションを得て、オリジナルツイートの素材を提出せよ。',
+        'search_tweets で自由にトピックを探索してもよい。',
         '',
       );
     }
@@ -647,14 +708,22 @@ export class AutoTweetAgent {
     recentTopics?: string[],
     feedback?: string,
   ): Promise<AutoTweetOutput | null> {
+    const isGemini = models.autoTweetGenerate.startsWith('gemini');
+    const isO1Style = models.autoTweetGenerate.startsWith('gpt-5') || models.autoTweetGenerate.startsWith('o');
     const model = new ChatOpenAI({
       modelName: models.autoTweetGenerate,
-      temperature: 0.9,
-      configuration: {
-        baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-        apiKey: config.google.geminiApiKey,
-      },
-      apiKey: config.google.geminiApiKey,
+      ...(isO1Style ? {} : { temperature: 0.9 }),
+      ...(isGemini
+        ? {
+            configuration: {
+              baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+              apiKey: config.google.geminiApiKey,
+            },
+            apiKey: config.google.geminiApiKey,
+          }
+        : {
+            apiKey: config.openaiApiKey,
+          }),
     });
 
     const userParts: string[] = [];
