@@ -1,109 +1,158 @@
+@use '../../styles/variables' as *;
+
 .modalOverlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.6);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: $z-modal;
+  backdrop-filter: blur(4px);
 }
 
 .modalContent {
-  background-color: white;
-  border-radius: 8px;
-  width: 500px;
+  background: $bg-secondary;
+  border-radius: $radius-lg;
+  width: 600px;
   max-width: 90vw;
-  max-height: 90vh;
+  max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border: 1px solid $border-primary;
+  box-shadow: $shadow-lg;
 }
 
 .modalHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
-  border-bottom: 1px solid #e0e0e0;
+  padding: $spacing-lg $spacing-xl;
+  border-bottom: 1px solid $border-primary;
 
   h2 {
     margin: 0;
-    font-size: 20px;
+    font-size: $font-size-lg;
+    color: $text-primary;
   }
 }
 
 .closeButton {
   background: none;
   border: none;
-  font-size: 20px;
+  font-size: $font-size-lg;
   cursor: pointer;
-  padding: 4px;
+  padding: $spacing-xs;
+  color: $text-secondary;
 
-  &:hover {
-    opacity: 0.7;
-  }
+  &:hover { color: $text-primary; }
 }
 
 .modalBody {
-  padding: 24px;
+  padding: $spacing-xl;
 }
 
 .settingItem {
-  margin-bottom: 24px;
+  margin-bottom: $spacing-xl;
 
   h3 {
-    margin: 0 0 12px 0;
-    font-size: 16px;
+    margin: 0 0 $spacing-md 0;
+    font-size: $font-size-sm;
+    color: $text-primary;
+    font-weight: $font-weight-semibold;
   }
+}
 
-  label {
-    display: block;
-    margin-bottom: 8px;
-  }
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $spacing-md;
 
-  input[type="text"],
-  input[type="password"] {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
-    margin-top: 4px;
+  h3 { margin-bottom: 0 !important; }
+}
+
+.resetButton {
+  background: rgba($color-danger, 0.1);
+  border: 1px solid rgba($color-danger, 0.3);
+  color: $color-danger;
+  padding: $spacing-xs $spacing-md;
+  border-radius: $radius-sm;
+  font-size: $font-size-xxs;
+  cursor: pointer;
+
+  &:hover { background: rgba($color-danger, 0.2); }
+}
+
+.subSection {
+  font-size: $font-size-xs;
+  color: $text-secondary;
+  margin: $spacing-lg 0 $spacing-sm;
+}
+
+.modelGrid {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+}
+
+.modelRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.modelKey {
+  font-size: $font-size-xxs;
+  color: $text-secondary;
+  font-family: $font-family-mono;
+  min-width: 140px;
+  flex-shrink: 0;
+}
+
+.modelInput {
+  flex: 1;
+  background: $surface-primary;
+  border: 1px solid $border-primary;
+  border-radius: $radius-sm;
+  padding: $spacing-xs $spacing-sm;
+  font-size: $font-size-xxs;
+  font-family: $font-family-mono;
+  color: $text-primary;
+
+  &:focus {
+    border-color: $color-primary;
+    outline: none;
   }
+}
+
+.overrideBadge {
+  font-size: 9px;
+  color: $color-warning;
+  background: rgba($color-warning, 0.1);
+  padding: 1px $spacing-xs;
+  border-radius: $radius-xs;
+  flex-shrink: 0;
 }
 
 .modalFooter {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 24px;
-  border-top: 1px solid #e0e0e0;
-}
-
-.cancelButton,
-.saveButton {
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
+  gap: $spacing-md;
+  padding: $spacing-lg $spacing-xl;
+  border-top: 1px solid $border-primary;
 }
 
 .cancelButton {
-  background-color: transparent;
-  border: 1px solid #e0e0e0;
+  background: $surface-secondary;
+  border: 1px solid $border-primary;
+  color: $text-primary;
+  padding: $spacing-sm $spacing-lg;
+  border-radius: $radius-sm;
+  cursor: pointer;
+  transition: $transition-normal;
 
-  &:hover {
-    background-color: #f5f5f5;
-  }
-}
-
-.saveButton {
-  background-color: #1a73e8;
-  color: white;
-  border: none;
-
-  &:hover {
-    background-color: #1557b0;
-  }
+  &:hover { background: $surface-tertiary; }
 }
