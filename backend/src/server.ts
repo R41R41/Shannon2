@@ -17,6 +17,7 @@ import { WebClient } from './services/web/client.js';
 import { YoutubeClient } from './services/youtube/client.js';
 import { logger, initFileLogging } from './utils/logger.js';
 import { safeAsync } from './utils/safeAsync.js';
+import { modelManager } from './config/modelManager.js';
 
 class Server {
   private llmService: LLMService;
@@ -70,6 +71,41 @@ class Server {
 
     app.get('/health', (req, res) => {
       res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    });
+
+    // -----------------------------------------------------------------
+    // LLM モデル管理 API
+    // -----------------------------------------------------------------
+    app.get('/api/models', (_req, res) => {
+      res.json({
+        current: modelManager.getAll(),
+        overrides: modelManager.getOverrides(),
+      });
+    });
+
+    app.put('/api/models/:key', (req, res) => {
+      const { key } = req.params;
+      const { model } = req.body as { model?: string };
+      if (!model || typeof model !== 'string') {
+        res.status(400).json({ error: 'model is required' });
+        return;
+      }
+      try {
+        if (key.startsWith('minebot.')) {
+          const mk = key.replace('minebot.', '') as any;
+          modelManager.setMinebotModel(mk, model);
+        } else {
+          modelManager.set(key as any, model);
+        }
+        res.json({ ok: true, key, model });
+      } catch (err) {
+        res.status(400).json({ error: String(err) });
+      }
+    });
+
+    app.post('/api/models/reset', (_req, res) => {
+      modelManager.resetAll();
+      res.json({ ok: true, models: modelManager.getAll() });
     });
 
     // -----------------------------------------------------------------
