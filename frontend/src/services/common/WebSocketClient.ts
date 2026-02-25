@@ -114,6 +114,10 @@ export abstract class WebSocketClientBase {
     this.statusListeners = this.statusListeners.filter((l) => l !== listener);
   }
 
+  /**
+   * サブクラスで実装: メッセージハンドラ。
+   * JSON.parse は各サブクラスで行うが、parseMessage() ユーティリティの使用を推奨。
+   */
   protected abstract handleMessage(data: string): void;
 
   protected receivePong(data: string) {
