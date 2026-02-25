@@ -13,6 +13,24 @@ body {
     Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
+// ============================================================
+// Light theme (CSS filter inversion)
+// SCSSモジュールがSassマップからハードコードされた色値にコンパイルされるため、
+// CSSフィルターで反転させてライトテーマを実現する。
+// ============================================================
+html[data-theme="light"] {
+  filter: invert(0.92) hue-rotate(180deg);
+}
+
+html[data-theme="light"] img,
+html[data-theme="light"] video,
+html[data-theme="light"] canvas,
+html[data-theme="light"] picture,
+html[data-theme="light"] svg image,
+html[data-theme="light"] [data-no-invert] {
+  filter: invert(1) hue-rotate(180deg);
+}
+
 /* スクロールバーのスタイル */
 ::-webkit-scrollbar {
   width: 8px;
