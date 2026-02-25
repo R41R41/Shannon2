@@ -198,7 +198,7 @@
   color: color(text, primary);
 
   &:focus {
-    border-color: color(brand, primary);
+    border-color: color(primary);
     outline: none;
   }
 
@@ -223,23 +223,23 @@
 
   &.active {
     background: color(surface, tertiary);
-    border-color: color(border, hover);
+    border-color: color(border, subtle);
     color: color(text, primary);
   }
 
   &.levelWarn.active {
-    border-color: color(semantic, warning);
+    border-color: color(warning);
   }
 
   &.levelError.active {
-    border-color: color(semantic, danger);
+    border-color: color(danger);
   }
 }
 
 .logCount {
   font-size: font-size(xxs);
   color: color(text, disabled);
-  font-family: font(mono);
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
   min-width: 30px;
   text-align: right;
 }

@@ -25,12 +25,12 @@
   select {
     font-size: 10px;
     padding: 0.5rem;
-    border: 1px solid color(border, 'secondary');
+    border: 1px solid color(border, secondary);
     border-radius: 4px;
-    background-color: color(surface, 'secondary');
-    color: color(text, 'primary');
+    background-color: color(surface, secondary);
+    color: color(text, primary);
     &::placeholder {
-      color: color(text, 'secondary');
+      color: color(text, secondary);
     }
   }
 
@@ -72,16 +72,16 @@
   }
 
   .timestamp {
-    color: color(text, 'secondary');
+    color: color(text, secondary);
   }
 
   .platform {
-    color: color('primary');
+    color: color(primary);
   }
 
   .content {
     font-size: 14px;
-    color: color(text, 'primary');
+    color: color(text, primary);
     word-break: break-word;
     &.white {
       color: color(text, white);

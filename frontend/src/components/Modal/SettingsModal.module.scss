@@ -1,3 +1,4 @@
+@use 'sass:map';
 @use '../../styles/variables' as *;
 
 .modalOverlay {
@@ -10,58 +11,58 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: $z-modal;
+  z-index: z(modal);
   backdrop-filter: blur(4px);
 }
 
 .modalContent {
-  background: $bg-secondary;
-  border-radius: $radius-lg;
+  background: color(background, secondary);
+  border-radius: radius(lg);
   width: 600px;
   max-width: 90vw;
   max-height: 80vh;
   overflow-y: auto;
-  border: 1px solid $border-primary;
-  box-shadow: $shadow-lg;
+  border: 1px solid color(border, primary);
+  box-shadow: shadow(lg);
 }
 
 .modalHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: $spacing-lg $spacing-xl;
-  border-bottom: 1px solid $border-primary;
+  padding: spacing(lg) spacing(xl);
+  border-bottom: 1px solid color(border, primary);
 
   h2 {
     margin: 0;
-    font-size: $font-size-lg;
-    color: $text-primary;
+    font-size: font-size(lg);
+    color: color(text, primary);
   }
 }
 
 .closeButton {
   background: none;
   border: none;
-  font-size: $font-size-lg;
+  font-size: font-size(lg);
   cursor: pointer;
-  padding: $spacing-xs;
-  color: $text-secondary;
+  padding: spacing(xs);
+  color: color(text, secondary);
 
-  &:hover { color: $text-primary; }
+  &:hover { color: color(text, primary); }
 }
 
 .modalBody {
-  padding: $spacing-xl;
+  padding: spacing(xl);
 }
 
 .settingItem {
-  margin-bottom: $spacing-xl;
+  margin-bottom: spacing(xl);
 
   h3 {
-    margin: 0 0 $spacing-md 0;
-    font-size: $font-size-sm;
-    color: $text-primary;
-    font-weight: $font-weight-semibold;
+    margin: 0 0 spacing(md) 0;
+    font-size: font-size(sm);
+    color: color(text, primary);
+    font-weight: font-weight(semibold);
   }
 }
 
@@ -69,90 +70,90 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: $spacing-md;
+  margin-bottom: spacing(md);
 
   h3 { margin-bottom: 0 !important; }
 }
 
 .resetButton {
-  background: rgba($color-danger, 0.1);
-  border: 1px solid rgba($color-danger, 0.3);
-  color: $color-danger;
-  padding: $spacing-xs $spacing-md;
-  border-radius: $radius-sm;
-  font-size: $font-size-xxs;
+  background: rgba(color(danger), 0.1);
+  border: 1px solid rgba(color(danger), 0.3);
+  color: color(danger);
+  padding: spacing(xs) spacing(md);
+  border-radius: radius(sm);
+  font-size: font-size(xxs);
   cursor: pointer;
 
-  &:hover { background: rgba($color-danger, 0.2); }
+  &:hover { background: rgba(color(danger), 0.2); }
 }
 
 .subSection {
-  font-size: $font-size-xs;
-  color: $text-secondary;
-  margin: $spacing-lg 0 $spacing-sm;
+  font-size: font-size(xs);
+  color: color(text, secondary);
+  margin: spacing(lg) 0 spacing(sm);
 }
 
 .modelGrid {
   display: flex;
   flex-direction: column;
-  gap: $spacing-xs;
+  gap: spacing(xs);
 }
 
 .modelRow {
   display: flex;
   align-items: center;
-  gap: $spacing-sm;
+  gap: spacing(sm);
 }
 
 .modelKey {
-  font-size: $font-size-xxs;
-  color: $text-secondary;
-  font-family: $font-family-mono;
+  font-size: font-size(xxs);
+  color: color(text, secondary);
+  font-family: map.get($font, mono);
   min-width: 140px;
   flex-shrink: 0;
 }
 
 .modelInput {
   flex: 1;
-  background: $surface-primary;
-  border: 1px solid $border-primary;
-  border-radius: $radius-sm;
-  padding: $spacing-xs $spacing-sm;
-  font-size: $font-size-xxs;
-  font-family: $font-family-mono;
-  color: $text-primary;
+  background: color(surface, primary);
+  border: 1px solid color(border, primary);
+  border-radius: radius(sm);
+  padding: spacing(xs) spacing(sm);
+  font-size: font-size(xxs);
+  font-family: map.get($font, mono);
+  color: color(text, primary);
 
   &:focus {
-    border-color: $color-primary;
+    border-color: color(primary);
     outline: none;
   }
 }
 
 .overrideBadge {
   font-size: 9px;
-  color: $color-warning;
-  background: rgba($color-warning, 0.1);
-  padding: 1px $spacing-xs;
-  border-radius: $radius-xs;
+  color: color(warning);
+  background: rgba(color(warning), 0.1);
+  padding: 1px spacing(xs);
+  border-radius: radius(xs);
   flex-shrink: 0;
 }
 
 .modalFooter {
   display: flex;
   justify-content: flex-end;
-  gap: $spacing-md;
-  padding: $spacing-lg $spacing-xl;
-  border-top: 1px solid $border-primary;
+  gap: spacing(md);
+  padding: spacing(lg) spacing(xl);
+  border-top: 1px solid color(border, primary);
 }
 
 .cancelButton {
-  background: $surface-secondary;
-  border: 1px solid $border-primary;
-  color: $text-primary;
-  padding: $spacing-sm $spacing-lg;
-  border-radius: $radius-sm;
+  background: color(surface, secondary);
+  border: 1px solid color(border, primary);
+  color: color(text, primary);
+  padding: spacing(sm) spacing(lg);
+  border-radius: radius(sm);
   cursor: pointer;
-  transition: $transition-normal;
+  transition: all transition(normal);
 
-  &:hover { background: $surface-tertiary; }
+  &:hover { background: color(surface, tertiary); }
 }
