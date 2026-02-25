@@ -179,3 +179,67 @@
     color: color(text, cyan);
   }
 }
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: spacing(xs);
+  padding: spacing(xs) 0;
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  background: color(surface, primary);
+  border: 1px solid color(border, primary);
+  border-radius: radius(sm);
+  padding: spacing(xxs) spacing(sm);
+  font-size: font-size(xxs);
+  color: color(text, primary);
+
+  &:focus {
+    border-color: color(brand, primary);
+    outline: none;
+  }
+
+  &::placeholder {
+    color: color(text, disabled);
+  }
+}
+
+.levelButtons {
+  display: flex;
+  gap: 2px;
+}
+
+.levelBtn {
+  background: none;
+  border: 1px solid color(border, secondary);
+  border-radius: radius(xs);
+  padding: spacing(xxs) spacing(xs);
+  font-size: font-size(xxs);
+  color: color(text, secondary);
+  cursor: pointer;
+
+  &.active {
+    background: color(surface, tertiary);
+    border-color: color(border, hover);
+    color: color(text, primary);
+  }
+
+  &.levelWarn.active {
+    border-color: color(semantic, warning);
+  }
+
+  &.levelError.active {
+    border-color: color(semantic, danger);
+  }
+}
+
+.logCount {
+  font-size: font-size(xxs);
+  color: color(text, disabled);
+  font-family: font(mono);
+  min-width: 30px;
+  text-align: right;
+}
