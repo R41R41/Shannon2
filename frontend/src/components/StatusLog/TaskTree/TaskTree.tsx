@@ -72,6 +72,24 @@ const TaskTree: React.FC<TaskTreeProps> = ({ planning, isMobile }) => {
             <span className={styles.goalText}>{taskTree.goal}</span>
           </div>
 
+          {taskTree.subTasks && taskTree.subTasks.length > 0 && (() => {
+            const total = taskTree.subTasks.length;
+            const completed = taskTree.subTasks.filter(t => t.subTaskStatus === 'completed').length;
+            const errors = taskTree.subTasks.filter(t => t.subTaskStatus === 'error').length;
+            const pct = Math.round((completed / total) * 100);
+            return (
+              <div className={styles.progressSection}>
+                <div className={styles.progressBar}>
+                  <div className={styles.progressFill} style={{ width: `${pct}%` }} />
+                  {errors > 0 && (
+                    <div className={styles.progressError} style={{ width: `${Math.round((errors / total) * 100)}%` }} />
+                  )}
+                </div>
+                <span className={styles.progressText}>{completed}/{total} 完了{errors > 0 ? ` (${errors}エラー)` : ''}</span>
+              </div>
+            );
+          })()}
+
           {taskTree.strategy && (
             <div className={styles.strategyText}>{taskTree.strategy}</div>
           )}
