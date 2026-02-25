@@ -1,4 +1,5 @@
 import { ChatOpenAI } from '@langchain/openai';
+import { createTracedModel } from '../../../../llm/utils/langfuse.js';
 import { HierarchicalSubTask, TaskTreeState } from '@shannon/common';
 import { Vec3 } from 'vec3';
 import { z } from 'zod';
@@ -69,7 +70,7 @@ export class PlanningNode {
     const modelName = models.planning;
     const reasoningEffort = 'low';
 
-    this.model = new ChatOpenAI({
+    this.model = createTracedModel({
       modelName,
       apiKey: config.openaiApiKey,
       timeout: 45000, // 45秒タイムアウト

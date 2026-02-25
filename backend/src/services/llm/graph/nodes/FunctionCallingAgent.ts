@@ -1,4 +1,5 @@
 import { ChatOpenAI } from '@langchain/openai';
+import { createTracedModel } from '../../utils/langfuse.js';
 import { tokenTracker } from '../../utils/tokenTracker.js';
 import { config } from '../../../../config/env.js';
 import { models } from '../../../../config/models.js';
@@ -96,7 +97,7 @@ export class FunctionCallingAgent {
             this.updatePlanTool = planTool;
         }
 
-        this.model = new ChatOpenAI({
+        this.model = createTracedModel({
             modelName: FunctionCallingAgent.MODEL_NAME,
             apiKey: config.openaiApiKey,
             temperature: 0,

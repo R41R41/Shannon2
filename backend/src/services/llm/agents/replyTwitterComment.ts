@@ -4,6 +4,7 @@ import { TaskContext } from '@shannon/common';
 import { loadPrompt } from '../config/prompts.js';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
+import { createTracedModel } from '../utils/langfuse.js';
 import { MemoryNode } from '../graph/nodes/MemoryNode.js';
 import { IExchange } from '../../../models/PersonMemory.js';
 import { logger } from '../../../utils/logger.js';
@@ -19,7 +20,7 @@ export class ReplyTwitterCommentAgent {
   private memoryNode: MemoryNode | null = null;
 
   private constructor(systemPrompt: string) {
-    this.model = new ChatOpenAI({
+    this.model = createTracedModel({
       modelName: models.contentGeneration,
       temperature: 1,
       apiKey: OPENAI_API_KEY,

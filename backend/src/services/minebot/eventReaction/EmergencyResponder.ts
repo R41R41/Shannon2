@@ -6,6 +6,7 @@
 
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
+import { createTracedModel } from '../../llm/utils/langfuse.js';
 import { CustomBot } from '../types.js';
 import { models } from '../../../config/models.js';
 import {
@@ -31,10 +32,10 @@ export class EmergencyResponder {
 
     constructor(bot: CustomBot) {
         this.bot = bot;
-        this.llm = new ChatOpenAI({
+        this.llm = createTracedModel({
             modelName: models.emergency,
-            temperature: 0.1, // 低い温度で一貫した応答
-            maxTokens: 150,   // 短い応答で高速化
+            temperature: 0.1,
+            maxTokens: 150,
         });
     }
 

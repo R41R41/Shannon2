@@ -147,6 +147,12 @@ export const config = {
     apiKey: optional('GROQ_API_KEY', ''),
   },
 
+  langfuse: {
+    secretKey: optional('LANGFUSE_SECRET_KEY', ''),
+    publicKey: optional('LANGFUSE_PUBLIC_KEY', ''),
+    baseUrl: optional('LANGFUSE_BASE_URL', 'https://cloud.langfuse.com'),
+  },
+
   voicepeak: {
     serverUrl: optional('VOICEPEAK_SERVER_URL', 'http://localhost:8090'),
     narrator: optional('VOICEPEAK_NARRATOR', 'Japanese Female4'),

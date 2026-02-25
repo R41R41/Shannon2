@@ -3,6 +3,7 @@
  * プライマリが失敗した場合にフォールバックプロバイダーへ自動切替する。
  */
 import { ChatOpenAI } from '@langchain/openai';
+import { createTracedModel } from './langfuse.js';
 import { config } from '../../../config/env.js';
 import { logger } from '../../../utils/logger.js';
 
@@ -15,7 +16,7 @@ interface FallbackConfig {
 }
 
 export function createLLMWithFallback(cfg: FallbackConfig): ChatOpenAI {
-  const primary = new ChatOpenAI({
+  const primary = createTracedModel({
     modelName: cfg.primaryModel,
     openAIApiKey: config.openaiApiKey,
     maxRetries: cfg.maxRetries ?? 2,
@@ -26,7 +27,7 @@ export function createLLMWithFallback(cfg: FallbackConfig): ChatOpenAI {
   const fallbackApiKey = cfg.fallbackApiKey || config.groq.apiKey || config.google.geminiApiKey;
   if (!fallbackApiKey) return primary;
 
-  const fallback = new ChatOpenAI({
+  const fallback = createTracedModel({
     modelName: cfg.fallbackModel,
     openAIApiKey: fallbackApiKey,
     configuration: cfg.fallbackBaseURL ? { baseURL: cfg.fallbackBaseURL } : undefined,

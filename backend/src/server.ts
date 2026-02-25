@@ -1,5 +1,6 @@
 import express from 'express';
 import http from 'http';
+import fs from 'fs';
 import path from 'path';
 import mongoose from 'mongoose';
 import { TwitterReplyOutput } from '@shannon/common';
@@ -17,6 +18,7 @@ import { WebClient } from './services/web/client.js';
 import { YoutubeClient } from './services/youtube/client.js';
 import { logger, initFileLogging } from './utils/logger.js';
 import { safeAsync } from './utils/safeAsync.js';
+import { shutdownLangfuse } from './services/llm/utils/langfuse.js';
 import { modelManager } from './config/modelManager.js';
 import { tokenTracker } from './services/llm/utils/tokenTracker.js';
 
@@ -133,8 +135,7 @@ class Server {
     // -----------------------------------------------------------------
     app.get('/api/twitter/schedule', (_req, res) => {
       try {
-        const fs = require('fs');
-        const schedulePath = require('path').resolve('saves/auto_post_daily_schedule.json');
+        const schedulePath = path.resolve('saves/auto_post_daily_schedule.json');
         if (fs.existsSync(schedulePath)) {
           const data = JSON.parse(fs.readFileSync(schedulePath, 'utf-8'));
           res.json(data);
@@ -787,6 +788,7 @@ class Server {
     // ルールは常時有効のままにしておく。
 
     // 各サービスのクリーンアップ処理
+    await shutdownLangfuse();
     await mongoose.disconnect();
     logger.error('MongoDB disconnected');
     process.exit(0);

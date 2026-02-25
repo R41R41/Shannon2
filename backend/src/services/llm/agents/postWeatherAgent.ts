@@ -1,5 +1,6 @@
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
+import { createTracedModel } from '../utils/langfuse.js';
 import { PromptType } from '@shannon/common';
 import axios from 'axios';
 import { addDays, format } from 'date-fns';
@@ -111,7 +112,7 @@ export class PostWeatherAgent {
     systemPrompts: Map<PromptType, string>,
     cities: string[] = ['仙台', '東京', '名古屋', '大阪', '福岡']
   ) {
-    this.model = new ChatOpenAI({
+    this.model = createTracedModel({
       modelName: models.scheduledPost,
       apiKey: OPENAI_API_KEY,
     });

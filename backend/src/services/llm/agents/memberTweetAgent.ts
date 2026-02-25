@@ -6,11 +6,11 @@ import {
   ToolMessage,
 } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
-import { ChatOpenAI } from '@langchain/openai';
 import { TaskContext } from '@shannon/common';
 import { z } from 'zod';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
+import { createTracedModel } from '../utils/langfuse.js';
 import { IExchange } from '../../../models/PersonMemory.js';
 import { logger } from '../../../utils/logger.js';
 import { loadPrompt } from '../config/prompts.js';
@@ -150,7 +150,7 @@ export class MemberTweetAgent {
     }
 
     // === LLM呼び出し (FCA) ===
-    const model = new ChatOpenAI({
+    const model = createTracedModel({
       modelName: models.contentGeneration,
       temperature: 1,
     });

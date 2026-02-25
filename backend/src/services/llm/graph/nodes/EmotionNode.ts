@@ -1,4 +1,5 @@
 import { ChatOpenAI } from '@langchain/openai';
+import { createTracedModel } from '../../utils/langfuse.js';
 import { config } from '../../../../config/env.js';
 import { models } from '../../../../config/models.js';
 import { AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
@@ -100,7 +101,7 @@ export class EmotionNode {
 
         // gpt-5-mini（感情分析は軽量モデルで十分）
         // gpt-5-mini は temperature=1 のみサポート（デフォルト値を使用）
-        this.model = new ChatOpenAI({
+        this.model = createTracedModel({
             modelName: models.emotion,
             apiKey: config.openaiApiKey,
         });

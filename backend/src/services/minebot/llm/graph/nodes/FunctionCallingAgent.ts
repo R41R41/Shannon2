@@ -1,4 +1,5 @@
 import { ChatOpenAI } from '@langchain/openai';
+import { createTracedModel } from '../../../../llm/utils/langfuse.js';
 import {
   AIMessage,
   BaseMessage,
@@ -106,7 +107,7 @@ export class FunctionCallingAgent {
 
     const modelName = FunctionCallingAgent.MODEL_NAME;
 
-    this.model = new ChatOpenAI({
+    this.model = createTracedModel({
       modelName,
       apiKey: config.openaiApiKey,
       temperature: 0,

@@ -6,6 +6,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
+import { getTracedOpenAI } from '../utils/langfuse.js';
 import { logger } from '../../../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -29,7 +30,7 @@ export default class CreateImageTool extends StructuredTool {
     if (!openaiApiKey) {
       throw new Error('OPENAI_API_KEY environment variable is not set.');
     }
-    this.openai = new OpenAI({ apiKey: openaiApiKey });
+    this.openai = getTracedOpenAI(new OpenAI({ apiKey: openaiApiKey }));
 
     // 画像保存ディレクトリ
     this.outputDir = join(__dirname, '../../../../saves/images/generated');

@@ -5,6 +5,7 @@ import { loadPrompt } from '../config/prompts.js';
 import { models } from '../../../config/models.js';
 import { logger } from '../../../utils/logger.js';
 import { createLLMWithFallback } from '../utils/llmWithFallback.js';
+import { createTracedModel } from '../utils/langfuse.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -204,7 +205,7 @@ export class PostFortuneAgent {
   // =========================================================================
 
   private async review(draft: string): Promise<ReviewResult> {
-    const model = new ChatOpenAI({
+    const model = createTracedModel({
       modelName: models.autoTweet,
       temperature: 0,
     });

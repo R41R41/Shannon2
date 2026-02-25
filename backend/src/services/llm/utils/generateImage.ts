@@ -1,9 +1,10 @@
 import OpenAI from 'openai';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
+import { getTracedOpenAI } from './langfuse.js';
 import { logger } from '../../../utils/logger.js';
 
-const openai = new OpenAI({ apiKey: config.openaiApiKey });
+const openai = getTracedOpenAI(new OpenAI({ apiKey: config.openaiApiKey }));
 
 /**
  * OpenAI gpt-image でテキストから画像を生成し、Buffer を返す。
