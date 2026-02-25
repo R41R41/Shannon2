@@ -66,6 +66,7 @@ import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { logger } from '../../utils/logger.js';
 import { voiceResponseChannelIds } from './voiceState.js';
 import { loadFillers, generateAllFillers } from './voiceFiller.js';
+import { loadServerChoices } from './serverChoices.js';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
 
@@ -249,11 +250,7 @@ export class DiscordBot extends BaseClient {
 
   private async setupSlashCommands() {
     try {
-      const serverChoices = [
-        { name: 'YouTube配信用', value: '1.21.4-fabric-youtube' },
-        { name: 'テスト用', value: '1.21.4-test' },
-        { name: 'プレイ用', value: '1.21.1-play' },
-      ];
+      const serverChoices = loadServerChoices();
 
       const commands = [
         new SlashCommandBuilder()
