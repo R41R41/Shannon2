@@ -148,23 +148,23 @@
 
 .themeToggle {
   display: flex;
-  gap: $spacing-xs;
+  gap: spacing(xs);
 }
 
 .themeBtn {
-  background: $surface-primary;
-  border: 1px solid $border-primary;
-  color: $text-secondary;
-  padding: $spacing-xs $spacing-md;
-  border-radius: $radius-sm;
-  font-size: $font-size-xxs;
+  background: color(surface, primary);
+  border: 1px solid color(border, primary);
+  color: color(text, secondary);
+  padding: spacing(xs) spacing(md);
+  border-radius: radius(sm);
+  font-size: font-size(xxs);
   cursor: pointer;
-  transition: $transition-normal;
+  transition: all transition(normal);
 
   &.active {
-    background: rgba($color-primary, 0.15);
-    border-color: $color-primary;
-    color: $color-primary;
+    background: rgba(color(primary), 0.15);
+    border-color: color(primary);
+    color: color(primary);
   }
 }
 

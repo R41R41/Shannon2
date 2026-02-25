@@ -27,7 +27,7 @@
   background: color(surface, secondary);
   padding: spacing(xxs) spacing(xs);
   border-radius: radius(sm);
-  font-family: font(mono);
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
 }
 
 .scheduleList {
@@ -93,9 +93,9 @@
   flex-shrink: 0;
 
   &:hover {
-    background: rgba(color(brand, primary), 0.15);
-    border-color: color(brand, primary);
-    color: color(brand, primary);
+    background: rgba(color(primary), 0.15);
+    border-color: color(primary);
+    color: color(primary);
   }
 
   &:disabled {

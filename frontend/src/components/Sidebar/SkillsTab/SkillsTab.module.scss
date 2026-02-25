@@ -22,7 +22,7 @@
   font-size: font-size(xs);
   color: color(text, primary);
 
-  &:focus { border-color: color(brand, primary); outline: none; }
+  &:focus { border-color: color(primary); outline: none; }
   &::placeholder { color: color(text, disabled); }
 }
 
@@ -32,7 +32,7 @@
   background: color(surface, secondary);
   padding: spacing(xxs) spacing(xs);
   border-radius: radius(sm);
-  font-family: font(mono);
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
 }
 
 .categoryGroup {
@@ -57,7 +57,7 @@
 .categoryCount {
   font-size: font-size(xxs);
   color: color(text, disabled);
-  font-family: font(mono);
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
 }
 
 .skillCard {
@@ -67,7 +67,7 @@
   margin-bottom: spacing(xxs);
   margin-left: spacing(sm);
   cursor: pointer;
-  transition: transition(fast);
+  transition: all transition(fast);
   border: 1px solid transparent;
 
   &:hover { border-color: color(border, primary); }
@@ -83,7 +83,7 @@
       margin: 0;
       font-size: font-size(xs);
       color: color(text, primary);
-      font-family: font(mono);
+      font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
     }
 
     svg { color: color(text, disabled); }
@@ -110,8 +110,8 @@
 
     .paramName {
       font-weight: font-weight(semibold);
-      color: color(brand, primary);
-      font-family: font(mono);
+      color: color(primary);
+      font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
       flex-shrink: 0;
     }
 

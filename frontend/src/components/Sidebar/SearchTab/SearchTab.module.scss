@@ -26,7 +26,7 @@
   background: color(surface, secondary);
   padding: spacing(xxs) spacing(xs);
   border-radius: radius(sm);
-  font-family: font(mono);
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
 }
 
 .searchForm {
@@ -46,7 +46,7 @@
     color: color(text, primary);
 
     &::placeholder { color: color(text, disabled); }
-    &:focus { border-color: color(brand, primary); outline: none; }
+    &:focus { border-color: color(primary); outline: none; }
   }
 
   input[type='datetime-local'] {
@@ -104,7 +104,7 @@
   }
 
   .platform {
-    color: color(brand, primary);
+    color: color(primary);
     font-size: font-size(xxs);
   }
 
