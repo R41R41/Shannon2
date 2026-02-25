@@ -1,6 +1,7 @@
 import { ServiceStatus } from "@common/types/common";
 import { StatusAgentOutput } from "@common/types/web";
 import { WebSocketClientBase } from "../common/WebSocketClient";
+import { parseMessage } from "../common/messageSchema";
 import { URLS } from "../config/ports";
 
 type StatusCallback = (status: ServiceStatus) => void;
@@ -18,7 +19,7 @@ export class StatusAgent extends WebSocketClientBase {
 
   protected handleMessage(message: string) {
     const data = JSON.parse(message) as StatusAgentOutput;
-    if (data.type === "pong") return;
+    if (!data || data.type === "pong") return;
 
     const listeners = this.serviceStatusListeners.get(data.service);
     if (listeners && data.data) {

@@ -1,5 +1,6 @@
 import { EmotionType } from "@common/types/taskGraph";
 import { WebSocketClientBase } from "../common/WebSocketClient";
+import { parseMessage } from "../common/messageSchema";
 import { URLS } from "../config/ports";
 
 type UpdateEmotionCallback = (emotion: EmotionType) => void;
@@ -22,8 +23,8 @@ export class EmotionAgent extends WebSocketClientBase {
   }
 
   protected handleMessage(message: string) {
-    const data = JSON.parse(message);
-    if (data.type === "pong") return;
+    const data = parseMessage(message);
+    if (!data || data.type === "pong") return;
     if (data.type === "web:emotion") {
       this.updateEmotionCallback(data.data as EmotionType);
     }

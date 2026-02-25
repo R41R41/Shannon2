@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   MainContainer,
   ChatContainer,
@@ -13,6 +13,7 @@ import "@chatscope/chat-ui-kit-styles/dist/default/styles.min.css";
 import "./ChatScope.scss";
 import { AIMessage, BaseMessage, HumanMessage } from "@langchain/core/messages";
 import { UserInfo } from "@common/types/web";
+import { useChatHistory } from "@/hooks/useChatHistory";
 
 interface ChatScopeProps {
   openai: OpenAIAgent | null;
@@ -21,7 +22,12 @@ interface ChatScopeProps {
 
 export const ChatScope: React.FC<ChatScopeProps> = ({ openai, userInfo }) => {
   const [isTyping] = useState(false);
-  const [chatMessages, setChatMessages] = useState<BaseMessage[]>([]);
+  const { messages: savedMessages, addMessage: saveToChatHistory } = useChatHistory();
+  const [chatMessages, setChatMessages] = useState<BaseMessage[]>(() => {
+    return savedMessages.map((m) =>
+      m.sender === 'user' ? new HumanMessage(m.text) : new AIMessage(m.text)
+    );
+  });
   const [processingChatMessageIndex, setProcessingChatMessageIndex] =
     useState<number>(0);
   const [isRealTimeChat, setIsRealTimeChat] = useState(false);
@@ -44,17 +50,9 @@ export const ChatScope: React.FC<ChatScopeProps> = ({ openai, userInfo }) => {
         timeZone: "Asia/Tokyo",
       });
 
-      setChatMessages((prev) => [
-        ...prev,
-        new HumanMessage(
-          currentTime +
-            " " +
-            (userInfo?.name ? userInfo.name : "User") +
-            ":" +
-            " " +
-            cleanMessage
-        ),
-      ]);
+      const formattedMsg = currentTime + " " + (userInfo?.name ? userInfo.name : "User") + ": " + cleanMessage;
+      setChatMessages((prev) => [...prev, new HumanMessage(formattedMsg)]);
+      saveToChatHistory('user', cleanMessage);
 
       const senderName = userInfo?.name ? userInfo.name : "User";
 
@@ -105,7 +103,13 @@ export const ChatScope: React.FC<ChatScopeProps> = ({ openai, userInfo }) => {
       }
     };
     openai.textDoneCallback = () => {
-      console.log("textDoneCallback");
+      setChatMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last instanceof AIMessage && typeof last.content === 'string') {
+          saveToChatHistory('ai', last.content);
+        }
+        return prev;
+      });
       setProcessingChatMessageIndex(chatMessages.length + 1);
     };
     openai.userTranscriptCallback = (text: string) => {

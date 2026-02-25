@@ -1,6 +1,7 @@
 import { ILog } from "@common/types/common";
 import { SearchQuery } from "@common/types/web";
 import { WebSocketClientBase } from "../common/WebSocketClient";
+import { parseMessage } from "../common/messageSchema";
 import { URLS } from "../config/ports";
 
 type LogCallback = (log: ILog) => void;
@@ -25,8 +26,8 @@ export class MonitoringAgent extends WebSocketClientBase {
   }
 
   protected handleMessage(message: string) {
-    const data = JSON.parse(message);
-    if (data.type === "pong") return;
+    const data = parseMessage(message);
+    if (!data || data.type === "pong") return;
     if (data.type === "web:searchResults") {
       this.searchListeners.forEach((listener) => listener(data.data as ILog[]));
     }
