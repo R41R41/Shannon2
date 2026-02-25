@@ -121,6 +121,31 @@ class Server {
       res.json(await tokenTracker.getDailyStats(days));
     });
 
+    app.get('/api/tokens/today', async (_req, res) => {
+      const daily = await tokenTracker.getDailyStats(1);
+      const todayTotal = daily.reduce((sum: number, d: any) => sum + (d.totalTokens || 0), 0);
+      const todayCalls = daily.reduce((sum: number, d: any) => sum + (d.calls || 0), 0);
+      res.json({ totalTokens: todayTotal, callCount: todayCalls, details: daily });
+    });
+
+    // -----------------------------------------------------------------
+    // 投稿スケジュール API
+    // -----------------------------------------------------------------
+    app.get('/api/twitter/schedule', (_req, res) => {
+      try {
+        const fs = require('fs');
+        const schedulePath = require('path').resolve('saves/auto_post_daily_schedule.json');
+        if (fs.existsSync(schedulePath)) {
+          const data = JSON.parse(fs.readFileSync(schedulePath, 'utf-8'));
+          res.json(data);
+        } else {
+          res.json({ date: '', times: [], postedCount: 0 });
+        }
+      } catch {
+        res.json({ date: '', times: [], postedCount: 0 });
+      }
+    });
+
     // -----------------------------------------------------------------
     // Twitter Webhook: twitterapi.io からのリアルタイム返信通知を受信
     // -----------------------------------------------------------------

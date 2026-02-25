@@ -20,9 +20,10 @@ export const KPICards: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [healthRes, tokenRes] = await Promise.allSettled([
+        const [healthRes, tokenRes, scheduleRes] = await Promise.allSettled([
           fetch('/api/health').then(r => r.json()),
-          fetch('/api/tokens/session').then(r => r.json()),
+          fetch('/api/tokens/today').then(r => r.json()),
+          fetch('/api/twitter/schedule').then(r => r.json()),
         ]);
 
         setCards(prev => {
@@ -34,7 +35,13 @@ export const KPICards: React.FC = () => {
           if (tokenRes.status === 'fulfilled') {
             const data = tokenRes.value;
             const totalK = data.totalTokens ? `${(data.totalTokens / 1000).toFixed(1)}K` : '0';
-            next[2] = { ...next[2], value: totalK, sub: `${data.callCount || 0}回のAPI呼出` };
+            next[2] = { ...next[2], value: totalK, sub: `${data.callCount || 0}回のAPI呼出（本日累計）` };
+          }
+          if (scheduleRes.status === 'fulfilled') {
+            const sched = scheduleRes.value;
+            const total = sched.times?.length || 0;
+            const posted = sched.postedCount || 0;
+            next[1] = { ...next[1], value: `${posted}/${total}`, sub: `スケジュール (${sched.date || '---'})` };
           }
           return next;
         });
