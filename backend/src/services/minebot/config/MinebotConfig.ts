@@ -31,6 +31,9 @@ export class MinebotConfig {
   /** CentralAgent時の温度パラメータ */
   readonly TEMPERATURE_CENTRAL = 0.3;
 
+  /** スキル実行のデフォルトタイムアウト（ミリ秒）。0 = 無制限 */
+  readonly SKILL_TIMEOUT_MS = 120_000;
+
   // ===== サーバー設定 =====
 
   /** MinebotのAPIサーバーポート */
