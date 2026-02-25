@@ -1,10 +1,16 @@
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
+export interface ConnectionInfo {
+  status: ConnectionStatus;
+  reconnectAttempts: number;
+  nextRetryMs: number | null;
+}
+
 export abstract class WebSocketClientBase {
   protected ws: WebSocket | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 60; // 5分 = 60回 (5秒間隔)
-  private reconnectDelay = 5000; // 5秒
+  private maxReconnectAttempts = 20;
+  private reconnectTimerId: number | null = null;
   private pingInterval: number | null = null;
   private lastPongReceived = 0;
   private pingTimeoutId: number | null = null;
@@ -84,15 +90,37 @@ export abstract class WebSocketClientBase {
     }
   }
 
+  /**
+   * 指数バックオフで再接続を試みる。
+   * 1s → 2s → 4s → 8s → ... 最大 30s、最大 20 回まで。
+   */
   private reconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.warn(`[WS] Max reconnect attempts (${this.maxReconnectAttempts}) reached for ${this.url}`);
       this.setStatus("disconnected");
       return;
     }
 
     this.setStatus("connecting");
     this.reconnectAttempts++;
-    setTimeout(() => this.connect(), this.reconnectDelay);
+    const baseDelay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
+    const jitter = Math.random() * 1000;
+    const delay = baseDelay + jitter;
+
+    this.reconnectTimerId = window.setTimeout(() => {
+      this.reconnectTimerId = null;
+      this.connect();
+    }, delay);
+  }
+
+  public getConnectionInfo(): ConnectionInfo {
+    return {
+      status: this.status,
+      reconnectAttempts: this.reconnectAttempts,
+      nextRetryMs: this.reconnectTimerId !== null
+        ? Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000)
+        : null,
+    };
   }
 
   public getStatus(): ConnectionStatus {
@@ -134,6 +162,11 @@ export abstract class WebSocketClientBase {
 
   public disconnect() {
     this.isConnecting = false;
+    this.stopPing();
+    if (this.reconnectTimerId !== null) {
+      clearTimeout(this.reconnectTimerId);
+      this.reconnectTimerId = null;
+    }
     if (this.ws) {
       this.ws.close();
       this.ws = null;
