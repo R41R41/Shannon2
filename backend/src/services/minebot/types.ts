@@ -10,6 +10,9 @@ import { Utils } from './utils/index.js';
 import { extractAndSaveKnowledge } from './knowledge/skillResultExtractor.js';
 import { SkillResultCache } from './knowledge/SkillResultCache.js';
 import { skillMetrics } from './knowledge/SkillMetrics.js';
+import { SkillExecutor } from './execution/SkillExecutor.js';
+
+const skillExecutor = new SkillExecutor();
 
 const skillCache = new SkillResultCache();
 
@@ -203,6 +206,9 @@ export abstract class InstantSkill extends Skill {
       if (cached) return { ...cached, duration: 0 };
     }
 
+    // カテゴリベースのロック取得（queryスキルはロック不要で即座実行）
+    const releaseLock = await skillExecutor.acquire(this.skillName);
+
     this.bot.executingSkill = true;
     this.bot.interruptExecution = false;
     this.status = true;
@@ -304,6 +310,7 @@ export abstract class InstantSkill extends Skill {
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
+      releaseLock();
       this.bot.executingSkill = false;
       // 注意: interruptExecution はここでリセットしない
       // Promise.race で run() が先に返っても、バックグラウンドの runImpl() が
