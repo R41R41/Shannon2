@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styles from './SettingsModal.module.scss';
 import { showToast } from '../Toast/Toast';
+import { useTheme, type Theme } from '../../hooks/useTheme';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const [logCount, setLogCount] = useState(() =>
     parseInt(localStorage.getItem('shannon_log_count') || '200')
   );
+  const [theme, setTheme] = useTheme();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -132,6 +134,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
           <div className={styles.settingItem}>
             <h3>表示設定</h3>
+            <div className={styles.modelRow}>
+              <span className={styles.modelKey}>テーマ</span>
+              <div className={styles.themeToggle}>
+                {(['dark', 'light'] as Theme[]).map((t) => (
+                  <button
+                    key={t}
+                    className={`${styles.themeBtn} ${theme === t ? styles.active : ''}`}
+                    onClick={() => { setTheme(t); showToast(`テーマ: ${t}`, 'info'); }}
+                  >
+                    {t === 'dark' ? '🌙 ダーク' : '☀️ ライト'}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className={styles.modelRow}>
               <span className={styles.modelKey}>ログ表示件数</span>
               <input

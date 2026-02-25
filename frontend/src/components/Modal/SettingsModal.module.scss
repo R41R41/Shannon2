@@ -146,6 +146,28 @@
   border-top: 1px solid color(border, primary);
 }
 
+.themeToggle {
+  display: flex;
+  gap: $spacing-xs;
+}
+
+.themeBtn {
+  background: $surface-primary;
+  border: 1px solid $border-primary;
+  color: $text-secondary;
+  padding: $spacing-xs $spacing-md;
+  border-radius: $radius-sm;
+  font-size: $font-size-xxs;
+  cursor: pointer;
+  transition: $transition-normal;
+
+  &.active {
+    background: rgba($color-primary, 0.15);
+    border-color: $color-primary;
+    color: $color-primary;
+  }
+}
+
 .cancelButton {
   background: color(surface, secondary);
   border: 1px solid color(border, primary);
