@@ -5,6 +5,7 @@ import { config } from '../../../../config/env.js';
 import { models } from '../../../../config/models.js';
 import { modelManager } from '../../../../config/modelManager.js';
 import { WorldKnowledgeService } from '../../../minebot/knowledge/WorldKnowledgeService.js';
+import { trimContext } from '../../utils/contextManager.js';
 import {
     AIMessage,
     AIMessageChunk,
@@ -251,6 +252,14 @@ export class FunctionCallingAgent {
                         `anticipation=${state.emotionState.current.parameters.anticipation})`
                     );
                     messages.push(emotionUpdate);
+                }
+
+                // ── コンテキストウィンドウのトリミング ──
+                const trimmed = trimContext(messages, { maxContextTokens: 6000 });
+                if (trimmed.length < messages.length) {
+                    logger.debug(`コンテキストトリミング: ${messages.length} → ${trimmed.length} メッセージ`);
+                    messages.length = 0;
+                    messages.push(...trimmed);
                 }
 
                 // ── LLM 呼び出し（タイムアウト付き） ──
