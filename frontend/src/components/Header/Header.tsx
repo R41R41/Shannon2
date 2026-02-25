@@ -15,6 +15,8 @@ interface HeaderProps {
   monitoring?: MonitoringAgent | null;
   openai?: OpenAIAgent | null;
   status?: StatusAgent | null;
+  settingsOpen?: boolean;
+  onSettingsChange?: (open: boolean) => void;
 }
 
 interface ConnectionIndicatorProps {
@@ -43,8 +45,15 @@ const Header: React.FC<HeaderProps> = ({
   monitoring,
   openai,
   status,
+  settingsOpen: externalSettingsOpen,
+  onSettingsChange,
 }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [internalModalOpen, setInternalModalOpen] = useState(false);
+  const isModalOpen = externalSettingsOpen ?? internalModalOpen;
+  const setIsModalOpen = (open: boolean) => {
+    setInternalModalOpen(open);
+    onSettingsChange?.(open);
+  };
   const [monitoringStatus, setMonitoringStatus] =
     useState<ConnectionStatus>("disconnected");
   const [openaiStatus, setOpenaiStatus] =

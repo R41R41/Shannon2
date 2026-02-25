@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import styles from "./ShannonUI.module.scss";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import Sidebar from "@components/Sidebar/Sidebar";
@@ -14,6 +14,8 @@ import { PlanningAgent } from "@/services/agents/planningAgent";
 import { EmotionAgent } from "@/services/agents/emotionAgent";
 import { SkillAgent } from "@/services/agents/skillAgent";
 import { UserInfo } from "@common/types/web";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { showToast } from "@/components/Toast/Toast";
 
 const ResizeHandle = ({ direction = "vertical" }: { direction?: "vertical" | "horizontal" }) => (
   <PanelResizeHandle
@@ -35,6 +37,13 @@ const ShannonUI: React.FC<ShannonUIProps> = ({ isTest }) => {
   const [emotion, setEmotion] = useState<EmotionAgent | null>(null);
   const [skill, setSkill] = useState<SkillAgent | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const shortcuts = useMemo(() => ({
+    'Ctrl+,': () => setSettingsOpen((v) => !v),
+    'Escape': () => setSettingsOpen(false),
+  }), []);
+  useKeyboardShortcuts(shortcuts);
 
   useEffect(() => {
     const storedUserInfo = localStorage.getItem("userInfo");
@@ -68,6 +77,8 @@ const ShannonUI: React.FC<ShannonUIProps> = ({ isTest }) => {
         monitoring={monitoring}
         openai={openai}
         status={status}
+        settingsOpen={settingsOpen}
+        onSettingsChange={setSettingsOpen}
       />
       <div className={styles.mainSection}>
         {isMobile ? (
