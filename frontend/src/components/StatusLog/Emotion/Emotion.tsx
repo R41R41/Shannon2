@@ -174,6 +174,11 @@ const Emotion: React.FC<EmotionProps> = ({ emotion, isMobile }) => {
     ],
   };
 
+  const cs = getComputedStyle(document.documentElement);
+  const gridColor = cs.getPropertyValue('--chart-grid').trim() || 'rgba(255,255,255,0.06)';
+  const labelColor = cs.getPropertyValue('--chart-label').trim() || 'rgba(255,255,255,0.6)';
+  const tickColor = cs.getPropertyValue('--chart-tick').trim() || 'rgba(255,255,255,0.2)';
+
   const chartOptions = {
     scales: {
       r: {
@@ -183,19 +188,19 @@ const Emotion: React.FC<EmotionProps> = ({ emotion, isMobile }) => {
         ticks: {
           stepSize: 20,
           backdropColor: "transparent",
-          color: "rgba(255, 255, 255, 0.2)",
+          color: tickColor,
           display: true,
           showLabelBackdrop: false,
           font: { size: 9 },
         },
         grid: {
-          color: "rgba(255, 255, 255, 0.06)",
+          color: gridColor,
         },
         angleLines: {
-          color: "rgba(255, 255, 255, 0.06)",
+          color: gridColor,
         },
         pointLabels: {
-          color: "rgba(255, 255, 255, 0.6)",
+          color: labelColor,
           font: { size: 11, weight: "500" as const },
         },
       },
