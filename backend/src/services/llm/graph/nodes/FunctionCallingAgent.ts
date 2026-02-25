@@ -324,7 +324,7 @@ export class FunctionCallingAgent {
                     if (usage) {
                         tokenTracker.record(
                             this.model.modelName || 'unknown',
-                            this.agentName,
+                            'FunctionCallingAgent',
                             usage.input_tokens || 0,
                             usage.output_tokens || 0,
                         ).catch(() => {});
