@@ -15,7 +15,10 @@
     "migrate:up": "migrate-mongo up",
     "migrate:down": "migrate-mongo down",
     "migrate:status": "migrate-mongo status",
-    "migrate:create": "migrate-mongo create"
+    "migrate:create": "migrate-mongo create",
+    "minebot:list": "ts-node --esm scripts/minebot-test.ts --list",
+    "minebot:smoke": "ts-node --esm scripts/minebot-test.ts --smoke",
+    "minebot:test": "ts-node --esm scripts/minebot-test.ts --skill"
   },
   "dependencies": {
     "@discordjs/opus": "^0.10.0",
