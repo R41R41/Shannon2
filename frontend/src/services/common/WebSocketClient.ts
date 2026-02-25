@@ -10,24 +10,22 @@ export abstract class WebSocketClientBase {
   private pingTimeoutId: number | null = null;
   public status: ConnectionStatus = "disconnected";
   private statusListeners: Array<(status: ConnectionStatus) => void> = [];
+  private isConnecting = false;
 
   constructor(private url: string) {}
 
   public connect() {
-    console.log("Attempting to connect to:", this.url);
-    if (this.ws?.readyState === WebSocket.CONNECTING) {
-      console.log("Already connecting to WebSocket");
-      return;
-    }
+    if (this.isConnecting) return;
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED && this.ws.readyState !== WebSocket.CLOSING) return;
+    this.isConnecting = true;
 
     try {
       this.ws = new WebSocket(this.url);
-      console.log("WebSocket instance created");
       this.setStatus("connecting");
 
       this.ws.onopen = () => {
-        console.log("WebSocket connection opened");
         this.reconnectAttempts = 0;
+        this.isConnecting = false;
         this.setStatus("connected");
         this.startPing();
       };
@@ -38,7 +36,7 @@ export abstract class WebSocketClientBase {
       };
 
       this.ws.onclose = () => {
-        console.log("WebSocket connection closed");
+        this.isConnecting = false;
         this.setStatus("disconnected");
         this.reconnect();
       };
@@ -47,6 +45,7 @@ export abstract class WebSocketClientBase {
         console.error("WebSocket error:", error);
       };
     } catch (error) {
+      this.isConnecting = false;
       console.error("Error creating WebSocket:", error);
     }
   }
@@ -130,20 +129,10 @@ export abstract class WebSocketClientBase {
   }
 
   public disconnect() {
+    this.isConnecting = false;
     if (this.ws) {
       this.ws.close();
+      this.ws = null;
     }
-  }
-
-  protected onOpen(): void {
-    console.log("WebSocket Connected");
-  }
-
-  protected onClose(): void {
-    console.log("WebSocket Disconnected");
-  }
-
-  protected onError(error: Event): void {
-    console.error("WebSocket Error:", error);
   }
 }

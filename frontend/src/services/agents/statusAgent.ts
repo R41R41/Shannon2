@@ -7,7 +7,6 @@ type StatusCallback = (status: ServiceStatus) => void;
 
 export class StatusAgent extends WebSocketClientBase {
   private static instance: StatusAgent;
-  private static isConnecting: boolean = false;
   private serviceStatusListeners: Map<string, Set<StatusCallback>> = new Map();
 
   public static getInstance() {
@@ -15,31 +14,6 @@ export class StatusAgent extends WebSocketClientBase {
       StatusAgent.instance = new StatusAgent(URLS.WEBSOCKET.STATUS);
     }
     return StatusAgent.instance;
-  }
-
-  public connect() {
-    if (StatusAgent.isConnecting) return;
-    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
-    StatusAgent.isConnecting = true;
-    super.connect();
-  }
-
-  protected onOpen() {
-    super.onOpen();
-    StatusAgent.isConnecting = false;
-  }
-
-  protected onClose() {
-    super.onClose();
-    StatusAgent.isConnecting = false;
-  }
-
-  public disconnect() {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-    StatusAgent.isConnecting = false;
   }
 
   protected handleMessage(message: string) {

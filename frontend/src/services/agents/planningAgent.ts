@@ -6,7 +6,6 @@ type UpdatePlanningCallback = (planning: TaskTreeState) => void;
 
 export class PlanningAgent extends WebSocketClientBase {
   private static instance: PlanningAgent;
-  private static isConnecting: boolean = false;
 
   public static getInstance() {
     if (!PlanningAgent.instance) {
@@ -20,31 +19,6 @@ export class PlanningAgent extends WebSocketClientBase {
   private constructor(url: string) {
     super(url);
     this.updatePlanningCallback = () => {};
-  }
-
-  public connect() {
-    if (PlanningAgent.isConnecting) return;
-    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
-    PlanningAgent.isConnecting = true;
-    super.connect();
-  }
-
-  protected onOpen() {
-    super.onOpen();
-    PlanningAgent.isConnecting = false;
-  }
-
-  protected onClose() {
-    super.onClose();
-    PlanningAgent.isConnecting = false;
-  }
-
-  public disconnect() {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-    PlanningAgent.isConnecting = false;
   }
 
   protected handleMessage(message: string) {
