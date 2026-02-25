@@ -3,6 +3,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b",
+    "build:fast": "swc src -d dist --source-maps --copy-files --strip-leading-paths",
+    "build:check": "tsc --noEmit",
     "start": "node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js",
     "dev": "tsc-watch --onSuccess \"node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js\"",
     "dev:dev": "tsc-watch --onSuccess \"node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js --dev\"",
