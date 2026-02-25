@@ -47,12 +47,23 @@ const EMOTION_GROUPS = {
   surprise: { r: 251, g: 191, b: 36 },
 };
 
+interface EmotionSnapshot {
+  time: string;
+  label: string;
+  joy: number;
+  anger: number;
+  sadness: number;
+}
+
+const MAX_HISTORY = 20;
+
 const Emotion: React.FC<EmotionProps> = ({ emotion, isMobile }) => {
   const [emotionState, setEmotionState] = useState<EmotionType | null>(null);
   const animationRef = useRef<number>();
   const [animatedValues, setAnimatedValues] = useState<number[]>(
     Array(8).fill(50)
   );
+  const [history, setHistory] = useState<EmotionSnapshot[]>([]);
 
   const calculateColor = (values: number[]) => {
     const positive = (values[0] + values[1]) / 200;
@@ -85,7 +96,21 @@ const Emotion: React.FC<EmotionProps> = ({ emotion, isMobile }) => {
 
   useEffect(() => {
     if (emotion) {
-      emotion.onUpdateEmotion((e) => setEmotionState(e));
+      emotion.onUpdateEmotion((e) => {
+        setEmotionState(e);
+        const now = new Date();
+        const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+        setHistory(prev => [
+          ...prev.slice(-(MAX_HISTORY - 1)),
+          {
+            time: timeStr,
+            label: e.emotion || '',
+            joy: e.parameters.joy,
+            anger: e.parameters.anger,
+            sadness: e.parameters.sadness,
+          },
+        ]);
+      });
     }
   }, [emotion]);
 
@@ -218,6 +243,30 @@ const Emotion: React.FC<EmotionProps> = ({ emotion, isMobile }) => {
       <div className={styles.chartWrapper}>
         <Radar data={chartData} options={chartOptions} />
       </div>
+
+      {history.length > 1 && (
+        <div className={styles.timeline}>
+          <div className={styles.timelineLabel}>感情履歴</div>
+          <div className={styles.timelineBars}>
+            {history.map((h, i) => (
+              <div key={i} className={styles.timelineBar} title={`${h.time} ${h.label}`}>
+                <div
+                  className={styles.barJoy}
+                  style={{ height: `${h.joy * 0.3}px` }}
+                />
+                <div
+                  className={styles.barAnger}
+                  style={{ height: `${h.anger * 0.3}px` }}
+                />
+                <div
+                  className={styles.barSad}
+                  style={{ height: `${h.sadness * 0.3}px` }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

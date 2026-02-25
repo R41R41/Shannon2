@@ -20,7 +20,7 @@ export abstract class BaseClient {
     });
   }
 
-  public abstract initialize(): void;
+  public abstract initialize(): void | Promise<void>;
 
   public async start() {
     if (this.status === 'running') return;

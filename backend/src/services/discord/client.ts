@@ -66,6 +66,7 @@ import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { logger } from '../../utils/logger.js';
 import { voiceResponseChannelIds } from './voiceState.js';
 import { loadFillers, generateAllFillers } from './voiceFiller.js';
+import { loadServerChoices } from './serverChoices.js';
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
 
@@ -229,12 +230,16 @@ export class DiscordBot extends BaseClient {
     this.testXChannelId = config.discord.guilds.test.xChannelId;
   }
 
-  public initialize() {
+  public async initialize() {
     try {
-      this.client.login(config.discord.token);
+      if (!config.discord.token) {
+        logger.warn('Discord token が未設定のためログインをスキップ');
+        return;
+      }
+      await this.client.login(config.discord.token);
       logger.info('Discord bot started', 'blue');
     } catch (error) {
-      logger.error('Discord bot failed to start');
+      logger.error(`Discord bot failed to start: ${error instanceof Error ? error.message : error}`);
       this.eventBus.log(
         'discord:aiminelab_server',
         'red',
@@ -245,11 +250,7 @@ export class DiscordBot extends BaseClient {
 
   private async setupSlashCommands() {
     try {
-      const serverChoices = [
-        { name: 'YouTube配信用', value: '1.21.4-fabric-youtube' },
-        { name: 'テスト用', value: '1.21.4-test' },
-        { name: 'プレイ用', value: '1.21.1-play' },
-      ];
+      const serverChoices = loadServerChoices();
 
       const commands = [
         new SlashCommandBuilder()

@@ -1,26 +1,76 @@
 @use "@styles/variables.scss" as *;
 
 .skillsContainer {
-  padding: 16px;
+  padding: spacing(sm);
   height: 100%;
   overflow-y: auto;
 }
 
-.skillCard {
-  background-color: color(surface, primary);
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 12px;
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: spacing(xs);
+  margin-bottom: spacing(sm);
+}
+
+.searchInput {
+  flex: 1;
+  background: color(surface, primary);
+  border: 1px solid color(border, primary);
+  border-radius: radius(sm);
+  padding: spacing(xs) spacing(sm);
+  font-size: font-size(xs);
+  color: color(text, primary);
+
+  &:focus { border-color: color(primary); outline: none; }
+  &::placeholder { color: color(text, disabled); }
+}
+
+.countBadge {
+  font-size: font-size(xxs);
+  color: color(text, secondary);
+  background: color(surface, secondary);
+  padding: spacing(xxs) spacing(xs);
+  border-radius: radius(sm);
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+}
+
+.categoryGroup {
+  margin-bottom: spacing(xs);
+}
+
+.categoryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: spacing(xs) spacing(sm);
+  font-size: font-size(xs);
+  font-weight: font-weight(semibold);
+  color: color(text, secondary);
   cursor: pointer;
-  transition: all 0.3s ease;
+  border-radius: radius(sm);
+  user-select: none;
 
-  &:hover {
-    background-color: color(surface, hover);
-  }
+  &:hover { background: color(surface, primary); }
+}
 
-  &:active {
-    background-color: color(surface, active);
-  }
+.categoryCount {
+  font-size: font-size(xxs);
+  color: color(text, disabled);
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+}
+
+.skillCard {
+  background: color(surface, primary);
+  border-radius: radius(sm);
+  padding: spacing(sm);
+  margin-bottom: spacing(xxs);
+  margin-left: spacing(sm);
+  cursor: pointer;
+  transition: all transition(fast);
+  border: 1px solid transparent;
+
+  &:hover { border-color: color(border, primary); }
 }
 
 .skillHeader {
@@ -31,41 +81,49 @@
 
     h3 {
       margin: 0;
-      font-size: 1.1rem;
+      font-size: font-size(xs);
       color: color(text, primary);
+      font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
     }
+
+    svg { color: color(text, disabled); }
   }
 
   .description {
-    margin: 4px 0 0;
-    font-size: 0.9rem;
+    margin: spacing(xxs) 0 0;
+    font-size: font-size(xxs);
     color: color(text, secondary);
+    line-height: 1.4;
   }
 }
 
 .parameters {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid color(surface, hover);
-
-  h4 {
-    margin: 0 0 8px;
-    font-size: 0.9rem;
-    color: color(text, primary);
-  }
+  margin-top: spacing(sm);
+  padding-top: spacing(sm);
+  border-top: 1px solid color(border, secondary);
 
   .parameter {
-    margin-bottom: 8px;
-    font-size: 0.85rem;
+    margin-bottom: spacing(xs);
+    font-size: font-size(xxs);
+    display: flex;
+    gap: spacing(xs);
 
     .paramName {
-      font-weight: 600;
-      color: color(text, primary);
-      margin-right: 8px;
+      font-weight: font-weight(semibold);
+      color: color(primary);
+      font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+      flex-shrink: 0;
     }
 
     .paramDesc {
       color: color(text, secondary);
     }
   }
+}
+
+.emptyState {
+  text-align: center;
+  padding: spacing(xl);
+  color: color(text, disabled);
+  font-size: font-size(xs);
 }

@@ -48,13 +48,7 @@ export class EventBus {
   /**
    * Type-safe publish: ensures the event data matches the expected
    * payload type for the given event type.
-   *
-   * @example
-   * eventBus.publish({
-   *   type: 'discord:planning',
-   *   memoryZone: 'discord:aiminelab_server',
-   *   data: { planning, channelId, taskId }, // type-checked as DiscordPlanningInput
-   * });
+   * 各リスナーの例外を catch し、1つのリスナーの失敗が他に波及しないようにする。
    */
   publish<T extends EventType>(event: TypedEvent<T>): void {
     this.listeners.get(event.type)?.forEach((callback) => {
@@ -62,7 +56,16 @@ export class EventBus {
         !event.targetMemoryZones ||
         event.targetMemoryZones.includes(event.memoryZone)
       ) {
-        callback(event);
+        try {
+          const result: unknown = callback(event);
+          if (result instanceof Promise) {
+            result.catch((err) => {
+              logger.error(`[EventBus] ${event.type} リスナーの非同期エラー: ${err instanceof Error ? err.message : err}`);
+            });
+          }
+        } catch (err) {
+          logger.error(`[EventBus] ${event.type} リスナーの同期エラー: ${err instanceof Error ? err.message : err}`);
+        }
       }
     });
   }

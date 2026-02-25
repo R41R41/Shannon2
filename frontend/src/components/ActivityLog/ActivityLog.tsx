@@ -50,9 +50,11 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
     MemoryZone | ""
   >("");
   const [showDiscordMenu, setShowDiscordMenu] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [levelFilter, setLevelFilter] = useState<"all" | "error" | "warn">("all");
   const logListRef = useRef<HTMLDivElement>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
-  const MAX_LOGS = 200;
+  const MAX_LOGS = parseInt(localStorage.getItem('shannon_log_count') || '200');
 
   useEffect(() => {
     monitoring?.setLogCallback((log: ILog) => {
@@ -116,11 +118,13 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
       .replace(/\//g, "-");
   };
 
-  const filteredLogs = logs.filter((log) =>
-    selectedMemoryZone === ""
-      ? true
-      : log.memoryZone.includes(selectedMemoryZone)
-  );
+  const filteredLogs = logs.filter((log) => {
+    if (selectedMemoryZone !== "" && !log.memoryZone.includes(selectedMemoryZone)) return false;
+    if (levelFilter === "error" && log.color !== "red") return false;
+    if (levelFilter === "warn" && log.color !== "yellow" && log.color !== "red") return false;
+    if (searchText && !log.content.toLowerCase().includes(searchText.toLowerCase())) return false;
+    return true;
+  });
 
   const isErrorLog = (log: ILog) => log.color === "red";
   const isWarningLog = (log: ILog) => log.color === "yellow";
@@ -174,6 +178,33 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Search & level filter bar */}
+      <div className={styles.filterBar}>
+        <input
+          className={styles.searchInput}
+          type="text"
+          placeholder="ログを検索..."
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+        />
+        <div className={styles.levelButtons}>
+          {(["all", "warn", "error"] as const).map((level) => (
+            <button
+              key={level}
+              className={classNames(styles.levelBtn, {
+                [styles.active]: levelFilter === level,
+                [styles.levelWarn]: level === "warn",
+                [styles.levelError]: level === "error",
+              })}
+              onClick={() => setLevelFilter(level)}
+            >
+              {level === "all" ? "全て" : level === "warn" ? "⚠️" : "❌"}
+            </button>
+          ))}
+        </div>
+        <span className={styles.logCount}>{filteredLogs.length}</span>
       </div>
 
       {/* Log list */}

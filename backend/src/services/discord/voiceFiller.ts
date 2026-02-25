@@ -511,7 +511,53 @@ ${selectionList}${contextBlock}`,
 
     return { fillerIds: [], fillerOnly: false, needsTools };
   } catch (err) {
-    logger.error('[Filler] Selection failed:', err);
-    return { fillerIds: [], fillerOnly: false, needsTools: false };
+    logger.error('[Filler] Selection failed, using weighted fallback:', err);
+    return weightedFallbackSelection(transcribedText);
   }
+}
+
+/**
+ * LLM フィラー選択が失敗した場合の重み付きフォールバック。
+ * ユーザー発言のキーワードからカテゴリを推定し、そのカテゴリのフィラーを高確率で選択。
+ */
+function weightedFallbackSelection(text: string): FillerSelection {
+  const CATEGORY_WEIGHTS: Record<string, number> = {
+    affirm: 3,
+    respond: 3,
+    thinking: 2,
+    exclaim: 1,
+    question: 1,
+    tsun: 1,
+    sympathy: 1,
+    greeting: 1,
+  };
+
+  const lower = text.toLowerCase();
+  if (lower.match(/\?|？|教えて|何|どう|なぜ/)) {
+    CATEGORY_WEIGHTS['thinking'] = 5;
+    CATEGORY_WEIGHTS['question'] = 3;
+  } else if (lower.match(/ありがとう|感謝|助か/)) {
+    CATEGORY_WEIGHTS['respond'] = 5;
+    CATEGORY_WEIGHTS['affirm'] = 3;
+  } else if (lower.match(/おはよう|こんにちは|こんばんは/)) {
+    CATEGORY_WEIGHTS['greeting'] = 10;
+  } else if (lower.match(/すごい|やばい|まじ|えっ/)) {
+    CATEGORY_WEIGHTS['exclaim'] = 5;
+  }
+
+  const weighted: { entry: FillerEntry; weight: number }[] = ATOMIC_FILLERS.map((f) => ({
+    entry: f,
+    weight: CATEGORY_WEIGHTS[f.category] ?? 1,
+  }));
+
+  const totalWeight = weighted.reduce((sum, w) => sum + w.weight, 0);
+  let random = Math.random() * totalWeight;
+  for (const w of weighted) {
+    random -= w.weight;
+    if (random <= 0) {
+      return { fillerIds: [w.entry.id], fillerOnly: false, needsTools: false };
+    }
+  }
+
+  return { fillerIds: ['a_fumufumu'], fillerOnly: false, needsTools: false };
 }

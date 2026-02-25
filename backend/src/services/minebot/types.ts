@@ -178,12 +178,16 @@ export abstract class InstantSkill extends Skill {
   status: boolean;
   params: import('./types/skillParams.js').SkillParam[];
   canUseByCommand: boolean;
+  /** スキルのタイムアウト（ミリ秒）。サブクラスでオーバーライド可能。0 = 無制限。 */
+  maxDurationMs: number;
+
   constructor(bot: CustomBot) {
     super(bot);
     this.priority = 0;
     this.status = false;
     this.params = [];
     this.canUseByCommand = true;
+    this.maxDurationMs = CONFIG.SKILL_TIMEOUT_MS ?? 120_000;
   }
 
   async run(...args: any[]): Promise<import('./types/skillParams.js').SkillResult> {
@@ -193,6 +197,7 @@ export abstract class InstantSkill extends Skill {
     const startTime = Date.now();
 
     let interruptCheckInterval: ReturnType<typeof setInterval> | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     try {
       // 中断監視: 500msごとに interruptExecution フラグをチェック
@@ -203,7 +208,6 @@ export abstract class InstantSkill extends Skill {
               clearInterval(interruptCheckInterval);
               interruptCheckInterval = null;
             }
-            // ボットの現在の動作を停止
             try {
               this.bot.clearControlStates();
               const pathfinder = (this.bot as any).pathfinder;
@@ -221,10 +225,31 @@ export abstract class InstantSkill extends Skill {
         }, 500);
       });
 
-      // runImpl と中断監視を競争させる
+      // タイムアウト制御
+      const timeoutPromise = this.maxDurationMs > 0
+        ? new Promise<import('./types/skillParams.js').SkillResult>((resolve) => {
+            timeoutId = setTimeout(() => {
+              try {
+                this.bot.clearControlStates();
+                const pathfinder = (this.bot as any).pathfinder;
+                if (pathfinder && typeof pathfinder.stop === 'function') {
+                  pathfinder.stop();
+                }
+              } catch (_) { /* ignore */ }
+
+              log.warn(`⏱️ ${this.skillName} がタイムアウト (${this.maxDurationMs}ms)`);
+              resolve({
+                success: false,
+                result: `${this.skillName} がタイムアウトしました（${Math.round(this.maxDurationMs / 1000)}秒）。別のアプローチを検討してください。`,
+              });
+            }, this.maxDurationMs);
+          })
+        : new Promise<never>(() => {});
+
       const result = await Promise.race([
         this.runImpl(...args),
         interruptPromise,
+        timeoutPromise,
       ]);
 
       const duration = Date.now() - startTime;
@@ -238,9 +263,11 @@ export abstract class InstantSkill extends Skill {
         duration,
       };
     } finally {
-      // インターバルのクリーンアップ
       if (interruptCheckInterval) {
         clearInterval(interruptCheckInterval);
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
       this.bot.executingSkill = false;
       // 注意: interruptExecution はここでリセットしない

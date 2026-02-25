@@ -63,6 +63,15 @@ function stripAnsi(text: string): string {
 const LOG_FILE_MIN_LEVEL: 'debug' | 'info' =
   (process.env.LOG_FILE_MIN_LEVEL === 'debug') ? 'debug' : 'info';
 
+/**
+ * LOG_FORMAT: ログファイルの出力形式。
+ *   'text'  — 従来のプレーンテキスト形式（デフォルト）
+ *   'json'  — 1行1JSONオブジェクト（ELK/CloudWatch等との連携用）
+ * Set via env: LOG_FORMAT=json
+ */
+const LOG_FORMAT: 'text' | 'json' =
+  (process.env.LOG_FORMAT === 'json') ? 'json' : 'text';
+
 function shouldWriteToFile(level: Level): boolean {
   if (LOG_FILE_MIN_LEVEL === 'debug') return true;
   return level !== 'DEBUG';
@@ -105,10 +114,18 @@ function ensureFileStream(): void {
   }
 }
 
-function writeToFile(line: string): void {
+function writeToFile(line: string, jsonPayload?: { level: Level; message: string; error?: string }): void {
   if (!logDir) return;
   ensureFileStream();
-  fileStream?.write(stripAnsi(line) + '\n');
+  if (LOG_FORMAT === 'json' && jsonPayload) {
+    const entry = {
+      timestamp: new Date().toISOString(),
+      ...jsonPayload,
+    };
+    fileStream?.write(JSON.stringify(entry) + '\n');
+  } else {
+    fileStream?.write(stripAnsi(line) + '\n');
+  }
 }
 
 /**
@@ -181,17 +198,17 @@ export const logger = {
     const body = color ? colorize(message, color) : message;
     const line = `${formatPrefix('INFO')} ${body}`;
     console.log(line);
-    writeToFile(line);
+    writeToFile(line, { level: 'INFO', message });
   },
 
   /** Error log (always red) */
   error(message: string, error?: unknown): void {
     const line = `${formatPrefix('ERROR')} ${colorize(message, 'red')}`;
     console.error(line);
-    writeToFile(line);
+    const errStr = error ? String(error instanceof Error ? error.stack || error.message : error) : undefined;
+    writeToFile(line, { level: 'ERROR', message, error: errStr });
     if (error) {
       console.error(error);
-      writeToFile(String(error instanceof Error ? error.stack || error.message : error));
     }
   },
 
@@ -199,21 +216,21 @@ export const logger = {
   warn(message: string): void {
     const line = `${formatPrefix('WARN')} ${colorize(message, 'yellow')}`;
     console.log(line);
-    writeToFile(line);
+    writeToFile(line, { level: 'WARN', message });
   },
 
   /** Success log (always green) */
   success(message: string): void {
     const line = `${formatPrefix('SUCCESS')} ${colorize(message, 'green')}`;
     console.log(line);
-    writeToFile(line);
+    writeToFile(line, { level: 'SUCCESS', message });
   },
 
   /** Debug log (always cyan) */
   debug(message: string): void {
     const line = `${formatPrefix('DEBUG')} ${colorize(message, 'cyan')}`;
     console.log(line);
-    if (shouldWriteToFile('DEBUG')) writeToFile(line);
+    if (shouldWriteToFile('DEBUG')) writeToFile(line, { level: 'DEBUG', message });
   },
 
   /** Colorize a string without logging (for embedding in other logs) */

@@ -8,7 +8,6 @@ type SearchCallback = (results: ILog[]) => void;
 
 export class MonitoringAgent extends WebSocketClientBase {
   private static instance: MonitoringAgent;
-  private static isConnecting: boolean = false;
 
   public static getInstance() {
     if (!MonitoringAgent.instance) {
@@ -23,31 +22,6 @@ export class MonitoringAgent extends WebSocketClientBase {
   private constructor(url: string) {
     super(url);
     this.logCallback = () => {};
-  }
-
-  public connect() {
-    if (MonitoringAgent.isConnecting) return;
-    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) return;
-    MonitoringAgent.isConnecting = true;
-    super.connect();
-  }
-
-  protected onOpen() {
-    super.onOpen();
-    MonitoringAgent.isConnecting = false;
-  }
-
-  protected onClose() {
-    super.onClose();
-    MonitoringAgent.isConnecting = false;
-  }
-
-  public disconnect() {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-    MonitoringAgent.isConnecting = false;
   }
 
   protected handleMessage(message: string) {

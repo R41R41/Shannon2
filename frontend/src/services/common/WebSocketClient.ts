@@ -1,33 +1,37 @@
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
+export interface ConnectionInfo {
+  status: ConnectionStatus;
+  reconnectAttempts: number;
+  nextRetryMs: number | null;
+}
+
 export abstract class WebSocketClientBase {
   protected ws: WebSocket | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 60; // 5分 = 60回 (5秒間隔)
-  private reconnectDelay = 5000; // 5秒
+  private maxReconnectAttempts = 20;
+  private reconnectTimerId: number | null = null;
   private pingInterval: number | null = null;
   private lastPongReceived = 0;
   private pingTimeoutId: number | null = null;
   public status: ConnectionStatus = "disconnected";
   private statusListeners: Array<(status: ConnectionStatus) => void> = [];
+  private isConnecting = false;
 
   constructor(private url: string) {}
 
   public connect() {
-    console.log("Attempting to connect to:", this.url);
-    if (this.ws?.readyState === WebSocket.CONNECTING) {
-      console.log("Already connecting to WebSocket");
-      return;
-    }
+    if (this.isConnecting) return;
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED && this.ws.readyState !== WebSocket.CLOSING) return;
+    this.isConnecting = true;
 
     try {
       this.ws = new WebSocket(this.url);
-      console.log("WebSocket instance created");
       this.setStatus("connecting");
 
       this.ws.onopen = () => {
-        console.log("WebSocket connection opened");
         this.reconnectAttempts = 0;
+        this.isConnecting = false;
         this.setStatus("connected");
         this.startPing();
       };
@@ -38,7 +42,7 @@ export abstract class WebSocketClientBase {
       };
 
       this.ws.onclose = () => {
-        console.log("WebSocket connection closed");
+        this.isConnecting = false;
         this.setStatus("disconnected");
         this.reconnect();
       };
@@ -47,6 +51,7 @@ export abstract class WebSocketClientBase {
         console.error("WebSocket error:", error);
       };
     } catch (error) {
+      this.isConnecting = false;
       console.error("Error creating WebSocket:", error);
     }
   }
@@ -85,15 +90,37 @@ export abstract class WebSocketClientBase {
     }
   }
 
+  /**
+   * 指数バックオフで再接続を試みる。
+   * 1s → 2s → 4s → 8s → ... 最大 30s、最大 20 回まで。
+   */
   private reconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.warn(`[WS] Max reconnect attempts (${this.maxReconnectAttempts}) reached for ${this.url}`);
       this.setStatus("disconnected");
       return;
     }
 
     this.setStatus("connecting");
     this.reconnectAttempts++;
-    setTimeout(() => this.connect(), this.reconnectDelay);
+    const baseDelay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
+    const jitter = Math.random() * 1000;
+    const delay = baseDelay + jitter;
+
+    this.reconnectTimerId = window.setTimeout(() => {
+      this.reconnectTimerId = null;
+      this.connect();
+    }, delay);
+  }
+
+  public getConnectionInfo(): ConnectionInfo {
+    return {
+      status: this.status,
+      reconnectAttempts: this.reconnectAttempts,
+      nextRetryMs: this.reconnectTimerId !== null
+        ? Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000)
+        : null,
+    };
   }
 
   public getStatus(): ConnectionStatus {
@@ -115,6 +142,10 @@ export abstract class WebSocketClientBase {
     this.statusListeners = this.statusListeners.filter((l) => l !== listener);
   }
 
+  /**
+   * サブクラスで実装: メッセージハンドラ。
+   * JSON.parse は各サブクラスで行うが、parseMessage() ユーティリティの使用を推奨。
+   */
   protected abstract handleMessage(data: string): void;
 
   protected receivePong(data: string) {
@@ -130,20 +161,15 @@ export abstract class WebSocketClientBase {
   }
 
   public disconnect() {
+    this.isConnecting = false;
+    this.stopPing();
+    if (this.reconnectTimerId !== null) {
+      clearTimeout(this.reconnectTimerId);
+      this.reconnectTimerId = null;
+    }
     if (this.ws) {
       this.ws.close();
+      this.ws = null;
     }
-  }
-
-  protected onOpen(): void {
-    console.log("WebSocket Connected");
-  }
-
-  protected onClose(): void {
-    console.log("WebSocket Disconnected");
-  }
-
-  protected onError(error: Event): void {
-    console.error("WebSocket Error:", error);
   }
 }

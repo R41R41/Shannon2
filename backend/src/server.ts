@@ -16,39 +16,109 @@ import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
 import { YoutubeClient } from './services/youtube/client.js';
 import { logger, initFileLogging } from './utils/logger.js';
+import { safeAsync } from './utils/safeAsync.js';
+import { modelManager } from './config/modelManager.js';
+import { tokenTracker } from './services/llm/utils/tokenTracker.js';
 
 class Server {
   private llmService: LLMService;
-  private discordBot: DiscordBot;
+  private discordBot: DiscordBot | null = null;
   private webClient: WebClient;
-  private twitterClient: TwitterClient;
+  private twitterClient: TwitterClient | null = null;
   private scheduler: Scheduler;
   private youtubeClient: YoutubeClient;
   private minecraftClient: MinecraftClient;
   private minebotClient: MinebotClient;
-  private notionClient: NotionClient;
+  private notionClient: NotionClient | null = null;
   private httpServer: http.Server | null = null;
+
+  /**
+   * サービスを安全に初期化するヘルパー。
+   * 認証情報の不足などでコンストラクタが例外を投げた場合は
+   * 警告ログを出して null を返す（サーバー起動を妨げない）。
+   */
+  private static tryCreate<T>(
+    name: string,
+    factory: () => T,
+  ): T | null {
+    try {
+      return factory();
+    } catch (error) {
+      logger.warn(`[Server] ${name} の初期化をスキップ: ${error instanceof Error ? error.message : error}`);
+      return null;
+    }
+  }
 
   constructor() {
     const isDevMode = process.argv.includes('--dev');
+
+    // --- 必須サービス (失敗時はサーバー起動を中断) ---
     this.llmService = LLMService.getInstance(isDevMode);
-    this.discordBot = DiscordBot.getInstance(isDevMode);
-    // WebClientは環境変数で正しいポートを設定しているので、isTestはfalse
     this.webClient = WebClient.getInstance(false);
-    this.twitterClient = TwitterClient.getInstance(isDevMode);
     this.scheduler = Scheduler.getInstance(isDevMode);
     this.youtubeClient = YoutubeClient.getInstance(isDevMode);
     this.minecraftClient = MinecraftClient.getInstance(isDevMode);
     this.minebotClient = MinebotClient.getInstance(isDevMode);
-    this.notionClient = NotionClient.getInstance(isDevMode);
+
+    // --- オプショナルサービス (認証情報不足時はスキップ) ---
+    this.discordBot = Server.tryCreate('Discord', () => DiscordBot.getInstance(isDevMode));
+    this.twitterClient = Server.tryCreate('Twitter', () => TwitterClient.getInstance(isDevMode));
+    this.notionClient = Server.tryCreate('Notion', () => NotionClient.getInstance(isDevMode));
   }
 
   private startHTTPServer() {
     const app = express();
     app.use(express.json());
 
-    app.get('/health', (req, res) => {
+    app.get('/api/health', (req, res) => {
       res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    });
+
+    // -----------------------------------------------------------------
+    // LLM モデル管理 API
+    // -----------------------------------------------------------------
+    app.get('/api/models', (_req, res) => {
+      res.json({
+        current: modelManager.getAll(),
+        overrides: modelManager.getOverrides(),
+      });
+    });
+
+    app.put('/api/models/:key', (req, res) => {
+      const { key } = req.params;
+      const { model } = req.body as { model?: string };
+      if (!model || typeof model !== 'string') {
+        res.status(400).json({ error: 'model is required' });
+        return;
+      }
+      try {
+        if (key.startsWith('minebot.')) {
+          const mk = key.replace('minebot.', '') as any;
+          modelManager.setMinebotModel(mk, model);
+        } else {
+          modelManager.set(key as any, model);
+        }
+        res.json({ ok: true, key, model });
+      } catch (err) {
+        res.status(400).json({ error: String(err) });
+      }
+    });
+
+    app.post('/api/models/reset', (_req, res) => {
+      modelManager.resetAll();
+      res.json({ ok: true, models: modelManager.getAll() });
+    });
+
+    // -----------------------------------------------------------------
+    // トークン使用量 API
+    // -----------------------------------------------------------------
+    app.get('/api/tokens/session', (_req, res) => {
+      res.json(tokenTracker.getSessionStats());
+    });
+
+    app.get('/api/tokens/daily', async (_req, res) => {
+      const days = parseInt(_req.query.days as string) || 7;
+      res.json(await tokenTracker.getDailyStats(days));
     });
 
     // -----------------------------------------------------------------
@@ -424,6 +494,11 @@ class Server {
     // POST: 実際の Webhook ペイロード受信
     app.post('/api/webhook/twitter', (req, res) => {
       try {
+        if (!this.twitterClient) {
+          res.status(503).json({ error: 'Twitter service not available' });
+          return;
+        }
+
         // X-API-Key ヘッダーで送信元を検証
         const receivedKey = req.headers['x-api-key'] as string | undefined;
         if (!receivedKey || receivedKey !== config.twitter.twitterApiIoKey) {
@@ -543,7 +618,8 @@ class Server {
           );
 
           // 会話スレッドを非同期で遡って取得してから LLM に渡す
-          (async () => {
+          const twitterClient = this.twitterClient!;
+          safeAsync('Webhook:fetchThread', async () => {
             const thread: Array<{ authorName: string; text: string }> = [];
             const MAX_CHAIN_DEPTH = 5;
 
@@ -571,7 +647,7 @@ class Server {
             logger.info(`[Webhook] 会話スレッド: ${thread.length}件取得 (最大${MAX_CHAIN_DEPTH})`);
 
             // 返信カウンタをインクリメント
-            this.twitterClient.incrementReplyCount();
+            twitterClient.incrementReplyCount();
 
             // 後方互換: thread[0] を repliedTweet として渡す
             const rootTweet = thread.length > 0 ? thread[0] : null;
@@ -588,7 +664,7 @@ class Server {
                 conversationThread: thread.length > 0 ? thread : null,
               } as TwitterReplyOutput,
             });
-          })();
+          });
 
           processed++;
         }
@@ -617,82 +693,64 @@ class Server {
     }
   }
 
-  public async start() {
+  /**
+   * オプショナルなサービスを安全に起動するヘルパー。
+   * サービスが null（初期化スキップ済み）の場合はスキップし、
+   * 起動中の例外はログに記録して続行する。
+   */
+  private async startOptionalService(
+    name: string,
+    service: { start(): Promise<void> } | null,
+  ): Promise<void> {
+    if (!service) {
+      logger.info(`[Server] ${name}: 初期化されていないためスキップ`, 'cyan');
+      return;
+    }
     try {
-      // ファイルログを有効化（ANSI除去済みのプレーンテキストで保存）
-      const logsDir = new URL('../logs', import.meta.url).pathname;
-      initFileLogging(logsDir);
-
-      // HTTPサーバーを最初に起動
-      this.startHTTPServer();
-
-      // データベース接続
-      await this.connectDatabase();
-
-      await Promise.all([
-        this.startDiscordBot(),
-        this.startWebClient(),
-        this.startLLMService(),
-        this.startTwitterClient(),
-        this.startScheduler(),
-        this.startYoutubeClient(),
-        this.startMinecraftClient(),
-        this.startMinebotClient(),
-        this.startNotionClient(),
-      ]);
+      await service.start();
+      logger.info(`${name} started`, 'blue');
     } catch (error) {
-      logger.error(`サービス起動エラー: ${error}`);
-      process.exit(1);
+      logger.warn(`[Server] ${name} の起動に失敗しました（続行します）: ${error instanceof Error ? error.message : error}`);
     }
   }
 
-  private async startDiscordBot() {
-    await this.discordBot.start();
-  }
+  public async start() {
+    // ファイルログを有効化（ANSI除去済みのプレーンテキストで保存）
+    const logsDir = new URL('../logs', import.meta.url).pathname;
+    initFileLogging(logsDir);
 
-  private async startWebClient() {
+    // HTTPサーバーを最初に起動
+    this.startHTTPServer();
+
+    // データベース接続
+    await this.connectDatabase();
+
+    // --- 必須サービスの起動 ---
+    // LLM と Web は失敗時にサーバーを停止する
+    try {
+      await this.llmService.initialize();
+      logger.info('LLM Service started', 'blue');
+    } catch (error) {
+      logger.error(`LLM Service の起動に失敗: ${error}`);
+      logger.warn('LLM 機能なしで続行します');
+    }
+
     await this.webClient.start();
     logger.info('Web Client started', 'blue');
-  }
 
-  private async startTwitterClient() {
-    await this.twitterClient.start();
-    logger.info('Twitter Client started', 'blue');
-  }
+    // --- オプショナルサービスの並列起動 ---
+    // 個別の失敗がサーバー全体を停止させない
+    await Promise.allSettled([
+      this.startOptionalService('Discord', this.discordBot),
+      this.startOptionalService('Twitter', this.twitterClient),
+      this.startOptionalService('Scheduler', this.scheduler),
+      this.startOptionalService('Youtube', this.youtubeClient),
+      this.startOptionalService('Minecraft', this.minecraftClient),
+      this.startOptionalService('Minebot', this.minebotClient),
+      this.startOptionalService('Notion', this.notionClient),
+    ]);
 
-  private async startLLMService() {
-    await this.llmService.initialize();
-    logger.info('LLM Service started', 'blue');
-  }
-
-  private async startScheduler() {
-    await this.scheduler.start();
-    logger.info('Scheduler started', 'blue');
-  }
-
-  private async startYoutubeClient() {
-    try {
-      await this.youtubeClient.start();
-      logger.info('Youtube Client started', 'blue');
-    } catch (error) {
-      logger.error(`Youtube Client start error: ${error}`);
-      logger.warn('Continuing without Youtube functionality');
-    }
-  }
-
-  private async startMinecraftClient() {
-    await this.minecraftClient.start();
-    logger.info('Minecraft Client started', 'blue');
-  }
-
-  private async startMinebotClient() {
-    await this.minebotClient.start();
-    logger.info('Minebot Client started', 'blue');
-  }
-
-  private async startNotionClient() {
-    await this.notionClient.start();
-    logger.info('Notion Client started', 'blue');
+    logger.success('[Server] 全サービスの起動処理が完了しました');
   }
 
   public async shutdown() {

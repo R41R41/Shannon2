@@ -22,17 +22,24 @@ export default class GoogleSearchTool extends StructuredTool {
   private apiKey: string;
   private searchEngineId: string;
 
+  private disabled: boolean;
+
   constructor() {
     super();
     this.apiKey = config.google.apiKey;
     this.searchEngineId = config.google.searchEngineId;
+    this.disabled = !this.apiKey || !this.searchEngineId;
 
-    if (!this.apiKey || !this.searchEngineId) {
-      throw new Error('API key or Search Engine ID is not set in environment variables.');
+    if (this.disabled) {
+      logger.warn('[GoogleSearch] API key or Search Engine ID is not set. Tool will return an error message when called.');
     }
   }
 
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
+    if (this.disabled) {
+      return 'Google検索は現在利用できません（API keyまたはSearch Engine IDが未設定です）。';
+    }
+
     let url = `https://www.googleapis.com/customsearch/v1?key=${this.apiKey}&cx=${this.searchEngineId}&q=${encodeURIComponent(data.query)}`;
 
     if (data.dateRestrict) url += `&dateRestrict=${data.dateRestrict}`;

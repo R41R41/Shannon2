@@ -185,3 +185,44 @@
     transform: rotate(360deg);
   }
 }
+
+.progressSection {
+  display: flex;
+  align-items: center;
+  gap: spacing(sm);
+  margin: spacing(xs) 0 spacing(sm);
+}
+
+.progressBar {
+  flex: 1;
+  height: 4px;
+  background: color(surface, primary);
+  border-radius: radius(round);
+  overflow: hidden;
+  position: relative;
+}
+
+.progressFill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: color(success);
+  border-radius: radius(round);
+  transition: width 0.5s ease;
+}
+
+.progressError {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  background: color(danger);
+  border-radius: radius(round);
+}
+
+.progressText {
+  font-size: font-size(xxs);
+  color: color(text, secondary);
+  white-space: nowrap;
+}
