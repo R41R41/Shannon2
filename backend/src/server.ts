@@ -16,6 +16,7 @@ import { TwitterClient } from './services/twitter/client.js';
 import { WebClient } from './services/web/client.js';
 import { YoutubeClient } from './services/youtube/client.js';
 import { logger, initFileLogging } from './utils/logger.js';
+import { safeAsync } from './utils/safeAsync.js';
 
 class Server {
   private llmService: LLMService;
@@ -568,7 +569,7 @@ class Server {
           );
 
           // 会話スレッドを非同期で遡って取得してから LLM に渡す
-          (async () => {
+          safeAsync('Webhook:fetchThread', async () => {
             const thread: Array<{ authorName: string; text: string }> = [];
             const MAX_CHAIN_DEPTH = 5;
 
@@ -613,7 +614,7 @@ class Server {
                 conversationThread: thread.length > 0 ? thread : null,
               } as TwitterReplyOutput,
             });
-          })();
+          });
 
           processed++;
         }
