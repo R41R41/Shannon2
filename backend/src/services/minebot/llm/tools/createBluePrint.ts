@@ -3,6 +3,7 @@ import { config } from '../../../../config/env.js';
 import { models } from '../../../../config/models.js';
 import fs from 'fs';
 import OpenAI from 'openai';
+import { getTracedOpenAI } from '../../../llm/utils/langfuse.js';
 import path from 'path';
 import { z } from 'zod';
 
@@ -34,7 +35,7 @@ export default class CreateBluePrintTool extends StructuredTool {
 
   constructor() {
     super();
-    this.openai = new OpenAI({ apiKey: config.openaiApiKey });
+    this.openai = getTracedOpenAI(new OpenAI({ apiKey: config.openaiApiKey }));
   }
 
   async _call(data: z.infer<typeof this.schema>): Promise<string> {

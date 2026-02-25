@@ -4,6 +4,7 @@ import {
   ToolMessage,
 } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
+import { createTracedModel } from '../../llm/utils/langfuse.js';
 import { CONFIG } from '../config/MinebotConfig.js';
 import { CustomBot, InstantSkill } from '../types.js';
 import { createLogger } from '../../../utils/logger.js';
@@ -40,7 +41,7 @@ class InvestigateTerrain extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     // LLMインスタンスを作成
-    this.llm = new ChatOpenAI({
+    this.llm = createTracedModel({
       modelName: CONFIG.EXECUTION_MODEL,
       temperature: 0.1,
       apiKey: CONFIG.OPENAI_API_KEY,

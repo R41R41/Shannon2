@@ -1,4 +1,5 @@
 import { ChatOpenAI } from '@langchain/openai';
+import { createTracedModel } from '../llm/utils/langfuse.js';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import {
   PersonMemory,
@@ -46,7 +47,7 @@ export class PersonMemoryService {
 
   private constructor() {
     // gpt-5-mini は temperature=1 のみサポート（デフォルト値を使用）
-    this.model = new ChatOpenAI({
+    this.model = createTracedModel({
       modelName: models.contentGeneration,
       apiKey: config.openaiApiKey,
     });

@@ -2,6 +2,7 @@ import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
+import { createTracedModel } from '../utils/langfuse.js';
 
 const OPENAI_API_KEY = config.openaiApiKey;
 if (!OPENAI_API_KEY) {
@@ -30,7 +31,7 @@ export class QuoteTwitterCommentAgent {
 - 自然で人間らしい文章にする`;
 
   private constructor() {
-    this.model = new ChatOpenAI({
+    this.model = createTracedModel({
       modelName: models.contentGeneration,
       temperature: 1,
       apiKey: OPENAI_API_KEY,

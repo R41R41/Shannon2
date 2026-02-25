@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import OpenAI from 'openai';
 import { config } from '../../config/env.js';
+import { getTracedOpenAI } from '../llm/utils/langfuse.js';
 import { VoicepeakClient, VoicepeakEmotion } from '../voicepeak/client.js';
 import { logger } from '../../utils/logger.js';
 
@@ -410,7 +411,7 @@ export async function selectFiller(
   userName: string,
   conversationContext?: string,
 ): Promise<FillerSelection> {
-  const openai = new OpenAI({ apiKey: config.openaiApiKey });
+  const openai = getTracedOpenAI(new OpenAI({ apiKey: config.openaiApiKey }));
   const selectionList = buildSelectionList();
 
   const contextBlock = conversationContext

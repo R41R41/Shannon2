@@ -1,5 +1,6 @@
 import { StructuredTool } from '@langchain/core/tools';
 import { ChatOpenAI } from '@langchain/openai';
+import { createTracedModel } from '../utils/langfuse.js';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { z } from 'zod';
 import { config } from '../../../config/env.js';
@@ -34,7 +35,7 @@ export default class GenerateTweetTextTool extends StructuredTool {
 
   constructor() {
     super();
-    this.model = new ChatOpenAI({
+    this.model = createTracedModel({
       modelName: models.autoTweet,
       temperature: 1,
     });
@@ -89,7 +90,7 @@ export async function generateTweetForAutoPost(
   topic: string,
   systemPrompt?: string
 ): Promise<string> {
-  const model = new ChatOpenAI({
+  const model = createTracedModel({
     modelName: models.autoTweet,
     temperature: 1,
   });

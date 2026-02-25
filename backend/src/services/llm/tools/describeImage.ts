@@ -4,6 +4,7 @@ import fs from 'fs';
 import { z } from 'zod';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
+import { getTracedOpenAI } from '../utils/langfuse.js';
 import { logger } from '../../../utils/logger.js';
 
 export default class DescribeImageTool extends StructuredTool {
@@ -23,7 +24,7 @@ export default class DescribeImageTool extends StructuredTool {
     if (!openaiApiKey) {
       throw new Error('OPENAI_API_KEY environment variable is not set.');
     }
-    this.openai = new OpenAI({ apiKey: openaiApiKey });
+    this.openai = getTracedOpenAI(new OpenAI({ apiKey: openaiApiKey }));
   }
 
   async _call(data: z.infer<typeof this.schema>): Promise<string> {

@@ -6,6 +6,7 @@
 
 import { BaseMessage, HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
+import { createTracedModel } from '../../../llm/utils/langfuse.js';
 import { z } from 'zod';
 import { createLogger } from '../../../../utils/logger.js';
 import { CONFIG } from '../../config/MinebotConfig.js';
@@ -34,7 +35,7 @@ export class ActionJudge implements IActionJudge {
     private openai: ChatOpenAI;
 
     constructor() {
-        this.openai = new ChatOpenAI({
+        this.openai = createTracedModel({
             modelName: CONFIG.CENTRAL_AGENT_MODEL,
             apiKey: CONFIG.OPENAI_API_KEY,
             temperature: CONFIG.TEMPERATURE_CENTRAL,

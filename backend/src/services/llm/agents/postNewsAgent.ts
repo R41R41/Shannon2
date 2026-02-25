@@ -1,6 +1,5 @@
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { ChatOpenAI } from '@langchain/openai';
 import {
   AIMessage,
   BaseMessage,
@@ -12,6 +11,7 @@ import { StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { models } from '../../../config/models.js';
 import { loadPrompt } from '../config/prompts.js';
+import { createTracedModel } from '../utils/langfuse.js';
 import GoogleSearchTool from '../tools/googleSearch.js';
 import SearchByWikipediaTool from '../tools/searchByWikipedia.js';
 import { logger } from '../../../utils/logger.js';
@@ -155,7 +155,7 @@ export class PostNewsAgent {
     today: string,
     feedback?: string,
   ): Promise<NewsOutput | null> {
-    const model = new ChatOpenAI({
+    const model = createTracedModel({
       modelName: models.autoTweet,
       temperature: 0.7,
     });
@@ -272,7 +272,7 @@ export class PostNewsAgent {
   // =========================================================================
 
   private async review(draft: string): Promise<ReviewResult> {
-    const model = new ChatOpenAI({
+    const model = createTracedModel({
       modelName: models.autoTweet,
       temperature: 0,
     });

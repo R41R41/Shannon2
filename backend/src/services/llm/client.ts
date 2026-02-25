@@ -55,6 +55,7 @@ import { ReplyTwitterCommentAgent } from './agents/replyTwitterComment.js';
 import { ReplyYoutubeCommentAgent } from './agents/replyYoutubeComment.js';
 import { ReplyYoutubeLiveCommentAgent } from './agents/replyYoutubeLiveCommentAgent.js';
 import { TaskGraph } from './graph/taskGraph.js';
+import { getTracedOpenAI } from './utils/langfuse.js';
 import { logger } from '../../utils/logger.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -103,11 +104,11 @@ export class LLMService {
     this.realtimeApi = RealtimeAPIService.getInstance();
     this.taskGraph = TaskGraph.getInstance();
     this.voicepeakClient = VoicepeakClient.getInstance();
-    this.openaiClient = new OpenAI({ apiKey: config.openaiApiKey });
-    this.groqClient = new OpenAI({
+    this.openaiClient = getTracedOpenAI(new OpenAI({ apiKey: config.openaiApiKey }));
+    this.groqClient = getTracedOpenAI(new OpenAI({
       apiKey: config.groq.apiKey || config.openaiApiKey,
       baseURL: config.groq.apiKey ? 'https://api.groq.com/openai/v1' : undefined,
-    });
+    }));
     this.setupEventBus();
     this.setupRealtimeAPICallback();
   }

@@ -1,5 +1,5 @@
 import { TwitterTrendData, AutoTweetMode } from '@shannon/common';
-import { ChatOpenAI } from '@langchain/openai';
+import { createTracedModel } from '../utils/langfuse.js';
 import {
   AIMessage,
   BaseMessage,
@@ -324,7 +324,7 @@ class AnalyzeTweetImageTool extends StructuredTool {
       if (!tweet) return 'ツイートが見つかりません';
       const imageUrls = extractMediaUrls(tweet);
       if (imageUrls.length === 0) return 'このツイートには画像がありません';
-      const model = new ChatOpenAI({ modelName: 'gpt-4o', temperature: 0 });
+      const model = createTracedModel({ modelName: 'gpt-4o', temperature: 0 });
       const result = await model.invoke([
         new HumanMessage({
           content: [
@@ -500,7 +500,7 @@ export class AutoTweetAgent {
     recentQuoteUrls?: string[],
     recentTopics?: string[],
   ): Promise<ExplorationResult | null> {
-    const model = new ChatOpenAI({
+    const model = createTracedModel({
       modelName: models.autoTweetExplore,
       temperature: 0.7,
     });
@@ -710,7 +710,7 @@ export class AutoTweetAgent {
   ): Promise<AutoTweetOutput | null> {
     const isGemini = models.autoTweetGenerate.startsWith('gemini');
     const isO1Style = models.autoTweetGenerate.startsWith('gpt-5') || models.autoTweetGenerate.startsWith('o');
-    const model = new ChatOpenAI({
+    const model = createTracedModel({
       modelName: models.autoTweetGenerate,
       ...(isO1Style ? {} : { temperature: 0.9 }),
       ...(isGemini
@@ -795,7 +795,7 @@ export class AutoTweetAgent {
   // =========================================================================
 
   private async review(draft: AutoTweetOutput): Promise<ReviewResult> {
-    const model = new ChatOpenAI({
+    const model = createTracedModel({
       modelName: models.autoTweetReview,
       temperature: 0,
     });
