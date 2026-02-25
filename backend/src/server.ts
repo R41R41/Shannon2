@@ -18,6 +18,7 @@ import { YoutubeClient } from './services/youtube/client.js';
 import { logger, initFileLogging } from './utils/logger.js';
 import { safeAsync } from './utils/safeAsync.js';
 import { modelManager } from './config/modelManager.js';
+import { tokenTracker } from './services/llm/utils/tokenTracker.js';
 
 class Server {
   private llmService: LLMService;
@@ -106,6 +107,18 @@ class Server {
     app.post('/api/models/reset', (_req, res) => {
       modelManager.resetAll();
       res.json({ ok: true, models: modelManager.getAll() });
+    });
+
+    // -----------------------------------------------------------------
+    // トークン使用量 API
+    // -----------------------------------------------------------------
+    app.get('/api/tokens/session', (_req, res) => {
+      res.json(tokenTracker.getSessionStats());
+    });
+
+    app.get('/api/tokens/daily', async (_req, res) => {
+      const days = parseInt(_req.query.days as string) || 7;
+      res.json(await tokenTracker.getDailyStats(days));
     });
 
     // -----------------------------------------------------------------
