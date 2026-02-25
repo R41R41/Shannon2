@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import ShannonUI from "./pages/ShannonUI";
 import AuthGuard from "./components/AuthGuard/AuthGuard";
+import { ToastContainer } from "./components/Toast/Toast";
 
 interface AppProps {
   isTest?: boolean;
@@ -11,6 +12,7 @@ interface AppProps {
 const App: React.FC<AppProps> = ({ isTest }) => {
   return (
     <BrowserRouter>
+      <ToastContainer />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
