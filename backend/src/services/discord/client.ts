@@ -229,12 +229,16 @@ export class DiscordBot extends BaseClient {
     this.testXChannelId = config.discord.guilds.test.xChannelId;
   }
 
-  public initialize() {
+  public async initialize() {
     try {
-      this.client.login(config.discord.token);
+      if (!config.discord.token) {
+        logger.warn('Discord token が未設定のためログインをスキップ');
+        return;
+      }
+      await this.client.login(config.discord.token);
       logger.info('Discord bot started', 'blue');
     } catch (error) {
-      logger.error('Discord bot failed to start');
+      logger.error(`Discord bot failed to start: ${error instanceof Error ? error.message : error}`);
       this.eventBus.log(
         'discord:aiminelab_server',
         'red',

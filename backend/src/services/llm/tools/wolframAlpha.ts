@@ -18,18 +18,26 @@ export default class WolframAlphaTool extends StructuredTool {
       ),
   });
   private wolframClient: any;
+  private disabled: boolean;
 
   constructor() {
     super();
     const wolframAppId = config.wolframAlpha.appId;
-    if (!wolframAppId) {
-      throw new Error('WOLFRAM_ALPHA_APPID environment variable is not set.');
-    }
+    this.disabled = !wolframAppId;
 
-    this.wolframClient = WolframAlphaAPI(wolframAppId);
+    if (this.disabled) {
+      logger.warn('[WolframAlpha] WOLFRAM_ALPHA_APPID is not set. Tool will return an error message when called.');
+      this.wolframClient = null;
+    } else {
+      this.wolframClient = WolframAlphaAPI(wolframAppId);
+    }
   }
 
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
+    if (this.disabled) {
+      return 'Wolfram Alphaは現在利用できません（WOLFRAM_ALPHA_APPID が未設定です）。';
+    }
+
     try {
       const result = await this.wolframClient.getFull({
         input: data.query,

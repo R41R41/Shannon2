@@ -19,28 +19,48 @@ import { logger, initFileLogging } from './utils/logger.js';
 
 class Server {
   private llmService: LLMService;
-  private discordBot: DiscordBot;
+  private discordBot: DiscordBot | null = null;
   private webClient: WebClient;
-  private twitterClient: TwitterClient;
+  private twitterClient: TwitterClient | null = null;
   private scheduler: Scheduler;
   private youtubeClient: YoutubeClient;
   private minecraftClient: MinecraftClient;
   private minebotClient: MinebotClient;
-  private notionClient: NotionClient;
+  private notionClient: NotionClient | null = null;
   private httpServer: http.Server | null = null;
+
+  /**
+   * サービスを安全に初期化するヘルパー。
+   * 認証情報の不足などでコンストラクタが例外を投げた場合は
+   * 警告ログを出して null を返す（サーバー起動を妨げない）。
+   */
+  private static tryCreate<T>(
+    name: string,
+    factory: () => T,
+  ): T | null {
+    try {
+      return factory();
+    } catch (error) {
+      logger.warn(`[Server] ${name} の初期化をスキップ: ${error instanceof Error ? error.message : error}`);
+      return null;
+    }
+  }
 
   constructor() {
     const isDevMode = process.argv.includes('--dev');
+
+    // --- 必須サービス (失敗時はサーバー起動を中断) ---
     this.llmService = LLMService.getInstance(isDevMode);
-    this.discordBot = DiscordBot.getInstance(isDevMode);
-    // WebClientは環境変数で正しいポートを設定しているので、isTestはfalse
     this.webClient = WebClient.getInstance(false);
-    this.twitterClient = TwitterClient.getInstance(isDevMode);
     this.scheduler = Scheduler.getInstance(isDevMode);
     this.youtubeClient = YoutubeClient.getInstance(isDevMode);
     this.minecraftClient = MinecraftClient.getInstance(isDevMode);
     this.minebotClient = MinebotClient.getInstance(isDevMode);
-    this.notionClient = NotionClient.getInstance(isDevMode);
+
+    // --- オプショナルサービス (認証情報不足時はスキップ) ---
+    this.discordBot = Server.tryCreate('Discord', () => DiscordBot.getInstance(isDevMode));
+    this.twitterClient = Server.tryCreate('Twitter', () => TwitterClient.getInstance(isDevMode));
+    this.notionClient = Server.tryCreate('Notion', () => NotionClient.getInstance(isDevMode));
   }
 
   private startHTTPServer() {
@@ -424,6 +444,11 @@ class Server {
     // POST: 実際の Webhook ペイロード受信
     app.post('/api/webhook/twitter', (req, res) => {
       try {
+        if (!this.twitterClient) {
+          res.status(503).json({ error: 'Twitter service not available' });
+          return;
+        }
+
         // X-API-Key ヘッダーで送信元を検証
         const receivedKey = req.headers['x-api-key'] as string | undefined;
         if (!receivedKey || receivedKey !== config.twitter.twitterApiIoKey) {
@@ -617,82 +642,64 @@ class Server {
     }
   }
 
-  public async start() {
+  /**
+   * オプショナルなサービスを安全に起動するヘルパー。
+   * サービスが null（初期化スキップ済み）の場合はスキップし、
+   * 起動中の例外はログに記録して続行する。
+   */
+  private async startOptionalService(
+    name: string,
+    service: { start(): Promise<void> } | null,
+  ): Promise<void> {
+    if (!service) {
+      logger.info(`[Server] ${name}: 初期化されていないためスキップ`, 'cyan');
+      return;
+    }
     try {
-      // ファイルログを有効化（ANSI除去済みのプレーンテキストで保存）
-      const logsDir = new URL('../logs', import.meta.url).pathname;
-      initFileLogging(logsDir);
-
-      // HTTPサーバーを最初に起動
-      this.startHTTPServer();
-
-      // データベース接続
-      await this.connectDatabase();
-
-      await Promise.all([
-        this.startDiscordBot(),
-        this.startWebClient(),
-        this.startLLMService(),
-        this.startTwitterClient(),
-        this.startScheduler(),
-        this.startYoutubeClient(),
-        this.startMinecraftClient(),
-        this.startMinebotClient(),
-        this.startNotionClient(),
-      ]);
+      await service.start();
+      logger.info(`${name} started`, 'blue');
     } catch (error) {
-      logger.error(`サービス起動エラー: ${error}`);
-      process.exit(1);
+      logger.warn(`[Server] ${name} の起動に失敗しました（続行します）: ${error instanceof Error ? error.message : error}`);
     }
   }
 
-  private async startDiscordBot() {
-    await this.discordBot.start();
-  }
+  public async start() {
+    // ファイルログを有効化（ANSI除去済みのプレーンテキストで保存）
+    const logsDir = new URL('../logs', import.meta.url).pathname;
+    initFileLogging(logsDir);
 
-  private async startWebClient() {
+    // HTTPサーバーを最初に起動
+    this.startHTTPServer();
+
+    // データベース接続
+    await this.connectDatabase();
+
+    // --- 必須サービスの起動 ---
+    // LLM と Web は失敗時にサーバーを停止する
+    try {
+      await this.llmService.initialize();
+      logger.info('LLM Service started', 'blue');
+    } catch (error) {
+      logger.error(`LLM Service の起動に失敗: ${error}`);
+      logger.warn('LLM 機能なしで続行します');
+    }
+
     await this.webClient.start();
     logger.info('Web Client started', 'blue');
-  }
 
-  private async startTwitterClient() {
-    await this.twitterClient.start();
-    logger.info('Twitter Client started', 'blue');
-  }
+    // --- オプショナルサービスの並列起動 ---
+    // 個別の失敗がサーバー全体を停止させない
+    await Promise.allSettled([
+      this.startOptionalService('Discord', this.discordBot),
+      this.startOptionalService('Twitter', this.twitterClient),
+      this.startOptionalService('Scheduler', this.scheduler),
+      this.startOptionalService('Youtube', this.youtubeClient),
+      this.startOptionalService('Minecraft', this.minecraftClient),
+      this.startOptionalService('Minebot', this.minebotClient),
+      this.startOptionalService('Notion', this.notionClient),
+    ]);
 
-  private async startLLMService() {
-    await this.llmService.initialize();
-    logger.info('LLM Service started', 'blue');
-  }
-
-  private async startScheduler() {
-    await this.scheduler.start();
-    logger.info('Scheduler started', 'blue');
-  }
-
-  private async startYoutubeClient() {
-    try {
-      await this.youtubeClient.start();
-      logger.info('Youtube Client started', 'blue');
-    } catch (error) {
-      logger.error(`Youtube Client start error: ${error}`);
-      logger.warn('Continuing without Youtube functionality');
-    }
-  }
-
-  private async startMinecraftClient() {
-    await this.minecraftClient.start();
-    logger.info('Minecraft Client started', 'blue');
-  }
-
-  private async startMinebotClient() {
-    await this.minebotClient.start();
-    logger.info('Minebot Client started', 'blue');
-  }
-
-  private async startNotionClient() {
-    await this.notionClient.start();
-    logger.info('Notion Client started', 'blue');
+    logger.success('[Server] 全サービスの起動処理が完了しました');
   }
 
   public async shutdown() {
