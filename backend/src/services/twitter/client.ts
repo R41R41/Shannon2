@@ -10,6 +10,7 @@ import {
   TwitterTrendData,
 } from '@shannon/common';
 import axios, { isAxiosError } from 'axios';
+import { LRUSet } from '../../utils/LRUSet.js';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import fs from 'fs';
@@ -102,7 +103,7 @@ export class TwitterClient extends BaseClient {
   private lastCheckedReplyIds: Set<string> = new Set();
 
   /** 処理済みツイートID (重複アクション防止、ファイル永続化) */
-  public processedTweetIds: Set<string> = new Set();
+  public processedTweetIds: LRUSet<string> = new LRUSet(1000);
 
   /** 1日あたりの返信カウンタ */
   private dailyReplyCount = 0;
@@ -205,10 +206,8 @@ export class TwitterClient extends BaseClient {
       if (fs.existsSync(PROCESSED_IDS_FILE)) {
         const data = JSON.parse(fs.readFileSync(PROCESSED_IDS_FILE, 'utf-8'));
         if (Array.isArray(data)) {
-          // 最新500件のみ保持
-          const recent = data.slice(-500);
-          this.processedTweetIds = new Set(recent);
-          logger.info(`📋 処理済みID: ${this.processedTweetIds.size}件をファイルから復元`, 'cyan');
+          this.processedTweetIds = LRUSet.fromArray(data.slice(-1000), 1000);
+          logger.info(`📋 処理済みID: ${this.processedTweetIds.size}件をファイルから復元 (LRU max=1000)`, 'cyan');
         }
       }
     } catch (err) {
@@ -346,9 +345,7 @@ export class TwitterClient extends BaseClient {
     try {
       const dir = path.dirname(PROCESSED_IDS_FILE);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      // 最新500件のみ保存
-      const ids = Array.from(this.processedTweetIds).slice(-500);
-      fs.writeFileSync(PROCESSED_IDS_FILE, JSON.stringify(ids, null, 2));
+      fs.writeFileSync(PROCESSED_IDS_FILE, JSON.stringify(this.processedTweetIds.toArray(), null, 2));
     } catch (err) {
       logger.warn(`📋 処理済みIDファイル保存失敗: ${err}`);
     }
@@ -1459,8 +1456,11 @@ export class TwitterClient extends BaseClient {
         const data = JSON.parse(fs.readFileSync(DAILY_SCHEDULE_FILE, 'utf-8'));
         if (data.date === this.getTodayJST()) {
           this.todayPostTimes = data.times || [];
+          if (typeof data.postedCount === 'number') {
+            this.autoPostCount = data.postedCount;
+          }
           logger.info(
-            `📋 投稿スケジュール読み込み: ${this.todayPostTimes.length}件 (${data.date})`,
+            `📋 投稿スケジュール読み込み: ${this.todayPostTimes.length}件 (${data.date}), 投稿済み: ${this.autoPostCount}件`,
             'cyan'
           );
           this.logDailySchedule();
@@ -1517,7 +1517,7 @@ export class TwitterClient extends BaseClient {
     this.logDailySchedule();
   }
 
-  /** スケジュールをファイルに保存 */
+  /** スケジュールをファイルに保存（投稿済みカウントも含む） */
   private saveDailySchedule(): void {
     try {
       const dir = path.dirname(DAILY_SCHEDULE_FILE);
@@ -1525,7 +1525,11 @@ export class TwitterClient extends BaseClient {
       fs.writeFileSync(
         DAILY_SCHEDULE_FILE,
         JSON.stringify(
-          { date: this.getTodayJST(), times: this.todayPostTimes },
+          {
+            date: this.getTodayJST(),
+            times: this.todayPostTimes,
+            postedCount: this.autoPostCount,
+          },
           null,
           2
         )
