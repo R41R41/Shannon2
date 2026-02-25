@@ -7,6 +7,7 @@ import { Vec3 } from 'vec3';
 import { createLogger } from '../../utils/logger.js';
 import { CONFIG } from './config/MinebotConfig.js';
 import { Utils } from './utils/index.js';
+import { extractAndSaveKnowledge } from './knowledge/skillResultExtractor.js';
 
 const log = createLogger('Minebot:Types');
 
@@ -253,7 +254,13 @@ export abstract class InstantSkill extends Skill {
       ]);
 
       const duration = Date.now() - startTime;
-      return { ...result, duration };
+      const finalResult = { ...result, duration };
+
+      // ワールド知識の自動抽出（fire-and-forget）
+      extractAndSaveKnowledge(this.skillName, args, finalResult, this.bot.connectedServerName || 'default')
+        .catch(() => {});
+
+      return finalResult;
     } catch (error: any) {
       const duration = Date.now() - startTime;
       return {

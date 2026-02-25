@@ -13,6 +13,7 @@ import { SkillLoader } from './skills/SkillLoader.js';
 import { SkillRegistrar } from './skills/SkillRegistrar.js';
 import { CustomBot } from './types.js';
 import { ConstantSkillInfo, LLMError, SkillExecutionError } from './types/index.js';
+import { WorldKnowledgeService } from './knowledge/WorldKnowledgeService.js';
 import { createLogger } from '../../utils/logger.js';
 
 const log = createLogger('Minebot:SkillAgent');
@@ -398,6 +399,21 @@ export class SkillAgent {
     setInterval(() => {
       this.bot.emit('taskPer5000ms');
     }, CONFIG.INTERVAL_5000MS);
+
+    // 60秒ごとにボット状態をスナップショット保存
+    setInterval(() => {
+      if (!this.bot.entity) return;
+      const wk = WorldKnowledgeService.getInstance(this.bot.connectedServerName || 'default');
+      const pos = this.bot.entity.position;
+      wk.recordSnapshot({
+        position: { x: Math.floor(pos.x), y: Math.floor(pos.y), z: Math.floor(pos.z) },
+        health: this.bot.health ?? 0,
+        food: this.bot.food ?? 0,
+        dimension: (this.bot as any).game?.dimension || 'overworld',
+        biome: '',
+        inventory: (this.bot.inventory?.items() || []).map((item: any) => ({ name: item.name, count: item.count })),
+      }).catch(() => {});
+    }, 60000);
   }
 
   /**
