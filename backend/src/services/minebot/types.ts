@@ -8,6 +8,9 @@ import { createLogger } from '../../utils/logger.js';
 import { CONFIG } from './config/MinebotConfig.js';
 import { Utils } from './utils/index.js';
 import { extractAndSaveKnowledge } from './knowledge/skillResultExtractor.js';
+import { SkillResultCache } from './knowledge/SkillResultCache.js';
+
+const skillCache = new SkillResultCache();
 
 const log = createLogger('Minebot:Types');
 
@@ -192,6 +195,13 @@ export abstract class InstantSkill extends Skill {
   }
 
   async run(...args: any[]): Promise<import('./types/skillParams.js').SkillResult> {
+    // キャッシュチェック（クエリ系スキルのみ）
+    if (skillCache.isCacheable(this.skillName) && this.bot.entity) {
+      const pos = this.bot.entity.position;
+      const cached = skillCache.get(this.skillName, args, { x: pos.x, y: pos.y, z: pos.z });
+      if (cached) return { ...cached, duration: 0 };
+    }
+
     this.bot.executingSkill = true;
     this.bot.interruptExecution = false;
     this.status = true;
@@ -259,6 +269,12 @@ export abstract class InstantSkill extends Skill {
       // ワールド知識の自動抽出（fire-and-forget）
       extractAndSaveKnowledge(this.skillName, args, finalResult, this.bot.connectedServerName || 'default')
         .catch(() => {});
+
+      // キャッシュ書き込み
+      if (skillCache.isCacheable(this.skillName) && this.bot.entity) {
+        const pos = this.bot.entity.position;
+        skillCache.set(this.skillName, args, finalResult, { x: pos.x, y: pos.y, z: pos.z });
+      }
 
       return finalResult;
     } catch (error: any) {
