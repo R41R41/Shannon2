@@ -9,6 +9,7 @@ import { CONFIG } from './config/MinebotConfig.js';
 import { Utils } from './utils/index.js';
 import { extractAndSaveKnowledge } from './knowledge/skillResultExtractor.js';
 import { SkillResultCache } from './knowledge/SkillResultCache.js';
+import { skillMetrics } from './knowledge/SkillMetrics.js';
 
 const skillCache = new SkillResultCache();
 
@@ -276,9 +277,20 @@ export abstract class InstantSkill extends Skill {
         skillCache.set(this.skillName, args, finalResult, { x: pos.x, y: pos.y, z: pos.z });
       }
 
+      // メトリクス記録
+      skillMetrics.record(
+        this.bot.connectedServerName || 'default',
+        this.skillName, args,
+        finalResult.success, finalResult.duration || 0, null,
+      ).catch(() => {});
+
       return finalResult;
     } catch (error: any) {
       const duration = Date.now() - startTime;
+      skillMetrics.record(
+        this.bot.connectedServerName || 'default',
+        this.skillName, args, false, duration, error.message,
+      ).catch(() => {});
       return {
         success: false,
         result: 'Skill execution failed',

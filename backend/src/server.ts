@@ -171,6 +171,13 @@ class Server {
       } catch { res.json({ context: '' }); }
     });
 
+    app.get('/api/minebot/skills/metrics', async (_req, res) => {
+      try {
+        const { skillMetrics } = await import('./services/minebot/knowledge/SkillMetrics.js');
+        res.json(skillMetrics.getAll());
+      } catch { res.json({}); }
+    });
+
     // -----------------------------------------------------------------
     // Twitter Webhook: twitterapi.io からのリアルタイム返信通知を受信
     // -----------------------------------------------------------------
