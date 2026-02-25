@@ -11,9 +11,10 @@ BACKEND_SESSION="shannon-backend-prod"
 
 if [ "$1" = "--dev" ]; then
     IS_DEV=true
-    PORT=15001
-    WS_PORTS=(15021 15022 15023 15024 15025 15026 15027 15028)
-    BACKEND_SESSION="shannon-backend-prod-dev"
+    PORT=15000
+    WS_PORTS=(15010 15011 15013 15018 15019 15020 15016 15017)
+    BACKEND_SESSION="shannon-backend-dev"
+    echo "Starting in dev mode..."
     echo "Starting backend in dev mode on port $PORT (WS: ${WS_PORTS[*]})..."
 else
     echo "Starting backend on port $PORT (WS: ${WS_PORTS[*]})..."

@@ -618,6 +618,7 @@ class Server {
           );
 
           // 会話スレッドを非同期で遡って取得してから LLM に渡す
+          const twitterClient = this.twitterClient!;
           safeAsync('Webhook:fetchThread', async () => {
             const thread: Array<{ authorName: string; text: string }> = [];
             const MAX_CHAIN_DEPTH = 5;
@@ -646,7 +647,7 @@ class Server {
             logger.info(`[Webhook] 会話スレッド: ${thread.length}件取得 (最大${MAX_CHAIN_DEPTH})`);
 
             // 返信カウンタをインクリメント
-            this.twitterClient.incrementReplyCount();
+            twitterClient.incrementReplyCount();
 
             // 後方互換: thread[0] を repliedTweet として渡す
             const rootTweet = thread.length > 0 ? thread[0] : null;

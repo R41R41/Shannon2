@@ -1299,11 +1299,7 @@ export class TwitterClient extends BaseClient {
         }
       }
 
-      // processedTweetIds が際限なく増えるのを防ぐ (最大1000件保持)
-      if (this.processedTweetIds.size > 1000) {
-        const idsArray = Array.from(this.processedTweetIds);
-        this.processedTweetIds = new Set(idsArray.slice(-500));
-      }
+      // LRUSet が maxSize=1000 で自動 eviction するため手動トリミング不要
     } catch (e) {
       logger.error('Twitter監視エラー:', e);
     }

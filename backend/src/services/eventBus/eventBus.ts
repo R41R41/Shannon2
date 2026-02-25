@@ -57,7 +57,7 @@ export class EventBus {
         event.targetMemoryZones.includes(event.memoryZone)
       ) {
         try {
-          const result = callback(event);
+          const result: unknown = callback(event);
           if (result instanceof Promise) {
             result.catch((err) => {
               logger.error(`[EventBus] ${event.type} リスナーの非同期エラー: ${err instanceof Error ? err.message : err}`);
