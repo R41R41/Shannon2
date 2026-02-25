@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { loadPrompt } from '../config/prompts.js';
 import { models } from '../../../config/models.js';
 import { logger } from '../../../utils/logger.js';
+import { createLLMWithFallback } from '../utils/llmWithFallback.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -105,10 +106,10 @@ export class PostFortuneAgent {
       '挑戦', '伝統', '友情', '直感',
       '競争', '忠実', '知性', '夢',
     ];
-    this.model = new ChatOpenAI({
-      modelName: models.contentGeneration,
-      modelKwargs: { max_completion_tokens: 8192 },
+    this.model = createLLMWithFallback({
+      primaryModel: models.contentGeneration,
     });
+    this.model.maxTokens = 8192;
   }
 
   public static async create(): Promise<PostFortuneAgent> {

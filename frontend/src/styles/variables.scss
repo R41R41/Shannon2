@@ -154,12 +154,95 @@ $breakpoints: (
 );
 
 // ============================================================
+// Convenience aliases for CSS custom properties
+// ============================================================
+$bg-primary: var(--color-bg-primary);
+$bg-secondary: var(--color-bg-secondary);
+$surface-primary: var(--color-surface-primary);
+$surface-secondary: var(--color-surface-secondary);
+$surface-tertiary: var(--color-surface-tertiary);
+$text-primary: var(--color-text-primary);
+$text-secondary: var(--color-text-secondary);
+$text-tertiary: var(--color-text-disabled);
+$border-primary: var(--color-border-primary);
+$border-hover: var(--color-border-hover);
+$shadow-xs: var(--shadow-xs);
+$shadow-sm: var(--shadow-sm);
+$shadow-md: var(--shadow-md);
+$shadow-lg: var(--shadow-lg);
+
+$color-primary: #3b82f6;
+$color-success: #22c55e;
+$color-danger: #ef4444;
+$color-warning: #f59e0b;
+$color-info: #06b6d4;
+
+$font-family-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+$font-size-xxs: 10px;
+$font-size-xs: 11px;
+$font-size-sm: 12px;
+$font-size-md: 13px;
+$font-size-lg: 14px;
+
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+$spacing-xxs: 2px;
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 24px;
+
+$radius-xs: 4px;
+$radius-sm: 6px;
+$radius-md: 8px;
+$radius-lg: 12px;
+
+$transition-fast: 0.12s ease-out;
+$transition-normal: 0.2s ease-out;
+
+$z-dropdown: 100;
+$z-header: 800;
+$z-modal: 1000;
+$z-tooltip: 1100;
+
+$breakpoint-sm: 576px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 992px;
+
+// ============================================================
 // Functions
 // ============================================================
 
+// Theme-aware color function.
+// background/surface/text/border → CSS custom properties (theme-switchable)
+// brand/semantic colors → static SCSS values (same in both themes)
 @function color($key, $subkey: null) {
+  // Themed groups → CSS custom properties
+  @if $key == 'background' and $subkey { @return var(--color-bg-#{$subkey}); }
+  @if $key == 'surface' and $subkey { @return var(--color-surface-#{$subkey}); }
+  @if $key == 'text' and $subkey {
+    $themed: (primary, secondary, disabled);
+    @each $t in $themed { @if $subkey == $t { @return var(--color-text-#{$subkey}); } }
+    $text-map: map.get($colors, text);
+    @if $text-map { @return map.get($text-map, $subkey); }
+    @return null;
+  }
+  @if $key == 'border' {
+    @if $subkey == 'hover' { @return var(--color-border-hover); }
+    @if $subkey { @return var(--color-border-#{$subkey}); }
+    @return var(--color-border-primary);
+  }
+  // Aliases
+  @if $key == 'brand' and $subkey == 'primary' { @return map.get($colors, primary); }
+  @if $key == 'brand' { @return map.get($colors, primary); }
+  @if $key == 'semantic' and $subkey { @return map.get($colors, $subkey); }
+  // Direct lookup
   @if $subkey {
-    @return map.get(map.get($colors, $key), $subkey);
+    $sub-map: map.get($colors, $key);
+    @if $sub-map and type-of($sub-map) == 'map' { @return map.get($sub-map, $subkey); }
+    @return null;
   }
   @return map.get($colors, $key);
 }
@@ -181,6 +264,8 @@ $breakpoints: (
 }
 
 @function shadow($key) {
+  $themed: ('xs', 'sm', 'md', 'lg');
+  @if index($themed, $key) { @return var(--shadow-#{$key}); }
   @return map.get($shadows, $key);
 }
 
@@ -248,11 +333,11 @@ $breakpoints: (
     background: transparent;
   }
   &::-webkit-scrollbar-thumb {
-    background: color(border, primary);
+    background: var(--color-border-primary);
     border-radius: 3px;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.15);
+      background: var(--color-border-hover);
     }
   }
 }
@@ -275,7 +360,7 @@ $breakpoints: (
 }
 
 // Glass effect
-@mixin glass($opacity: 0.6) {
-  background-color: rgba(22, 22, 22, $opacity);
+@mixin glass {
+  background-color: var(--color-glass);
   backdrop-filter: blur(12px);
 }

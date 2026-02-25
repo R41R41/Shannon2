@@ -8,8 +8,10 @@ import { Prompt } from '../prompt.js';
 import { config } from '../../../../../config/env.js';
 import { models } from '../../../../../config/models.js';
 import { CONFIG } from '../../../config/MinebotConfig.js';
+import { getSkillDependencySummary } from '../../../config/skillDependencies.js';
 
 const log = createLogger('Minebot:Planning');
+const SKILL_REF = getSkillDependencySummary();
 
 // 失敗したサブタスクの情報
 interface FailedSubTaskInfo {
@@ -127,6 +129,9 @@ export class PlanningNode {
 失敗したサブタスクを、より小さく具体的なサブタスクに分解してください。
 
 失敗理由を分析し、その問題を解決するために必要な前提タスクを追加してください。
+
+利用可能なスキル（カテゴリ別・推定実行時間付き）:
+${SKILL_REF}
 
 例：
 - 「石を掘る」が「適切なツールがない」で失敗した場合

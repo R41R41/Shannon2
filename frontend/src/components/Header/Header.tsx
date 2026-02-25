@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import styles from "./Header.module.scss";
 import SettingsModal from "@components/Modal/SettingsModal";
 import logo from "@/assets/logo.png";
@@ -8,6 +8,7 @@ import { ConnectionStatus } from "@/services/common/WebSocketClient";
 import { MonitoringAgent } from "@/services/agents/monitoringAgent";
 import { OpenAIAgent } from "@/services/agents/openaiAgent";
 import { StatusAgent } from "@/services/agents/statusAgent";
+import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import classNames from "classnames";
 
 interface HeaderProps {
@@ -15,6 +16,8 @@ interface HeaderProps {
   monitoring?: MonitoringAgent | null;
   openai?: OpenAIAgent | null;
   status?: StatusAgent | null;
+  settingsOpen?: boolean;
+  onSettingsChange?: (open: boolean) => void;
 }
 
 interface ConnectionIndicatorProps {
@@ -43,35 +46,18 @@ const Header: React.FC<HeaderProps> = ({
   monitoring,
   openai,
   status,
+  settingsOpen: externalSettingsOpen,
+  onSettingsChange,
 }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [monitoringStatus, setMonitoringStatus] =
-    useState<ConnectionStatus>("disconnected");
-  const [openaiStatus, setOpenaiStatus] =
-    useState<ConnectionStatus>("disconnected");
-  const [statusStatus, setStatusStatus] =
-    useState<ConnectionStatus>("disconnected");
-
-  useEffect(() => {
-    const onMonitoring = (s: ConnectionStatus) => setMonitoringStatus(s);
-    const onOpenai = (s: ConnectionStatus) => setOpenaiStatus(s);
-    const onStatus = (s: ConnectionStatus) => setStatusStatus(s);
-
-    monitoring?.addStatusListener(onMonitoring);
-    openai?.addStatusListener(onOpenai);
-    status?.addStatusListener(onStatus);
-
-    // Sync initial state
-    if (monitoring) setMonitoringStatus(monitoring.status);
-    if (openai) setOpenaiStatus(openai.status);
-    if (status) setStatusStatus(status.status);
-
-    return () => {
-      monitoring?.removeStatusListener(onMonitoring);
-      openai?.removeStatusListener(onOpenai);
-      status?.removeStatusListener(onStatus);
-    };
-  }, [monitoring, openai, status]);
+  const [internalModalOpen, setInternalModalOpen] = useState(false);
+  const isModalOpen = externalSettingsOpen ?? internalModalOpen;
+  const setIsModalOpen = (open: boolean) => {
+    setInternalModalOpen(open);
+    onSettingsChange?.(open);
+  };
+  const monitoringStatus = useConnectionStatus(monitoring);
+  const openaiStatus = useConnectionStatus(openai);
+  const statusStatus = useConnectionStatus(status);
 
   return (
     <>

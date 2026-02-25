@@ -1,4 +1,5 @@
 import { WebSocketClientBase } from "../common/WebSocketClient";
+import { parseMessage } from "../common/messageSchema";
 import { URLS } from "../config/ports";
 import { UserInfo } from "@common/types/web";
 
@@ -20,7 +21,7 @@ export class AuthAgent extends WebSocketClientBase {
   }
 
   protected handleMessage(message: string) {
-    const data = JSON.parse(message);
+    const data = parseMessage(message);
     if (data.type === "auth:response") {
       this.authCallback(data.success, data.userData);
     }

@@ -120,6 +120,10 @@ export class LLMService {
   }
 
   public async initialize() {
+    // プロンプトホットリロードを有効化
+    const { enablePromptHotReload } = await import('./config/prompts.js');
+    enablePromptHotReload();
+
     // TaskGraphを初期化（ツール読み込み、ノード初期化）
     await this.taskGraph.initialize();
 

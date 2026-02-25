@@ -1,4 +1,5 @@
 import { WebSocketClientBase } from "../common/WebSocketClient";
+import { parseMessage } from "../common/messageSchema";
 import { Schedule } from "@common/types/scheduler";
 import { WebScheduleInput } from "@common/types/web";
 import { URLS } from "../config/ports";
@@ -27,8 +28,8 @@ export class SchedulerAgent extends WebSocketClientBase {
   }
 
   protected handleMessage(message: string) {
-    const data = JSON.parse(message);
-    if (data.type === "pong") return;
+    const data = parseMessage(message);
+    if (!data || data.type === "pong") return;
     if (data.type === "post_schedule") {
       this.searchListeners.forEach((listener) =>
         listener(data.data as Schedule[])

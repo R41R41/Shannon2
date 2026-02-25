@@ -11,6 +11,7 @@ import {
 } from '@shannon/common';
 import axios, { isAxiosError } from 'axios';
 import { LRUSet } from '../../utils/LRUSet.js';
+import { retryWithBackoff } from '../../utils/retryWithBackoff.js';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import fs from 'fs';
@@ -1911,30 +1912,16 @@ export class TwitterClient extends BaseClient {
       this.scheduleFromDailyPlan();
       this.setupEventHandlers();
     } catch (error) {
-      if (error instanceof Error && error.message.includes('429')) {
-        const apiError = error as { rateLimit?: { reset: number } };
-        if (apiError.rateLimit?.reset) {
-          const resetTime = apiError.rateLimit.reset * 1000;
-          const now = Date.now();
-          const waitTime = resetTime - now + 10000;
-
-          logger.warn(
-            `Twitter rate limit reached, waiting until ${new Date(
-              resetTime
-            ).toISOString()} (${waitTime / 1000}s)`
-          );
-
-          await new Promise((resolve) => setTimeout(resolve, waitTime));
-          await this.initialize();
-        } else {
-          logger.warn('Twitter rate limit reached, waiting before retry...');
-          await new Promise((resolve) => setTimeout(resolve, 5000));
-          await this.initialize();
-        }
-      } else {
-        logger.error(`Twitter initialization error: ${error}`);
-        throw error;
-      }
+      logger.error(`Twitter initialization error: ${error}`);
+      throw error;
     }
+  }
+
+  /**
+   * Rate Limit 対応の API 呼び出しラッパー。
+   * 429 エラー時に指数バックオフでリトライする。
+   */
+  public async callWithRetry<T>(fn: () => Promise<T>, label = 'Twitter API'): Promise<T> {
+    return retryWithBackoff(fn, { maxRetries: 3, label });
   }
 }

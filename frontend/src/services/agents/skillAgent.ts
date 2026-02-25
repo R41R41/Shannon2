@@ -1,4 +1,5 @@
 import { WebSocketClientBase } from "../common/WebSocketClient";
+import { parseMessage } from "../common/messageSchema";
 import { URLS } from "../config/ports";
 import { SkillInfo } from "@common/types/llm";
 
@@ -22,8 +23,8 @@ export class SkillAgent extends WebSocketClientBase {
   }
 
   protected handleMessage(message: string) {
-    const data = JSON.parse(message);
-    if (data.type === "pong") return;
+    const data = parseMessage(message);
+    if (!data || data.type === "pong") return;
     if (data.type === "web:skill") {
       this.updateSkillsCallback(data.data as SkillInfo[]);
     }

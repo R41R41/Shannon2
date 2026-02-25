@@ -1,6 +1,8 @@
 import { ChatOpenAI } from '@langchain/openai';
+import { tokenTracker } from '../../utils/tokenTracker.js';
 import { config } from '../../../../config/env.js';
 import { models } from '../../../../config/models.js';
+import { modelManager } from '../../../../config/modelManager.js';
 import {
     AIMessage,
     AIMessageChunk,
@@ -78,7 +80,7 @@ export class FunctionCallingAgent {
     private pendingFeedback: string[] = [];
 
     // === 設定 ===
-    static readonly MODEL_NAME = models.functionCalling;
+    static get MODEL_NAME() { return modelManager.get('functionCalling'); }
     static readonly MAX_ITERATIONS = 30;
     static readonly LLM_TIMEOUT_MS = 30000;   // 1回のLLM呼び出し: 30秒
     static readonly MAX_TOTAL_TIME_MS = 300000; // 全体: 5分
@@ -318,6 +320,15 @@ export class FunctionCallingAgent {
                         })) as AIMessage;
                     }
                     clearTimeout(callTimeout);
+                    const usage = (response as any)?.usage_metadata;
+                    if (usage) {
+                        tokenTracker.record(
+                            this.model.modelName || 'unknown',
+                            'FunctionCallingAgent',
+                            usage.input_tokens || 0,
+                            usage.output_tokens || 0,
+                        ).catch(() => {});
+                    }
                     logger.success(`⏱ LLM応答: ${Date.now() - llmStart}ms (iteration ${iteration + 1})`);
                 } catch (e: any) {
                     clearTimeout(callTimeout);
