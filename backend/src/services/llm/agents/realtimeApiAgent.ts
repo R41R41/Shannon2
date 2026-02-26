@@ -29,6 +29,8 @@ export class RealtimeAPIService {
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
   private reconnectDelay: number = 5000; // 5秒
+  private sessionRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private static SESSION_REFRESH_MS = 55 * 60 * 1000; // 55分（60分上限の前に更新）
 
   constructor() {
     const eventBus = getEventBus();
@@ -178,11 +180,11 @@ export class RealtimeAPIService {
 
       this.ws.on('open', () => {
         logger.success('Connected to OpenAI Realtime API');
-        // セッション設定を送信
         if (this.ws) {
           this.ws.send(JSON.stringify(this.noVadSessionConfig));
         }
         this.initialized = true;
+        this.scheduleSessionRefresh();
         resolve(true);
       });
 
@@ -282,6 +284,10 @@ export class RealtimeAPIService {
             this.eventBus.log('web', 'red', 'Server error', true);
             if (data.error?.code === 'session_expired') {
               logger.info('[RealtimeAPI] セッション期限切れ。自動再接続します...', 'cyan');
+              if (this.sessionRefreshTimer) {
+                clearTimeout(this.sessionRefreshTimer);
+                this.sessionRefreshTimer = null;
+              }
               this.initialized = false;
               setTimeout(() => {
                 this.initialize().catch((e) =>
@@ -318,6 +324,23 @@ export class RealtimeAPIService {
         }, 3000);
       });
     });
+  }
+
+  private scheduleSessionRefresh() {
+    if (this.sessionRefreshTimer) {
+      clearTimeout(this.sessionRefreshTimer);
+    }
+    this.sessionRefreshTimer = setTimeout(() => {
+      logger.info('[RealtimeAPI] セッション更新: 55分経過のため再接続します', 'cyan');
+      this.initialized = false;
+      if (this.ws) {
+        try { this.ws.close(); } catch { /* ignore */ }
+        this.ws = null;
+      }
+      this.initialize().catch((e) =>
+        logger.error(`[RealtimeAPI] セッション更新失敗: ${e}`)
+      );
+    }, RealtimeAPIService.SESSION_REFRESH_MS);
   }
 
   private async ensureConnection() {
@@ -401,6 +424,10 @@ export class RealtimeAPIService {
   }
 
   cleanup() {
+    if (this.sessionRefreshTimer) {
+      clearTimeout(this.sessionRefreshTimer);
+      this.sessionRefreshTimer = null;
+    }
     if (this.ws) {
       this.ws.close();
       this.ws = null;

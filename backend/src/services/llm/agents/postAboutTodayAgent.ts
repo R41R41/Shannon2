@@ -56,7 +56,7 @@ class SubmitPostTool extends StructuredTool {
     imagePrompt: z
       .string()
       .describe(
-        'ツイート内容に合った画像を生成するためのプロンプト（英語）。例: "A cute anime-style AI character looking at diamond dust sparkling in the cold winter air, northern Hokkaido landscape, soft pastel colors, illustration style"',
+        'ツイート内容に合った画像を生成するためのプロンプト（英語）。例: "A cute anime-style AI character looking at diamond dust sparkling in the cold winter air, northern Hokkaido landscape, soft pastel colors, illustration style" 【禁止事項】恐怖症トリガーとなる表現を絶対に含めないこと: 血液・傷口、注射器・針・尖った物、小さな穴や突起の集合体、蜘蛛・蛇・虫のアップ、不気味なピエロや人形、歯科・外科処置。医療系・生物系トピックでも建物の外観・人々の笑顔・抽象的シンボル・風景などポジティブで万人向けの表現に置き換えること。',
       ),
   });
 

@@ -28,8 +28,8 @@ export const models = {
   /** Auto-tweet: exploration phase (tool-calling agent) */
   autoTweetExplore: 'gpt-4.1-mini',
 
-  /** Auto-tweet: creative generation phase (Gemini) — temporarily using OpenAI due to 403 */
-  autoTweetGenerate: 'gpt-5-mini',
+  /** Auto-tweet: creative generation phase (Gemini) */
+  autoTweetGenerate: 'gemini-3-pro-preview',
 
   /** Auto-tweet: review phase */
   autoTweetReview: 'gpt-4.1-mini',

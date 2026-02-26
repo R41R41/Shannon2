@@ -17,6 +17,8 @@ export abstract class WebSocketServiceBase {
   protected serviceName: string;
   private isInitialized = false;
   protected activeConnections = new Set<WebSocket>();
+  private pingInterval: ReturnType<typeof setInterval> | null = null;
+  private static PING_INTERVAL_MS = 30_000; // 30秒ごとにping
 
   constructor(config: WebSocketServiceConfig) {
     this.serviceName = config.serviceName;
@@ -30,10 +32,11 @@ export abstract class WebSocketServiceBase {
       throw new Error('Invalid configuration');
     }
 
-    // エラーハンドリングを追加
     this.wss.on('error', (error) => {
       logger.error(`WebSocket server error for ${this.serviceName}:`, error);
     });
+
+    this.startPingLoop();
   }
 
   public start() {
@@ -43,8 +46,21 @@ export abstract class WebSocketServiceBase {
     }
   }
 
+  private startPingLoop() {
+    this.pingInterval = setInterval(() => {
+      this.activeConnections.forEach((ws) => {
+        if ((ws as any).__isAlive === false) {
+          ws.terminate();
+          this.activeConnections.delete(ws);
+          return;
+        }
+        (ws as any).__isAlive = false;
+        ws.ping();
+      });
+    }, WebSocketServiceBase.PING_INTERVAL_MS);
+  }
+
   protected handleNewConnection(ws: WebSocket) {
-    // 既存の接続を切断
     this.activeConnections.forEach((connection) => {
       try {
         connection.close();
@@ -54,7 +70,9 @@ export abstract class WebSocketServiceBase {
     });
     this.activeConnections.clear();
 
-    // 新しい接続を追加
+    (ws as any).__isAlive = true;
+    ws.on('pong', () => { (ws as any).__isAlive = true; });
+
     this.activeConnections.add(ws);
 
     ws.on('close', () => {

@@ -203,12 +203,15 @@ export const logger = {
 
   /** Error log (always red) */
   error(message: string, error?: unknown): void {
-    const line = `${formatPrefix('ERROR')} ${colorize(message, 'red')}`;
+    const errStr = error
+      ? String(error instanceof Error ? error.stack || error.message : error)
+      : undefined;
+    const fullMessage = errStr ? `${message} ${errStr}` : message;
+    const line = `${formatPrefix('ERROR')} ${colorize(fullMessage, 'red')}`;
     console.error(line);
-    const errStr = error ? String(error instanceof Error ? error.stack || error.message : error) : undefined;
-    writeToFile(line, { level: 'ERROR', message, error: errStr });
-    if (error) {
-      console.error(error);
+    writeToFile(line, { level: 'ERROR', message: fullMessage, error: errStr });
+    if (error && error instanceof Error && error.stack) {
+      console.error(error.stack);
     }
   },
 

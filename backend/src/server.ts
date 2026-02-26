@@ -148,6 +148,37 @@ class Server {
     });
 
     // -----------------------------------------------------------------
+    // Minebot ワールド知識 API
+    // -----------------------------------------------------------------
+    app.get('/api/minebot/knowledge/stats', async (_req, res) => {
+      try {
+        const { WorldKnowledgeService } = await import('./services/minebot/knowledge/WorldKnowledgeService.js');
+        const service = WorldKnowledgeService.getInstance();
+        res.json(await service.getStats());
+      } catch { res.json({}); }
+    });
+
+    app.get('/api/minebot/knowledge/nearby', async (req, res) => {
+      try {
+        const x = parseInt(req.query.x as string) || 0;
+        const y = parseInt(req.query.y as string) || 64;
+        const z = parseInt(req.query.z as string) || 0;
+        const radius = parseInt(req.query.radius as string) || 64;
+        const { WorldKnowledgeService } = await import('./services/minebot/knowledge/WorldKnowledgeService.js');
+        const service = WorldKnowledgeService.getInstance();
+        const context = await service.buildContextForPosition({ x, y, z }, radius);
+        res.json({ context });
+      } catch { res.json({ context: '' }); }
+    });
+
+    app.get('/api/minebot/skills/metrics', async (_req, res) => {
+      try {
+        const { skillMetrics } = await import('./services/minebot/knowledge/SkillMetrics.js');
+        res.json(skillMetrics.getAll());
+      } catch { res.json({}); }
+    });
+
+    // -----------------------------------------------------------------
     // Twitter Webhook: twitterapi.io からのリアルタイム返信通知を受信
     // -----------------------------------------------------------------
 

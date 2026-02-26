@@ -4,6 +4,8 @@ import { tokenTracker } from '../../utils/tokenTracker.js';
 import { config } from '../../../../config/env.js';
 import { models } from '../../../../config/models.js';
 import { modelManager } from '../../../../config/modelManager.js';
+import { WorldKnowledgeService } from '../../../minebot/knowledge/WorldKnowledgeService.js';
+import { trimContext } from '../../utils/contextManager.js';
 import {
     AIMessage,
     AIMessageChunk,
@@ -152,12 +154,28 @@ export class FunctionCallingAgent {
         }
 
         // メッセージ構築
-        const systemPrompt = this.buildSystemPrompt(
+        let systemPrompt = this.buildSystemPrompt(
             state.emotionState,
             state.context,
             state.environmentState,
             state.memoryState,
         );
+
+        // Minecraft ボットの場合、ワールド知識を注入
+        if (state.environmentState?.botPosition) {
+            try {
+                const wk = WorldKnowledgeService.getInstance();
+                const pos = state.environmentState.botPosition;
+                const knowledgeContext = await wk.buildContextForPosition(
+                    { x: Math.floor(pos.x), y: Math.floor(pos.y), z: Math.floor(pos.z) },
+                    64,
+                );
+                if (knowledgeContext) {
+                    systemPrompt += knowledgeContext;
+                }
+            } catch {}
+        }
+
         const messages: BaseMessage[] = [
             new SystemMessage(systemPrompt),
         ];
@@ -234,6 +252,14 @@ export class FunctionCallingAgent {
                         `anticipation=${state.emotionState.current.parameters.anticipation})`
                     );
                     messages.push(emotionUpdate);
+                }
+
+                // ── コンテキストウィンドウのトリミング ──
+                const trimmed = trimContext(messages, { maxContextTokens: 6000 });
+                if (trimmed.length < messages.length) {
+                    logger.debug(`コンテキストトリミング: ${messages.length} → ${trimmed.length} メッセージ`);
+                    messages.length = 0;
+                    messages.push(...trimmed);
                 }
 
                 // ── LLM 呼び出し（タイムアウト付き） ──

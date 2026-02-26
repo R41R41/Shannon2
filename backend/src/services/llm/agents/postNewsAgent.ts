@@ -56,7 +56,7 @@ class SubmitPostTool extends StructuredTool {
     imagePrompt: z
       .string()
       .describe(
-        'ツイート内容に合った画像を生成するためのプロンプト（英語）。photorealistic style。',
+        'ツイート内容に合った画像を生成するためのプロンプト（英語）。photorealistic style。【禁止事項】恐怖症トリガーとなる表現を絶対に含めないこと: 血液・傷口、注射器・針・尖った物、小さな穴/突起の集合体、蜘蛛・蛇・虫のアップ、不気味なピエロや人形、歯科・外科処置。ポジティブで万人向けの表現にすること。',
       ),
   });
 

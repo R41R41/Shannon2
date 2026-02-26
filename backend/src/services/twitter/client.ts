@@ -1186,20 +1186,32 @@ export class TwitterClient extends BaseClient {
       logger.info(`📬 ${allTweets.length}件の新着ツイートを検出`, 'green');
 
       // 各ツイートに対してアクション実行
+      let skippedDuplicate = 0;
+      let skippedNoAuthor = 0;
+      let skippedNoConfig = 0;
+      let processed = 0;
       for (const tweet of allTweets) {
-        // 既に処理済みならスキップ
-        if (this.processedTweetIds.has(tweet.id)) continue;
+        if (this.processedTweetIds.has(tweet.id)) {
+          skippedDuplicate++;
+          continue;
+        }
         this.processedTweetIds.add(tweet.id);
         this.saveProcessedIds();
 
         const authorUserName = tweet.author?.userName;
-        if (!authorUserName) continue;
+        if (!authorUserName) {
+          skippedNoAuthor++;
+          continue;
+        }
 
-        // このツイートのアカウント設定を取得
         const accountConfig = this.monitoredAccounts.find(
           (a) => a.userName.toLowerCase() === authorUserName.toLowerCase()
         );
-        if (!accountConfig) continue;
+        if (!accountConfig) {
+          skippedNoConfig++;
+          continue;
+        }
+        processed++;
 
         logger.info(
           `📝 @${authorUserName}: "${tweet.text.slice(0, 50)}..."`,
@@ -1300,7 +1312,12 @@ export class TwitterClient extends BaseClient {
         }
       }
 
-      // LRUSet が maxSize=1000 で自動 eviction するため手動トリミング不要
+      if (skippedDuplicate > 0 || skippedNoAuthor > 0 || skippedNoConfig > 0) {
+        logger.info(
+          `📊 Twitter監視結果: 処理=${processed}, 重複スキップ=${skippedDuplicate}, 著者不明=${skippedNoAuthor}, 設定なし=${skippedNoConfig}`,
+          'cyan',
+        );
+      }
     } catch (e) {
       logger.error('Twitter監視エラー:', e);
     }
