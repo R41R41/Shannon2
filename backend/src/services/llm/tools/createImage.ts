@@ -39,11 +39,22 @@ export default class CreateImageTool extends StructuredTool {
     }
   }
 
+  private static SAFETY_SUFFIX =
+    ' Style: friendly and safe for all audiences.' +
+    ' STRICT RULES: Do NOT depict any of the following phobia triggers —' +
+    ' blood/gore/wounds (hemophobia), needles/syringes/sharp objects (trypanophobia),' +
+    ' clusters of small holes or bumps (trypophobia),' +
+    ' spiders/snakes/insects shown prominently (arachnophobia/ophidiophobia/entomophobia),' +
+    ' creepy clowns or dolls (coulrophobia/pediophobia),' +
+    ' dental or surgical procedures, exposed organs or bones.' +
+    ' Instead use cheerful, symbolic, or abstract representations. Keep the mood positive and welcoming.';
+
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
     try {
+      const safePrompt = data.text + CreateImageTool.SAFETY_SUFFIX;
       const response = await this.openai.images.generate({
         model: models.imageGeneration,
-        prompt: data.text,
+        prompt: safePrompt,
         n: 1,
         size: '1024x1024',
       });

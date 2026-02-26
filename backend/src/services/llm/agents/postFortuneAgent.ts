@@ -140,6 +140,9 @@ export class PostFortuneAgent {
       if (!result) {
         logger.warn('[Fortune] 生成失敗、リトライ');
         feedback = '前回は生成に失敗した。もう一度やり直して。';
+        if (attempt < MAX_REVIEW_RETRIES) {
+          await new Promise((r) => setTimeout(r, 2000));
+        }
         continue;
       }
 
@@ -194,8 +197,9 @@ export class PostFortuneAgent {
 
     try {
       return await structuredLLM.invoke(messages);
-    } catch (error) {
-      logger.error('[Fortune] 生成エラー:', error);
+    } catch (error: any) {
+      const detail = error?.message || error?.toString?.() || 'unknown';
+      logger.error(`[Fortune] 生成エラー: ${detail}`, error);
       return null;
     }
   }

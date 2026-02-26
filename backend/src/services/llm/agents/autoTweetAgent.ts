@@ -715,6 +715,7 @@ export class AutoTweetAgent {
       ...(isO1Style ? {} : { temperature: 0.9 }),
       ...(isGemini
         ? {
+            maxTokens: 8192,
             configuration: {
               baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
               apiKey: config.google.geminiApiKey,
@@ -758,12 +759,11 @@ export class AutoTweetAgent {
       userParts.push('', `# フィードバック\n${feedback}`);
     }
 
-    const charLimit = config.isDev ? 140 : null;
-    userParts.push('', charLimit
-      ? `文字数制限: ${exploration.type === 'quote_rt' ? '116' : '140'}文字以内。`
-      : '文字数制限なし（長文OK）。',
+    userParts.push(
+      '',
+      `文字数目安: ${exploration.type === 'quote_rt' ? '60〜100' : '60〜140'}文字。短いほど刺さる。1〜2文で。`,
+      'ツイート本文のみ出力。前置き不要。',
     );
-    userParts.push('ツイート本文のみ出力。前置き不要。');
 
     try {
       const response = await model.invoke([
