@@ -712,10 +712,13 @@ export class AutoTweetAgent {
     const isO1Style = models.autoTweetGenerate.startsWith('gpt-5') || models.autoTweetGenerate.startsWith('o');
     const model = createTracedModel({
       modelName: models.autoTweetGenerate,
-      ...(isO1Style ? {} : { temperature: 0.9 }),
+      ...(isO1Style
+        ? { modelKwargs: { max_completion_tokens: 4096 } }
+        : { temperature: 0.9 }),
       ...(isGemini
         ? {
             maxTokens: 8192,
+            timeout: 300000,
             configuration: {
               baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
               apiKey: config.google.geminiApiKey,

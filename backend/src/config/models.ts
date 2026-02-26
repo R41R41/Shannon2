@@ -20,7 +20,7 @@ export const models = {
   planning: 'o4-mini',
 
   /** Content generation: reply to comments, fortune, etc. */
-  contentGeneration: 'gpt-5-mini',
+  contentGeneration: 'gemini-3-pro-preview',
 
   /** Scheduled posting agents (weather, news, about-today) */
   scheduledPost: 'gpt-5-mini',
