@@ -1,5 +1,5 @@
 import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
-import { MinebotSkillInput } from '@shannon/common';
+import { MinebotSkillInput, MinebotVoiceChatInput } from '@shannon/common';
 import fetch from 'node-fetch';
 import { Vec3 } from 'vec3';
 import { EventBus } from '../eventBus/eventBus.js';
@@ -420,6 +420,33 @@ export class SkillAgent {
    * EventBus購読を登録
    */
   private async registerEventBusSubscriptions() {
+    // Discord音声経由のMinebotチャット
+    this.eventBus.subscribe('minebot:voice_chat', async (event) => {
+      const { userName, message, guildId, channelId } = event.data as MinebotVoiceChatInput;
+      const mcName = CONFIG.resolveMinecraftName(userName);
+      log.info(`🎙️ Voice chat from ${userName} (MC: ${mcName}): ${message}`, 'cyan');
+
+      this.updateSenderInfo(mcName);
+
+      const taskGraph = this.centralAgent.currentTaskGraph;
+      if (taskGraph) {
+        taskGraph.setOnResponseText((responseText: string) => {
+          this.eventBus.publish({
+            type: 'minebot:voice_response',
+            memoryZone: 'minebot',
+            data: { guildId, channelId, responseText },
+          });
+        });
+      }
+
+      await this.processMessage(
+        mcName,
+        message,
+        JSON.stringify(this.bot.environmentState),
+        JSON.stringify(this.bot.selfState),
+      );
+    });
+
     // スキル読み込みイベント
     this.eventBus.subscribe('minebot:loadSkills', async (event) => {
       try {

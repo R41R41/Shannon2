@@ -7,7 +7,7 @@
 import { ILog, MemoryZone, ServiceInput, ServiceOutput, StatusAgentInput } from './common.js';
 import { DiscordClientInput, DiscordGetServerEmojiInput, DiscordGetServerEmojiOutput, DiscordPlanningInput, DiscordScheduledPostInput, DiscordSendServerEmojiInput, DiscordSendServerEmojiOutput, DiscordSendTextMessageInput, DiscordSendTextMessageOutput } from './discord.js';
 import { SkillInfo } from './llm.js';
-import { MinebotInput, MinebotOutput, SkillParameters, SkillResult } from './minebot.js';
+import { MinebotInput, MinebotOutput, MinebotVoiceChatInput, MinebotVoiceResponseOutput, SkillParameters, SkillResult } from './minebot.js';
 import { MinecraftInput, MinecraftServerName } from './minecraft.js';
 import { NotionClientInput, NotionClientOutput } from './notion.js';
 import { SchedulerInput, SchedulerOutput } from './scheduler.js';
@@ -89,7 +89,7 @@ export interface EventPayloadMap {
     'tool:send_server_emoji': DiscordSendServerEmojiOutput;
 }
 type FallbackEventData = MinebotInput | MinebotOutput | SkillParameters | SkillResult | MinecraftInput | TwitterClientOutput | TwitterActionResult | NotionClientOutput | YoutubeVideoInfoOutput | DiscordGetServerEmojiOutput | DiscordSendServerEmojiOutput;
-export type EventData<T extends string> = T extends keyof EventPayloadMap ? EventPayloadMap[T] : T extends `minecraft:${MinecraftServerName}:${string}` ? MinecraftInput | ServiceInput : T extends `minebot:${string}` ? MinebotInput | MinebotOutput | SkillParameters | SkillResult : T extends `tool:${string}` ? FallbackEventData : unknown;
+export type EventData<T extends string> = T extends keyof EventPayloadMap ? EventPayloadMap[T] : T extends `minecraft:${MinecraftServerName}:${string}` ? MinecraftInput | ServiceInput : T extends `minebot:${string}` ? MinebotInput | MinebotOutput | SkillParameters | SkillResult | MinebotVoiceChatInput | MinebotVoiceResponseOutput : T extends `tool:${string}` ? FallbackEventData : unknown;
 export interface TypedEvent<T extends string = string> {
     type: T;
     memoryZone: MemoryZone;

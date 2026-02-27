@@ -157,6 +157,7 @@ export class DiscordBot extends BaseClient {
   }> = new Map();
   private voicePttMessages: Map<string, { channelId: string; messageId: string }> = new Map(); // guildId -> PTT message
   private voiceStreamMessages: Map<string, { message: Message; accumulatedText: string }> = new Map(); // guildId -> streaming Discord message
+  private voiceModeMap: Map<string, 'chat' | 'minebot'> = new Map(); // guildId -> voice mode
   public static getInstance(isDev?: boolean) {
     if (!DiscordBot.instance) {
       DiscordBot.instance = new DiscordBot('discord', isDev ?? false);
@@ -349,6 +350,19 @@ export class DiscordBot extends BaseClient {
         new SlashCommandBuilder()
           .setName('generate_fillers')
           .setDescription('フィラー音声を生成する（初回のみ必要）'),
+        new SlashCommandBuilder()
+          .setName('voice_mode')
+          .setDescription('音声モードを切り替える（chat / minebot）')
+          .addStringOption(option =>
+            option
+              .setName('mode')
+              .setDescription('音声モード')
+              .setRequired(true)
+              .addChoices(
+                { name: 'chat（通常会話）', value: 'chat' },
+                { name: 'minebot（Minecraft操作）', value: 'minebot' },
+              )
+          ),
       ];
 
       // コマンドをJSON形式に変換
@@ -649,6 +663,20 @@ export class DiscordBot extends BaseClient {
               await interaction.deferReply({ flags: 64 });
               const count = await generateAllFillers();
               await interaction.editReply(`フィラー音声を ${count} 個生成しました。`);
+            }
+            break;
+
+          case 'voice_mode':
+            if (interaction.isChatInputCommand()) {
+              const mode = interaction.options.getString('mode', true) as 'chat' | 'minebot';
+              const guildId = interaction.guildId;
+              if (!guildId) {
+                await interaction.reply({ content: 'サーバー内で使用してください。', ephemeral: true });
+                break;
+              }
+              this.voiceModeMap.set(guildId, mode);
+              const modeLabel = mode === 'minebot' ? 'Minebot（Minecraft操作）' : 'Chat（通常会話）';
+              await interaction.reply(`音声モードを **${modeLabel}** に切り替えました。`);
             }
             break;
         }
@@ -2054,5 +2082,19 @@ export class DiscordBot extends BaseClient {
       );
       return [];
     }
+  }
+
+  public getVoiceMode(guildId: string): 'chat' | 'minebot' {
+    return this.voiceModeMap.get(guildId) ?? 'chat';
+  }
+
+  public getActiveVoiceInfo(): { guildId: string; channelId: string } | null {
+    for (const [guildId, connection] of this.voiceConnections.entries()) {
+      if (connection.state.status === VoiceConnectionStatus.Ready) {
+        const channelId = connection.joinConfig.channelId;
+        if (channelId) return { guildId, channelId };
+      }
+    }
+    return null;
   }
 }

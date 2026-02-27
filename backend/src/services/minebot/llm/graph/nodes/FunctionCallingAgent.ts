@@ -65,6 +65,7 @@ export class FunctionCallingAgent {
   private centralLogManager: CentralLogManager;
   private onEmergencyResolved: (() => Promise<void>) | null = null;
   private updatePlanTool: UpdatePlanTool | null = null;
+  private onResponseText: ((text: string) => void) | null = null;
 
   // ユーザーからのリアルタイムフィードバック
   private pendingFeedback: string[] = [];
@@ -125,6 +126,10 @@ export class FunctionCallingAgent {
    */
   public setEmergencyResolvedHandler(handler: () => Promise<void>): void {
     this.onEmergencyResolved = handler;
+  }
+
+  public setOnResponseText(callback: ((text: string) => void) | null): void {
+    this.onResponseText = callback;
   }
 
   /**
@@ -381,6 +386,10 @@ export class FunctionCallingAgent {
               this.bot.chat(content.substring(0, 250));
             } catch (e) {
               log.warn(`⚠ チャット送信失敗: ${(e as Error).message}`);
+            }
+            if (this.onResponseText) {
+              try { this.onResponseText(content); } catch { /* best-effort */ }
+              this.onResponseText = null;
             }
           }
 

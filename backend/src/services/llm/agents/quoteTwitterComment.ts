@@ -31,10 +31,25 @@ export class QuoteTwitterCommentAgent {
 - 自然で人間らしい文章にする`;
 
   private constructor() {
+    const isGemini = models.contentGeneration.startsWith('gemini');
+    const isReasoning = models.contentGeneration.startsWith('gpt-5') || models.contentGeneration.startsWith('o');
     this.model = createTracedModel({
       modelName: models.contentGeneration,
-      temperature: 1,
-      apiKey: OPENAI_API_KEY,
+      ...(isReasoning
+        ? { modelKwargs: { max_completion_tokens: 4096 } }
+        : isGemini
+          ? { maxTokens: 8192 }
+          : { temperature: 1 }),
+      ...(isGemini
+        ? {
+            timeout: 300000,
+            configuration: {
+              baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+              apiKey: config.google.geminiApiKey,
+            },
+            apiKey: config.google.geminiApiKey,
+          }
+        : { apiKey: OPENAI_API_KEY }),
     });
   }
 

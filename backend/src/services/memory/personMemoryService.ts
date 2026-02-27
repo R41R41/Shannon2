@@ -46,10 +46,25 @@ export class PersonMemoryService {
   private extractTraitsPrompt: string | null = null;
 
   private constructor() {
-    // gpt-5-mini は temperature=1 のみサポート（デフォルト値を使用）
+    const isGemini = models.contentGeneration.startsWith('gemini');
+    const isReasoning = models.contentGeneration.startsWith('gpt-5') || models.contentGeneration.startsWith('o');
     this.model = createTracedModel({
       modelName: models.contentGeneration,
-      apiKey: config.openaiApiKey,
+      ...(isReasoning
+        ? { modelKwargs: { max_completion_tokens: 4096 } }
+        : isGemini
+          ? { maxTokens: 8192 }
+          : { temperature: 1 }),
+      ...(isGemini
+        ? {
+            timeout: 300000,
+            configuration: {
+              baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+              apiKey: config.google.geminiApiKey,
+            },
+            apiKey: config.google.geminiApiKey,
+          }
+        : { apiKey: config.openaiApiKey }),
     });
   }
 

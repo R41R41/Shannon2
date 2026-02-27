@@ -16,6 +16,8 @@ import {
   MinebotEventType,
   MinebotInput,
   MinebotOutput,
+  MinebotVoiceChatInput,
+  MinebotVoiceResponseOutput,
   SkillParameters,
   SkillResult,
 } from './minebot.js';
@@ -295,7 +297,9 @@ export interface Event {
   | DiscordVoiceQueueStartInput
   | DiscordVoiceEnqueueInput
   | DiscordVoiceQueueEndInput
-  | DiscordVoiceStatusInput;
+  | DiscordVoiceStatusInput
+  | MinebotVoiceChatInput
+  | MinebotVoiceResponseOutput;
   targetMemoryZones?: MemoryZone[];
 }
 

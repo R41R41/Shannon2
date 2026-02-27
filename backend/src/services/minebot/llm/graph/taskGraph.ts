@@ -116,6 +116,16 @@ export class TaskGraph {
   }
 
   /**
+   * 音声応答コールバックを設定（Minebot音声モード用）
+   * FCAがテキスト応答を生成した際にコールバックを発火する
+   */
+  public setOnResponseText(callback: ((text: string) => void) | null): void {
+    if (this.functionCallingAgent) {
+      this.functionCallingAgent.setOnResponseText(callback);
+    }
+  }
+
+  /**
    * Function Calling モードの切り替え
    */
   public setUseFunctionCalling(value: boolean): void {
