@@ -1,6 +1,6 @@
 import { DiscordClientInput, DiscordClientOutput, DiscordEventType, DiscordGuild, DiscordVoiceEnqueueInput, DiscordVoiceFillerInput, DiscordVoiceMessageOutput, DiscordVoiceQueueEndInput, DiscordVoiceQueueStartInput, DiscordVoiceResponseInput, DiscordVoiceStatusInput } from './discord.js';
 import { LLMEventType, SkillInfo } from './llm.js';
-import { MinebotEventType, MinebotInput, MinebotOutput, SkillParameters, SkillResult } from './minebot.js';
+import { MinebotEventType, MinebotInput, MinebotOutput, MinebotVoiceChatInput, MinebotVoiceResponseOutput, SkillParameters, SkillResult } from './minebot.js';
 import { MinecraftEventType, MinecraftInput, MinecraftOutput } from './minecraft.js';
 import { NotionClientInput, NotionClientOutput, NotionEventType } from './notion.js';
 import { SchedulerEventType, SchedulerInput, SchedulerOutput } from './scheduler.js';
@@ -77,7 +77,7 @@ export type EventType = TaskEventType | TwitterEventType | YoutubeEventType | Mi
 export interface Event {
     type: EventType;
     memoryZone: MemoryZone;
-    data: TwitterClientInput | TwitterClientOutput | OpenAIInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput | ServiceOutput | TaskInput | TaskTreeState | EmotionType | SkillInfo[] | WebSkillInput | SkillParameters | SkillResult | NotionClientInput | NotionClientOutput | MemberTweetInput | DiscordVoiceMessageOutput | DiscordVoiceResponseInput | DiscordVoiceFillerInput | DiscordVoiceQueueStartInput | DiscordVoiceEnqueueInput | DiscordVoiceQueueEndInput | DiscordVoiceStatusInput;
+    data: TwitterClientInput | TwitterClientOutput | OpenAIInput | DiscordClientInput | ILog | OpenAIMessageOutput | DiscordClientOutput | MinecraftInput | MinecraftOutput | SchedulerInput | SchedulerOutput | StatusAgentInput | ServiceInput | YoutubeClientOutput | MinebotOutput | MinebotInput | ServiceOutput | TaskInput | TaskTreeState | EmotionType | SkillInfo[] | WebSkillInput | SkillParameters | SkillResult | NotionClientInput | NotionClientOutput | MemberTweetInput | DiscordVoiceMessageOutput | DiscordVoiceResponseInput | DiscordVoiceFillerInput | DiscordVoiceQueueStartInput | DiscordVoiceEnqueueInput | DiscordVoiceQueueEndInput | DiscordVoiceStatusInput | MinebotVoiceChatInput | MinebotVoiceResponseOutput;
     targetMemoryZones?: MemoryZone[];
 }
 export interface ILog {

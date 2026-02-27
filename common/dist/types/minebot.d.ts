@@ -25,3 +25,14 @@ export type SkillResult = {
     success: boolean;
     result: string;
 };
+export interface MinebotVoiceChatInput {
+    userName: string;
+    message: string;
+    guildId: string;
+    channelId: string;
+}
+export interface MinebotVoiceResponseOutput {
+    guildId: string;
+    channelId: string;
+    responseText: string;
+}

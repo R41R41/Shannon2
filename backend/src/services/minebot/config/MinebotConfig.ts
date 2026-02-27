@@ -149,6 +149,22 @@ export class MinebotConfig {
   /** チェックタイムアウト間隔（ミリ秒） - サーバーのKeep-Alive応答用 */
   readonly CHECK_TIMEOUT_INTERVAL = 30 * 1000; // 30秒（サーバーのデフォルトタイムアウトに合わせる）
 
+  // ===== Discord → Minecraft ユーザー名マッピング =====
+  // key: Discord の getUserNickname() で返される名前（小文字）
+  // value: Minecraft のプレイヤー名
+  readonly DISCORD_TO_MINECRAFT_NAMES: Record<string, string> = {
+    'ライ': 'Rai1241',
+    'ryo07010': 'Rai1241',
+    'ヤミー': 'yummy34',
+    'yummy3434': 'yummy34',
+    'グリコ': 'guriko8670',
+    '12357': 'guriko8670',
+  };
+
+  resolveMinecraftName(discordName: string): string {
+    return this.DISCORD_TO_MINECRAFT_NAMES[discordName] ?? discordName;
+  }
+
   // ===== 定期実行間隔 =====
 
   /** 100ms間隔タスク */

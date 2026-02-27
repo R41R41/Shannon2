@@ -13,6 +13,7 @@ import {
   EmotionType,
   MemberTweetInput,
   MemoryZone,
+  MinebotVoiceResponseOutput,
   OpenAICommandInput,
   OpenAIMessageOutput,
   OpenAIRealTimeAudioInput,
@@ -197,6 +198,12 @@ export class LLMService {
 
     this.eventBus.subscribe('llm:get_youtube_message', (event) => {
       this.processYoutubeMessage(event.data as YoutubeLiveChatMessageOutput);
+    });
+
+    this.eventBus.subscribe('minebot:voice_response', (event) => {
+      this.processMinebotVoiceResponse(event.data as MinebotVoiceResponseOutput).catch((err) => {
+        logger.error('[Minebot Voice] 未処理エラー:', err);
+      });
     });
   }
 
@@ -590,6 +597,15 @@ export class LLMService {
     });
   }
 
+  private async getVoiceMode(guildId: string): Promise<'chat' | 'minebot'> {
+    try {
+      const { DiscordBot } = await import('../discord/client.js');
+      return DiscordBot.getInstance().getVoiceMode(guildId);
+    } catch {
+      return 'chat';
+    }
+  }
+
   private async processDiscordVoiceMessage(message: DiscordVoiceMessageOutput) {
     const memoryZone = await getDiscordMemoryZone(message.guildId);
     const voiceMsg = message as any;
@@ -780,6 +796,24 @@ export class LLMService {
       }
     }
 
+    // 3c. Minebot mode: delegate to Minebot FCA instead of Shannon LLM
+    const voiceMode = await this.getVoiceMode(message.guildId);
+    if (voiceMode === 'minebot') {
+      logger.info(`[Voice] Minebot mode — routing to minebot:voice_chat`, 'magenta');
+      this.publishVoiceStatus(memoryZone, message.guildId, 'llm', '🤖 Minebot処理中...');
+      this.eventBus.publish({
+        type: 'minebot:voice_chat',
+        memoryZone: 'minebot',
+        data: {
+          userName: message.userName,
+          message: transcribedText,
+          guildId: message.guildId,
+          channelId: message.channelId,
+        },
+      });
+      return;
+    }
+
     // 4. Run LLM in parallel (fillers are already playing)
     this.publishVoiceStatus(memoryZone, message.guildId, 'llm');
     const llmStartTime = Date.now();
@@ -942,6 +976,46 @@ export class LLMService {
         text: responseText,
       } as DiscordVoiceQueueEndInput,
     });
+  }
+
+  private async processMinebotVoiceResponse(data: MinebotVoiceResponseOutput) {
+    const { guildId, channelId, responseText } = data;
+    if (!responseText) {
+      logger.warn('[Minebot Voice] Empty response text');
+      this.eventBus.publish({
+        type: 'discord:voice_queue_end',
+        memoryZone: 'minebot' as any,
+        data: { guildId, channelId, text: '' } as DiscordVoiceQueueEndInput,
+      });
+      return;
+    }
+
+    const memoryZone = (await getDiscordMemoryZone(guildId)) as any;
+    logger.info(`[Minebot Voice] TTS for response: "${responseText.substring(0, 60)}..."`, 'magenta');
+    this.publishVoiceStatus(memoryZone, guildId, 'tts', '🤖 Minebot TTS...');
+
+    try {
+      const sentences = splitIntoSentences(responseText);
+      for (const s of sentences) {
+        const wavBuf = await this.voicepeakClient.synthesize(s);
+        this.eventBus.publish({
+          type: 'discord:voice_enqueue',
+          memoryZone,
+          data: { guildId, audioBuffer: wavBuf } as DiscordVoiceEnqueueInput,
+        });
+      }
+    } catch (error) {
+      logger.error('[Minebot Voice] TTS failed:', error);
+    }
+
+    this.eventBus.publish({
+      type: 'discord:voice_queue_end',
+      memoryZone,
+      data: { guildId, channelId, text: responseText } as DiscordVoiceQueueEndInput,
+    });
+
+    voiceResponseChannelIds.delete(channelId);
+    logger.info(`[Minebot Voice] Response complete`, 'magenta');
   }
 
   private async processCreateScheduledPost(message: TwitterClientInput) {

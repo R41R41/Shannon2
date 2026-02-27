@@ -20,6 +20,8 @@ import { SkillInfo } from './llm.js';
 import {
   MinebotInput,
   MinebotOutput,
+  MinebotVoiceChatInput,
+  MinebotVoiceResponseOutput,
   SkillParameters,
   SkillResult,
 } from './minebot.js';
@@ -172,7 +174,7 @@ export type EventData<T extends string> = T extends keyof EventPayloadMap
   : T extends `minecraft:${MinecraftServerName}:${string}`
     ? MinecraftInput | ServiceInput
     : T extends `minebot:${string}`
-      ? MinebotInput | MinebotOutput | SkillParameters | SkillResult
+      ? MinebotInput | MinebotOutput | SkillParameters | SkillResult | MinebotVoiceChatInput | MinebotVoiceResponseOutput
       : T extends `tool:${string}`
         ? FallbackEventData
         : unknown;

@@ -3,8 +3,8 @@ import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { z } from 'zod';
 import { loadPrompt } from '../config/prompts.js';
 import { models } from '../../../config/models.js';
+import { config } from '../../../config/env.js';
 import { logger } from '../../../utils/logger.js';
-import { createLLMWithFallback } from '../utils/llmWithFallback.js';
 import { createTracedModel } from '../utils/langfuse.js';
 
 // ---------------------------------------------------------------------------
@@ -107,10 +107,26 @@ export class PostFortuneAgent {
       '挑戦', '伝統', '友情', '直感',
       '競争', '忠実', '知性', '夢',
     ];
-    this.model = createLLMWithFallback({
-      primaryModel: models.contentGeneration,
+    const isGemini = models.contentGeneration.startsWith('gemini');
+    const isReasoning = models.contentGeneration.startsWith('gpt-5') || models.contentGeneration.startsWith('o');
+    this.model = createTracedModel({
+      modelName: models.contentGeneration,
+      ...(isReasoning
+        ? { modelKwargs: { max_completion_tokens: 8192 } }
+        : isGemini
+          ? { maxTokens: 8192 }
+          : { temperature: 1, maxTokens: 8192 }),
+      ...(isGemini
+        ? {
+            timeout: 300000,
+            configuration: {
+              baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+              apiKey: config.google.geminiApiKey,
+            },
+            apiKey: config.google.geminiApiKey,
+          }
+        : { apiKey: config.openaiApiKey }),
     });
-    this.model.maxTokens = 8192;
   }
 
   public static async create(): Promise<PostFortuneAgent> {

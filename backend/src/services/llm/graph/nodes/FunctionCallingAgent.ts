@@ -162,10 +162,11 @@ export class FunctionCallingAgent {
         );
 
         // Minecraft ボットの場合、ワールド知識を注入
-        if (state.environmentState?.botPosition) {
-            try {
+        try {
+            const envObj = state.environmentState ? JSON.parse(state.environmentState) : null;
+            if (envObj?.botPosition) {
                 const wk = WorldKnowledgeService.getInstance();
-                const pos = state.environmentState.botPosition;
+                const pos = envObj.botPosition;
                 const knowledgeContext = await wk.buildContextForPosition(
                     { x: Math.floor(pos.x), y: Math.floor(pos.y), z: Math.floor(pos.z) },
                     64,
@@ -173,8 +174,8 @@ export class FunctionCallingAgent {
                 if (knowledgeContext) {
                     systemPrompt += knowledgeContext;
                 }
-            } catch {}
-        }
+            }
+        } catch {}
 
         const messages: BaseMessage[] = [
             new SystemMessage(systemPrompt),
