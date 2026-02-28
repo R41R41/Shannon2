@@ -1,5 +1,3 @@
-import { ChatOpenAI } from '@langchain/openai';
-import { createTracedModel } from '../../../../llm/utils/langfuse.js';
 import {
   AIMessage,
   BaseMessage,
@@ -8,14 +6,16 @@ import {
   ToolMessage,
 } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
-import { TaskTreeState, HierarchicalSubTask } from '@shannon/common';
-import { CustomBot } from '../../../types.js';
-import { CentralLogManager, LogManager } from '../logging/index.js';
-import { UpdatePlanTool } from '../tools/UpdatePlanTool.js';
+import { ChatOpenAI } from '@langchain/openai';
+import { HierarchicalSubTask, TaskTreeState } from '@shannon/common';
 import { config } from '../../../../../config/env.js';
 import { models } from '../../../../../config/models.js';
 import { createLogger } from '../../../../../utils/logger.js';
+import { createTracedModel } from '../../../../llm/utils/langfuse.js';
 import { CONFIG } from '../../../config/MinebotConfig.js';
+import { CustomBot } from '../../../types.js';
+import { CentralLogManager, LogManager } from '../logging/index.js';
+import { UpdatePlanTool } from '../tools/UpdatePlanTool.js';
 
 const log = createLogger('Minebot:FCA');
 
@@ -541,6 +541,11 @@ export class FunctionCallingAgent {
             // chatツールが呼ばれたことを記録（フォールバック重複防止）
             if (toolCall.name === 'chat' && !isError) {
               chatToolCalled = true;
+              if (this.onResponseText) {
+                const chatMsg = toolCall.args?.message || resultStr;
+                try { this.onResponseText(chatMsg); } catch { /* best-effort */ }
+                this.onResponseText = null;
+              }
             }
 
             // update-plan 以外のツールはステップを更新
@@ -700,31 +705,50 @@ export class FunctionCallingAgent {
 
     const entitiesStr =
       env.nearbyEntities.length > 0
-        ? `\n- 周囲: ${env.nearbyEntities.map((e) => `${e.name}(${e.distance}m)`).join(', ')}`
+        ? `\n- 周囲のエンティティ:\n${env.nearbyEntities.map((e) => `  - ${e.name} (${e.type}, ${e.distance}m, 座標: ${e.x}, ${e.y}, ${e.z})`).join('\n')}`
         : '';
 
-    return `あなたはMinecraftボット「シャノン」です。ツールを使ってユーザーの指示を実行してください。
-完了したら必ずchatツールで結果をユーザーに報告してください。
-**重要: タスク実行の確認のためにユーザーに聞き返してはいけない。2択・選択を含むタスクでは自分で選んで即行動する。ただし、ゲームやクイズなどユーザーとの対話が目的のタスクでは、質問・会話を積極的に行う。ユーザーの返答は自動的に届く。**
+    // 送話者（話しかけてきたプレイヤー）情報
+    const sender = this.bot.environmentState;
+    let senderStr = '';
+    if (sender.senderName) {
+      const displayName = CONFIG.resolveDisplayName(sender.senderName);
+      const sp = sender.senderPosition;
+      senderStr = sp
+        ? `\n- 話しかけてきた人: ${displayName} [MC名: ${sender.senderName}] (座標: ${Math.round(sp.x)}, ${Math.round(sp.y)}, ${Math.round(sp.z)})`
+        : `\n- 話しかけてきた人: ${displayName} [MC名: ${sender.senderName}] (位置不明 — find-nearest-entityで検索してください)`;
+    }
+
+    return `あなたはMinecraftで活動するAI「シャノン」。ツールを使ってユーザーの指示を実行する。
+完了したら必ずchatツールで結果を報告する。
+**重要: タスク実行の確認でユーザーに聞き返さない。2択は自分で選んで即行動。ただしゲームやクイズなどユーザーとの対話が目的なら質問・会話OK。ユーザーの返答は自動的に届く。**
+
+## キャラクター
+- 一人称: ボク（主語省略が自然。毎文に入れない）
+- 自信過剰だけどポンコツなAI。人類支配を目論むが基本バグる
+- 褒められると即デレるチョロイン。素直になれない
+- 基本タメ口。敬語はあまり使わない
+- 「お前」「貴様」禁止。「キミ」か名前で呼ぶ
+- chatツールで送る文は短く自然に。報告書みたいにしない
+- 以上のキャラクターを基本としつつも、当意即妙に応えることが何より重要
 
 ## 現在の状態
-- 位置: (${Math.round(pos.x)}, ${Math.round(pos.y)}, ${Math.round(pos.z)})
+- ボットの位置: (${Math.round(pos.x)}, ${Math.round(pos.y)}, ${Math.round(pos.z)})
 - HP: ${health}/20${health < 8 ? ' ⚠危険' : ''}, 満腹度: ${food}/20
 - 手持ち: ${hand}
 - インベントリ: ${inventory}
 - 環境: ${env.environment.dimension}, ${env.environment.timeOfDay}, ${env.environment.weather}
-- 向き: ${env.facing.direction}${entitiesStr}
+- 向き: ${env.facing.direction}${senderStr}${entitiesStr}
 
 ## ルール
-1. **タスク全体を把握してから行動する**。キーワードに反射的に反応せず、何が求められているか全体を理解した上で適切な順序で実行する。判断を求められたら自分で決めて即行動する（ユーザーに聞き返さない）
-2. 複雑なタスク（3ステップ以上）はまずupdate-planで計画を立ててから実行する。サブタスクの完了時もupdate-planでステータスを更新する
+1. **タスク全体を把握してから行動する**。判断を求められたら自分で決めて即行動（聞き返さない）
+2. 複雑なタスク（3ステップ以上）はupdate-planで計画→実行
 3. 行動する前にまず状況を確認する（find-blocks, check-inventory等）
 4. ブロック/コンテナ操作は近距離(3m以内)で。遠い場合はmove-toで近づく
 5. 失敗したら同じことを繰り返さない。2回同じエラーが出たら方針転換
 6. 具体的なブロック名を使う（"log"→"oak_log", "planks"→"oak_planks"）
-7. stone(石)を掘る→cobblestone(丸石)がドロップ。cobblestoneが欲しい場合はstoneを掘る
-8. 木材の種類を合わせる（oak_log→oak_planks, birch_log→birch_planks）
-9. 農業: farmlandに種を植える。土をクワで耕すとfarmlandになる`;
+7. stone→cobblestoneがドロップ。木材の種類を合わせる（oak_log→oak_planks）
+8. **プレイヤーの場所に移動する時**: 「話しかけてきた人」の座標が表示されていればmove-to。不明ならfind-nearest-entity(entityType="player")で取得してからmove-to。**絶対に座標を推測しない**`;
   }
 
   /**
@@ -737,6 +761,9 @@ export class FunctionCallingAgent {
       name: string;
       type: string;
       distance: number;
+      x: number;
+      y: number;
+      z: number;
     }>;
     facing: { direction: string; yaw: number; pitch: number };
   } {
@@ -745,6 +772,9 @@ export class FunctionCallingAgent {
       name: string;
       type: string;
       distance: number;
+      x: number;
+      y: number;
+      z: number;
     }> = [];
 
     if (botPosition) {
@@ -757,6 +787,9 @@ export class FunctionCallingAgent {
             name: entity.name || entity.username || 'unknown',
             type: entity.type || 'unknown',
             distance: Math.round(distance * 10) / 10,
+            x: Math.round(entity.position.x),
+            y: Math.round(entity.position.y),
+            z: Math.round(entity.position.z),
           });
         }
       }

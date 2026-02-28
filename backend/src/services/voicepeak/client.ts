@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { config } from '../../config/env.js';
+import { models } from '../../config/models.js';
 import { logger } from '../../utils/logger.js';
 
 export interface VoicepeakEmotion {
@@ -57,19 +58,124 @@ export class VoicepeakClient {
   }
 
   /**
+   * テキストから VoicePeak 感情パラメータを推定する（0〜100）
+   * 全文を一度だけ分析し、全センテンスに共通適用する想定
+   */
+  public async analyzeEmotionForTTS(text: string): Promise<VoicepeakEmotion> {
+    try {
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: models.ttsPreprocess,
+          messages: [
+            {
+              role: 'system',
+              content:
+                '以下のテキストの感情を分析し、音声合成用の感情パラメータをJSON形式で返してください。' +
+                '各値は0〜100の整数。キーは happy, fun, angry, sad の4つ。' +
+                '例: {"happy":60,"fun":40,"angry":0,"sad":0}' +
+                '\nJSONのみ出力。説明不要。',
+            },
+            { role: 'user', content: text },
+          ],
+          temperature: 0,
+          max_tokens: 64,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${config.openaiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        },
+      );
+
+      const raw = response.data?.choices?.[0]?.message?.content?.trim();
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const emotion: VoicepeakEmotion = {
+          happy: Math.min(100, Math.max(0, Math.round(parsed.happy ?? 0))),
+          fun: Math.min(100, Math.max(0, Math.round(parsed.fun ?? 0))),
+          angry: Math.min(100, Math.max(0, Math.round(parsed.angry ?? 0))),
+          sad: Math.min(100, Math.max(0, Math.round(parsed.sad ?? 0))),
+        };
+        logger.info(
+          `[VOICEPEAK] Emotion: happy=${emotion.happy} fun=${emotion.fun} angry=${emotion.angry} sad=${emotion.sad}`,
+          'cyan',
+        );
+        return emotion;
+      }
+    } catch (error) {
+      logger.warn('[VOICEPEAK] 感情分析失敗, デフォルト感情を使用');
+    }
+    return { happy: 30, fun: 30, angry: 0, sad: 0 };
+  }
+
+  /**
+   * 英語をカタカナ読みに変換（TTS の発音改善用）
+   * ASCII 英字を含まないテキストはそのまま返す
+   */
+  private async convertEnglishToKatakana(text: string): Promise<string> {
+    if (!/[a-zA-Z]/.test(text)) return text;
+
+    try {
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: models.ttsPreprocess,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'テキスト中の英語（単語・複合語・スネークケース等）を全て自然なカタカナ読みに置き換えてください。' +
+                'スネークケース（例: oak_log）はアンダースコアを無視して一つの名前として読む（例: オークログ）。' +
+                '日本語・記号・数字はそのまま残す。変換後のテキストのみ出力。',
+            },
+            { role: 'user', content: text },
+          ],
+          temperature: 0,
+          max_tokens: Math.max(256, text.length * 3),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${config.openaiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        },
+      );
+
+      const result = response.data?.choices?.[0]?.message?.content;
+      if (result) {
+        const converted = result.trim();
+        if (converted !== text) {
+          logger.debug(`[VOICEPEAK] EN→カナ: "${text.substring(0, 60)}" → "${converted.substring(0, 60)}"`);
+        }
+        return converted;
+      }
+      return text;
+    } catch (error) {
+      logger.warn('[VOICEPEAK] EN→カナ変換失敗, 元テキスト使用');
+      return text;
+    }
+  }
+
+  /**
    * テキストからWAV音声を生成
    * @returns WAVバイナリのBuffer
    */
   async synthesize(text: string, options?: VoicepeakOptions): Promise<Buffer> {
+    const convertedText = await this.convertEnglishToKatakana(text);
+
     const body = {
-      text,
+      text: convertedText,
       narrator: options?.narrator ?? this.defaultNarrator,
       speed: options?.speed ?? 100,
       pitch: options?.pitch ?? 0,
       emotion: options?.emotion,
     };
 
-    logger.info(`[VOICEPEAK] Synthesizing: "${text.substring(0, 50)}..."`, 'cyan');
+    logger.info(`[VOICEPEAK] Synthesizing: "${convertedText.substring(0, 50)}..."`, 'cyan');
 
     // Enforce cooldown between calls to prevent CLI instance collision
     const elapsed = Date.now() - this.lastCallTime;

@@ -995,9 +995,10 @@ export class LLMService {
     this.publishVoiceStatus(memoryZone, guildId, 'tts', '🤖 Minebot TTS...');
 
     try {
+      const emotion = await this.voicepeakClient.analyzeEmotionForTTS(responseText);
       const sentences = splitIntoSentences(responseText);
       for (const s of sentences) {
-        const wavBuf = await this.voicepeakClient.synthesize(s);
+        const wavBuf = await this.voicepeakClient.synthesize(s, { emotion });
         this.eventBus.publish({
           type: 'discord:voice_enqueue',
           memoryZone,

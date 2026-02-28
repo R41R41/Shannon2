@@ -375,6 +375,56 @@ export class MinebotHttpServer {
             }
         });
 
+        // voice_mode 切り替え（Minecraft側から）
+        this.app.post('/voice_mode', async (_req: any, res: any) => {
+            try {
+                log.info('🎙️ /voice_mode リクエスト受信', 'magenta');
+                const { DiscordBot } = await import('../../discord/client.js');
+                const result = DiscordBot.getInstance().toggleVoiceMode();
+                if (!result) {
+                    log.warn('🎙️ /voice_mode: ボイスチャンネル未接続のため切り替え不可');
+                    res.status(200).json({ success: false, result: 'ボイスチャンネル未接続' });
+                    return;
+                }
+                const label = result.mode === 'minebot' ? 'Minebot' : 'Chat';
+                log.info(`🎙️ Voice mode toggled to ${label} from Minecraft`, 'magenta');
+                res.status(200).json({ success: true, result: label, mode: result.mode });
+            } catch (error) {
+                const httpError = new HttpServerError('/voice_mode', 500, error as Error);
+                log.error('/voice_mode エラー', httpError);
+                res.status(500).json({ success: false, result: httpError.message });
+            }
+        });
+
+        // PTT（Minecraft側から、押してる間ON/離したらOFF）
+        this.app.post('/voice_ptt', async (req: any, res: any) => {
+            try {
+                const { mcUsername, action } = req.body as { mcUsername?: string; action?: 'on' | 'off' };
+                log.info(`🎙️ /voice_ptt リクエスト受信: mcUsername=${mcUsername ?? '(empty)'}, action=${action ?? '(empty)'}`, 'magenta');
+                if (!mcUsername) {
+                    res.status(400).json({ success: false, result: 'mcUsername required' });
+                    return;
+                }
+                const discordNames = CONFIG.resolveDiscordNames(mcUsername);
+                if (discordNames.length === 0) {
+                    discordNames.push(mcUsername);
+                }
+                const { DiscordBot } = await import('../../discord/client.js');
+                const result = DiscordBot.getInstance().remotePttSet(discordNames, action === 'on');
+                if (!result) {
+                    log.warn(`🎙️ /voice_ptt: ボイスチャンネル未接続 or ユーザー不明 (discordNames=[${discordNames.join(', ')}])`);
+                    res.status(200).json({ success: false, result: 'ボイスチャンネル未接続 or ユーザー不明' });
+                    return;
+                }
+                log.info(`🎙️ Remote PTT ${result.active ? 'ON' : 'OFF'}: ${result.userName}`, result.active ? 'cyan' : 'yellow');
+                res.status(200).json({ success: true, active: result.active, userName: result.userName });
+            } catch (error) {
+                const httpError = new HttpServerError('/voice_ptt', 500, error as Error);
+                log.error('/voice_ptt エラー', httpError);
+                res.status(500).json({ success: false, result: httpError.message });
+            }
+        });
+
         log.success('✅ API endpoints registered');
     }
 

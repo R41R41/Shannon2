@@ -41,6 +41,8 @@ export class SkillAgent {
 
   // 状態
   private recentMessages: BaseMessage[] = [];
+  private lastVoiceGuildId: string | null = null;
+  private lastVoiceChannelId: string | null = null;
 
   constructor(bot: CustomBot, eventBus: EventBus) {
     this.bot = bot;
@@ -205,6 +207,11 @@ export class SkillAgent {
       // 送信者情報を設定
       this.updateSenderInfo(username);
 
+      // voice_mode がアクティブなら音声応答もセット
+      if (this.lastVoiceGuildId && this.lastVoiceChannelId) {
+        this.setupVoiceResponse(this.lastVoiceGuildId, this.lastVoiceChannelId);
+      }
+
       // メッセージを処理
       await this.processMessage(
         username,
@@ -350,6 +357,22 @@ export class SkillAgent {
   }
 
   /**
+   * FCA の音声応答コールバックをセットする
+   */
+  private setupVoiceResponse(guildId: string, channelId: string): void {
+    const taskGraph = this.centralAgent.currentTaskGraph;
+    if (taskGraph) {
+      taskGraph.setOnResponseText((responseText: string) => {
+        this.eventBus.publish({
+          type: 'minebot:voice_response',
+          memoryZone: 'minebot',
+          data: { guildId, channelId, responseText },
+        });
+      });
+    }
+  }
+
+  /**
    * メッセージを処理
    */
   private async processMessage(
@@ -426,18 +449,11 @@ export class SkillAgent {
       const mcName = CONFIG.resolveMinecraftName(userName);
       log.info(`🎙️ Voice chat from ${userName} (MC: ${mcName}): ${message}`, 'cyan');
 
-      this.updateSenderInfo(mcName);
+      this.lastVoiceGuildId = guildId;
+      this.lastVoiceChannelId = channelId;
 
-      const taskGraph = this.centralAgent.currentTaskGraph;
-      if (taskGraph) {
-        taskGraph.setOnResponseText((responseText: string) => {
-          this.eventBus.publish({
-            type: 'minebot:voice_response',
-            memoryZone: 'minebot',
-            data: { guildId, channelId, responseText },
-          });
-        });
-      }
+      this.updateSenderInfo(mcName);
+      this.setupVoiceResponse(guildId, channelId);
 
       await this.processMessage(
         mcName,
@@ -483,7 +499,7 @@ export class SkillAgent {
         status: skill.status,
       }));
 
-      await fetch(`http://localhost:${CONFIG.UI_MOD_PORT}/constant_skills`, {
+      await fetch(`${CONFIG.UI_MOD_BASE_URL}/constant_skills`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=UTF-8' },
         body: JSON.stringify(skills),
@@ -502,7 +518,7 @@ export class SkillAgent {
     try {
       const settings = this.eventReactionSystem.getSettingsState();
 
-      await fetch(`http://localhost:${CONFIG.UI_MOD_PORT}/reaction_settings`, {
+      await fetch(`${CONFIG.UI_MOD_BASE_URL}/reaction_settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=UTF-8' },
         body: JSON.stringify(settings),
@@ -533,7 +549,7 @@ export class SkillAgent {
    */
   async sendTaskListState(taskListState: any) {
     try {
-      await fetch(`http://localhost:${CONFIG.UI_MOD_PORT}/task_list`, {
+      await fetch(`${CONFIG.UI_MOD_BASE_URL}/task_list`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=UTF-8' },
         body: JSON.stringify(taskListState),

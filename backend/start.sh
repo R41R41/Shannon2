@@ -9,15 +9,18 @@ PORT=5001
 WS_PORTS=(5021 5022 5023 5024 5025 5026 5027 5028)  # OpenAI, Monitoring, Status, Schedule, Planning, Emotion, Skill, Auth
 BACKEND_SESSION="shannon-backend-prod"
 
+MINEBOT_PORT=8092
+
 if [ "$1" = "--dev" ]; then
     IS_DEV=true
     PORT=15000
     WS_PORTS=(15010 15011 15013 15018 15019 15020 15016 15017)
+    MINEBOT_PORT=18092
     BACKEND_SESSION="shannon-backend-dev"
     echo "Starting in dev mode..."
-    echo "Starting backend in dev mode on port $PORT (WS: ${WS_PORTS[*]})..."
+    echo "Starting backend in dev mode on port $PORT (WS: ${WS_PORTS[*]}, Minebot: $MINEBOT_PORT)..."
 else
-    echo "Starting backend on port $PORT (WS: ${WS_PORTS[*]})..."
+    echo "Starting backend on port $PORT (WS: ${WS_PORTS[*]}, Minebot: $MINEBOT_PORT)..."
 fi
 
 # 既存のセッションを確認・終了
@@ -36,6 +39,7 @@ kill_port() {
 # 使用するポートをすべて解放
 echo "Cleaning up ports..."
 kill_port $PORT
+kill_port $MINEBOT_PORT
 for ws_port in "${WS_PORTS[@]}"; do
     kill_port $ws_port
 done
@@ -50,14 +54,14 @@ if [ "$IS_DEV" = true ]; then
     cd "$SCRIPT_DIR" && npm run build > /dev/null 2>&1
     
     # tmuxでセッションを作成（tsc-watchでコンパイル＋サーバー自動再起動）
-    tmux new-session -d -s $BACKEND_SESSION -n "server" "cd $SCRIPT_DIR && PORT=$PORT WS_OPENAI_PORT=${WS_PORTS[0]} WS_MONITORING_PORT=${WS_PORTS[1]} WS_STATUS_PORT=${WS_PORTS[2]} WS_SCHEDULE_PORT=${WS_PORTS[3]} WS_PLANNING_PORT=${WS_PORTS[4]} WS_EMOTION_PORT=${WS_PORTS[5]} WS_SKILL_PORT=${WS_PORTS[6]} WS_AUTH_PORT=${WS_PORTS[7]} exec npx tsc-watch --onSuccess 'node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js --dev'"
+    tmux new-session -d -s $BACKEND_SESSION -n "server" "cd $SCRIPT_DIR && PORT=$PORT MINEBOT_API_PORT=$MINEBOT_PORT WS_OPENAI_PORT=${WS_PORTS[0]} WS_MONITORING_PORT=${WS_PORTS[1]} WS_STATUS_PORT=${WS_PORTS[2]} WS_SCHEDULE_PORT=${WS_PORTS[3]} WS_PLANNING_PORT=${WS_PORTS[4]} WS_EMOTION_PORT=${WS_PORTS[5]} WS_SKILL_PORT=${WS_PORTS[6]} WS_AUTH_PORT=${WS_PORTS[7]} exec npx tsc-watch --onSuccess 'node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js --dev'"
 else
     # 事前にビルド
     echo "Building backend..."
     cd "$SCRIPT_DIR" && npm run build > /dev/null 2>&1
     
     # tmuxでセッションを作成（ビルド済みJSをnodeで直接起動）
-    tmux new-session -d -s $BACKEND_SESSION "cd $SCRIPT_DIR && PORT=$PORT WS_OPENAI_PORT=${WS_PORTS[0]} WS_MONITORING_PORT=${WS_PORTS[1]} WS_STATUS_PORT=${WS_PORTS[2]} WS_SCHEDULE_PORT=${WS_PORTS[3]} WS_PLANNING_PORT=${WS_PORTS[4]} WS_EMOTION_PORT=${WS_PORTS[5]} WS_SKILL_PORT=${WS_PORTS[6]} WS_AUTH_PORT=${WS_PORTS[7]} node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js"
+    tmux new-session -d -s $BACKEND_SESSION "cd $SCRIPT_DIR && PORT=$PORT MINEBOT_API_PORT=$MINEBOT_PORT WS_OPENAI_PORT=${WS_PORTS[0]} WS_MONITORING_PORT=${WS_PORTS[1]} WS_STATUS_PORT=${WS_PORTS[2]} WS_SCHEDULE_PORT=${WS_PORTS[3]} WS_PLANNING_PORT=${WS_PORTS[4]} WS_EMOTION_PORT=${WS_PORTS[5]} WS_SKILL_PORT=${WS_PORTS[6]} WS_AUTH_PORT=${WS_PORTS[7]} node --experimental-specifier-resolution=node --es-module-specifier-resolution=node dist/server.js"
 fi
 echo "Backend started in tmux session: $BACKEND_SESSION"
 echo "  dev mode: tsc-watch with auto-restart on changes"

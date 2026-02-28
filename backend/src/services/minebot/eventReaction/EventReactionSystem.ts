@@ -7,8 +7,77 @@ import { TaskGraph } from '../llm/graph/taskGraph.js';
 import { CustomBot } from '../types.js';
 import { EmergencyResponder } from './EmergencyResponder.js';
 import { createLogger } from '../../../utils/logger.js';
+import prismarineBiome from 'prismarine-biome';
+import * as prismarineRegistry from 'prismarine-registry';
 
 const log = createLogger('Minebot:EventReaction');
+
+const BIOME_NAMES_JA: Record<string, string> = {
+    'plains': '平原',
+    'sunflower_plains': 'ひまわり平原',
+    'snowy_plains': '雪の平原',
+    'ice_spikes': '樹氷',
+    'desert': '砂漠',
+    'swamp': '湿地',
+    'mangrove_swamp': 'マングローブの湿地',
+    'forest': '森林',
+    'flower_forest': '花の森',
+    'birch_forest': '白樺の森',
+    'dark_forest': '暗い森',
+    'old_growth_birch_forest': '巨大な白樺の森',
+    'old_growth_pine_taiga': '巨大な松のタイガ',
+    'old_growth_spruce_taiga': '巨大なトウヒのタイガ',
+    'taiga': 'タイガ',
+    'snowy_taiga': '雪のタイガ',
+    'savanna': 'サバンナ',
+    'savanna_plateau': 'サバンナの台地',
+    'windswept_hills': '風の丘陵',
+    'windswept_gravelly_hills': '風の砂利の丘陵',
+    'windswept_forest': '風の森',
+    'windswept_savanna': '風のサバンナ',
+    'jungle': 'ジャングル',
+    'sparse_jungle': 'まばらなジャングル',
+    'bamboo_jungle': '竹林',
+    'badlands': '荒野',
+    'eroded_badlands': '浸食された荒野',
+    'wooded_badlands': '森のある荒野',
+    'meadow': '牧草地',
+    'cherry_grove': '桜の林',
+    'grove': '林',
+    'snowy_slopes': '雪の斜面',
+    'frozen_peaks': '凍った山頂',
+    'jagged_peaks': 'ギザギザの山頂',
+    'stony_peaks': '石の山頂',
+    'river': '川',
+    'frozen_river': '凍った川',
+    'beach': '砂浜',
+    'snowy_beach': '雪の砂浜',
+    'stony_shore': '石の海岸',
+    'warm_ocean': '暖かい海',
+    'lukewarm_ocean': 'ぬるい海',
+    'deep_lukewarm_ocean': 'ぬるい深海',
+    'ocean': '海',
+    'deep_ocean': '深海',
+    'cold_ocean': '冷たい海',
+    'deep_cold_ocean': '冷たい深海',
+    'frozen_ocean': '凍った海',
+    'deep_frozen_ocean': '凍った深海',
+    'mushroom_fields': 'キノコ島',
+    'dripstone_caves': '鍾乳洞',
+    'lush_caves': '繁茂した洞窟',
+    'deep_dark': 'ディープダーク',
+    'nether_wastes': 'ネザーの荒地',
+    'warped_forest': '歪んだ森',
+    'crimson_forest': '真紅の森',
+    'soul_sand_valley': 'ソウルサンドの谷',
+    'basalt_deltas': '玄武岩デルタ',
+    'the_end': 'ジ・エンド',
+    'end_highlands': 'エンドの高台',
+    'end_midlands': 'エンドの中間地',
+    'small_end_islands': '小さなエンドの島',
+    'end_barrens': 'エンドの不毛地帯',
+    'pale_garden': 'ペイルガーデン',
+};
 import {
     BiomeEventData,
     DamageEventData,
@@ -97,10 +166,9 @@ export class EventReactionSystem {
         // 天気
         this.lastWeather = this.getCurrentWeather();
 
-        // バイオーム
         try {
-            const biome = (this.bot as any).world?.getBiome?.(this.bot.entity.position);
-            this.lastBiome = typeof biome === 'object' ? (biome?.name || '') : String(biome || '');
+            const rawBiome = (this.bot as any).world?.getBiome?.(this.bot.entity.position);
+            this.lastBiome = this.resolveBiomeName(rawBiome);
         } catch {
             this.lastBiome = '';
         }
@@ -281,30 +349,52 @@ export class EventReactionSystem {
     /**
      * バイオーム変化をチェック
      */
+    private resolveBiomeName(rawBiome: any): string {
+        if (typeof rawBiome === 'object' && rawBiome?.name) {
+            return String(rawBiome.name);
+        }
+        const biomeId = Number(rawBiome);
+        if (!isNaN(biomeId)) {
+            try {
+                const registry = prismarineRegistry.default(this.bot.version);
+                const Biome = prismarineBiome(registry);
+                const biome = new Biome(biomeId);
+                if (biome.name) return biome.name;
+            } catch { /* fallback */ }
+        }
+        return String(rawBiome || '');
+    }
+
+    private getBiomeJaName(englishName: string): string {
+        const key = englishName.replace(/^minecraft:/, '').toLowerCase();
+        return BIOME_NAMES_JA[key] || key.replace(/_/g, ' ');
+    }
+
     private async checkBiomeChange(): Promise<void> {
-        let currentBiome = '';
+        let rawBiome: any;
         try {
-            const biome = (this.bot as any).world?.getBiome?.(this.bot.entity.position);
-            currentBiome = typeof biome === 'object' ? (biome?.name || '') : String(biome || '');
+            rawBiome = (this.bot as any).world?.getBiome?.(this.bot.entity.position);
         } catch {
             return;
         }
+        const biomeName = this.resolveBiomeName(rawBiome);
+        if (!biomeName) return;
 
-        if (currentBiome && currentBiome !== this.lastBiome) {
+        if (biomeName !== this.lastBiome) {
             const previousBiome = this.lastBiome;
-            this.lastBiome = currentBiome;
+            this.lastBiome = biomeName;
 
-            // 一般的なバイオームはスキップ
-            if (EventReactionSystem.COMMON_BIOMES.has(currentBiome.toLowerCase())) {
+            if (EventReactionSystem.COMMON_BIOMES.has(biomeName.toLowerCase())) {
                 return;
             }
 
+            const jaName = this.getBiomeJaName(biomeName);
             const eventData: BiomeEventData = {
                 timestamp: Date.now(),
                 eventType: 'biome_change',
-                previousBiome,
-                currentBiome,
-                isRare: EventReactionSystem.RARE_BIOMES.has(currentBiome.toLowerCase()),
+                previousBiome: this.getBiomeJaName(previousBiome),
+                currentBiome: jaName,
+                isRare: EventReactionSystem.RARE_BIOMES.has(biomeName.toLowerCase()),
             };
             await this.handleEvent(eventData);
         }
@@ -737,9 +827,9 @@ export class EventReactionSystem {
             case 'biome_change':
                 const bc = eventData as BiomeEventData;
                 if (bc.isRare) {
-                    return `${bc.currentBiome}バイオームに入った！珍しい場所だ。周りを見回して、何か面白いものがあれば感想を言って`;
+                    return `「${bc.currentBiome}」に入った！珍しい場所だ。周りを見回して、何か面白いものがあれば感想を言って`;
                 }
-                return `${bc.currentBiome}バイオームに入った。周りを見回して、何か印象的なものがあれば一言感想を言って`;
+                return `「${bc.currentBiome}」に入った。周りを見回して、何か印象的なものがあれば一言感想を言って`;
             case 'teleported':
                 const tp = eventData as TeleportEventData;
                 return `テレポートされた（${tp.distance.toFixed(0)}ブロック移動）。周囲を確認して`;
