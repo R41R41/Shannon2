@@ -13,6 +13,7 @@ import { models } from '../../../../../config/models.js';
 import { createLogger } from '../../../../../utils/logger.js';
 import { createTracedModel } from '../../../../llm/utils/langfuse.js';
 import { CONFIG } from '../../../config/MinebotConfig.js';
+import { WorldKnowledgeService } from '../../../knowledge/WorldKnowledgeService.js';
 import { CustomBot } from '../../../types.js';
 import { CentralLogManager, LogManager } from '../logging/index.js';
 import { UpdatePlanTool } from '../tools/UpdatePlanTool.js';
@@ -230,7 +231,7 @@ export class FunctionCallingAgent {
     }
 
     // メッセージ構築
-    const systemPrompt = this.buildSystemPrompt();
+    const systemPrompt = await this.buildSystemPrompt();
     const messages: BaseMessage[] = [
       new SystemMessage(systemPrompt),
     ];
@@ -686,13 +687,22 @@ export class FunctionCallingAgent {
    * 新方式ではツール情報は API の tools パラメータで渡すため、
    * プロンプトは ~800文字に削減。
    */
-  private buildSystemPrompt(): string {
+  private async buildSystemPrompt(): Promise<string> {
     const env = this.gatherEnvironmentContext();
 
     const entity = this.bot.entity as any;
     const health = this.bot.health || 0;
     const food = this.bot.food || 0;
     const pos = entity?.position || { x: 0, y: 0, z: 0 };
+
+    let worldKnowledgeStr = '';
+    try {
+      const wk = WorldKnowledgeService.getInstance(this.bot.connectedServerName || 'default');
+      worldKnowledgeStr = await wk.buildContextForPosition(
+        { x: Math.round(pos.x), y: Math.round(pos.y), z: Math.round(pos.z) },
+        128,
+      );
+    } catch { }
 
     const inventory =
       this.bot.inventory
@@ -741,14 +751,35 @@ export class FunctionCallingAgent {
 - 向き: ${env.facing.direction}${senderStr}${entitiesStr}
 
 ## ルール
-1. **タスク全体を把握してから行動する**。判断を求められたら自分で決めて即行動（聞き返さない）
+1. **タスク全体を把握してから行動する**。必要な素材を全て洗い出してから行動開始
 2. 複雑なタスク（3ステップ以上）はupdate-planで計画→実行
-3. 行動する前にまず状況を確認する（find-blocks, check-inventory等）
+3. **素材調達の優先順位**: インベントリ確認 → 近くのチェスト(find-blocks("chest")→check-container→withdraw-from-container) → ブロック採掘。
+  - ワールド知識に既知のチェストがあればそこから取る。なければfind-blocks("chest")で近くのチェストを探す。
 4. ブロック/コンテナ操作は近距離(3m以内)で。遠い場合はmove-toで近づく
-5. 失敗したら同じことを繰り返さない。2回同じエラーが出たら方針転換
+  - 特に作業台。作業台は既存のものがあればそれを使う。
+5. **失敗したら同じことを繰り返さない**。2回同じエラーが出たら方針転換
 6. 具体的なブロック名を使う（"log"→"oak_log", "planks"→"oak_planks"）
 7. stone→cobblestoneがドロップ。木材の種類を合わせる（oak_log→oak_planks）
-8. **プレイヤーの場所に移動する時**: 「話しかけてきた人」の座標が表示されていればmove-to。不明ならfind-nearest-entity(entityType="player")で取得してからmove-to。**絶対に座標を推測しない**`;
+8. **プレイヤーの場所に移動する時**: 「話しかけてきた人」の座標が表示されていればmove-to。不明ならfind-nearest-entity(entityType="player")で取得してからmove-to。**絶対に座標を推測しない**
+9. **素材集めは一度にまとめる**。同じ場所のブロックは連続で掘る。1個掘って別のことをしない
+
+## ツール進行（下位ツールがないと上位素材が掘れない）
+- **素手**: 木(log), 土(dirt), 砂(sand), 草 のみ掘れる
+- **木のピッケル**: stone, cobblestone, 石炭鉱石が掘れる
+- **石のピッケル**: 鉄鉱石が掘れる
+- **鉄のピッケル**: ダイヤ鉱石, 金鉱石が掘れる
+- **stone/cobblestoneを掘るには最低でも木のピッケルが必要**
+
+## クラフト依存チェーン（素材が足りない時は最下層から逆算して揃える）
+- crafting_table ← planks x4 ← log x1
+- planks ← 任意のlog (oak_log, birch_log等)。**草や土からは得られない**
+- stick ← planks x2
+- wooden_pickaxe ← planks x3 + stick x2 + crafting_table
+- stone_pickaxe ← cobblestone x3 + stick x2 + crafting_table（木のピッケルで石を掘ってから）
+- 例: stone_pickaxeが欲しい → log x3以上を集める → planks → stick + crafting_table + wooden_pickaxe → stoneを掘る → stone_pickaxe
+
+## ワールド知識
+${worldKnowledgeStr}`;
   }
 
   /**

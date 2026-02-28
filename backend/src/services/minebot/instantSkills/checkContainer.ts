@@ -133,7 +133,7 @@ class CheckContainer extends InstantSkill {
 
                 return {
                     success: true,
-                    result: `${block.name}の中身（${usedSlots}/${totalSlots}スロット使用、計${totalItems}個）: ${itemList}`,
+                    result: `${block.name}(${x}, ${y}, ${z})の中身（${usedSlots}/${totalSlots}スロット使用、計${totalItems}個）: ${itemList}`,
                 };
             } catch (error: any) {
                 container.close();

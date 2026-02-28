@@ -111,7 +111,7 @@ class StartSmelting extends InstantSkill {
       if (fuelItems.length === 0) {
         return {
           success: false,
-          result: `燃料${fuelItem}を持っていません`,
+          result: `燃料${fuelItem}を持っていません。石炭か木炭を入れてください。`,
         };
       }
 

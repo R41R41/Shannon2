@@ -30,10 +30,16 @@ class DigBlockAt extends InstantSkill {
         description: 'Z座標',
         required: true,
       },
+      {
+        name: 'collect',
+        type: 'boolean',
+        description: '掘削後にドロップアイテムを自動回収するか（デフォルト: true）。連続で複数ブロック掘る場合はfalseにして最後にpickup-nearest-itemで回収すると効率的',
+        default: true,
+      },
     ];
   }
 
-  async runImpl(x: number, y: number, z: number) {
+  async runImpl(x: number, y: number, z: number, collect: boolean = true) {
     try {
       // パラメータチェック
       if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
@@ -108,10 +114,18 @@ class DigBlockAt extends InstantSkill {
       }
 
       const blockName = block.name;
+
+      const beforeItems = new Map<string, number>();
+      if (collect) {
+        for (const item of this.bot.inventory.items()) {
+          beforeItems.set(item.name, (beforeItems.get(item.name) || 0) + item.count);
+        }
+      }
+
       await this.bot.dig(block);
 
-      // 掘れたかどうかを確認（同じ座標のブロックがなくなっているか）
-      await new Promise(resolve => setTimeout(resolve, 100)); // 少し待つ
+      // 掘削完了を確認
+      await new Promise(resolve => setTimeout(resolve, 200));
       const afterBlock = this.bot.blockAt(pos);
 
       if (afterBlock && afterBlock.name !== 'air' && afterBlock.name !== 'cave_air' && afterBlock.name === blockName) {
@@ -121,9 +135,25 @@ class DigBlockAt extends InstantSkill {
         };
       }
 
+      if (!collect) {
+        return {
+          success: true,
+          result: `${blockName}を掘りました（回収スキップ）`,
+        };
+      }
+
+      const collected = await this.waitForCollection(beforeItems, 2000);
+
+      if (collected.length > 0) {
+        return {
+          success: true,
+          result: `${blockName}を掘りました。${collected.join(', ')}を回収`,
+        };
+      }
+
       return {
         success: true,
-        result: `${blockName}を掘りました。ドロップしたアイテムを拾うにはpickup-nearest-item {}を実行してください`,
+        result: `${blockName}を掘りました（ドロップ未回収 — 足元にない可能性）`,
       };
     } catch (error: any) {
       // エラーメッセージを詳細化
@@ -141,6 +171,37 @@ class DigBlockAt extends InstantSkill {
         result: `掘削エラー: ${errorDetail}`,
       };
     }
+  }
+
+  /**
+   * インベントリの増分を最大 timeoutMs 待って検出する。
+   * 200ms 間隔でポーリングし、増えた分を返す。
+   */
+  private async waitForCollection(
+    beforeItems: Map<string, number>,
+    timeoutMs: number,
+  ): Promise<string[]> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 200));
+      const diff = this.inventoryDiff(beforeItems);
+      if (diff.length > 0) return diff;
+    }
+    return [];
+  }
+
+  private inventoryDiff(beforeItems: Map<string, number>): string[] {
+    const result: string[] = [];
+    for (const item of this.bot.inventory.items()) {
+      const before = beforeItems.get(item.name) || 0;
+      const current = (this.bot.inventory.items()
+        .filter(i => i.name === item.name)
+        .reduce((sum, i) => sum + i.count, 0));
+      if (current > before && !result.some(r => r.startsWith(item.name))) {
+        result.push(`${item.name}x${current - before}`);
+      }
+    }
+    return result;
   }
 
   /**
