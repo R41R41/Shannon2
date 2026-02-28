@@ -87,7 +87,7 @@ class CheckFurnace extends InstantSkill {
         if (fuelItem) {
           slots.push(`燃料: ${fuelItem.name} x${fuelItem.count}`);
         } else {
-          slots.push('燃料: なし');
+          slots.push('燃料: なし（石炭か木炭を入れてください）');
         }
 
         if (outputItem) {

@@ -335,10 +335,21 @@ export class SkillAgent {
    * 送信者情報を更新
    */
   private updateSenderInfo(username: string): void {
-    const sender = this.bot.players[username]?.entity;
     this.bot.environmentState.senderName = username;
 
-    const position = sender ? sender.position : null;
+    // bot.players → bot.entities の順でプレイヤーエンティティを探す
+    let position = this.bot.players[username]?.entity?.position ?? null;
+
+    if (!position) {
+      for (const e of Object.values(this.bot.entities)) {
+        if (e === this.bot.entity) continue;
+        if (e.type === 'player' && ((e as any).username === username || e.name === username)) {
+          position = e.position;
+          break;
+        }
+      }
+    }
+
     if (position) {
       this.bot.environmentState.senderPosition = new Vec3(
         Number(position.x.toFixed(1)),
@@ -346,6 +357,7 @@ export class SkillAgent {
         Number(position.z.toFixed(1))
       );
     } else {
+      log.warn(`updateSenderInfo: ${username} のエンティティが見つかりません (players.entity=null, entities fallback失敗)`);
       this.bot.environmentState.senderPosition = null;
     }
 

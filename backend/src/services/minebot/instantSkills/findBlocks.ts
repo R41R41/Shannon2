@@ -1,8 +1,12 @@
 import minecraftData from 'minecraft-data';
 import { CustomBot, InstantSkill } from '../types.js';
 
+const INITIAL_RADIUS = 16;
+const RADIUS_STEP = 16;
+
 /**
  * 原子的スキル: 周囲のブロックを検索
+ * 近距離から段階的に範囲を広げて検索する。
  */
 class FindBlocks extends InstantSkill {
   private mcData: any;
@@ -49,11 +53,15 @@ class FindBlocks extends InstantSkill {
         };
       }
 
-      const blocks = this.bot.findBlocks({
-        matching: blockType.id,
-        maxDistance: maxDistance,
-        count: count,
-      });
+      let blocks: any[] = [];
+      for (let radius = INITIAL_RADIUS; radius <= maxDistance; radius += RADIUS_STEP) {
+        blocks = this.bot.findBlocks({
+          matching: blockType.id,
+          maxDistance: radius,
+          count: count,
+        });
+        if (blocks.length >= count) break;
+      }
 
       if (blocks.length === 0) {
         return {
@@ -62,7 +70,7 @@ class FindBlocks extends InstantSkill {
         };
       }
 
-      // 距離順にソート
+      const botPos = this.bot.entity.position;
       const sortedBlocks = blocks
         .map((pos) => {
           const blockData: any = {
@@ -70,10 +78,9 @@ class FindBlocks extends InstantSkill {
             y: pos.y,
             z: pos.z,
             distance:
-              Math.floor(this.bot.entity.position.distanceTo(pos) * 10) / 10,
+              Math.floor(botPos.distanceTo(pos) * 10) / 10,
           };
 
-          // farmlandの場合は上のブロックを確認
           if (blockName === 'farmland') {
             const aboveBlock = this.bot.blockAt(pos.offset(0, 1, 0));
             if (aboveBlock && aboveBlock.name !== 'air') {
@@ -85,7 +92,6 @@ class FindBlocks extends InstantSkill {
         })
         .sort((a, b) => a.distance - b.distance);
 
-      // farmlandの場合は空きと埋まっているものを分けて表示
       if (blockName === 'farmland') {
         const emptyFarmland = sortedBlocks.filter((b) => !b.above);
         const occupiedFarmland = sortedBlocks.filter((b) => b.above);
@@ -108,21 +114,17 @@ class FindBlocks extends InstantSkill {
           result += `、使用中${occupiedCount}個`;
         }
 
-        return {
-          success: true,
-          result,
-        };
+        return { success: true, result };
       }
 
       const blockList = sortedBlocks
-        .slice(0, 5) // 最初の5個だけ表示
+        .slice(0, 5)
         .map((b) => `(${b.x}, ${b.y}, ${b.z}) 距離${b.distance}m`)
         .join(', ');
 
       return {
         success: true,
-        result: `${blockName}を${blocks.length}個発見: ${blockList}${blocks.length > 5 ? '...' : ''
-          }`,
+        result: `${blockName}を${blocks.length}個発見: ${blockList}${blocks.length > 5 ? '...' : ''}`,
       };
     } catch (error: any) {
       return {

@@ -12,15 +12,13 @@ class AutoEat extends ConstantSkill {
     super(bot);
     this.skillName = 'auto-eat';
     this.description = '体力または満腹度が低い時に自動で食べ物を食べます';
-    this.interval = 1000; // 1秒ごとにチェック
+    this.interval = 1000;
     this.isLocked = false;
-    this.status = false;
+    this.status = true;
     this.priority = 5;
   }
 
   async runImpl() {
-    // 既に食べている場合はスキップ
-    if (this.bot.pathfinder.isMoving()) return;
 
     // 体力または満腹度が低い場合に食べる
     const health = this.bot.health;
