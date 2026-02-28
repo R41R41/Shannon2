@@ -1,9 +1,9 @@
 import WebSocket from 'ws';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
-import { getEventBus } from '../../eventBus/index.js';
-import { EventBus } from '../../eventBus/eventBus.js';
 import { logger } from '../../../utils/logger.js';
+import { EventBus } from '../../eventBus/eventBus.js';
+import { getEventBus } from '../../eventBus/index.js';
 
 export class RealtimeAPIService {
   private static instance: RealtimeAPIService;
@@ -42,7 +42,6 @@ export class RealtimeAPIService {
     this.onAudioDoneResponse = null; // 音声完了用コールバック
     this.onUserTranscriptResponse = null; // ユーザー音声レスポンス用コールバック
     this.responseAudioBuffer = new Uint8Array(0);
-    this.initialize();
     this.noVadSessionConfig = {
       type: 'session.update',
       session: {
@@ -75,6 +74,10 @@ export class RealtimeAPIService {
         tools: [],
       },
     };
+
+    this.initialize().catch((e) =>
+      logger.error(`[RealtimeAPI] 初回接続失敗 (リトライします): ${e}`)
+    );
   }
 
   public static getInstance(): RealtimeAPIService {
@@ -184,6 +187,7 @@ export class RealtimeAPIService {
           this.ws.send(JSON.stringify(this.noVadSessionConfig));
         }
         this.initialized = true;
+        this.reconnectAttempts = 0;
         this.scheduleSessionRefresh();
         resolve(true);
       });
@@ -289,11 +293,8 @@ export class RealtimeAPIService {
                 this.sessionRefreshTimer = null;
               }
               this.initialized = false;
-              setTimeout(() => {
-                this.initialize().catch((e) =>
-                  logger.error(`[RealtimeAPI] 再接続失敗: ${e}`)
-                );
-              }, 1000);
+              this.reconnectAttempts = 0;
+              this.scheduleReconnect();
             }
             break;
 
@@ -302,28 +303,46 @@ export class RealtimeAPIService {
         }
       });
 
+      let settled = false;
+
       this.ws.on('error', (error) => {
         logger.error(`WebSocket error: ${error}`);
         this.eventBus.log('web', 'red', 'WebSocket error');
-        reject(error);
+        if (!settled) {
+          settled = true;
+          reject(error);
+        }
       });
 
       this.ws.on('close', () => {
-        logger.error('WebSocket connection closed');
+        logger.warn('WebSocket connection closed');
         this.eventBus.log('web', 'red', 'WebSocket connection closed');
         this.initialized = false;
-        // session_expired の場合は error イベント側で再接続するので、
-        // close イベントでは少し遅らせて接続が本当に切れた場合のみ再接続
-        setTimeout(() => {
-          if (!this.initialized) {
-            logger.info('[RealtimeAPI] 切断を検知。再接続します...', 'cyan');
-            this.initialize().catch((e) =>
-              logger.error(`[RealtimeAPI] 再接続失敗: ${e}`)
-            );
-          }
-        }, 3000);
+        if (!settled) {
+          settled = true;
+          reject(new Error('WebSocket closed before open'));
+        }
+        this.scheduleReconnect();
       });
     });
+  }
+
+  private scheduleReconnect() {
+    if (this.initialized) return;
+    this.reconnectAttempts++;
+    const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 60000);
+    logger.info(`[RealtimeAPI] ${delay / 1000}秒後に再接続します (試行 ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`, 'cyan');
+    if (this.reconnectAttempts > this.maxReconnectAttempts) {
+      logger.error(`[RealtimeAPI] 最大再接続回数 (${this.maxReconnectAttempts}) を超えました。再接続を停止します。`);
+      return;
+    }
+    setTimeout(() => {
+      if (!this.initialized) {
+        this.initialize().catch((e) =>
+          logger.error(`[RealtimeAPI] 再接続失敗: ${e}`)
+        );
+      }
+    }, delay);
   }
 
   private scheduleSessionRefresh() {

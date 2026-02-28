@@ -1,10 +1,10 @@
 import fs from 'fs';
-import path from 'path';
 import OpenAI from 'openai';
+import path from 'path';
 import { config } from '../../config/env.js';
+import { logger } from '../../utils/logger.js';
 import { getTracedOpenAI } from '../llm/utils/langfuse.js';
 import { VoicepeakClient, VoicepeakEmotion } from '../voicepeak/client.js';
-import { logger } from '../../utils/logger.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -78,6 +78,15 @@ const ATOMIC_FILLERS: FillerEntry[] = [
   { id: 'a_nandeyanenn', text: 'なんでやねん！', category: 'exclaim', emotion: { angry: 30, fun: 50 } },
   { id: 'a_hidokunai', text: 'ひどくない！？', category: 'exclaim', emotion: { angry: 20, sad: 20, fun: 30 } },
   { id: 'a_mendokusai', text: 'もう…めんどくさいなあ…', category: 'tsun', emotion: { sad: 20, angry: 10, fun: 10 } },
+  { id: 'a_douitashimashite', text: 'どういたしまして！', category: 'respond', emotion: { happy: 50, fun: 30 } },
+  { id: 'a_touzen', text: '当然だよ！', category: 'tsun', emotion: { happy: 30, fun: 50 } },
+  { id: 'a_maanee', text: 'まあねー！', category: 'tsun', emotion: { happy: 40, fun: 40 } },
+  { id: 'a_doumodoumo', text: 'どうもどうも', category: 'respond', emotion: { happy: 30, fun: 20 } },
+  { id: 'a_iittekotosa', text: 'いいってことさ！', category: 'respond', emotion: { happy: 50, fun: 50 } },
+  { id: 'a_haai', text: 'はーい！', category: 'affirm', emotion: { happy: 50, fun: 30 } },
+  { id: 'a_iiyoo', text: 'いいよー！', category: 'affirm', emotion: { happy: 60, fun: 40 } },
+  { id: 'a_eiyada', text: 'え、いやだ', category: 'tsun', emotion: { angry: 20, fun: 30 } },
+  { id: 'a_uumu', text: 'うーむ…', category: 'thinking', emotion: { sad: 10 } },
 ];
 
 // ─── Phrase Fillers (longer, ~1.5-3s, can stand alone) ───────────────────────
@@ -109,37 +118,57 @@ const PHRASE_FILLERS: FillerEntry[] = [
 // ─── Combo Definitions (pre-defined sequences) ──────────────────────────────
 
 export const COMBO_DEFINITIONS: ComboDefinition[] = [
-  // exclaim
+  // ── exclaim（驚き・感嘆）──
   { id: 'c_surprise_think', fillerIds: ['a_majide', 'a_ettone'], category: 'exclaim' },
-  { id: 'c_really_uun', fillerIds: ['a_ehontou', 'a_uun'], category: 'exclaim' },
   { id: 'c_eh_wait', fillerIds: ['a_e', 'a_chottomatte'], category: 'exclaim' },
   { id: 'c_yattaze_yarujan', fillerIds: ['a_yattaze', 'a_yarujan'], category: 'exclaim' },
-  { id: 'c_impressed_fuun', fillerIds: ['a_yarujan', 'a_fuun'], category: 'exclaim' },
-  // affirm
-  { id: 'c_hmm_uun', fillerIds: ['a_fumufumu', 'a_uun'], category: 'affirm' },
+  { id: 'c_majide_yarujan', fillerIds: ['a_majide', 'a_yarujan'], category: 'exclaim' },
+  { id: 'c_e_majide', fillerIds: ['a_e', 'a_majide'], category: 'exclaim' },
+  { id: 'c_ehontou_yarujan', fillerIds: ['a_ehontou', 'a_yarujan'], category: 'exclaim' },
+
+  // ── affirm（肯定・相槌）──
   { id: 'c_fuun_dayone', fillerIds: ['a_fuun', 'a_dayone'], category: 'affirm' },
   { id: 'c_sounanda_hmm', fillerIds: ['a_sounanda', 'a_fumufumu'], category: 'affirm' },
-  { id: 'c_dayone_fuun', fillerIds: ['a_dayone', 'a_fuun'], category: 'affirm' },
-  // respond
-  { id: 'c_ok_leave', fillerIds: ['a_wakatta', 'a_makasete'], category: 'respond' },
+  { id: 'c_sounanda_dayone', fillerIds: ['a_sounanda', 'a_dayone'], category: 'affirm' },
+  { id: 'c_haai_fumufumu', fillerIds: ['a_haai', 'a_fumufumu'], category: 'affirm' },
+  { id: 'c_fumufumu_fuun', fillerIds: ['a_fumufumu', 'a_fuun'], category: 'affirm' },
+
+  // ── respond（応答・引き受け）──
   { id: 'c_okk_leave', fillerIds: ['a_okkee', 'a_makasete'], category: 'respond' },
   { id: 'c_wakatta_full', fillerIds: ['a_wakatta', 'a_kanzenni'], category: 'respond' },
-  { id: 'c_arigatou_uun', fillerIds: ['a_arigatou', 'a_uun'], category: 'respond' },
-  // question
-  { id: 'c_good_q_fuun', fillerIds: ['a_iishitsumon', 'a_fuun'], category: 'question' },
-  { id: 'c_good_q2_uun', fillerIds: ['a_iishitsumon2', 'a_uun'], category: 'question' },
-  // sympathy
+  { id: 'c_iiyoo_makasete', fillerIds: ['a_iiyoo', 'a_makasete'], category: 'respond' },
+  { id: 'c_haai_makasete', fillerIds: ['a_haai', 'a_makasete'], category: 'respond' },
+  { id: 'c_touzen_iittekotosa', fillerIds: ['a_touzen', 'a_iittekotosa'], category: 'respond' },
+  { id: 'c_douitashi_maanee', fillerIds: ['a_douitashimashite', 'a_maanee'], category: 'respond' },
+
+  // ── question（質問への反応）──
+  { id: 'c_good_q_ettone', fillerIds: ['a_iishitsumon', 'a_ettone'], category: 'question' },
+  { id: 'c_good_q2_ettone', fillerIds: ['a_iishitsumon2', 'a_ettone'], category: 'question' },
+
+  // ── thinking（考え中）──
+  { id: 'c_uun_ettone', fillerIds: ['a_uun', 'a_ettone'], category: 'thinking' },
+  { id: 'c_matte_uumu', fillerIds: ['a_chottomatte', 'a_uumu'], category: 'thinking' },
+
+  // ── sympathy（同情・残念）──
   { id: 'c_oioi_shikata', fillerIds: ['a_oioi', 'a_shikatanai'], category: 'sympathy' },
   { id: 'c_eeh_shikata', fillerIds: ['a_eee', 'a_shikatanai'], category: 'sympathy' },
   { id: 'c_zannen_shikata', fillerIds: ['a_zannen', 'a_shikatanai'], category: 'sympathy' },
   { id: 'c_eeh_oioi', fillerIds: ['a_eee', 'a_oioi'], category: 'sympathy' },
-  // tsun
+  { id: 'c_shock_zannen', fillerIds: ['a_shock', 'a_zannen'], category: 'sympathy' },
+
+  // ── tsun（ツンデレ・渋々）──
   { id: 'c_tsun_fine', fillerIds: ['a_fun', 'a_betsuniikedo'], category: 'tsun' },
   { id: 'c_haihai_shikata', fillerIds: ['a_haihai', 'a_shikatanai'], category: 'tsun' },
   { id: 'c_haihai_mendokusai', fillerIds: ['a_haihai', 'a_mendokusai'], category: 'tsun' },
-  // angry
+  { id: 'c_eiyada_shikata', fillerIds: ['a_eiyada', 'a_shikatanai'], category: 'tsun' },
+  { id: 'c_muchaburi_shikata', fillerIds: ['a_muchaburi', 'a_shikatanai'], category: 'tsun' },
+  { id: 'c_mata_mendokusai', fillerIds: ['a_mata', 'a_mendokusai'], category: 'tsun' },
+  { id: 'c_fun_muchaburi', fillerIds: ['a_fun', 'a_muchaburi'], category: 'tsun' },
+
+  // ── angry（怒り・ネタ系）──
   { id: 'c_fuzakeru_hirefuse', fillerIds: ['a_fuzakeruna', 'a_hirefuse'], category: 'angry' },
   { id: 'c_omoishiru_fun', fillerIds: ['a_omoishittaka', 'a_fun'], category: 'angry' },
+  { id: 'c_nandeyanenn_hidokunai', fillerIds: ['a_nandeyanenn', 'a_hidokunai'], category: 'angry' },
 ];
 
 // ─── All filler definitions (merged for generation) ──────────────────────────

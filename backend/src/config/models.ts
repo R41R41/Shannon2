@@ -52,6 +52,9 @@ export const models = {
   /** Realtime API (voice) */
   realtime: 'gpt-realtime-mini',
 
+  /** TTS text preprocessing (English→Katakana) */
+  ttsPreprocess: 'gpt-4.1-nano',
+
   /** Audio transcription */
   whisper: 'whisper-1',
 

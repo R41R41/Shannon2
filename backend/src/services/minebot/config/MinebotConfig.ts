@@ -36,8 +36,8 @@ export class MinebotConfig {
 
   // ===== サーバー設定 =====
 
-  /** MinebotのAPIサーバーポート */
-  readonly MINEBOT_API_PORT = 8092;
+  /** MinebotのAPIサーバーポート（環境変数で上書き可能） */
+  readonly MINEBOT_API_PORT = parseInt(process.env.MINEBOT_API_PORT || '8092', 10);
 
   /** UI Modのサーバーポート */
   readonly UI_MOD_PORT = 8091;
@@ -154,6 +154,7 @@ export class MinebotConfig {
   // value: Minecraft のプレイヤー名
   readonly DISCORD_TO_MINECRAFT_NAMES: Record<string, string> = {
     'ライ': 'Rai1241',
+    'らい博士': 'Rai1241',
     'ryo07010': 'Rai1241',
     'ヤミー': 'yummy34',
     'yummy3434': 'yummy34',
@@ -163,6 +164,26 @@ export class MinebotConfig {
 
   resolveMinecraftName(discordName: string): string {
     return this.DISCORD_TO_MINECRAFT_NAMES[discordName] ?? discordName;
+  }
+
+  /** Minecraft 名 → Discord 名の逆引き（全候補を返す） */
+  resolveDiscordNames(mcName: string): string[] {
+    const names: string[] = [];
+    for (const [discordName, minecraft] of Object.entries(this.DISCORD_TO_MINECRAFT_NAMES)) {
+      if (minecraft === mcName) names.push(discordName);
+    }
+    return names;
+  }
+
+  // ===== Minecraft名 → 表示名（LLM向け） =====
+  readonly MINECRAFT_TO_DISPLAY_NAMES: Record<string, string> = {
+    'Rai1241': 'ライ',
+    'yummy34': 'ヤミー',
+    'guriko8670': 'グリコ',
+  };
+
+  resolveDisplayName(mcName: string): string {
+    return this.MINECRAFT_TO_DISPLAY_NAMES[mcName] ?? mcName;
   }
 
   // ===== 定期実行間隔 =====
