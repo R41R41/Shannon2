@@ -1185,18 +1185,17 @@ export class TwitterClient extends BaseClient {
 
       logger.info(`📬 ${allTweets.length}件の新着ツイートを検出`, 'green');
 
-      // 各ツイートに対してアクション実行
+      // 各メンバーにつき最新1件のみ処理するため、著者ごとにグループ化
+      const latestByAuthor = new Map<string, TweetData>();
       let skippedDuplicate = 0;
       let skippedNoAuthor = 0;
       let skippedNoConfig = 0;
-      let processed = 0;
+
       for (const tweet of allTweets) {
         if (this.processedTweetIds.has(tweet.id)) {
           skippedDuplicate++;
           continue;
         }
-        this.processedTweetIds.add(tweet.id);
-        this.saveProcessedIds();
 
         const authorUserName = tweet.author?.userName;
         if (!authorUserName) {
@@ -1204,13 +1203,34 @@ export class TwitterClient extends BaseClient {
           continue;
         }
 
+        const authorKey = authorUserName.toLowerCase();
         const accountConfig = this.monitoredAccounts.find(
-          (a) => a.userName.toLowerCase() === authorUserName.toLowerCase()
+          (a) => a.userName.toLowerCase() === authorKey
         );
         if (!accountConfig) {
           skippedNoConfig++;
           continue;
         }
+
+        // 同じ著者の既存エントリより新しいツイートなら上書き（最新1件を保持）
+        const existing = latestByAuthor.get(authorKey);
+        if (!existing || new Date(tweet.createdAt ?? 0) > new Date(existing.createdAt ?? 0)) {
+          latestByAuthor.set(authorKey, tweet);
+        }
+      }
+
+      // 全ツイートを処理済みとしてマーク（選ばれなかった分も重複チェック用に記録）
+      for (const tweet of allTweets) {
+        this.processedTweetIds.add(tweet.id);
+      }
+      this.saveProcessedIds();
+
+      let processed = 0;
+      for (const [, tweet] of latestByAuthor) {
+        const authorUserName = tweet.author!.userName;
+        const accountConfig = this.monitoredAccounts.find(
+          (a) => a.userName.toLowerCase() === authorUserName.toLowerCase()
+        )!;
         processed++;
 
         logger.info(
@@ -1312,12 +1332,10 @@ export class TwitterClient extends BaseClient {
         }
       }
 
-      if (skippedDuplicate > 0 || skippedNoAuthor > 0 || skippedNoConfig > 0) {
-        logger.info(
-          `📊 Twitter監視結果: 処理=${processed}, 重複スキップ=${skippedDuplicate}, 著者不明=${skippedNoAuthor}, 設定なし=${skippedNoConfig}`,
-          'cyan',
-        );
-      }
+      logger.info(
+        `📊 Twitter監視結果: 検出=${allTweets.length}, 著者数=${latestByAuthor.size}, 処理=${processed}, 重複スキップ=${skippedDuplicate}, 著者不明=${skippedNoAuthor}, 設定なし=${skippedNoConfig}`,
+        'cyan',
+      );
     } catch (e) {
       logger.error('Twitter監視エラー:', e);
     }
