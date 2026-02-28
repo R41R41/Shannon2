@@ -219,6 +219,20 @@ export class DiscordBot extends BaseClient {
     this.setupEventHandlers();
   }
 
+  /**
+   * devモード: テストギルド + アイマイラボギルドを許可
+   * prodモード: テストギルド以外を許可
+   */
+  private shouldSkipGuild(guildId: string | null): boolean {
+    if (!guildId) return true;
+    const isTestGuild = guildId === config.discord.guilds.test.guildId;
+    if (this.isDev) {
+      const isAimineGuild = guildId === config.discord.guilds.aimine.guildId;
+      return !isTestGuild && !isAimineGuild;
+    }
+    return isTestGuild;
+  }
+
   private setUpChannels() {
     this.toyamaGuildId = config.discord.guilds.toyama.guildId;
     this.doukiGuildId = config.discord.guilds.douki.guildId;
@@ -374,25 +388,26 @@ export class DiscordBot extends BaseClient {
       const commandsJson = commands.map((command) => command.toJSON());
 
       // コマンドを特定のギルドに登録（即時反映）
-      const targetGuildId = this.isDev
-        ? config.discord.guilds.test.guildId
-        : config.discord.guilds.aimine.guildId;
+      // devモード: テストギルド + アイマイラボギルド両方に登録
+      const targetGuildIds = this.isDev
+        ? [config.discord.guilds.test.guildId, config.discord.guilds.aimine.guildId]
+        : [config.discord.guilds.aimine.guildId];
 
-      if (targetGuildId) {
-        const guild = this.client.guilds.cache.get(targetGuildId);
+      let registered = false;
+      for (const guildId of targetGuildIds) {
+        if (!guildId) continue;
+        const guild = this.client.guilds.cache.get(guildId);
         if (guild) {
           await guild.commands.set(commandsJson);
           logger.success(`Slash commands registered to guild: ${guild.name}`);
+          registered = true;
         } else {
-          logger.warn(`Guild ${targetGuildId} not found, falling back to global`);
-          if (this.client.application) {
-            await this.client.application.commands.set(commandsJson);
-            logger.success('Slash commands registered globally');
-          }
+          logger.warn(`Guild ${guildId} not found for command registration`);
         }
-      } else if (this.client.application) {
+      }
+      if (!registered && this.client.application) {
         await this.client.application.commands.set(commandsJson);
-        logger.success('Slash commands registered globally');
+        logger.success('Slash commands registered globally (fallback)');
       }
 
       this.client.on('interactionCreate', async (interaction) => {
@@ -942,9 +957,8 @@ export class DiscordBot extends BaseClient {
           return;
         }
       }
-      const isDevGuild = message.guildId === config.discord.guilds.test.guildId;
-      if (this.isDev !== isDevGuild) {
-        if (isThread) logger.info(`[Discord] スレッドメッセージスキップ: isDev=${this.isDev} isDevGuild=${isDevGuild}`);
+      if (this.shouldSkipGuild(message.guildId)) {
+        if (isThread) logger.info(`[Discord] スレッドメッセージスキップ: isDev=${this.isDev} guildId=${message.guildId}`);
         return;
       }
 
@@ -1110,8 +1124,7 @@ export class DiscordBot extends BaseClient {
       const channel = this.client.channels.cache.get(speech.channelId);
       if (!channel || !('guild' in channel)) return;
 
-      const isDevGuild = channel.guild.id === config.discord.guilds.test.guildId;
-      if (this.isDev !== isDevGuild) return;
+      if (this.shouldSkipGuild(channel.guild.id)) return;
 
       const memoryZone = await getDiscordMemoryZone(channel.guildId);
 
