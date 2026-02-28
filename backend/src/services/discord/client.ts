@@ -2253,7 +2253,7 @@ export class DiscordBot extends BaseClient {
   /**
    * PTT を明示的に ON/OFF する（Minecraft 側から呼ばれる）
    */
-  public remotePttSet(discordNames: string[], on: boolean): { active: boolean; userName: string } | null {
+  public remotePttSet(discordNames: string[], on: boolean): { active: boolean; userName: string; blocked?: boolean; blockedBy?: string } | null {
     const info = this.getActiveVoiceInfo();
     if (!info) return null;
     const { guildId, channelId: voiceChannelId } = info;
@@ -2299,12 +2299,30 @@ export class DiscordBot extends BaseClient {
       return { active: false, userName: name };
     }
 
-    // ON 要求 — 既にアクティブなら何もしない
+    // ON 要求 — 既に別のユーザーがアクティブなら blocked を返す
     const activeUser = this.activeVoiceUsers.get(guildId);
     if (activeUser) {
       const userObj = this.client.users.cache.get(activeUser);
-      const name = userObj ? this.getUserNickname(userObj, guildId) : 'Unknown';
-      return { active: true, userName: name };
+      const activeName = userObj ? this.getUserNickname(userObj, guildId) : 'Unknown';
+
+      // 自分自身がアクティブなら正常
+      const voiceChannel = this.client.channels.cache.get(voiceChannelId) as VoiceChannel | undefined;
+      if (voiceChannel) {
+        const lowerNames = discordNames.map(n => n.toLowerCase());
+        for (const [memberId] of voiceChannel.members) {
+          if (memberId === activeUser) {
+            const nick = voiceChannel.members.get(memberId)?.nickname?.toLowerCase() ?? '';
+            const display = voiceChannel.members.get(memberId)?.user.displayName?.toLowerCase() ?? '';
+            const username = voiceChannel.members.get(memberId)?.user.username?.toLowerCase() ?? '';
+            if (lowerNames.includes(nick) || lowerNames.includes(display) || lowerNames.includes(username)) {
+              return { active: true, userName: activeName, blocked: false };
+            }
+          }
+        }
+      }
+
+      logger.info(`[Discord Voice] Remote PTT blocked: ${discordNames.join(', ')} (active: ${activeName})`, 'yellow');
+      return { active: true, userName: activeName, blocked: true, blockedBy: activeName };
     }
 
     // Discord ボイスチャンネルのメンバーから該当ユーザーを検索
@@ -2322,7 +2340,7 @@ export class DiscordBot extends BaseClient {
         const name = this.getUserNickname(member.user, guildId);
         logger.info(`[Discord Voice] Remote PTT ON: ${name} (${memberId})`, 'cyan');
         this.updatePttMessage(guildId, true, name);
-        return { active: true, userName: name };
+        return { active: true, userName: name, blocked: false };
       }
     }
 

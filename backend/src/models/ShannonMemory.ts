@@ -11,6 +11,7 @@ export interface IShannonMemory {
   source: string;
   importance: number;
   tags: string[];
+  embedding?: number[];
   relatedPersonId?: Types.ObjectId;
   createdAt: Date;
 }
@@ -27,6 +28,7 @@ const ShannonMemorySchema = new Schema<IShannonMemory>({
   source: { type: String, required: true },
   importance: { type: Number, required: true, min: 1, max: 10 },
   tags: { type: [String], default: [] },
+  embedding: { type: [Number], select: false },
   relatedPersonId: { type: Schema.Types.ObjectId, ref: 'PersonMemory' },
   createdAt: { type: Date, default: Date.now },
 });

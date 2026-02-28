@@ -416,6 +416,16 @@ export class MinebotHttpServer {
                     res.status(200).json({ success: false, result: 'ボイスチャンネル未接続 or ユーザー不明' });
                     return;
                 }
+                if (result.blocked) {
+                    log.info(`🎙️ Remote PTT blocked: ${mcUsername} (${result.blockedBy} が通話中)`, 'yellow');
+                    res.status(200).json({
+                        success: false,
+                        blocked: true,
+                        blockedBy: result.blockedBy,
+                        result: `${result.blockedBy} が通話中のため待機してください`,
+                    });
+                    return;
+                }
                 log.info(`🎙️ Remote PTT ${result.active ? 'ON' : 'OFF'}: ${result.userName}`, result.active ? 'cyan' : 'yellow');
                 res.status(200).json({ success: true, active: result.active, userName: result.userName });
             } catch (error) {
