@@ -3,12 +3,20 @@ import {
   IShannonMemory,
   MemoryCategory,
 } from '../../models/ShannonMemory.js';
+import { EmbeddingService } from './embeddingService.js';
+import { config } from '../../config/env.js';
 import { logger } from '../../utils/logger.js';
 
 /** 容量制限 */
 const MAX_EXPERIENCES = 500;
 const MAX_KNOWLEDGE = 300;
 const PROTECTED_IMPORTANCE = 8;
+/** 保護記憶のカテゴリ毎上限 */
+const MAX_PROTECTED_PER_CATEGORY = 50;
+/** Eviction バッチサイズ */
+const EVICTION_BATCH_SIZE = 10;
+/** Eviction 開始閾値 (上限の90%) */
+const EVICTION_TRIGGER_RATIO = 0.9;
 
 /** 体験の重複判定: 24時間以内のみ重複チェック */
 const EXPERIENCE_DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -16,6 +24,13 @@ const EXPERIENCE_DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 /** jaccard 類似度の閾値 */
 const EXPERIENCE_JACCARD_THRESHOLD = 0.5;
 const KNOWLEDGE_JACCARD_THRESHOLD = 0.6;
+
+/** Consolidation: 対象日数 */
+const CONSOLIDATION_AGE_DAYS = 30;
+/** Consolidation: 対象 importance 上限 */
+const CONSOLIDATION_MAX_IMPORTANCE = 6;
+/** Consolidation: embedding 類似度閾値 (クラスタ化) */
+const CONSOLIDATION_SIMILARITY_THRESHOLD = 0.7;
 
 export interface ShannonMemoryInput {
   category: MemoryCategory;
@@ -126,17 +141,34 @@ export class ShannonMemoryService {
   }
 
   /**
-   * 容量制限チェック + 作成
+   * 容量制限チェック + 作成 + embedding 生成
    */
   private async createWithEviction(
     data: ShannonMemoryInput,
   ): Promise<SaveResult> {
     await this.evictIfNeeded(data.category);
 
-    await ShannonMemory.create({
+    let embedding: number[] | undefined;
+    try {
+      const embeddingService = EmbeddingService.getInstance();
+      const textForEmbedding = data.feeling
+        ? `${data.content} → ${data.feeling}`
+        : data.content;
+      embedding = await embeddingService.generateEmbedding(textForEmbedding);
+    } catch (err) {
+      logger.warn(`⚠ embedding 生成失敗 (保存は続行): ${err}`);
+    }
+
+    const doc = await ShannonMemory.create({
       ...data,
+      embedding,
       createdAt: new Date(),
     });
+
+    if (embedding) {
+      const embeddingService = EmbeddingService.getInstance();
+      embeddingService.updateCache(doc._id, embedding, data.category, data.content, data.importance);
+    }
 
     return { saved: true, message: '覚えた！' };
   }
@@ -245,21 +277,55 @@ export class ShannonMemoryService {
   // ========== 容量制限 ==========
 
   /**
-   * 容量制限チェック。超過時は重要度が低く古いものから削除
+   * 容量制限チェック。閾値超過時はバッチ削除。
+   * 保護記憶 (importance >= 8) が上限を超えた場合も最古を削除。
    */
   private async evictIfNeeded(category: MemoryCategory): Promise<void> {
     const maxLimit = category === 'experience' ? MAX_EXPERIENCES : MAX_KNOWLEDGE;
     const count = await ShannonMemory.countDocuments({ category });
+    const triggerAt = Math.floor(maxLimit * EVICTION_TRIGGER_RATIO);
 
-    if (count >= maxLimit) {
-      const evicted = await ShannonMemory.findOneAndDelete(
-        { category, importance: { $lt: PROTECTED_IMPORTANCE } },
-        { sort: { importance: 1, createdAt: 1 } },
-      );
-      if (evicted) {
-        logger.info(
-          `🗑 ShannonMemory eviction [${category}]: "${evicted.content.substring(0, 50)}" (importance: ${evicted.importance})`,
-        );
+    if (count < triggerAt) return;
+
+    const embeddingService = EmbeddingService.getInstance();
+    const toEvict = Math.min(EVICTION_BATCH_SIZE, count - triggerAt + EVICTION_BATCH_SIZE);
+
+    const evicted = await ShannonMemory.find(
+      { category, importance: { $lt: PROTECTED_IMPORTANCE } },
+    )
+      .sort({ importance: 1, createdAt: 1 })
+      .limit(toEvict)
+      .lean();
+
+    if (evicted.length > 0) {
+      const ids = evicted.map((e) => e._id);
+      await ShannonMemory.deleteMany({ _id: { $in: ids } });
+      for (const e of evicted) {
+        embeddingService.removeFromCache(e._id.toString());
+      }
+      logger.info(`🗑 ShannonMemory eviction [${category}]: ${evicted.length}件削除`);
+    }
+
+    const protectedCount = await ShannonMemory.countDocuments({
+      category,
+      importance: { $gte: PROTECTED_IMPORTANCE },
+    });
+    if (protectedCount > MAX_PROTECTED_PER_CATEGORY) {
+      const excess = protectedCount - MAX_PROTECTED_PER_CATEGORY;
+      const oldProtected = await ShannonMemory.find({
+        category,
+        importance: { $gte: PROTECTED_IMPORTANCE },
+      })
+        .sort({ createdAt: 1 })
+        .limit(excess)
+        .lean();
+      if (oldProtected.length > 0) {
+        const ids = oldProtected.map((e) => e._id);
+        await ShannonMemory.deleteMany({ _id: { $in: ids } });
+        for (const e of oldProtected) {
+          embeddingService.removeFromCache(e._id.toString());
+        }
+        logger.info(`🗑 ShannonMemory protected eviction [${category}]: ${oldProtected.length}件削除 (上限${MAX_PROTECTED_PER_CATEGORY}超過)`);
       }
     }
   }
@@ -296,9 +362,205 @@ export class ShannonMemoryService {
 
     return lines.join('\n');
   }
+  // ========== Consolidation (記憶の要約統合) ==========
+
+  /**
+   * 古い低重要度の記憶を embedding 類似度でクラスタ化し、LLM で要約統合する。
+   * 定期実行 or 手動呼び出し。
+   */
+  async consolidateMemories(): Promise<{ clustersProcessed: number; memoriesRemoved: number }> {
+    const cutoff = new Date(Date.now() - CONSOLIDATION_AGE_DAYS * 24 * 60 * 60 * 1000);
+    const embeddingService = EmbeddingService.getInstance();
+
+    let totalClusters = 0;
+    let totalRemoved = 0;
+
+    for (const category of ['experience', 'knowledge'] as MemoryCategory[]) {
+      const candidates = await ShannonMemory.find({
+        category,
+        importance: { $lte: CONSOLIDATION_MAX_IMPORTANCE },
+        createdAt: { $lt: cutoff },
+        embedding: { $exists: true, $ne: [] },
+      })
+        .select('+embedding')
+        .sort({ createdAt: 1 })
+        .lean();
+
+      if (candidates.length < 3) continue;
+
+      const clusters = this.clusterBySimilarity(candidates, CONSOLIDATION_SIMILARITY_THRESHOLD);
+
+      for (const cluster of clusters) {
+        if (cluster.length < 2) continue;
+
+        const maxImportance = Math.max(...cluster.map((m) => m.importance));
+        const contentList = cluster.map((m) => {
+          const feeling = m.feeling ? ` → ${m.feeling}` : '';
+          return `- ${m.content}${feeling}`;
+        });
+
+        const { ChatOpenAI } = await import('@langchain/openai');
+        const { SystemMessage, HumanMessage } = await import('@langchain/core/messages');
+        const model = new ChatOpenAI({
+          modelName: 'gpt-4.1-mini',
+          temperature: 0.3,
+          apiKey: config.openaiApiKey,
+        });
+
+        const response = await model.invoke([
+          new SystemMessage(
+            'あなたはシャノン（AI）の記憶管理アシスタントです。複数の関連する記憶を1つの簡潔な要約に統合してください。' +
+            '体験(experience)の場合は「何が起きたか」と「どう感じたか」を含めてください。' +
+            '知識(knowledge)の場合は事実を簡潔にまとめてください。' +
+            '出力は統合後の記憶テキスト1文のみ。前置き不要。',
+          ),
+          new HumanMessage(`カテゴリ: ${category}\n\n統合対象:\n${contentList.join('\n')}`),
+        ]);
+
+        const summarizedContent = response.content.toString().trim();
+        if (!summarizedContent) continue;
+
+        const allTags = [...new Set(cluster.flatMap((m) => m.tags))].slice(0, 5);
+
+        let newEmbedding: number[] | undefined;
+        try {
+          newEmbedding = await embeddingService.generateEmbedding(summarizedContent);
+        } catch { /* proceed without embedding */ }
+
+        const newDoc = await ShannonMemory.create({
+          category,
+          content: summarizedContent,
+          feeling: category === 'experience'
+            ? cluster.map((m) => m.feeling).filter(Boolean).join('、') || undefined
+            : undefined,
+          source: 'consolidation',
+          importance: maxImportance,
+          tags: allTags,
+          embedding: newEmbedding,
+          createdAt: new Date(),
+        });
+
+        if (newEmbedding) {
+          embeddingService.updateCache(newDoc._id, newEmbedding, category, summarizedContent, maxImportance);
+        }
+
+        const oldIds = cluster.map((m) => m._id);
+        await ShannonMemory.deleteMany({ _id: { $in: oldIds } });
+        for (const m of cluster) {
+          embeddingService.removeFromCache(m._id.toString());
+        }
+
+        totalClusters++;
+        totalRemoved += cluster.length - 1;
+        logger.info(`🔄 Consolidation [${category}]: ${cluster.length}件 → 1件 "${summarizedContent.substring(0, 50)}"`);
+      }
+    }
+
+    if (totalClusters > 0) {
+      logger.info(`🔄 Consolidation 完了: ${totalClusters}クラスタ処理, ${totalRemoved}件削減`);
+    }
+    return { clustersProcessed: totalClusters, memoriesRemoved: totalRemoved };
+  }
+
+  /**
+   * embedding 類似度でメモリをクラスタ化
+   */
+  private clusterBySimilarity(
+    memories: IShannonMemory[],
+    threshold: number,
+  ): IShannonMemory[][] {
+    const assigned = new Set<string>();
+    const clusters: IShannonMemory[][] = [];
+
+    for (let i = 0; i < memories.length; i++) {
+      const id = memories[i]._id.toString();
+      if (assigned.has(id)) continue;
+
+      const cluster: IShannonMemory[] = [memories[i]];
+      assigned.add(id);
+
+      for (let j = i + 1; j < memories.length; j++) {
+        const jId = memories[j]._id.toString();
+        if (assigned.has(jId)) continue;
+        if (!memories[i].embedding || !memories[j].embedding) continue;
+
+        const sim = cosineSim(memories[i].embedding!, memories[j].embedding!);
+        if (sim >= threshold) {
+          cluster.push(memories[j]);
+          assigned.add(jId);
+        }
+      }
+      clusters.push(cluster);
+    }
+    return clusters;
+  }
+
+  // ========== Backfill ==========
+
+  /**
+   * embedding が未生成の記憶にバックフィルする
+   */
+  async backfillEmbeddings(batchSize: number = 20): Promise<number> {
+    const embeddingService = EmbeddingService.getInstance();
+
+    const unembedded = await ShannonMemory.find({
+      $or: [{ embedding: { $exists: false } }, { embedding: [] }, { embedding: null }],
+    }).lean();
+
+    if (unembedded.length === 0) {
+      logger.info('🧠 Backfill: 全記憶に embedding 済み');
+      return 0;
+    }
+
+    logger.info(`🧠 Backfill 開始: ${unembedded.length}件`);
+    let processed = 0;
+
+    for (let i = 0; i < unembedded.length; i += batchSize) {
+      const batch = unembedded.slice(i, i + batchSize);
+      const texts = batch.map((m) =>
+        m.feeling ? `${m.content} → ${m.feeling}` : m.content,
+      );
+
+      try {
+        const embeddings = await embeddingService.generateEmbeddings(texts);
+        for (let j = 0; j < batch.length; j++) {
+          await ShannonMemory.updateOne(
+            { _id: batch[j]._id },
+            { $set: { embedding: embeddings[j] } },
+          );
+          embeddingService.updateCache(
+            batch[j]._id,
+            embeddings[j],
+            batch[j].category,
+            batch[j].content,
+            batch[j].importance,
+          );
+        }
+        processed += batch.length;
+        logger.info(`🧠 Backfill: ${processed}/${unembedded.length} 完了`);
+      } catch (err) {
+        logger.error(`❌ Backfill バッチエラー (offset ${i}):`, err);
+      }
+    }
+
+    return processed;
+  }
 }
 
 // ========== ユーティリティ ==========
+
+function cosineSim(a: number[], b: number[]): number {
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  return denom === 0 ? 0 : dot / denom;
+}
 
 /**
  * Jaccard 類似度
