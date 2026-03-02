@@ -219,9 +219,41 @@ export class DiscordBot extends BaseClient {
     this.setupEventHandlers();
   }
 
+  private static readonly DEV_AIMINE_LOCK = '/tmp/shannon-dev-aimine.lock';
+
+  /**
+   * devモード起動時にロックファイルを作成し、終了時に削除する。
+   * prodモードはこのファイルの有無でdevがアイマイラボを使用中か判定する。
+   */
+  private setupDevAimineLock(): void {
+    fs.writeFileSync(DiscordBot.DEV_AIMINE_LOCK, String(process.pid));
+    logger.info(`[Dev] アイマイラボ ロックファイル作成 (pid=${process.pid})`);
+
+    const cleanup = () => {
+      try { fs.unlinkSync(DiscordBot.DEV_AIMINE_LOCK); } catch {}
+    };
+    process.on('exit', cleanup);
+    process.on('SIGINT', () => { cleanup(); process.exit(0); });
+    process.on('SIGTERM', () => { cleanup(); process.exit(0); });
+  }
+
+  private isDevHoldingAimine(): boolean {
+    try {
+      if (!fs.existsSync(DiscordBot.DEV_AIMINE_LOCK)) return false;
+      const pid = parseInt(fs.readFileSync(DiscordBot.DEV_AIMINE_LOCK, 'utf-8').trim(), 10);
+      if (isNaN(pid)) return false;
+      process.kill(pid, 0); // プロセス生存チェック（シグナルは送らない）
+      return true;
+    } catch {
+      // ファイルが無い or プロセスが既に死んでいる → ロック無効
+      try { fs.unlinkSync(DiscordBot.DEV_AIMINE_LOCK); } catch {}
+      return false;
+    }
+  }
+
   /**
    * devモード: テストギルド + アイマイラボギルドを許可
-   * prodモード: テストギルド以外を許可
+   * prodモード: テストギルド以外を許可（devがアイマイラボ使用中ならそれもスキップ）
    */
   private shouldSkipGuild(guildId: string | null): boolean {
     if (!guildId) return true;
@@ -230,7 +262,11 @@ export class DiscordBot extends BaseClient {
       const isAimineGuild = guildId === config.discord.guilds.aimine.guildId;
       return !isTestGuild && !isAimineGuild;
     }
-    return isTestGuild;
+    if (isTestGuild) return true;
+    if (guildId === config.discord.guilds.aimine.guildId && this.isDevHoldingAimine()) {
+      return true;
+    }
+    return false;
   }
 
   private setUpChannels() {
@@ -252,6 +288,9 @@ export class DiscordBot extends BaseClient {
 
   public async initialize() {
     try {
+      if (this.isDev) {
+        this.setupDevAimineLock();
+      }
       if (!config.discord.token) {
         logger.warn('Discord token が未設定のためログインをスキップ');
         return;
@@ -412,6 +451,8 @@ export class DiscordBot extends BaseClient {
 
       this.client.on('interactionCreate', async (interaction) => {
         try {
+        if (this.shouldSkipGuild(interaction.guildId)) return;
+
         if (interaction.isButton() && interaction.customId === 'voice_ptt') {
           await this.handleVoicePttButton(interaction);
           return;
