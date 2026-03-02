@@ -35,6 +35,8 @@ const DEFAULT_CONFIG: ContextConfig = {
  * - SystemMessage は常に保持
  * - 最新メッセージを優先的に保持
  * - 古いメッセージはサマリーに圧縮
+ * - AIMessage(tool_calls) + 後続の ToolMessage はアトミックブロックとして扱い、
+ *   ペアが壊れないようにする
  */
 export function trimContext(
   messages: BaseMessage[],
@@ -44,7 +46,6 @@ export function trimContext(
   const budget = cfg.maxContextTokens - cfg.reservedForResponse;
   if (budget <= 0) return messages.slice(-3);
 
-  // SystemMessage を分離
   const system = messages.filter((m) => m instanceof SystemMessage);
   const nonSystem = messages.filter((m) => !(m instanceof SystemMessage));
 
@@ -53,17 +54,47 @@ export function trimContext(
 
   if (remaining <= 0) return [...system, ...nonSystem.slice(-1)];
 
-  // 最新メッセージから逆順に追加
+  // AIMessage(tool_calls) + 後続 ToolMessage(s) をアトミックブロックにまとめる
+  const blocks: BaseMessage[][] = [];
+  let idx = 0;
+  while (idx < nonSystem.length) {
+    const msg = nonSystem[idx];
+    const hasToolCalls =
+      msg instanceof AIMessage &&
+      ((msg.tool_calls?.length ?? 0) > 0 ||
+       (msg.additional_kwargs?.tool_calls as unknown[])?.length > 0);
+
+    if (hasToolCalls) {
+      const block = [msg];
+      let j = idx + 1;
+      while (j < nonSystem.length && nonSystem[j] instanceof ToolMessage) {
+        block.push(nonSystem[j]);
+        j++;
+      }
+      blocks.push(block);
+      idx = j;
+    } else {
+      blocks.push([msg]);
+      idx++;
+    }
+  }
+
+  // 最新ブロックから逆順に追加
   const kept: BaseMessage[] = [];
   const dropped: BaseMessage[] = [];
 
-  for (let i = nonSystem.length - 1; i >= 0; i--) {
-    const tokens = estimateTokens(getMessageText(nonSystem[i]));
-    if (remaining - tokens >= 0) {
-      kept.unshift(nonSystem[i]);
-      remaining -= tokens;
+  for (let b = blocks.length - 1; b >= 0; b--) {
+    const blockTokens = blocks[b].reduce(
+      (sum, m) => sum + estimateTokens(getMessageText(m)),
+      0,
+    );
+    if (remaining - blockTokens >= 0) {
+      kept.unshift(...blocks[b]);
+      remaining -= blockTokens;
     } else {
-      dropped.unshift(...nonSystem.slice(0, i + 1));
+      for (let d = 0; d <= b; d++) {
+        dropped.push(...blocks[d]);
+      }
       break;
     }
   }
