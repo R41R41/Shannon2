@@ -2,12 +2,11 @@
  * Discord Channel Adapter
  *
  * Converts Discord-native events (DiscordSendTextMessageOutput)
- * into RequestEnvelopes and dispatches ShannonActionPlans back to Discord.
+ * into RequestEnvelopes.
  */
 
 import {
   RequestEnvelope,
-  ShannonActionPlan,
   ChannelAdapter,
 } from '@shannon/common';
 import { createEnvelope } from './envelopeFactory.js';
@@ -15,7 +14,6 @@ import { createEnvelope } from './envelopeFactory.js';
 /**
  * Shape of the data currently published by Discord client
  * via eventBus as 'llm:get_discord_message'.
- * Mirrors DiscordSendTextMessageOutput in discord/client.ts.
  */
 export interface DiscordNativeEvent {
   text: string;
@@ -32,27 +30,10 @@ export interface DiscordNativeEvent {
   isDM?: boolean;
 }
 
-/**
- * Callback type for sending messages back to Discord.
- * The actual implementation lives in DiscordBot and is injected at runtime.
- */
-export type DiscordDispatchFn = (
-  channelId: string,
-  plan: ShannonActionPlan,
-) => Promise<void>;
-
-export class DiscordAdapter implements ChannelAdapter<DiscordNativeEvent> {
-  readonly channel = 'discord' as const;
-
-  constructor(private dispatchFn?: DiscordDispatchFn) {}
-
-  /** Set the dispatch function (can be injected after construction). */
-  setDispatch(fn: DiscordDispatchFn): void {
-    this.dispatchFn = fn;
-  }
+export const discordAdapter: ChannelAdapter<DiscordNativeEvent> = {
+  channel: 'discord',
 
   toEnvelope(event: DiscordNativeEvent): RequestEnvelope {
-    // Build tags from server/channel context
     const tags: string[] = [];
     if (event.guildName) tags.push(event.guildName);
     if (event.channelName) tags.push(event.channelName);
@@ -81,20 +62,5 @@ export class DiscordAdapter implements ChannelAdapter<DiscordNativeEvent> {
         legacyMemoryZone: event.guildName,
       },
     });
-  }
-
-  async dispatch(plan: ShannonActionPlan): Promise<void> {
-    if (!this.dispatchFn) {
-      throw new Error('DiscordAdapter: dispatchFn not set');
-    }
-
-    // Extract channelId from the plan's metadata or the original envelope
-    // For now, callers must provide channelId via a wrapper
-    const channelId = (plan as any)._channelId;
-    if (!channelId) {
-      throw new Error('DiscordAdapter: missing _channelId on plan');
-    }
-
-    await this.dispatchFn(channelId, plan);
-  }
-}
+  },
+};

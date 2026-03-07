@@ -418,23 +418,34 @@ export interface MemoryWriteEvent {
 }
 
 // ---------------------------------------------------------------------------
-// 7. Adapter contracts
+// 7. Adapter & Dispatcher contracts
 // ---------------------------------------------------------------------------
 
 /**
- * Interface that all channel adapters must implement.
+ * Input adapter: converts channel-native events into RequestEnvelopes.
  *
- * An adapter converts channel-native events into RequestEnvelopes
- * and dispatches ShannonActionPlans back to the channel.
+ * Adapters are intentionally input-only. Output dispatch is handled
+ * by ActionDispatcher, which receives the original envelope alongside
+ * the plan so it has full context (channel IDs, user IDs, etc.).
  */
 export interface ChannelAdapter<TNativeEvent = unknown> {
   readonly channel: ShannonChannel;
 
   /** Convert a native channel event into a RequestEnvelope. */
   toEnvelope(event: TNativeEvent): RequestEnvelope;
+}
 
-  /** Dispatch an action plan to the channel. */
-  dispatch(plan: ShannonActionPlan): Promise<void>;
+/**
+ * Output dispatcher: sends ShannonActionPlans back to the originating channel.
+ *
+ * Receives the original envelope so it can extract any channel-specific
+ * routing info (Discord channelId, X tweetId, etc.) without hacks.
+ */
+export interface ActionDispatcher {
+  readonly channel: ShannonChannel;
+
+  /** Send the action plan back to the channel. */
+  dispatch(envelope: RequestEnvelope, plan: ShannonActionPlan): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

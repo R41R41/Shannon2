@@ -1,20 +1,18 @@
 /**
  * X (Twitter) Channel Adapter
  *
- * Converts X-native events (reply notifications, mention detection)
- * into RequestEnvelopes and dispatches ShannonActionPlans as tweets.
+ * Converts X-native events into RequestEnvelopes.
  */
 
 import {
   RequestEnvelope,
-  ShannonActionPlan,
   ChannelAdapter,
 } from '@shannon/common';
 import { createEnvelope } from './envelopeFactory.js';
 
 /**
- * Shape of the data currently published by Twitter client
- * via eventBus as 'llm:post_twitter_reply' or similar events.
+ * Shape of the data published by Twitter client
+ * via eventBus as 'llm:post_twitter_reply'.
  */
 export interface XNativeReplyEvent {
   replyId: string;
@@ -36,24 +34,12 @@ export interface XNativeMemberTweetEvent {
   isQuoteRT?: boolean;
 }
 
-/** Callback for posting tweets back. */
-export type XDispatchFn = (plan: ShannonActionPlan) => Promise<void>;
+export type XNativeEvent = XNativeReplyEvent | XNativeMemberTweetEvent;
 
-export class XAdapter
-  implements ChannelAdapter<XNativeReplyEvent | XNativeMemberTweetEvent>
-{
-  readonly channel = 'x' as const;
+export const xAdapter: ChannelAdapter<XNativeEvent> = {
+  channel: 'x',
 
-  constructor(private dispatchFn?: XDispatchFn) {}
-
-  setDispatch(fn: XDispatchFn): void {
-    this.dispatchFn = fn;
-  }
-
-  toEnvelope(
-    event: XNativeReplyEvent | XNativeMemberTweetEvent,
-  ): RequestEnvelope {
-    // Determine if this is a reply event or member tweet
+  toEnvelope(event: XNativeEvent): RequestEnvelope {
     const isReply = 'replyId' in event;
     const tweetId = isReply
       ? (event as XNativeReplyEvent).replyId
@@ -85,12 +71,5 @@ export class XAdapter
         legacyMemoryZone: 'twitter:post',
       },
     });
-  }
-
-  async dispatch(plan: ShannonActionPlan): Promise<void> {
-    if (!this.dispatchFn) {
-      throw new Error('XAdapter: dispatchFn not set');
-    }
-    await this.dispatchFn(plan);
-  }
-}
+  },
+};

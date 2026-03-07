@@ -1,14 +1,11 @@
 /**
  * Minebot Channel Adapter
  *
- * Converts Minecraft bot events (chat, attacks, observations)
- * into RequestEnvelopes and dispatches ShannonActionPlans
- * as Minecraft actions (say, move, mine, craft, etc.).
+ * Converts Minecraft bot events into RequestEnvelopes.
  */
 
 import {
   RequestEnvelope,
-  ShannonActionPlan,
   ChannelAdapter,
   MinecraftContext,
 } from '@shannon/common';
@@ -20,12 +17,11 @@ import { createEnvelope } from './envelopeFactory.js';
  * and the bot's environmentState / selfState.
  */
 export interface MinebotNativeEvent {
-  // Who sent the message
   senderName: string;
   senderId?: string;
   message: string;
 
-  // Environment state (parsed from bot.environmentState)
+  // Environment state
   serverName?: string;
   senderPosition?: { x: number; y: number; z: number };
   weather?: string;
@@ -34,7 +30,7 @@ export interface MinebotNativeEvent {
   dimension?: string;
   bossbar?: string;
 
-  // Self state (parsed from bot.selfState)
+  // Self state
   botPosition?: { x: number; y: number; z: number };
   botHealth?: number;
   botFoodLevel?: number;
@@ -52,17 +48,8 @@ export interface MinebotNativeEvent {
   isEmergency?: boolean;
 }
 
-/** Callback for executing Minecraft actions. */
-export type MinebotDispatchFn = (plan: ShannonActionPlan) => Promise<void>;
-
-export class MinebotAdapter implements ChannelAdapter<MinebotNativeEvent> {
-  readonly channel = 'minecraft' as const;
-
-  constructor(private dispatchFn?: MinebotDispatchFn) {}
-
-  setDispatch(fn: MinebotDispatchFn): void {
-    this.dispatchFn = fn;
-  }
+export const minebotAdapter: ChannelAdapter<MinebotNativeEvent> = {
+  channel: 'minecraft',
 
   toEnvelope(event: MinebotNativeEvent): RequestEnvelope {
     const tags: string[] = [];
@@ -94,7 +81,6 @@ export class MinebotAdapter implements ChannelAdapter<MinebotNativeEvent> {
       tags,
       minecraft,
       metadata: {
-        // Preserve raw state strings for backward compat with existing nodes
         environmentState: JSON.stringify({
           senderName: event.senderName,
           senderPosition: event.senderPosition,
@@ -116,12 +102,5 @@ export class MinebotAdapter implements ChannelAdapter<MinebotNativeEvent> {
         legacyMemoryZone: 'minebot',
       },
     });
-  }
-
-  async dispatch(plan: ShannonActionPlan): Promise<void> {
-    if (!this.dispatchFn) {
-      throw new Error('MinebotAdapter: dispatchFn not set');
-    }
-    await this.dispatchFn(plan);
-  }
-}
+  },
+};

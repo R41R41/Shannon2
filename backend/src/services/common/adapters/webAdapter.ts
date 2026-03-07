@@ -1,21 +1,17 @@
 /**
  * Web Channel Adapter
  *
- * Converts Web UI messages (text, realtime, commands)
- * into RequestEnvelopes and dispatches ShannonActionPlans
- * back as WebSocket messages.
+ * Converts Web UI messages into RequestEnvelopes.
  */
 
 import {
   RequestEnvelope,
-  ShannonActionPlan,
   ChannelAdapter,
 } from '@shannon/common';
 import { createEnvelope } from './envelopeFactory.js';
 
 /**
  * Shape of a web text input event.
- * Mirrors OpenAITextInput in web/openaiAgent.ts.
  */
 export interface WebNativeEvent {
   type: 'text' | 'realtime_text' | 'realtime_audio' | 'command';
@@ -26,17 +22,8 @@ export interface WebNativeEvent {
   sessionId?: string;
 }
 
-/** Callback for sending responses back to web UI. */
-export type WebDispatchFn = (plan: ShannonActionPlan) => Promise<void>;
-
-export class WebAdapter implements ChannelAdapter<WebNativeEvent> {
-  readonly channel = 'web' as const;
-
-  constructor(private dispatchFn?: WebDispatchFn) {}
-
-  setDispatch(fn: WebDispatchFn): void {
-    this.dispatchFn = fn;
-  }
+export const webAdapter: ChannelAdapter<WebNativeEvent> = {
+  channel: 'web',
 
   toEnvelope(event: WebNativeEvent): RequestEnvelope {
     const text = event.text ?? event.realtimeText ?? '';
@@ -57,12 +44,5 @@ export class WebAdapter implements ChannelAdapter<WebNativeEvent> {
         legacyMemoryZone: 'web',
       },
     });
-  }
-
-  async dispatch(plan: ShannonActionPlan): Promise<void> {
-    if (!this.dispatchFn) {
-      throw new Error('WebAdapter: dispatchFn not set');
-    }
-    await this.dispatchFn(plan);
-  }
-}
+  },
+};
