@@ -10,4 +10,4 @@ export * from "./types/taskGraph.js";
 export * from "./types/twitter.js";
 export * from "./types/web.js";
 export * from "./types/youtube.js";
-
+export * from "./types/shannonGraph.js";
