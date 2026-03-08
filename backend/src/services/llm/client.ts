@@ -12,7 +12,6 @@ import {
   DiscordVoiceStreamTextInput,
   EmotionType,
   MemberTweetInput,
-  MemoryZone,
   MinebotVoiceResponseOutput,
   OpenAICommandInput,
   OpenAIMessageOutput,
@@ -20,7 +19,6 @@ import {
   OpenAIRealTimeTextInput,
   OpenAITextInput,
   SkillInfo,
-  TaskContext,
   TwitterAutoTweetInput,
   TwitterClientInput,
   TwitterQuoteRTOutput,
@@ -57,7 +55,8 @@ import { ReplyYoutubeCommentAgent } from './agents/replyYoutubeComment.js';
 import { ReplyYoutubeLiveCommentAgent } from './agents/replyYoutubeLiveCommentAgent.js';
 import { TaskGraph } from './graph/taskGraph.js';
 import { buildShannonGraph, invokeShannonGraph, CompiledShannonGraph } from './graph/shannonGraph.js';
-import { taskInputToEnvelope } from './graph/stateBridge.js';
+import type { RequestEnvelope, ShannonGraphState } from '@shannon/common';
+import { discordAdapter, webAdapter, type DiscordNativeEvent } from '../common/adapters/index.js';
 import { getTracedOpenAI } from './utils/langfuse.js';
 import { logger } from '../../utils/logger.js';
 const __filename = fileURLToPath(import.meta.url);
@@ -505,47 +504,38 @@ export class LLMService {
 
   private async processWebMessage(message: any) {
     try {
+      // Realtime audio/text passthrough (not graph-routed)
       if (message.type === 'realtime_text') {
-        if (message as OpenAIRealTimeTextInput) {
-          await this.realtimeApi.inputText(message.realtime_text);
-        }
+        await this.realtimeApi.inputText(message.realtime_text);
         return;
-      } else if (
-        message.type === 'realtime_audio' &&
-        message.command === 'realtime_audio_append'
-      ) {
-        if (message as OpenAIRealTimeAudioInput) {
-          await this.realtimeApi.inputAudioBufferAppend(message.realtime_audio);
-        }
+      }
+      if (message.type === 'realtime_audio' && message.command === 'realtime_audio_append') {
+        await this.realtimeApi.inputAudioBufferAppend(message.realtime_audio);
         return;
-      } else if (
-        message.type === 'realtime_audio' &&
-        message.command === 'realtime_audio_commit'
-      ) {
-        if (message as OpenAICommandInput) {
-          await this.realtimeApi.inputAudioBufferCommit();
-        }
+      }
+      if (message.type === 'realtime_audio' && message.command === 'realtime_audio_commit') {
+        await this.realtimeApi.inputAudioBufferCommit();
         return;
-      } else if (message.command === 'realtime_vad_on') {
-        if (message as OpenAICommandInput) {
-          await this.realtimeApi.vadModeChange(true);
-        }
+      }
+      if (message.command === 'realtime_vad_on') {
+        await this.realtimeApi.vadModeChange(true);
         return;
-      } else if (message.command === 'realtime_vad_off') {
-        if (message as OpenAICommandInput) {
-          await this.realtimeApi.vadModeChange(false);
-        }
+      }
+      if (message.command === 'realtime_vad_off') {
+        await this.realtimeApi.vadModeChange(false);
         return;
-      } else if (message.type === 'text') {
-        if (message as OpenAITextInput) {
-          await this.processMessage(
-            'web',
-            message.senderName,
-            message.text,
-            'This message is from ShannonUI',
-            message.recentChatLog
-          );
-        }
+      }
+
+      // Text message → unified graph via web adapter
+      if (message.type === 'text') {
+        const currentTime = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+        const envelope = webAdapter.toEnvelope({
+          type: 'text',
+          text: `${currentTime} ${message.senderName}: ${message.text}`,
+          senderName: message.senderName,
+          recentChatLog: message.recentChatLog,
+        });
+        await this.invokeGraph(envelope);
       }
     } catch (error) {
       logger.error('LLM処理エラー:', error);
@@ -556,39 +546,27 @@ export class LLMService {
     try {
       if (message.type === 'text') {
         const textMsg = message as DiscordSendTextMessageOutput;
-        const info = {
+        const currentTime = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+
+        // Build envelope via ChannelAdapter
+        const envelope = discordAdapter.toEnvelope({
+          text: `${currentTime} ${textMsg.userName}: ${textMsg.text}`,
+          type: textMsg.type,
           guildName: textMsg.guildName,
-          channelName: textMsg.channelName,
-          guildId: textMsg.guildId,
           channelId: textMsg.channelId,
+          guildId: textMsg.guildId,
+          channelName: textMsg.channelName,
+          userName: textMsg.userName,
           messageId: textMsg.messageId,
           userId: textMsg.userId,
-        };
-        const infoMessage = JSON.stringify(info, null, 2);
-        const memoryZone = await getDiscordMemoryZone(textMsg.guildId);
+          recentMessages: textMsg.recentMessages as unknown[],
+        } as DiscordNativeEvent);
 
-        const context: TaskContext = {
-          platform: 'discord',
-          discord: {
-            guildId: textMsg.guildId,
-            guildName: textMsg.guildName,
-            channelId: textMsg.channelId,
-            channelName: textMsg.channelName,
-            messageId: textMsg.messageId,
-            userId: textMsg.userId,
-            userName: textMsg.userName,
-          },
-        };
+        const msgs = textMsg.recentMessages
+          ? [...textMsg.recentMessages, new HumanMessage(`${currentTime} ${textMsg.userName}: ${textMsg.text}`)]
+          : [];
 
-        await this.processMessage(
-          memoryZone,
-          textMsg.userName,
-          textMsg.text,
-          infoMessage,
-          textMsg.recentMessages,
-          textMsg.channelId,
-          context
-        );
+        await this.invokeGraph(envelope, msgs);
         return;
       }
 
@@ -848,17 +826,6 @@ export class LLMService {
     const infoMessage = this.voiceCharacterPrompt
       ? `${infoJson}\n\n${this.voiceCharacterPrompt}`
       : infoJson;
-    const context: TaskContext = {
-      platform: 'discord',
-      discord: {
-        guildId: message.guildId,
-        guildName: message.guildName,
-        channelId: message.channelId,
-        channelName: message.channelName,
-        userId: message.userId,
-        userName: message.userName,
-      },
-    };
 
     const responsePromise = new Promise<string>((resolve) => {
       const unsubscribe = this.eventBus.subscribe('discord:post_message', (event) => {
@@ -919,23 +886,33 @@ export class LLMService {
       }
     };
 
-    const voiceOptions = {
-      allowedTools: VOICE_ALLOWED_TOOLS,
-      onToolStarting: voiceOnToolStarting,
-      onStreamSentence,
-      onEmotionResolved,
+    // Build envelope via ChannelAdapter (voice variant)
+    const voiceEnvelope = discordAdapter.toEnvelope({
+      text: userMessageForLlm,
+      type: 'voice',
+      guildName: message.guildName,
+      channelId: message.channelId,
+      guildId: message.guildId,
+      channelName: message.channelName,
+      userName: message.userName,
+      messageId: '',
+      userId: message.userId,
+      recentMessages: message.recentMessages as unknown[],
+      isVoiceChannel: true,
+    } as DiscordNativeEvent);
+    // Inject voice-specific metadata
+    voiceEnvelope.metadata = {
+      ...voiceEnvelope.metadata,
+      environmentState: infoMessage,
     };
 
-    const emotion = await this.processMessage(
-      memoryZone,
-      message.userName,
-      userMessageForLlm,
-      infoMessage,
-      message.recentMessages,
-      message.channelId,
-      context,
-      voiceOptions,
+    const graphResult = await this.invokeGraph(
+      voiceEnvelope,
+      message.recentMessages
+        ? [...message.recentMessages, new HumanMessage(userMessageForLlm)]
+        : [],
     );
+    const emotion = graphResult.emotion ?? null;
     const responseText = await responsePromise;
     const llmMs = Date.now() - llmStartTime;
     voiceResponseChannelIds.delete(message.channelId);
@@ -1129,72 +1106,26 @@ export class LLMService {
     }
   }
 
-  private async processMessage(
-    inputMemoryZone: MemoryZone,
-    userName?: string | null,
-    message?: string | null,
-    infoMessage?: string | null,
-    recentMessages?: BaseMessage[] | null,
-    channelId?: string | null,
-    context?: TaskContext | null,
-    options?: {
-      allowedTools?: string[];
-      onToolStarting?: (toolName: string) => void;
-      onStreamSentence?: (sentence: string) => Promise<void>;
-      onEmotionResolved?: (emotion: EmotionType | null) => void;
-    },
-  ): Promise<EmotionType | null> {
+  /**
+   * Core graph invocation — the single entry point for all channels.
+   *
+   * All channel handlers build a RequestEnvelope via their ChannelAdapter,
+   * then call this method. No more manual TaskContext construction.
+   */
+  async invokeGraph(
+    envelope: RequestEnvelope,
+    legacyMessages?: BaseMessage[],
+  ): Promise<ShannonGraphState> {
+    if (!this.shannonGraph) {
+      throw new Error('Shannon graph not initialized');
+    }
+
     try {
-      const currentTime = new Date().toLocaleString('ja-JP', {
-        timeZone: 'Asia/Tokyo',
-      });
-      const newMessage = `${currentTime} ${userName}: ${message}`;
-
-      const taskContext: TaskContext = context || {
-        platform: inputMemoryZone.startsWith('discord:') ? 'discord' :
-          inputMemoryZone.startsWith('twitter:') ? 'twitter' :
-            inputMemoryZone === 'youtube' ? 'youtube' :
-              'web',
-        discord: inputMemoryZone.startsWith('discord:') ? {
-          guildName: inputMemoryZone.replace('discord:', ''),
-          channelId: channelId || undefined,
-        } : undefined,
-      };
-
-      // Unified Shannon graph (default path)
-      if (this.shannonGraph) {
-        const envelope = taskInputToEnvelope({
-          context: taskContext,
-          memoryZone: inputMemoryZone,
-          channelId: channelId,
-          userMessage: newMessage,
-          environmentState: infoMessage || null,
-        });
-        const graphResult = await invokeShannonGraph(
-          this.shannonGraph,
-          envelope,
-          recentMessages?.concat([new HumanMessage(newMessage)]) || [],
-        );
-        return graphResult.emotion ?? null;
-      }
-
-      // Legacy TaskGraph fallback (only if unified graph failed to build)
-      const result = await this.taskGraph.invoke({
-        channelId: channelId,
-        memoryZone: inputMemoryZone,
-        context: taskContext,
-        environmentState: infoMessage || null,
-        messages: recentMessages?.concat([new HumanMessage(newMessage)]) || [],
-        userMessage: newMessage,
-        allowedTools: options?.allowedTools,
-        onToolStarting: options?.onToolStarting,
-        onStreamSentence: options?.onStreamSentence,
-        onEmotionResolved: options?.onEmotionResolved,
-      });
-      return (result as any)?.emotion ?? null;
+      return await invokeShannonGraph(this.shannonGraph, envelope, legacyMessages);
     } catch (error) {
-      logger.error(`LLM処理エラー:${error}`);
-      this.eventBus.log(inputMemoryZone, 'red', `Error: ${error}`, true);
+      const zone = envelope.metadata?.legacyMemoryZone ?? envelope.channel;
+      logger.error(`Graph invocation error [${zone}]:`, error);
+      this.eventBus.log(zone as string, 'red', `Error: ${error}`, true);
       throw error;
     }
   }

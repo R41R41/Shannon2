@@ -4,3 +4,5 @@ export { xAdapter, type XNativeReplyEvent, type XNativeMemberTweetEvent, type XN
 export { minebotAdapter, type MinebotNativeEvent } from './minebotAdapter.js';
 export { webAdapter, type WebNativeEvent } from './webAdapter.js';
 export { actionFormatterNode } from './actionFormatter.js';
+export { discordDispatcher } from './discordDispatcher.js';
+export { webDispatcher } from './webDispatcher.js';
