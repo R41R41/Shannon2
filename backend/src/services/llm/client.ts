@@ -132,17 +132,14 @@ export class LLMService {
     // TaskGraphを初期化（ツール読み込み、ノード初期化）
     await this.taskGraph.initialize();
 
-    // Build unified Shannon graph (Phase 1: opt-in via USE_UNIFIED_GRAPH env var)
-    try {
-      const emotionNode = this.taskGraph.getEmotionNode();
-      const memoryNode = this.taskGraph.getMemoryNode();
-      const fca = this.taskGraph.getFunctionCallingAgent();
-      if (emotionNode && memoryNode && fca) {
-        this.shannonGraph = buildShannonGraph({ emotionNode, memoryNode, fca });
-        logger.info('✅ Unified Shannon graph built successfully');
-      }
-    } catch (error) {
-      logger.warn('⚠ Failed to build unified Shannon graph, falling back to legacy:', error);
+    // Build unified Shannon graph (default path)
+    const emotionNode = this.taskGraph.getEmotionNode();
+    const fca = this.taskGraph.getFunctionCallingAgent();
+    if (emotionNode && fca) {
+      this.shannonGraph = buildShannonGraph({ emotionNode, fca });
+      logger.info('Unified Shannon graph built');
+    } else {
+      logger.error('Failed to build unified Shannon graph: missing EmotionNode or FCA');
     }
 
     // 各種エージェントを初期化（単発タスク用）
@@ -1164,28 +1161,24 @@ export class LLMService {
         } : undefined,
       };
 
-      // Unified graph path (opt-in)
-      if (this.shannonGraph && process.env.USE_UNIFIED_GRAPH === 'true') {
-        try {
-          const envelope = taskInputToEnvelope({
-            context: taskContext,
-            memoryZone: inputMemoryZone,
-            channelId: channelId,
-            userMessage: newMessage,
-            environmentState: infoMessage || null,
-          });
-          const graphResult = await invokeShannonGraph(
-            this.shannonGraph,
-            envelope,
-            recentMessages?.concat([new HumanMessage(newMessage)]) || [],
-          );
-          return graphResult.emotion ?? null;
-        } catch (error) {
-          logger.error('❌ Unified graph error, falling back to legacy:', error);
-          // Fall through to legacy path
-        }
+      // Unified Shannon graph (default path)
+      if (this.shannonGraph) {
+        const envelope = taskInputToEnvelope({
+          context: taskContext,
+          memoryZone: inputMemoryZone,
+          channelId: channelId,
+          userMessage: newMessage,
+          environmentState: infoMessage || null,
+        });
+        const graphResult = await invokeShannonGraph(
+          this.shannonGraph,
+          envelope,
+          recentMessages?.concat([new HumanMessage(newMessage)]) || [],
+        );
+        return graphResult.emotion ?? null;
       }
 
+      // Legacy TaskGraph fallback (only if unified graph failed to build)
       const result = await this.taskGraph.invoke({
         channelId: channelId,
         memoryZone: inputMemoryZone,

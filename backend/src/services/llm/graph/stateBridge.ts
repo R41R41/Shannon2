@@ -1,25 +1,23 @@
 /**
  * State Bridge
  *
- * Bidirectional conversion between the legacy TaskStateInput / TaskContext
- * and the new ShannonGraphState / RequestEnvelope.
+ * Conversion between legacy TaskStateInput / TaskContext
+ * and the unified RequestEnvelope.
  *
- * This allows the unified graph to delegate to existing nodes
- * (EmotionNode, MemoryNode, FunctionCallingAgent) during the migration
- * period, and lets existing callers invoke the unified graph without
- * rewriting all call-sites at once.
+ * Remaining functions:
+ * - envelopeToTaskContext: for nodes that still need TaskContext (EmotionNode, FCA)
+ * - envelopeToMemoryZone: for legacy compatibility
+ * - taskInputToEnvelope: for LLMService.processMessage() entry point
+ * - inferInitialMode: for ingest node
  */
 
-import { BaseMessage, HumanMessage } from '@langchain/core/messages';
 import {
   TaskContext,
   Platform,
   MemoryZone,
-  EmotionType,
 } from '@shannon/common';
 import type {
   RequestEnvelope,
-  ShannonGraphState,
   ShannonChannel,
   ShannonMode,
 } from '@shannon/common';
@@ -50,12 +48,9 @@ const platformToChannel: Partial<Record<Platform, ShannonChannel>> = {
   notion: 'internal',
 };
 
-// ---------------------------------------------------------------------------
-// ShannonGraphState → TaskStateInput (for calling existing nodes)
-// ---------------------------------------------------------------------------
-
 /**
  * Extract a legacy TaskContext from a RequestEnvelope.
+ * Used by EmotionNode and FCA which still accept TaskContext.
  */
 export function envelopeToTaskContext(envelope: RequestEnvelope): TaskContext {
   const platform = channelToPlatform[envelope.channel] ?? 'web';
@@ -117,38 +112,8 @@ export function envelopeToMemoryZone(envelope: RequestEnvelope): MemoryZone {
 }
 
 /**
- * Convert unified graph state to a legacy TaskStateInput
- * so that existing nodes can be called without modification.
- */
-export function toTaskStateInput(
-  state: ShannonGraphState,
-  messages?: BaseMessage[],
-): TaskStateInput {
-  const envelope = state.envelope;
-
-  return {
-    context: envelopeToTaskContext(envelope),
-    memoryZone: envelopeToMemoryZone(envelope),
-    channelId: envelope.discord?.channelId ?? envelope.conversationId,
-    userMessage: envelope.text ?? null,
-    messages: messages ?? [],
-    emotion: state.emotion ?? null,
-    environmentState: (envelope.metadata?.environmentState as string) ?? null,
-    selfState: (envelope.metadata?.selfState as string) ?? null,
-    isEmergency: envelope.tags.includes('emergency'),
-    taskTree: state.taskTree ?? null,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// TaskStateInput → ShannonGraphState (for entry from legacy callers)
-// ---------------------------------------------------------------------------
-
-/**
- * Build a minimal RequestEnvelope from legacy TaskStateInput.
- *
- * Used when the existing LLMService.processMessage() needs to
- * invoke the unified graph instead of the legacy TaskGraph.
+ * Build a RequestEnvelope from legacy TaskStateInput.
+ * Used by LLMService.processMessage() as the entry point.
  */
 export function taskInputToEnvelope(input: TaskStateInput): RequestEnvelope {
   const platform = input.context?.platform ?? 'web';
@@ -198,26 +163,6 @@ export function taskInputToEnvelope(input: TaskStateInput): RequestEnvelope {
     timestampIso: new Date().toISOString(),
   };
 }
-
-/**
- * Create an initial ShannonGraphState from legacy TaskStateInput.
- */
-export function taskInputToGraphState(input: TaskStateInput): ShannonGraphState {
-  return {
-    envelope: taskInputToEnvelope(input),
-    emotion: input.emotion ?? undefined,
-    taskTree: input.taskTree ?? undefined,
-    relevantMemories: [],
-    toolCalls: [],
-    retrievedFacts: [],
-    trace: ['stateBridge:taskInputToGraphState'],
-    warnings: [],
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Mode inference
-// ---------------------------------------------------------------------------
 
 /**
  * Infer the initial ShannonMode from a RequestEnvelope.

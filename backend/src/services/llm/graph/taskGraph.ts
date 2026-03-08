@@ -423,9 +423,8 @@ export class TaskGraph {
     return this.isExecuting;
   }
 
-  /** Expose internal nodes for unified graph integration */
+  /** Expose nodes for unified graph */
   getEmotionNode(): EmotionNode | null { return this.emotionNode; }
-  getMemoryNode(): MemoryNode | null { return this.memoryNode; }
   getFunctionCallingAgent(): FunctionCallingAgent | null { return this.functionCallingAgent; }
 
   // ========== タスクキュー管理 ==========

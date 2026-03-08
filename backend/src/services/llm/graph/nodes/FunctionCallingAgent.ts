@@ -37,6 +37,8 @@ export interface FunctionCallingAgentState {
     channelId: string | null;
     environmentState: string | null;
     isEmergency: boolean;
+    /** Pre-formatted memory prompt from ScopedMemoryService (replaces memoryState when set) */
+    memoryPrompt?: string;
 
     /** ツール実行後に呼ばれるコールバック（非同期感情再評価のトリガー） */
     onToolsExecuted: (
@@ -159,6 +161,7 @@ export class FunctionCallingAgent {
             state.context,
             state.environmentState,
             state.memoryState,
+            state.memoryPrompt,
         );
 
         // Minecraft ボットの場合、ワールド知識を注入
@@ -632,6 +635,7 @@ export class FunctionCallingAgent {
         context: TaskContext | null,
         environmentState: string | null,
         memoryState?: MemoryState,
+        memoryPrompt?: string,
     ): string {
         const currentTime = new Date().toLocaleString('ja-JP', {
             timeZone: 'Asia/Tokyo',
@@ -663,7 +667,10 @@ export class FunctionCallingAgent {
 
         // 記憶情報
         let memoryInfo = '';
-        if (memoryState) {
+        if (memoryPrompt) {
+            // Unified graph path: pre-formatted by ScopedMemoryService
+            memoryInfo = `\n\n${memoryPrompt}`;
+        } else if (memoryState) {
             const sections: string[] = [];
 
             // 人物情報
