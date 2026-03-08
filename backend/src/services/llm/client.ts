@@ -53,8 +53,8 @@ import { RealtimeAPIService } from './agents/realtimeApiAgent.js';
 import { ReplyTwitterCommentAgent } from './agents/replyTwitterComment.js';
 import { ReplyYoutubeCommentAgent } from './agents/replyYoutubeComment.js';
 import { ReplyYoutubeLiveCommentAgent } from './agents/replyYoutubeLiveCommentAgent.js';
-import { TaskGraph } from './graph/taskGraph.js';
 import { buildShannonGraph, invokeShannonGraph, CompiledShannonGraph } from './graph/shannonGraph.js';
+import { initializeNodes } from './graph/nodeFactory.js';
 import type { RequestEnvelope, ShannonGraphState } from '@shannon/common';
 import { discordAdapter, webAdapter, type DiscordNativeEvent } from '../common/adapters/index.js';
 import { getTracedOpenAI } from './utils/langfuse.js';
@@ -83,7 +83,6 @@ export class LLMService {
   private static instance: LLMService;
   private eventBus: EventBus;
   private realtimeApi: RealtimeAPIService;
-  private taskGraph: TaskGraph;
   private aboutTodayAgent!: PostAboutTodayAgent;
   private weatherAgent!: PostWeatherAgent;
   private fortuneAgent!: PostFortuneAgent;
@@ -105,7 +104,6 @@ export class LLMService {
     this.isDevMode = isDevMode;
     this.eventBus = getEventBus();
     this.realtimeApi = RealtimeAPIService.getInstance();
-    this.taskGraph = TaskGraph.getInstance();
     this.voicepeakClient = VoicepeakClient.getInstance();
     this.openaiClient = getTracedOpenAI(new OpenAI({ apiKey: config.openaiApiKey }));
     this.groqClient = getTracedOpenAI(new OpenAI({
@@ -128,18 +126,15 @@ export class LLMService {
     const { enablePromptHotReload } = await import('./config/prompts.js');
     enablePromptHotReload();
 
-    // TaskGraphを初期化（ツール読み込み、ノード初期化）
-    await this.taskGraph.initialize();
+    // Initialize nodes and build unified Shannon graph
+    const { emotionNode, fca } = await initializeNodes();
+    this.shannonGraph = buildShannonGraph({ emotionNode, fca });
 
-    // Build unified Shannon graph (default path)
-    const emotionNode = this.taskGraph.getEmotionNode();
-    const fca = this.taskGraph.getFunctionCallingAgent();
-    if (emotionNode && fca) {
-      this.shannonGraph = buildShannonGraph({ emotionNode, fca });
-      logger.info('Unified Shannon graph built');
-    } else {
-      logger.error('Failed to build unified Shannon graph: missing EmotionNode or FCA');
-    }
+    // Wire TaskGraph delegate (for Minebot EventReactionSystem compatibility)
+    const { TaskGraph } = await import('./graph/taskGraph.js');
+    TaskGraph.getInstance().setInvokeDelegate((envelope, messages) =>
+      this.invokeGraph(envelope, messages),
+    );
 
     // 各種エージェントを初期化（単発タスク用）
     this.aboutTodayAgent = await PostAboutTodayAgent.create();
