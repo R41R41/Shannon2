@@ -112,23 +112,63 @@ async function ingestNode(state: ShannonStateType): Promise<Partial<ShannonState
 }
 
 /**
- * classify: Determines intent, risk level, and whether tools/planning are needed.
- * Phase 1: Simple heuristic. Phase 2+: LLM-based.
+ * classify: LLM-based classification via ClassifyNode.
+ * Falls back to heuristic on failure.
  */
-async function classifyNode(state: ShannonStateType): Promise<Partial<ShannonStateType>> {
-  const text = state.envelope.text ?? '';
-  const channel = state.envelope.channel;
+function createClassifyNodeWrapper() {
+  const classifyNodeInstance = new ClassifyNode();
+  return async function classifyWrapper(state: ShannonStateType): Promise<Partial<ShannonStateType>> {
+    const result = await classifyNodeInstance.invoke(state.envelope);
+    return {
+      mode: result.mode as ShannonMode,
+      intent: result.intent,
+      riskLevel: result.riskLevel,
+      needsTools: result.needsTools,
+      needsPlanning: result.needsPlanning,
+      trace: ['node:classify'],
+    };
+  };
+}
 
-  const needsTools = channel === 'minecraft' || text.length > 200;
-  const needsPlanning = channel === 'minecraft' && text.length > 50;
+/**
+ * minebotRoute: Publishes minebot events via EventBus for minecraft modes.
+ * The actual execution is handled by SkillAgent, not the Shannon FCA.
+ */
+async function minebotRouteNode(state: ShannonStateType): Promise<Partial<ShannonStateType>> {
+  const { getEventBus } = await import('../../../events/eventBus.js');
+  const eventBus = getEventBus();
+  const envelope = state.envelope;
+
+  const eventType = state.mode === 'minecraft_emergency'
+    ? 'minebot:emergency'
+    : 'minebot:voice_chat';
+
+  eventBus.publish({
+    type: eventType,
+    memoryZone: 'minebot',
+    data: {
+      userName: envelope.userId ?? 'unknown',
+      message: envelope.text ?? '',
+      guildId: envelope.discord?.guildId,
+      channelId: envelope.discord?.channelId,
+      isEmergency: state.mode === 'minecraft_emergency',
+    },
+  });
 
   return {
-    needsTools,
-    needsPlanning,
-    riskLevel: 'low',
-    intent: text.slice(0, 100),
-    trace: ['node:classify'],
+    finalAnswer: state.mode === 'minecraft_emergency'
+      ? '⚠️ 緊急対応中...'
+      : '🎮 Minecraftで実行中...',
+    trace: ['node:minebot_route'],
   };
+}
+
+/** Route after classify: minecraft modes go to minebotRoute, others to emotion+recall in parallel. */
+function classifyRouter(state: ShannonStateType): string[] {
+  if (state.mode === 'minecraft_action' || state.mode === 'minecraft_emergency') {
+    return ['minebot_route'];
+  }
+  return ['emotion', 'recall'];
 }
 
 /**
@@ -280,18 +320,26 @@ export interface ShannonGraphDeps {
 export function buildShannonGraph(deps: ShannonGraphDeps) {
   const workflow = new StateGraph(ShannonState)
     .addNode('ingest', ingestNode)
-    .addNode('classify', classifyNode)
+    .addNode('classify', createClassifyNodeWrapper())
+    .addNode('minebot_route', minebotRouteNode)
     .addNode('emotion', createEmotionNodeWrapper(deps.emotionNode))
     .addNode('recall', createRecallNodeWrapper(deps.memoryNode))
     .addNode('execute', createExecuteNodeWrapper(deps.fca, deps.emotionNode))
     .addNode('format', formatNode)
     .addNode('writeback', createWritebackNodeWrapper(deps.memoryNode))
 
-    // ingest → classify → [emotion, recall] → execute → format → writeback → END
+    // ingest → classify → conditional routing
     .addEdge(START, 'ingest')
     .addEdge('ingest', 'classify')
-    .addEdge('classify', 'emotion')
-    .addEdge('classify', 'recall')
+
+    // classify → minecraft? → minebot_route → format → writeback → END
+    // classify → other?    → [emotion, recall] → execute → format → writeback → END
+    .addConditionalEdges('classify', classifyRouter, {
+      minebot_route: 'minebot_route',
+      emotion: 'emotion',
+      recall: 'recall',
+    })
+    .addEdge('minebot_route', 'format')
     .addEdge('emotion', 'execute')
     .addEdge('recall', 'execute')
     .addEdge('execute', 'format')
