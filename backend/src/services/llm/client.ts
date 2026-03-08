@@ -56,6 +56,8 @@ import { ReplyTwitterCommentAgent } from './agents/replyTwitterComment.js';
 import { ReplyYoutubeCommentAgent } from './agents/replyYoutubeComment.js';
 import { ReplyYoutubeLiveCommentAgent } from './agents/replyYoutubeLiveCommentAgent.js';
 import { TaskGraph } from './graph/taskGraph.js';
+import { buildShannonGraph, invokeShannonGraph, CompiledShannonGraph } from './graph/shannonGraph.js';
+import { taskInputToEnvelope } from './graph/stateBridge.js';
 import { getTracedOpenAI } from './utils/langfuse.js';
 import { logger } from '../../utils/logger.js';
 const __filename = fileURLToPath(import.meta.url);
@@ -99,6 +101,7 @@ export class LLMService {
   private openaiClient: OpenAI;
   private groqClient: OpenAI;
   private voiceCharacterPrompt: string = '';
+  private shannonGraph: CompiledShannonGraph | null = null;
   constructor(isDevMode: boolean) {
     this.isDevMode = isDevMode;
     this.eventBus = getEventBus();
@@ -128,6 +131,19 @@ export class LLMService {
 
     // TaskGraphを初期化（ツール読み込み、ノード初期化）
     await this.taskGraph.initialize();
+
+    // Build unified Shannon graph (Phase 1: opt-in via USE_UNIFIED_GRAPH env var)
+    try {
+      const emotionNode = this.taskGraph.getEmotionNode();
+      const memoryNode = this.taskGraph.getMemoryNode();
+      const fca = this.taskGraph.getFunctionCallingAgent();
+      if (emotionNode && memoryNode && fca) {
+        this.shannonGraph = buildShannonGraph({ emotionNode, memoryNode, fca });
+        logger.info('✅ Unified Shannon graph built successfully');
+      }
+    } catch (error) {
+      logger.warn('⚠ Failed to build unified Shannon graph, falling back to legacy:', error);
+    }
 
     // 各種エージェントを初期化（単発タスク用）
     this.aboutTodayAgent = await PostAboutTodayAgent.create();
@@ -1147,6 +1163,28 @@ export class LLMService {
           channelId: channelId || undefined,
         } : undefined,
       };
+
+      // Unified graph path (opt-in)
+      if (this.shannonGraph && process.env.USE_UNIFIED_GRAPH === 'true') {
+        try {
+          const envelope = taskInputToEnvelope({
+            context: taskContext,
+            memoryZone: inputMemoryZone,
+            channelId: channelId,
+            userMessage: newMessage,
+            environmentState: infoMessage || null,
+          });
+          const graphResult = await invokeShannonGraph(
+            this.shannonGraph,
+            envelope,
+            recentMessages?.concat([new HumanMessage(newMessage)]) || [],
+          );
+          return graphResult.emotion ?? null;
+        } catch (error) {
+          logger.error('❌ Unified graph error, falling back to legacy:', error);
+          // Fall through to legacy path
+        }
+      }
 
       const result = await this.taskGraph.invoke({
         channelId: channelId,

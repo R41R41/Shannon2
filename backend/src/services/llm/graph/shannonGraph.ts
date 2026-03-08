@@ -35,6 +35,7 @@ import { actionFormatterNode } from '../../common/adapters/actionFormatter.js';
 import { EmotionNode, EmotionState } from './nodes/EmotionNode.js';
 import { MemoryNode, MemoryState } from './nodes/MemoryNode.js';
 import { FunctionCallingAgent } from './nodes/FunctionCallingAgent.js';
+import { ClassifyNode } from './nodes/ClassifyNode.js';
 import type { ExecutionResult } from './types.js';
 
 // ---------------------------------------------------------------------------
