@@ -6,7 +6,8 @@ import {
 } from '@shannon/common';
 import { config } from '../../config/env.js';
 import { classifyError, formatErrorForLog } from '../../errors/index.js';
-import { logger } from '../../utils/logger.js';
+import { createLogger } from '../../utils/logger.js';
+const logger = createLogger('Twitter:Client');
 import { BaseClient } from '../common/BaseClient.js';
 import { getEventBus } from '../eventBus/index.js';
 import { TwitterAuthManager } from './api/TwitterAuthManager.js';
@@ -190,7 +191,7 @@ export class TwitterClient extends BaseClient {
         }
       } catch (error) {
         const sErr = classifyError(error, 'twitter');
-        logger.error(`Twitter post error: ${formatErrorForLog(sErr)}`);
+        logger.debug(`Twitter post error (auto): ${formatErrorForLog(sErr)}`);
       }
     });
 
@@ -219,7 +220,7 @@ export class TwitterClient extends BaseClient {
         });
       } catch (error) {
         const sErr = classifyError(error, 'twitter');
-        logger.error(`Twitter post error: ${formatErrorForLog(sErr)}`);
+        logger.debug(`Twitter post error (tool): ${formatErrorForLog(sErr)}`);
         this.eventBus.publish({
           type: 'tool:post_tweet_result',
           memoryZone: 'twitter:post',

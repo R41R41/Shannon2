@@ -154,7 +154,7 @@ export class EmotionNode {
         executionResults: ExecutionResult[] | null,
         currentEmotion: EmotionType | null
     ): Promise<EmotionType> {
-        logger.info('💭 EmotionNode: 非同期で感情を再評価中...');
+        logger.debug('💭 EmotionNode: 非同期で感情を再評価中...');
 
         const structuredLLM = this.model.withStructuredOutput(EmotionSchema, {
             name: 'Emotion',
@@ -168,7 +168,7 @@ export class EmotionNode {
             );
             const response = await structuredLLM.invoke(messages);
 
-            logger.info(`💭 感情更新: ${response.emotion}`);
+            logger.debug(`💭 感情更新: ${response.emotion}`);
 
             // EventBus経由でUIに通知
             this.publishEmotion(response);

@@ -217,6 +217,7 @@ export class LLMService {
     options?: {
       onToolStarting?: (toolName: string, args?: Record<string, unknown>) => void;
       onTaskTreeUpdate?: (taskTree: import('@shannon/common').TaskTreeState) => void;
+      onRequestSkillInterrupt?: () => void;
     },
   ): Promise<ShannonGraphState> {
     await this.initialize();

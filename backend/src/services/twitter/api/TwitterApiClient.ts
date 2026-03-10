@@ -1,6 +1,7 @@
 import axios, { isAxiosError } from 'axios';
 import { config } from '../../../config/env.js';
-import { logger } from '../../../utils/logger.js';
+import { createLogger } from '../../../utils/logger.js';
+const logger = createLogger('Twitter:API');
 import { retryWithBackoff } from '../../../utils/retryWithBackoff.js';
 import { TwitterAuthManager } from './TwitterAuthManager.js';
 
@@ -87,13 +88,9 @@ export class TwitterApiClient {
       logger.success(`[postTweetByApi] 投稿成功: ${response.data.id}`);
     } catch (error: unknown) {
       const errObj = error as Record<string, unknown>;
-      logger.error(`[postTweetByApi] エラー: ${error instanceof Error ? error.message : String(error)}`);
-      if (errObj?.data) {
-        logger.error(`[postTweetByApi] レスポンス詳細: ${JSON.stringify(errObj.data).slice(0, 500)}`);
-      }
-      if (errObj?.errors) {
-        logger.error(`[postTweetByApi] エラー詳細: ${JSON.stringify(errObj.errors).slice(0, 500)}`);
-      }
+      const detail = errObj?.data ? ` data=${JSON.stringify(errObj.data).slice(0, 300)}` : '';
+      const errDetail = errObj?.errors ? ` errors=${JSON.stringify(errObj.errors).slice(0, 300)}` : '';
+      logger.error(`[postTweetByApi] エラー: ${error instanceof Error ? error.message : String(error)}${detail}${errDetail}`);
       throw error;
     }
   }
@@ -177,10 +174,8 @@ export class TwitterApiClient {
       }
       return response;
     } catch (error: unknown) {
-      logger.error(`[postTweet] エラー: ${error instanceof Error ? error.message : String(error)}`);
-      if (isAxiosError(error)) {
-        logger.error(`[postTweet] レスポンス: ${JSON.stringify(error.response?.data).slice(0, 300)}`);
-      }
+      const respDetail = isAxiosError(error) ? ` resp=${JSON.stringify(error.response?.data).slice(0, 300)}` : '';
+      logger.error(`[postTweet] エラー: ${error instanceof Error ? error.message : String(error)}${respDetail}`);
       throw error;
     }
   }

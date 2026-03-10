@@ -9,7 +9,8 @@ import { toZonedTime } from 'date-fns-tz';
 import fs from 'fs';
 import path from 'path';
 import { LRUSet } from '../../../utils/LRUSet.js';
-import { logger } from '../../../utils/logger.js';
+import { createLogger } from '../../../utils/logger.js';
+const logger = createLogger('Twitter:Monitor');
 import { TwitterApiClient, TweetData } from '../api/TwitterApiClient.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 

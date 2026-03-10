@@ -14,7 +14,8 @@ import type {
   MemoryZone,
 } from '@shannon/common';
 import { getEventBus } from '../../eventBus/index.js';
-import { logger } from '../../../utils/logger.js';
+import { createLogger } from '../../../utils/logger.js';
+const logger = createLogger('DiscordDispatcher', 'discord');
 
 export const discordDispatcher: ActionDispatcher = {
   channel: 'discord',

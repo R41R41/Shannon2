@@ -7,7 +7,8 @@ import type {
   SkillParameters,
 } from '@shannon/common';
 import { getEventBus } from '../../eventBus/index.js';
-import { logger } from '../../../utils/logger.js';
+import { createLogger } from '../../../utils/logger.js';
+const logger = createLogger('MinebotDispatcher', 'minebot');
 
 type SkillInvocation = {
   skillName: string;
@@ -103,10 +104,11 @@ async function invokeMinebotSkill(invocation: SkillInvocation): Promise<void> {
     const unsubscribe = eventBus.subscribe(resultType, (event) => {
       const result = event.data as MinebotOutput;
       if (result?.success === false) {
+        const resultMsg = typeof result.result === 'string' ? result.result : String(result.result ?? '');
         const failureType = (result as MinebotOutput & { failureType?: string | null }).failureType
-          ?? classifyFailureType(result.result ?? '');
-        logger.warn(`[MinebotDispatcher] ${invocation.skillName} failed: ${result.result ?? 'unknown error'} (${failureType})`);
-        finish(new Error(`${invocation.skillName} failed [failure_type=${failureType}]: ${result.result ?? 'unknown error'}`));
+          ?? classifyFailureType(resultMsg);
+        logger.warn(`[MinebotDispatcher] ${invocation.skillName} failed: ${resultMsg || 'unknown error'} (${failureType})`);
+        finish(new Error(`${invocation.skillName} failed [failure_type=${failureType}]: ${resultMsg || 'unknown error'}`));
         return;
       }
       finish(undefined);

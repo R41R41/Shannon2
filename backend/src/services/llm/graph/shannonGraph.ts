@@ -38,6 +38,9 @@ import { EmotionNode, EmotionState } from './nodes/EmotionNode.js';
 import { FunctionCallingAgent } from './nodes/FunctionCallingAgent.js';
 import { ClassifyNode } from './nodes/ClassifyNode.js';
 import { ScopedMemoryService } from '../../memory/scopedMemoryService.js';
+import { ModelSelector } from './cognitive/ModelSelector.js';
+import { ParallelExecutor } from './cognitive/ParallelExecutor.js';
+import { TaskEpisodeMemory } from './cognitive/TaskEpisodeMemory.js';
 import type { ExecutionResult } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -75,6 +78,9 @@ const ShannonState = Annotation.Root({
   internalStatePrompt: Annotation<string | undefined>({ reducer: replace, default: () => undefined }),
   worldModelPrompt: Annotation<string | undefined>({ reducer: replace, default: () => undefined }),
 
+  // -- model selection (RAS) --
+  selectedModel: Annotation<string | undefined>({ reducer: replace, default: () => undefined }),
+
   // -- planning --
   plan: Annotation<ShannonPlan | undefined>({ reducer: replace, default: () => undefined }),
   taskTree: Annotation<TaskTreeState | undefined>({ reducer: replace, default: () => undefined }),
@@ -103,6 +109,10 @@ const ShannonState = Annotation.Root({
     reducer: replace,
     default: () => undefined,
   }),
+  _onRequestSkillInterrupt: Annotation<(() => void) | undefined>({
+    reducer: replace,
+    default: () => undefined,
+  }),
 });
 
 type ShannonStateType = typeof ShannonState.State;
@@ -125,12 +135,18 @@ async function ingestNode(state: ShannonStateType): Promise<Partial<ShannonState
 
 async function classifyNodeFn(state: ShannonStateType): Promise<Partial<ShannonStateType>> {
   const result = await classifyNode.invoke(state.envelope);
+  const selectedModel = ModelSelector.selectInitialModel(
+    result.riskLevel as 'low' | 'mid' | 'high' | undefined,
+    result.needsPlanning,
+    result.mode,
+  );
   return {
     mode: result.mode as ShannonMode,
     intent: result.intent,
     riskLevel: result.riskLevel,
     needsTools: result.needsTools,
     needsPlanning: result.needsPlanning,
+    selectedModel,
     trace: ['node:classify'],
   };
 }
@@ -185,20 +201,25 @@ async function recallNode(state: ShannonStateType): Promise<Partial<ShannonState
 }
 
 /**
- * execute: Delegates to FCA with envelope-derived context.
+ * execute: Delegates to ParallelExecutor (3 async loops: Emotion + MetaCognition + TaskExecution).
+ * Falls back to FCA-only mode if emotionNode is not provided.
  */
 function createExecuteNode(fca: FunctionCallingAgent, emotionNode?: EmotionNode) {
+  const parallelExecutor = emotionNode
+    ? new ParallelExecutor({ fca, emotionNode })
+    : null;
+
   return async function executeFn(state: ShannonStateType): Promise<Partial<ShannonStateType>> {
     const envelope = state.envelope;
     const context = envelopeToTaskContext(envelope);
     const emotionState: EmotionState = state._emotionState ?? { current: state.emotion ?? null };
 
-    const agentResult = await fca.run({
+    const fcaState = {
       taskId: envelope.requestId,
       userMessage: envelope.text ?? null,
       messages: state._legacyMessages,
       emotionState,
-      memoryState: undefined, // No longer passing MemoryState — memory is in retrievedFacts/memoryPrompt
+      memoryState: undefined as undefined,
       context,
       channelId: envelope.discord?.channelId ?? envelope.conversationId,
       environmentState: (envelope.metadata?.environmentState as string) ?? null,
@@ -211,6 +232,8 @@ function createExecuteNode(fca: FunctionCallingAgent, emotionNode?: EmotionNode)
       worldModelPrompt: state.worldModelPrompt,
       onToolStarting: state._onToolStarting,
       onTaskTreeUpdate: state._onTaskTreeUpdate,
+      onRequestSkillInterrupt: state._onRequestSkillInterrupt,
+      selectedModel: state.selectedModel,
       onToolsExecuted: (messages: BaseMessage[], results: ExecutionResult[]) => {
         if (emotionNode) {
           emotionNode
@@ -219,7 +242,32 @@ function createExecuteNode(fca: FunctionCallingAgent, emotionNode?: EmotionNode)
             .catch(() => {});
         }
       },
-    });
+    };
+
+    if (parallelExecutor) {
+      // 3並列プロセス: EmotionLoop + MetaCognitionLoop + TaskExecutionLoop
+      const result = await parallelExecutor.run(fcaState);
+      return {
+        finalAnswer: result.taskTree?.strategy ?? undefined,
+        taskTree: result.taskTree ?? undefined,
+        emotion: result.finalEmotion ?? emotionState.current ?? undefined,
+        trace: ['node:execute:parallel'],
+      };
+    }
+
+    // フォールバック: FCA 単体実行
+    const startTime = Date.now();
+    const agentResult = await fca.run(fcaState);
+
+    // エピソード記憶の保存（fire-and-forget）
+    try {
+      const platform = context?.platform ?? 'unknown';
+      const goal = envelope.text ?? '';
+      const episode = TaskEpisodeMemory.buildEpisodeFromResult(
+        goal, platform, agentResult.taskTree, startTime, 0,
+      );
+      TaskEpisodeMemory.getInstance().saveEpisode(episode).catch(() => {});
+    } catch { }
 
     return {
       finalAnswer: agentResult.taskTree?.strategy ?? undefined,
@@ -305,6 +353,7 @@ export async function invokeShannonGraph(
   options?: {
     onToolStarting?: (toolName: string, args?: Record<string, unknown>) => void;
     onTaskTreeUpdate?: (taskTree: TaskTreeState) => void;
+    onRequestSkillInterrupt?: () => void;
   },
 ): Promise<ShannonGraphState> {
   const result = await graph.invoke({
@@ -312,6 +361,7 @@ export async function invokeShannonGraph(
     _legacyMessages: legacyMessages ?? [],
     _onToolStarting: options?.onToolStarting,
     _onTaskTreeUpdate: options?.onTaskTreeUpdate,
+    _onRequestSkillInterrupt: options?.onRequestSkillInterrupt,
   });
   return result as unknown as ShannonGraphState;
 }

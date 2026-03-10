@@ -19,6 +19,7 @@ type UnifiedExecutor = (
   options?: {
     onToolStarting?: (toolName: string, args?: Record<string, unknown>) => void;
     onTaskTreeUpdate?: (taskTree: TaskTreeState) => void;
+    onRequestSkillInterrupt?: () => void;
   },
 ) => Promise<any>;
 
@@ -99,6 +100,10 @@ export class MinebotTaskRuntime {
       const graphResult = await this.executor(envelope, messages, {
         onToolStarting: partialState.onToolStarting,
         onTaskTreeUpdate: (taskTree) => this.handleTaskTreeUpdate(taskId, taskTree),
+        onRequestSkillInterrupt: () => {
+          this.bot.interruptExecution = true;
+          log.warn('⚡ MetaCognition からスキル中断要求 → bot.interruptExecution = true');
+        },
       });
 
       const taskTree =

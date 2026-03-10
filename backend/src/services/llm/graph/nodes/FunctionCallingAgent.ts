@@ -4,6 +4,7 @@ import {
     BaseMessage,
     HumanMessage,
     SystemMessage,
+    ToolMessage,
 } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
 import { ChatOpenAI } from '@langchain/openai';
@@ -14,6 +15,8 @@ import { modelManager } from '../../../../config/modelManager.js';
 import { logger } from '../../../../utils/logger.js';
 import { getEventBus } from '../../../eventBus/index.js';
 import { WorldKnowledgeService } from '../../../minebot/knowledge/WorldKnowledgeService.js';
+import { RecipeDependencyResolver } from '../../../minebot/knowledge/RecipeDependencyResolver.js';
+import { TaskEpisodeMemory } from '../cognitive/TaskEpisodeMemory.js';
 import UpdatePlanTool from '../../tools/utility/updatePlan.js';
 import { trimContext } from '../../utils/contextManager.js';
 import { createTracedModel } from '../../utils/langfuse.js';
@@ -25,6 +28,9 @@ import { PromptBuilder } from './prompt/PromptBuilder.js';
 import { TaskTreePublisher } from './execution/TaskTreePublisher.js';
 import { ThinkingManager } from './execution/ThinkingManager.js';
 import { ToolExecutor } from './execution/ToolExecutor.js';
+import { LoopDetector } from './execution/LoopDetector.js';
+import { ForwardModel } from './execution/ForwardModel.js';
+import { ModelSelector } from '../cognitive/ModelSelector.js';
 
 /**
  * FunctionCallingAgent の run() に渡す状態
@@ -61,6 +67,10 @@ export interface FunctionCallingAgentState {
     onTaskTreeUpdate?: (taskTree: TaskTreeState) => void;
     /** 音声向け: LLMストリーミング中に1文完成するたびに呼ばれるコールバック */
     onStreamSentence?: (sentence: string) => Promise<void>;
+    /** 動的モデル選択: ClassifyNode の結果に基づくモデル名 */
+    selectedModel?: string;
+    /** メタ認知等から現在実行中のスキルを中断するためのコールバック */
+    onRequestSkillInterrupt?: () => void;
 }
 
 /**
@@ -94,6 +104,8 @@ export class FunctionCallingAgent {
     private taskTreePublisher: TaskTreePublisher;
     private thinkingManager: ThinkingManager;
     private toolExecutor: ToolExecutor;
+    private loopDetector: LoopDetector;
+    private forwardModel: ForwardModel;
 
     // ユーザーからのリアルタイムフィードバック
     private pendingFeedback: string[] = [];
@@ -101,7 +113,7 @@ export class FunctionCallingAgent {
     // === 設定 ===
     static get MODEL_NAME() { return modelManager.get('functionCalling'); }
     static readonly MAX_ITERATIONS = 50;
-    static readonly LLM_TIMEOUT_MS = 30000;   // 1回のLLM呼び出し: 30秒
+    static readonly LLM_TIMEOUT_MS_DEFAULT = 30000;
     static readonly MAX_TOTAL_TIME_MS = 300000; // 全体: 5分
 
     constructor(tools: StructuredTool[]) {
@@ -130,6 +142,8 @@ export class FunctionCallingAgent {
         this.taskTreePublisher = new TaskTreePublisher(eventBus);
         this.thinkingManager = new ThinkingManager();
         this.toolExecutor = new ToolExecutor(this.taskTreePublisher);
+        this.loopDetector = new LoopDetector();
+        this.forwardModel = new ForwardModel();
 
         logger.info(`🤖 FunctionCallingAgent(Web/Discord): model=${FunctionCallingAgent.MODEL_NAME}, tools=${tools.length}`, 'cyan');
     }
@@ -187,29 +201,35 @@ export class FunctionCallingAgent {
         this.relaxAbortSignalListenerLimit(signal);
 
         this.thinkingManager.resetThinkingState();
-        logger.info(`🤖 FunctionCallingAgent: タスク実行開始 "${goal}"${isEmergency ? ' [緊急]' : ''}`, 'cyan');
+        this.loopDetector.reset();
+        this.forwardModel.reset();
+
+        // 動的モデル選択 (RAS / ModelSelector)
+        const modelSelector = new ModelSelector(state.selectedModel || FunctionCallingAgent.MODEL_NAME);
+        logger.info(`🤖 FunctionCallingAgent: タスク実行開始 "${goal}"${isEmergency ? ' [緊急]' : ''} (model=${modelSelector.modelName})`, 'cyan');
         if (signal) {
             signal.addEventListener('abort', onParentAbort, { once: true });
         }
 
         // allowedTools が指定されている場合、フィルタリングした modelWithTools を使う
-        let effectiveModelWithTools = this.modelWithTools;
-        let effectiveToolMap = this.toolMap;
+        let effectiveTools = [...this.tools];
+        let effectiveToolMap = new Map(this.toolMap);
         if (state.allowedTools && state.allowedTools.length > 0) {
-            const filteredTools = this.tools.filter(t => state.allowedTools!.includes(t.name));
-            effectiveModelWithTools = this.model.bindTools(filteredTools);
-            effectiveToolMap = new Map(filteredTools.map(t => [t.name, t]));
-            logger.info(`🔒 allowedTools: ${state.allowedTools.join(', ')} (${filteredTools.length}/${this.tools.length})`, 'cyan');
+            effectiveTools = this.tools.filter(t => state.allowedTools!.includes(t.name));
+            effectiveToolMap = new Map(effectiveTools.map(t => [t.name, t]));
+            logger.info(`🔒 allowedTools: ${state.allowedTools.join(', ')} (${effectiveTools.length}/${this.tools.length})`, 'cyan');
         }
 
         const channelOutputTools = this.promptBuilder.getDisabledOutputTools(state.context);
         if (channelOutputTools.length > 0) {
-            const filteredTools = [...effectiveToolMap.values()].filter(
+            effectiveTools = effectiveTools.filter(
                 (tool) => !channelOutputTools.includes(tool.name),
             );
-            effectiveModelWithTools = this.model.bindTools(filteredTools);
-            effectiveToolMap = new Map(filteredTools.map((tool) => [tool.name, tool]));
+            effectiveToolMap = new Map(effectiveTools.map((tool) => [tool.name, tool]));
         }
+
+        // ModelSelector にツールをバインド
+        let effectiveModelWithTools = modelSelector.bindTools(effectiveTools);
 
         // update-plan ツールにコンテキストを設定
         if (this.updatePlanTool) {
@@ -243,6 +263,29 @@ export class FunctionCallingAgent {
                 if (knowledgeContext) {
                     systemPrompt += knowledgeContext;
                 }
+            }
+        } catch { }
+
+        // Minecraft: ゴールからクラフト関連アイテムを抽出し依存チェーンを注入
+        if (state.context?.platform === 'minecraft' || state.context?.platform === 'minebot') {
+            try {
+                const depPrompt = this.buildCraftDependencyPrompt(goal);
+                if (depPrompt) {
+                    systemPrompt += depPrompt;
+                }
+            } catch { }
+        }
+
+        // 海馬: 過去の類似タスクエピソードを想起して注入
+        try {
+            const episodeMemory = TaskEpisodeMemory.getInstance();
+            const episodes = await episodeMemory.recallRelevantEpisodes(
+                goal,
+                state.context?.platform ?? 'unknown',
+            );
+            const episodePrompt = episodeMemory.formatForPrompt(episodes);
+            if (episodePrompt) {
+                systemPrompt += `\n\n${episodePrompt}`;
             }
         } catch { }
 
@@ -345,9 +388,10 @@ export class FunctionCallingAgent {
 
                 // ── LLM 呼び出し（タイムアウト付き） ──
                 const callAbort = new AbortController();
+                const currentTimeoutMs = modelSelector.timeoutMs;
                 const callTimeout = setTimeout(
                     () => callAbort.abort(),
-                    FunctionCallingAgent.LLM_TIMEOUT_MS,
+                    currentTimeoutMs,
                 );
                 activeCallAbort = callAbort;
                 this.relaxAbortSignalListenerLimit(callAbort.signal);
@@ -368,7 +412,7 @@ export class FunctionCallingAgent {
                     const usage = (response as AIMessage & { usage_metadata?: { input_tokens?: number; output_tokens?: number } })?.usage_metadata;
                     if (usage) {
                         tokenTracker.record(
-                            this.model.modelName || 'unknown',
+                            modelSelector.modelName || 'unknown',
                             'FunctionCallingAgent',
                             usage.input_tokens || 0,
                             usage.output_tokens || 0,
@@ -381,7 +425,7 @@ export class FunctionCallingAgent {
                     if (signal?.aborted) throw new Error('Task aborted');
                     if ((e instanceof Error && e.name === 'AbortError') || callAbort.signal.aborted) {
                         throw new Error(
-                            `LLM timeout (${FunctionCallingAgent.LLM_TIMEOUT_MS / 1000}s)`,
+                            `LLM timeout (${currentTimeoutMs / 1000}s)`,
                         );
                     }
                     throw e;
@@ -467,11 +511,74 @@ export class FunctionCallingAgent {
                 // ツール呼び出しがあった → カウンタリセット
                 consecutiveTextOnly = 0;
 
+                // ── ForwardModel: 事前予測チェック（小脳） ──
+                const forwardModelBlocked: Array<{ call: typeof toolCalls[0]; prediction: ReturnType<ForwardModel['predict']> }> = [];
+                const passedToolCalls = toolCalls.filter(tc => {
+                    if (tc.name === 'task-complete' || tc.name === 'update-plan') return true;
+
+                    // LoopDetector でブロックされているか
+                    if (this.loopDetector.isCallBlocked(tc.name, tc.args)) {
+                        forwardModelBlocked.push({
+                            call: tc,
+                            prediction: { shouldBlock: true, reason: 'LoopDetector によりブロック済み', suggestion: null, consecutiveBlocks: 0 },
+                        });
+                        return false;
+                    }
+
+                    // ForwardModel で予測
+                    const prediction = this.forwardModel.predict(tc.name, tc.args, {
+                        recentResults: this.forwardModel['recentResults'],
+                    });
+                    if (prediction.shouldBlock) {
+                        forwardModelBlocked.push({ call: tc, prediction });
+                        return false;
+                    }
+                    return true;
+                });
+
+                // ブロックされたツール呼び出しの結果を LLM に伝える
+                if (forwardModelBlocked.length > 0) {
+                    let hasRepeatedBlock = false;
+                    for (const { call, prediction } of forwardModelBlocked) {
+                        const isRepeated = prediction.consecutiveBlocks >= 3;
+                        if (isRepeated) hasRepeatedBlock = true;
+
+                        const blockMsg = isRepeated
+                            ? `🚫 ${call.name} は${prediction.consecutiveBlocks}回連続でブロックされています。このアプローチは機能しません。` +
+                              (prediction.suggestion ? ` 必須: ${prediction.suggestion}` : ' 完全に別のアプローチに切り替えてください。')
+                            : [
+                                `⚠️ ${call.name} の実行がブロックされました。`,
+                                prediction.reason ? `理由: ${prediction.reason}` : '',
+                                prediction.suggestion ? `提案: ${prediction.suggestion}` : '',
+                            ].filter(Boolean).join(' ');
+
+                        logger.info(`[ForwardModel] 🧠 ブロック: ${call.name} — ${prediction.reason} (${prediction.consecutiveBlocks}回目)`, 'yellow');
+                        messages.push(new ToolMessage({
+                            content: `結果: 失敗 詳細: ${blockMsg} [failure_type=predicted_failure recoverable=${!isRepeated}]`,
+                            tool_call_id: call.id || `call_${Date.now()}`,
+                        }));
+                    }
+
+                    if (hasRepeatedBlock) {
+                        logger.warn(`[ForwardModel] 🔺 連続ブロック上限到達 → エスカレーション要求`);
+                        if (modelSelector.escalate('ForwardModel: 同一パターン連続ブロック3回')) {
+                            effectiveModelWithTools = modelSelector.bindTools(
+                                [...effectiveToolMap.values()],
+                            );
+                        }
+                    }
+
+                    if (passedToolCalls.length === 0) {
+                        iteration++;
+                        continue;
+                    }
+                }
+
                 // ── ツール実行 ──
-                logger.info(`🔧 ${toolCalls.length}個のツールを実行中...`, 'cyan');
+                logger.info(`🔧 ${passedToolCalls.length}個のツールを実行中...`, 'cyan');
 
                 const execResult = await this.toolExecutor.executeToolCalls(
-                    toolCalls,
+                    passedToolCalls,
                     effectiveToolMap,
                     messages,
                     {
@@ -531,6 +638,37 @@ export class FunctionCallingAgent {
                         messages,
                         forceStop: false,
                     };
+                }
+
+                // ── LoopDetector: 繰り返し失敗の検出（前帯状皮質） ──
+                const loopDetection = this.loopDetector.recordAndCheck(passedToolCalls, iterationResults);
+                this.forwardModel.learn(iterationResults);
+
+                if (loopDetection.detected) {
+                    logger.warn(`[LoopDetector] 🔴 ループ検出: ${loopDetection.summary}`);
+
+                    // ブロック対象ツールを effectiveToolMap から除去
+                    if (loopDetection.blockedTools.size > 0) {
+                        const availableTools = [...effectiveToolMap.values()].filter(
+                            t => !loopDetection.blockedTools.has(t.name),
+                        );
+                        effectiveModelWithTools = modelSelector.bindTools(availableTools);
+                        effectiveToolMap = new Map(availableTools.map(t => [t.name, t]));
+                    }
+
+                    // エスカレーション推奨 → モデルを上げる
+                    if (loopDetection.needsEscalation) {
+                        if (modelSelector.escalate('LoopDetector: 高失敗率')) {
+                            effectiveModelWithTools = modelSelector.bindTools(
+                                [...effectiveToolMap.values()],
+                            );
+                        }
+                    }
+
+                    // ループ回避プロンプトを注入
+                    if (loopDetection.breakingPrompt) {
+                        messages.push(new SystemMessage(loopDetection.breakingPrompt));
+                    }
                 }
 
                 const newRecoverableFailure = ToolExecutor.pickRecoverableFailure(iterationResults, state.context);
@@ -714,6 +852,56 @@ export class FunctionCallingAgent {
             });
         }
         return new AIMessage({ content: '' });
+    }
+
+    /**
+     * ゴール文字列からクラフト対象アイテムを推定し、依存チェーンをプロンプト用テキストとして返す。
+     * minecraft-data のデフォルトバージョン 1.20 を使用。
+     */
+    private buildCraftDependencyPrompt(goal: string): string | null {
+        const MC_VERSION = '1.20';
+        const resolver = RecipeDependencyResolver.getInstance(MC_VERSION);
+
+        const items = this.extractCraftTargets(goal);
+        if (items.length === 0) return null;
+
+        return resolver.buildDependencyPrompt(items);
+    }
+
+    /**
+     * テキストからクラフト／精錬対象と思われるアイテム名を抽出する。
+     * 英語名 (snake_case) と日本語の「〇〇を作って」パターンの両方をサポート。
+     */
+    private extractCraftTargets(text: string): string[] {
+        const targets: string[] = [];
+
+        const snakeCaseMatches = text.match(/[a-z][a-z0-9_]+(?:_[a-z0-9]+)+/g);
+        if (snakeCaseMatches) {
+            targets.push(...snakeCaseMatches);
+        }
+
+        const JP_ITEM_MAP: Record<string, string> = {
+            '鉄インゴット': 'iron_ingot', '金インゴット': 'gold_ingot', '銅インゴット': 'copper_ingot',
+            '作業台': 'crafting_table', 'かまど': 'furnace', 'チェスト': 'chest',
+            '木のツルハシ': 'wooden_pickaxe', '石のツルハシ': 'stone_pickaxe', '鉄のツルハシ': 'iron_pickaxe',
+            'ダイヤのツルハシ': 'diamond_pickaxe', '木の剣': 'wooden_sword', '石の剣': 'stone_sword',
+            '鉄の剣': 'iron_sword', 'ダイヤの剣': 'diamond_sword', 'ベッド': 'bed',
+            '松明': 'torch', 'たいまつ': 'torch', 'はしご': 'ladder',
+            'ドア': 'oak_door', '柵': 'oak_fence', 'バケツ': 'bucket',
+            '鉄の防具': 'iron_chestplate', '鉄のヘルメット': 'iron_helmet', '鉄のブーツ': 'iron_boots',
+            '鉄のレギンス': 'iron_leggings', '盾': 'shield', '弓': 'bow',
+            '矢': 'arrow', '釣り竿': 'fishing_rod', '焼き鳥': 'cooked_chicken',
+            '焼き肉': 'cooked_beef', '焼き豚': 'cooked_porkchop',
+            'パン': 'bread', 'ケーキ': 'cake',
+        };
+
+        for (const [jp, en] of Object.entries(JP_ITEM_MAP)) {
+            if (text.includes(jp) && !targets.includes(en)) {
+                targets.push(en);
+            }
+        }
+
+        return targets;
     }
 
     private relaxAbortSignalListenerLimit(

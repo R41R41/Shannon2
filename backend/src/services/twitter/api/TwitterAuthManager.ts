@@ -3,7 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { TwitterApi } from 'twitter-api-v2';
 import { config } from '../../../config/env.js';
-import { logger } from '../../../utils/logger.js';
+import { createLogger } from '../../../utils/logger.js';
+const logger = createLogger('Twitter:Auth');
 
 // login_cookies の永続化ファイルパス
 const LOGIN_COOKIES_FILE = path.resolve('saves/twitter_login_cookies.json');

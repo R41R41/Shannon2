@@ -12,7 +12,7 @@ class CraftOne extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'craft-one';
-    this.description = '指定アイテムを1個クラフトします。';
+    this.description = '指定アイテムをクラフトします。countで一度に複数個クラフトできます。';
     this.mcData = minecraftData(this.bot.version);
     this.params = [
       {
@@ -20,6 +20,12 @@ class CraftOne extends InstantSkill {
         type: 'string',
         description: 'クラフトするアイテム名',
         required: true,
+      },
+      {
+        name: 'count',
+        type: 'number',
+        description: 'クラフトする個数（デフォルト: 1）',
+        default: 1,
       },
     ];
   }
@@ -56,6 +62,50 @@ class CraftOne extends InstantSkill {
   /**
    * 木材系アイテムに注釈を追加
    */
+  /**
+   * 材料不足時に、インベントリの素材で作れる代替アイテムを提案する
+   */
+  private suggestAlternatives(itemName: string, inventoryItems: any[]): string | null {
+    const woodTypes = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove', 'cherry', 'bamboo', 'crimson', 'warped', 'pale_oak'];
+    const woodSuffixes = ['_planks', '_slab', '_stairs', '_fence', '_door', '_button', '_pressure_plate', '_sign', '_boat'];
+
+    for (const suffix of woodSuffixes) {
+      if (!itemName.endsWith(suffix)) continue;
+
+      const availableLogs = inventoryItems
+        .filter((i: any) => i.name.endsWith('_log') || i.name.endsWith('_wood') || i.name.endsWith('_stem'))
+        .map((i: any) => {
+          const woodType = woodTypes.find(wt => i.name.startsWith(wt)) || i.name.replace(/_log$|_wood$|_stem$/, '');
+          return { logName: i.name, count: i.count, woodType };
+        });
+
+      const availablePlanks = inventoryItems
+        .filter((i: any) => i.name.endsWith('_planks'))
+        .map((i: any) => ({ name: i.name, count: i.count }));
+
+      const suggestions: string[] = [];
+
+      for (const plank of availablePlanks) {
+        const altName = plank.name.replace('_planks', '') + suffix;
+        if (this.mcData.itemsByName[altName] && altName !== itemName) {
+          suggestions.push(`${altName}（${plank.name} x${plank.count} あり）`);
+        }
+      }
+
+      for (const log of availableLogs) {
+        const plankName = `${log.woodType}_planks`;
+        const altName = log.woodType + suffix;
+        if (this.mcData.itemsByName[altName] && altName !== itemName) {
+          suggestions.push(`${altName}（${log.logName} x${log.count} から ${plankName} を作成可能）`);
+        }
+      }
+
+      if (suggestions.length > 0) return suggestions.slice(0, 3).join(', ');
+    }
+
+    return null;
+  }
+
   private addWoodNote(name: string): string {
     const woodTypes = ['oak', 'spruce', 'birch', 'jungle', 'acacia', 'dark_oak', 'mangrove', 'cherry', 'bamboo', 'crimson', 'warped', 'pale_oak'];
     const woodSuffixes = ['_planks', '_log', '_wood', '_slab', '_stairs'];
@@ -72,7 +122,7 @@ class CraftOne extends InstantSkill {
     return name;
   }
 
-  async runImpl(itemName: string) {
+  async runImpl(itemName: string, count: number = 1) {
     try {
       // 開いているGUIを閉じる（activate-blockで開いたクラフトテーブルなど）
       if (this.bot.currentWindow) {
@@ -127,8 +177,10 @@ class CraftOne extends InstantSkill {
         };
       }
 
+      const craftCount = Math.max(1, Math.min(count, 64));
+
       // レシピを取得
-      let recipes = this.bot.recipesFor(item.id, null, 1, craftingTable);
+      let recipes = this.bot.recipesFor(item.id, null, craftCount, craftingTable);
 
       if (recipes.length === 0) {
         if (allRecipes && allRecipes.length > 0) {
@@ -173,11 +225,13 @@ class CraftOne extends InstantSkill {
             ? recipePatterns.join(' or ')
             : '不明';
 
+          const alternatives = this.suggestAlternatives(itemName, this.bot.inventory.items());
           return {
             success: false,
             result: `${itemName}のクラフトに必要な材料が不足。` +
               `必要: ${requiredMaterials}。` +
-              `現在のインベントリ: ${inventory}。`,
+              `現在のインベントリ: ${inventory}。` +
+              (alternatives ? ` 代替案: ${alternatives}` : ''),
           };
         }
         return {
@@ -194,7 +248,7 @@ class CraftOne extends InstantSkill {
         .reduce((sum: number, i: any) => sum + i.count, 0);
 
       // クラフト実行
-      await this.bot.craft(recipe, 1, craftingTable || undefined);
+      await this.bot.craft(recipe, craftCount, craftingTable || undefined);
 
       // 少し待ってからインベントリを確認
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -204,10 +258,11 @@ class CraftOne extends InstantSkill {
         .filter((i: any) => i.name === itemName)
         .reduce((sum: number, i: any) => sum + i.count, 0);
 
-      if (afterCount > beforeCount) {
+      const crafted = afterCount - beforeCount;
+      if (crafted > 0) {
         return {
           success: true,
-          result: `${itemName}を1個クラフトしました（${beforeCount}→${afterCount}個）`,
+          result: `${itemName}を${crafted}個クラフトしました（${beforeCount}→${afterCount}個）`,
         };
       } else {
         return {

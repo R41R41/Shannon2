@@ -169,6 +169,22 @@ class MoveTo extends InstantSkill {
         log.info('🏊 水中移動モード', 'cyan');
       }
 
+      // ピッカクスがあれば自動装備（pathfinder がブロックを掘る際に使われる）
+      const pickaxe = this.bot.inventory.items()
+        .filter((item) => item.name.includes('pickaxe'))
+        .sort((a, b) => {
+          const tierOrder: Record<string, number> = { netherite: 5, diamond: 4, iron: 3, stone: 2, golden: 1, wooden: 0 };
+          const tierA = Object.keys(tierOrder).find((t) => a.name.includes(t)) ?? '';
+          const tierB = Object.keys(tierOrder).find((t) => b.name.includes(t)) ?? '';
+          return (tierOrder[tierB] ?? -1) - (tierOrder[tierA] ?? -1);
+        })[0];
+      if (pickaxe) {
+        try {
+          await this.bot.equip(pickaxe, 'hand');
+          log.debug(`⛏ ${pickaxe.name} を装備`);
+        } catch { /* ignore equip failure */ }
+      }
+
       // goalTypeに応じてGoalを選択
       let goal;
       let goalDescription: string;
@@ -233,16 +249,48 @@ class MoveTo extends InstantSkill {
             log.warn(`⚠️ スタック検出 (${stuckCount}回目) - 位置(${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`);
 
             if (stuckCount === 1) {
+              // ジャンプで脱出試行
               this.bot.setControlState('jump', true);
               setTimeout(() => this.bot.setControlState('jump', false), 400);
             } else if (stuckCount === 2) {
+              // 後退+ジャンプ
               this.bot.setControlState('back', true);
               this.bot.setControlState('jump', true);
               setTimeout(() => {
                 this.bot.setControlState('back', false);
                 this.bot.setControlState('jump', false);
               }, 600);
-            } else if (stuckCount >= 3) {
+            } else if (stuckCount === 3) {
+              // 斜め移動（左方向）+ジャンプで脱出
+              this.bot.setControlState('left', true);
+              this.bot.setControlState('forward', true);
+              this.bot.setControlState('jump', true);
+              setTimeout(() => {
+                this.bot.setControlState('left', false);
+                this.bot.setControlState('forward', false);
+                this.bot.setControlState('jump', false);
+              }, 800);
+            } else if (stuckCount === 4) {
+              // 斜め移動（右方向）+ジャンプ
+              this.bot.setControlState('right', true);
+              this.bot.setControlState('forward', true);
+              this.bot.setControlState('jump', true);
+              setTimeout(() => {
+                this.bot.setControlState('right', false);
+                this.bot.setControlState('forward', false);
+                this.bot.setControlState('jump', false);
+              }, 800);
+            } else if (stuckCount === 5) {
+              // pathfinder の経路を再計算
+              log.info('🔄 経路再計算を試行');
+              try {
+                this.bot.pathfinder.stop();
+                setTimeout(() => {
+                  try { this.bot.pathfinder.goto(goal); } catch { /* ignore */ }
+                }, 300);
+              } catch { /* ignore */ }
+            } else if (stuckCount >= 6) {
+              // 障害物検出
               const yaw = this.bot.entity.yaw;
               const blockAtFeet = this.bot.blockAt(pos.offset(-Math.sin(yaw), 0, Math.cos(yaw)));
               const blockAtHead = this.bot.blockAt(pos.offset(-Math.sin(yaw), 1, Math.cos(yaw)));

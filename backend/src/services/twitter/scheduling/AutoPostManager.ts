@@ -7,7 +7,8 @@ import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import fs from 'fs';
 import path from 'path';
-import { logger } from '../../../utils/logger.js';
+import { createLogger } from '../../../utils/logger.js';
+const logger = createLogger('Twitter:AutoPost');
 import { TwitterApiClient } from '../api/TwitterApiClient.js';
 import { EventBus } from '../../eventBus/eventBus.js';
 

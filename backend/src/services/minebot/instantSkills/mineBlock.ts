@@ -8,13 +8,13 @@ class MineBlock extends InstantSkill {
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'mine-block';
-    this.description = '指定した種類のブロックを近くから探し、必要数だけ採掘します。';
+    this.description = '指定した種類のブロックを近くから探し、必要数だけ採掘します。ブロック名はMinecraftの正式ID（例: coal_ore, iron_ore, diamond_ore, oak_log）を使用してください。';
     this.mcData = minecraftData(this.bot.version);
     this.params = [
       {
         name: 'blockName',
         type: 'string',
-        description: '採掘するブロック名',
+        description: '採掘するブロック名（Minecraft正式ID: coal_ore, iron_ore, deepslate_iron_ore, diamond_ore, oak_log, stone 等。coalやironではなく_ore付きの正式名を使うこと）',
         required: true,
       },
       {
@@ -35,9 +35,13 @@ class MineBlock extends InstantSkill {
   async runImpl(blockName: string, count: number = 1, searchRadius: number = 32) {
     const blockType = this.mcData.blocksByName[blockName];
     if (!blockType) {
+      const allBlocks = Object.keys(this.mcData.blocksByName);
+      const suggestions = allBlocks
+        .filter((name: string) => name.includes(blockName.replace('_ore', '').replace('_log', '')))
+        .slice(0, 5);
       return {
         success: false,
-        result: `ブロック${blockName}が見つかりません`,
+        result: `ブロック${blockName}が見つかりません${suggestions.length > 0 ? `。正しい名前: ${suggestions.join(', ')}` : ''}。鉱石は coal_ore, iron_ore 等の _ore 付きの名前を使ってください`,
         failureType: 'invalid_block',
         recoverable: false,
       };

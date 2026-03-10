@@ -29,7 +29,10 @@ export class SkillRegistrar {
 
             this.eventBus.subscribe(`minebot:${skill.skillName}`, async (event) => {
                 try {
-                    const parameters = event.data as any;
+                    const data = event.data as any;
+                    const parameters: unknown[] = Array.isArray(data?.skillParameters)
+                        ? data.skillParameters
+                        : Array.isArray(data) ? data : [];
                     skill.status = true;
                     const response = await skill.run(...parameters);
                     skill.status = false;
@@ -45,7 +48,7 @@ export class SkillRegistrar {
                         memoryZone: 'minecraft',
                         data: {
                             success: false,
-                            result: error,
+                            result: error?.message ?? String(error),
                         },
                     });
                 }
