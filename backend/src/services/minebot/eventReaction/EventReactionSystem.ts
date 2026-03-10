@@ -3,10 +3,9 @@
  * イベント反応を管理するシステム
  */
 
-import { TaskGraph } from '../llm/graph/taskGraph.js';
 import { CustomBot } from '../types.js';
-import { EmergencyResponder } from './EmergencyResponder.js';
 import { createLogger } from '../../../utils/logger.js';
+import { MinebotTaskRuntime } from '../runtime/MinebotTaskRuntime.js';
 import prismarineBiome from 'prismarine-biome';
 import * as prismarineRegistry from 'prismarine-registry';
 
@@ -98,8 +97,7 @@ import {
 
 export class EventReactionSystem {
     private bot: CustomBot;
-    private taskGraph: TaskGraph | null = null;
-    private emergencyResponder: EmergencyResponder;
+    private taskRuntime: MinebotTaskRuntime;
     private configs: Map<EventType, EventReactionConfig>;
 
     // 状態追跡
@@ -114,9 +112,9 @@ export class EventReactionSystem {
     private environmentCheckInterval: NodeJS.Timeout | null = null;
     private hostileCheckInterval: NodeJS.Timeout | null = null;
 
-    constructor(bot: CustomBot) {
+    constructor(bot: CustomBot, taskRuntime: MinebotTaskRuntime) {
         this.bot = bot;
-        this.emergencyResponder = new EmergencyResponder(bot);
+        this.taskRuntime = taskRuntime;
         this.configs = new Map();
 
         // デフォルト設定を読み込み
@@ -129,9 +127,6 @@ export class EventReactionSystem {
      * 初期化
      */
     async initialize(): Promise<void> {
-        this.taskGraph = TaskGraph.getInstance();
-        await this.emergencyResponder.initialize();
-
         // botがspawn済みの場合のみ初期状態を記録
         if (this.bot.entity) {
             this.updateInitialState();
@@ -217,7 +212,7 @@ export class EventReactionSystem {
      * ボットがidle状態かどうか
      */
     private isIdle(): boolean {
-        return !this.taskGraph?.isRunning() && !this.bot.executingSkill;
+        return !this.taskRuntime.isRunning() && !this.bot.executingSkill;
     }
 
     /**
@@ -696,22 +691,21 @@ export class EventReactionSystem {
     }
 
     /**
-     * 緊急イベントを処理（TaskGraph経由でUIに表示）
+     * 緊急イベントを処理
      */
     private async handleEmergencyEvent(eventData: EventData): Promise<EventReactionResult> {
-        if (!this.taskGraph) {
-            log.warn('⚠️ TaskGraphが初期化されていません');
+        if (!this.taskRuntime.isReady()) {
+            log.warn('⚠️ MinebotTaskRuntime が未接続です');
             return { handled: false, reactionType: 'emergency' };
         }
 
-        // InstantSkill実行中は緊急対応をスキップ（移動中に中断されるのを防ぐ）
+        // 緊急時は実行中スキルより生存を優先する
         if (this.bot.executingSkill) {
-            log.warn('⚠️ InstantSkill実行中のため緊急対応をスキップ');
-            return { handled: false, reactionType: 'emergency' };
+            log.warn('⚠️ InstantSkill実行中だが、緊急対応を優先して割り込みます');
         }
 
         // 既に緊急タスクを処理中の場合はスキップ（上書き防止）
-        if (this.taskGraph.isInEmergencyMode()) {
+        if (this.taskRuntime.isInEmergencyMode()) {
             log.warn('⚠️ 緊急タスク処理中のため新しい緊急イベントをスキップ');
             return { handled: false, reactionType: 'emergency' };
         }
@@ -721,7 +715,7 @@ export class EventReactionSystem {
 
         try {
             // 現在のタスクを中断（paused状態に）
-            this.taskGraph.interruptForEmergency(message);
+            this.taskRuntime.interruptForEmergency(message);
 
             // 緊急タスクを設定（UIに表示される）
             const emergencyTaskInput = {
@@ -729,10 +723,10 @@ export class EventReactionSystem {
                 isEmergency: true,
                 emergencyType: eventData.eventType,
             };
-            this.taskGraph.setEmergencyTask(emergencyTaskInput);
+            this.taskRuntime.setEmergencyTask(emergencyTaskInput);
 
             // 緊急対応タスクを実行
-            await this.taskGraph.invoke(emergencyTaskInput);
+            await this.taskRuntime.invoke(emergencyTaskInput);
 
             return { handled: true, reactionType: 'emergency', message };
         } catch (error) {
@@ -745,7 +739,7 @@ export class EventReactionSystem {
      * タスクイベントを処理
      */
     private async handleTaskEvent(eventData: EventData): Promise<EventReactionResult> {
-        if (!this.taskGraph) {
+        if (!this.taskRuntime.isReady()) {
             return { handled: false, reactionType: 'task' };
         }
 
@@ -754,7 +748,7 @@ export class EventReactionSystem {
 
         try {
             // タスクをキューに追加（直接invokeではなくキュー管理経由）
-            const result = this.taskGraph.addTaskToQueue({
+            const result = this.taskRuntime.addTaskToQueue({
                 userMessage: message,
                 isEmergency: false,
             });

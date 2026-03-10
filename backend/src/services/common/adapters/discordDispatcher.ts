@@ -11,8 +11,9 @@ import type {
   ShannonActionPlan,
   ActionDispatcher,
   DiscordAction,
+  MemoryZone,
 } from '@shannon/common';
-import { getEventBus } from '../../../events/eventBus.js';
+import { getEventBus } from '../../eventBus/index.js';
 import { logger } from '../../../utils/logger.js';
 
 export const discordDispatcher: ActionDispatcher = {
@@ -23,8 +24,8 @@ export const discordDispatcher: ActionDispatcher = {
     const channelId = envelope.discord?.channelId;
     const guildId = envelope.discord?.guildId;
 
-    if (!channelId) {
-      logger.warn('[DiscordDispatcher] No channelId in envelope, cannot dispatch');
+    if (!channelId || !guildId) {
+      logger.warn('[DiscordDispatcher] Missing channelId/guildId in envelope, cannot dispatch');
       return;
     }
 
@@ -37,13 +38,13 @@ export const discordDispatcher: ActionDispatcher = {
     // Fallback: if no explicit actions but has a message, send as reply
     if (actions.length === 0 && plan.message) {
       eventBus.publish({
-        type: 'discord:send_message',
-        memoryZone: `discord:${envelope.discord?.guildName ?? 'unknown'}`,
+        type: 'discord:post_message',
+        memoryZone: `discord:${envelope.discord?.guildName ?? 'unknown'}` as MemoryZone,
         data: {
           channelId,
           guildId,
           text: plan.message,
-          replyToMessageId: envelope.discord?.messageId,
+          imageUrl: '',
         },
       });
     }
@@ -57,56 +58,51 @@ async function dispatchAction(
 ): Promise<void> {
   const channelId = envelope.discord?.channelId;
   const guildId = envelope.discord?.guildId;
-  const memoryZone = `discord:${envelope.discord?.guildName ?? 'unknown'}`;
+  if (!channelId || !guildId) {
+    logger.warn('[DiscordDispatcher] Missing channelId/guildId in envelope action dispatch');
+    return;
+  }
+  const memoryZone = `discord:${envelope.discord?.guildName ?? 'unknown'}` as MemoryZone;
 
   switch (action.type) {
     case 'reply':
       eventBus.publish({
-        type: 'discord:send_message',
+        type: 'discord:post_message',
         memoryZone,
         data: {
           channelId,
           guildId,
           text: action.text,
-          replyToMessageId: envelope.discord?.messageId,
+          imageUrl: '',
         },
       });
       break;
 
     case 'react':
-      eventBus.publish({
-        type: 'discord:react',
-        memoryZone,
-        data: {
-          channelId,
-          messageId: envelope.discord?.messageId,
-          emoji: action.emoji,
-        },
-      });
       break;
 
     case 'send_embed':
       eventBus.publish({
-        type: 'discord:send_embed',
+        type: 'discord:post_message',
         memoryZone,
         data: {
           channelId,
           guildId,
-          title: action.title,
-          body: action.body,
-          color: action.color,
+          text: `## ${action.title}\n\n${action.body}`,
+          imageUrl: '',
         },
       });
       break;
 
     case 'voice_speak':
       eventBus.publish({
-        type: 'discord:voice_speak',
+        type: 'discord:post_message',
         memoryZone,
         data: {
           guildId,
           channelId,
           text: action.text,
+          imageUrl: '',
         },
       });
       break;

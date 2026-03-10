@@ -1,6 +1,8 @@
 export interface MinebotOutput {
   success?: boolean | null;
   result?: string | null;
+  failureType?: string | null;
+  recoverable?: boolean | null;
   skillName?: string | null;
   senderName?: string | null;
   message?: string | null;
@@ -30,6 +32,8 @@ export type SkillParameters = {
 export type SkillResult = {
   success: boolean;
   result: string;
+  failureType?: string;
+  recoverable?: boolean;
 };
 
 export interface MinebotVoiceChatInput {

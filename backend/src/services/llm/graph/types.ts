@@ -4,6 +4,7 @@ import {
   EmotionType,
   HierarchicalSubTask,
   MemoryZone,
+  RequestEnvelope,
   TaskContext,
   TaskStatus,
   TaskTreeState,
@@ -33,6 +34,7 @@ export interface TaskStateInput {
 
   // === タスク情報 ===
   taskTree?: TaskTreeState | null;
+  envelope?: RequestEnvelope;
   messages?: BaseMessage[];
   responseMessage?: string | null;
   userMessage?: string | null;
@@ -46,7 +48,8 @@ export interface TaskStateInput {
 
   // === 音声パイプライン向け ===
   allowedTools?: string[];
-  onToolStarting?: (toolName: string) => void;
+  onToolStarting?: (toolName: string, args?: Record<string, unknown>) => void;
+  onTaskTreeUpdate?: (taskTree: TaskTreeState) => void;
   onStreamSentence?: (sentence: string) => Promise<void>;
   onEmotionResolved?: (emotion: EmotionType | null) => void;
 }
@@ -60,6 +63,8 @@ export interface ExecutionResult {
   success: boolean;
   message: string;
   duration: number;
+  failureType?: string;
+  recoverable?: boolean;
   error?: string;
 }
 
@@ -71,7 +76,7 @@ export interface TaskQueueEntry {
   taskTree: TaskTreeState | null;
   state: TaskStateInput;
   createdAt: number;
-  status: 'pending' | 'executing' | 'paused';
+  status: 'pending' | 'executing' | 'paused' | 'awaiting_user' | 'failed_terminal';
 }
 
 /**
@@ -81,8 +86,12 @@ export interface TaskListState {
   tasks: Array<{
     id: string;
     goal: string;
-    status: 'pending' | 'executing' | 'paused';
+    status: 'pending' | 'executing' | 'paused' | 'awaiting_user' | 'failed_terminal';
     createdAt: number;
+    recoveryStatus?: 'idle' | 'retrying' | 'awaiting_user' | 'failed_terminal';
+    recoveryAttempts?: number;
+    retryBudget?: number;
+    lastFailureType?: string | null;
   }>;
   emergencyTask: {
     id: string;
@@ -90,6 +99,8 @@ export interface TaskListState {
     createdAt: number;
   } | null;
   currentTaskId: string | null;
+  currentTaskTree?: TaskTreeState | null;
+  currentRecoveryStatus?: 'idle' | 'retrying' | 'awaiting_user' | 'failed_terminal' | null;
 }
 
 /**

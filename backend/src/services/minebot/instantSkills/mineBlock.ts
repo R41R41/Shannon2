@@ -1,0 +1,127 @@
+import minecraftData from 'minecraft-data';
+import { Vec3 } from 'vec3';
+import { CustomBot, InstantSkill } from '../types.js';
+
+class MineBlock extends InstantSkill {
+  private mcData: any;
+
+  constructor(bot: CustomBot) {
+    super(bot);
+    this.skillName = 'mine-block';
+    this.description = '指定した種類のブロックを近くから探し、必要数だけ採掘します。';
+    this.mcData = minecraftData(this.bot.version);
+    this.params = [
+      {
+        name: 'blockName',
+        type: 'string',
+        description: '採掘するブロック名',
+        required: true,
+      },
+      {
+        name: 'count',
+        type: 'number',
+        description: '採掘する個数（デフォルト: 1）',
+        default: 1,
+      },
+      {
+        name: 'searchRadius',
+        type: 'number',
+        description: '検索半径（デフォルト: 32）',
+        default: 32,
+      },
+    ];
+  }
+
+  async runImpl(blockName: string, count: number = 1, searchRadius: number = 32) {
+    const blockType = this.mcData.blocksByName[blockName];
+    if (!blockType) {
+      return {
+        success: false,
+        result: `ブロック${blockName}が見つかりません`,
+        failureType: 'invalid_block',
+        recoverable: false,
+      };
+    }
+
+    const moveTo = this.bot.instantSkills.getSkill('move-to');
+    const digBlockAt = this.bot.instantSkills.getSkill('dig-block-at');
+    if (!moveTo || !digBlockAt) {
+      return {
+        success: false,
+        result: '採掘に必要なスキル(move-to / dig-block-at)が見つかりません',
+        failureType: 'missing_dependency',
+        recoverable: false,
+      };
+    }
+
+    const targets = this.bot.findBlocks({
+      matching: blockType.id,
+      maxDistance: searchRadius,
+      count: Math.max(1, count),
+    });
+
+    if (targets.length === 0) {
+      return {
+        success: false,
+        result: `${searchRadius}ブロック以内に${blockName}が見つかりません`,
+        failureType: 'target_not_found',
+        recoverable: true,
+      };
+    }
+
+    let mined = 0;
+    const failures: string[] = [];
+    let lastFailureType: string | undefined;
+    let lastRecoverable = false;
+
+    for (const pos of targets) {
+      if (mined >= count) break;
+
+      const target = new Vec3(pos.x, pos.y, pos.z);
+      const block = this.bot.blockAt(target);
+      if (!block || block.name !== blockName) {
+        continue;
+      }
+
+      const distance = this.bot.entity.position.distanceTo(target);
+      if (distance > 4.5) {
+        const moveResult = await moveTo.run(target.x, target.y, target.z, 1, 'near');
+        if (!moveResult.success) {
+          lastFailureType = moveResult.failureType ?? 'movement_failed';
+          lastRecoverable = moveResult.recoverable ?? true;
+          failures.push(
+            `移動失敗(${target.x},${target.y},${target.z}): ${moveResult.failureType ?? moveResult.result}`,
+          );
+          continue;
+        }
+      }
+
+      const digResult = await digBlockAt.run(target.x, target.y, target.z, true);
+      if (digResult.success) {
+        mined += 1;
+      } else {
+        lastFailureType = digResult.failureType ?? 'dig_failed';
+        lastRecoverable = digResult.recoverable ?? true;
+        failures.push(
+          `採掘失敗(${target.x},${target.y},${target.z}): ${digResult.failureType ?? digResult.result}`,
+        );
+      }
+    }
+
+    if (mined === 0) {
+      return {
+        success: false,
+        result: `${blockName}を採掘できませんでした${failures.length > 0 ? `: ${failures.join(', ')}` : ''}`,
+        failureType: lastFailureType ?? 'mine_failed',
+        recoverable: lastRecoverable || failures.length === 0,
+      };
+    }
+
+    return {
+      success: true,
+      result: `${blockName}を${mined}個採掘しました${failures.length > 0 ? `（一部失敗: ${failures.join(', ')}）` : ''}`,
+    };
+  }
+}
+
+export default MineBlock;

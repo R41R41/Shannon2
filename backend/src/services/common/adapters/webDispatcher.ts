@@ -9,7 +9,7 @@ import type {
   ShannonActionPlan,
   ActionDispatcher,
 } from '@shannon/common';
-import { getEventBus } from '../../../events/eventBus.js';
+import { getEventBus } from '../../eventBus/index.js';
 
 export const webDispatcher: ActionDispatcher = {
   channel: 'web',
@@ -19,12 +19,13 @@ export const webDispatcher: ActionDispatcher = {
 
     if (plan.message) {
       eventBus.publish({
-        type: 'web:send_message',
+        type: 'web:post_message',
         memoryZone: 'web',
         data: {
+          type: 'text',
           text: plan.message,
-          sessionId: envelope.metadata?.sessionId ?? envelope.conversationId,
         },
+        targetMemoryZones: ['web'],
       });
     }
   },

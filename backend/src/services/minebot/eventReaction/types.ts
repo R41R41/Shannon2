@@ -22,8 +22,8 @@ export type EventType =
  */
 export type ReactionType =
     | 'immediate'   // 即時実行（常時スキルで対応）
-    | 'task'        // TaskGraphに渡す
-    | 'emergency'   // 緊急対応（EmergencyResponder）
+    | 'task'        // MinebotTaskRuntime に渡す
+    | 'emergency'   // 緊急対応（MinebotTaskRuntime）
     | 'info';       // 情報更新のみ
 
 /**

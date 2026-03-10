@@ -1,6 +1,6 @@
 import { BaseMessage } from '@langchain/core/messages';
 import { EventReactionSystem } from '../eventReaction/EventReactionSystem.js';
-import { CentralAgent } from '../llm/graph/centralAgent.js';
+import { MinebotTaskRuntime } from '../runtime/MinebotTaskRuntime.js';
 import { CustomBot } from '../types.js';
 import { createLogger } from '../../../utils/logger.js';
 
@@ -12,7 +12,7 @@ const log = createLogger('Minebot:Event');
  */
 export class BotEventHandler {
     private bot: CustomBot;
-    private centralAgent: CentralAgent;
+    private taskRuntime: MinebotTaskRuntime;
     private recentMessages: BaseMessage[];
     private lastHealth: number = 20;
     private lastOxygen: number = 20;  // 酸素の最大値は20
@@ -21,9 +21,9 @@ export class BotEventHandler {
     private lastDeathMessage: string = '';  // Minecraftの死亡メッセージ
     private eventReactionSystem: EventReactionSystem | null = null;
 
-    constructor(bot: CustomBot, centralAgent: CentralAgent, recentMessages: BaseMessage[]) {
+    constructor(bot: CustomBot, taskRuntime: MinebotTaskRuntime, recentMessages: BaseMessage[]) {
         this.bot = bot;
-        this.centralAgent = centralAgent;
+        this.taskRuntime = taskRuntime;
         this.recentMessages = recentMessages;
         this.lastHealth = bot.health || 20;
     }
@@ -295,29 +295,37 @@ export class BotEventHandler {
 
     /**
      * deathイベント - 死亡時の処理
+     * 即座にタスクを失敗させ、emergencyModeをリセットする
      */
     private registerDeath(): void {
         this.bot.on('death', async () => {
-            // 死亡メッセージがあればそれを使用、なければ推測
             if (!this.lastDeathMessage) {
-                // 推測（フォールバック）
-                const nearbyHostile = this.bot.nearestEntity((entity) => {
-                    if (!entity || !entity.position) return false;
-                    const distance = entity.position.distanceTo(this.bot.entity.position);
-                    if (distance > 10) return false;
-                    const hostileMobs = ['zombie', 'husk', 'skeleton', 'creeper', 'spider', 'drowned', 'stray'];
-                    const entityName = entity.name?.toLowerCase() || '';
-                    return hostileMobs.some(mob => entityName.includes(mob));
-                });
+                try {
+                    const nearbyHostile = this.bot.nearestEntity((entity) => {
+                        if (!entity || !entity.position) return false;
+                        const distance = entity.position.distanceTo(this.bot.entity.position);
+                        if (distance > 10) return false;
+                        const hostileMobs = ['zombie', 'husk', 'skeleton', 'creeper', 'spider', 'drowned', 'stray'];
+                        const entityName = entity.name?.toLowerCase() || '';
+                        return hostileMobs.some(mob => entityName.includes(mob));
+                    });
 
-                if (nearbyHostile) {
-                    this.lastDeathMessage = `${nearbyHostile.name}に倒された可能性`;
-                } else {
+                    if (nearbyHostile) {
+                        this.lastDeathMessage = `${nearbyHostile.name}に倒された可能性`;
+                    } else {
+                        this.lastDeathMessage = '不明な原因で死亡';
+                    }
+                } catch {
                     this.lastDeathMessage = '不明な原因で死亡';
                 }
             }
 
             log.error(`💀 ボット死亡: ${this.lastDeathMessage}`);
+
+            // 即座にタスクを失敗させてemergencyModeをリセット（pathfinder等も停止）
+            if (this.taskRuntime.isRunning()) {
+                this.taskRuntime.failCurrentTaskDueToDeath(this.lastDeathMessage);
+            }
         });
     }
 
@@ -328,11 +336,10 @@ export class BotEventHandler {
         this.bot.on('spawn', async () => {
             log.success('🔄 Bot has respawned');
 
-            // TaskGraphに死亡を通知してタスクを失敗としてマーク
-            const taskGraph = this.centralAgent.currentTaskGraph;
-            if (taskGraph && taskGraph.isRunning()) {
+            // deathイベントで処理済みだが、フォールバックとして残す
+            if (this.taskRuntime.isRunning()) {
                 const deathReason = this.lastDeathMessage || '死亡によりタスク失敗';
-                taskGraph.failCurrentTaskDueToDeath(deathReason);
+                this.taskRuntime.failCurrentTaskDueToDeath(deathReason);
             }
 
             // 状態をリセット

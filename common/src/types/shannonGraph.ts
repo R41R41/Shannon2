@@ -195,6 +195,95 @@ export interface UserProfileSnapshot {
   relationshipLevel?: 'stranger' | 'acquaintance' | 'friend' | 'close_friend';
 }
 
+export interface ShannonSelfImprovementGoal {
+  id: string;
+  title: string;
+  reason: string;
+  priority: number;
+  status: 'active' | 'paused' | 'done';
+}
+
+export interface ShannonSelfObservation {
+  timestamp: string;
+  observation: string;
+  confidence: number;
+}
+
+export interface ShannonSelfModel {
+  stableIdentity: {
+    coreMission: string[];
+    behavioralPrinciples: string[];
+    toneIdentity: string[];
+  };
+  capabilities: {
+    strengths: string[];
+    weaknesses: string[];
+    knownFailurePatterns: string[];
+  };
+  activeImprovementGoals: ShannonSelfImprovementGoal[];
+  recentSelfObservations: ShannonSelfObservation[];
+}
+
+export interface RelationshipModel {
+  userId: string;
+  familiarityLevel: number;
+  trustLevel: number;
+  interactionPreferences: {
+    directness: 'low' | 'mid' | 'high';
+    warmth: 'low' | 'mid' | 'high';
+    structure: 'low' | 'mid' | 'high';
+    verbosity: 'short' | 'mid' | 'long';
+  };
+  recurringTopics: string[];
+  activeProjects: string[];
+  cautionFlags: string[];
+  inferredNeeds: string[];
+  updatedAt: string;
+}
+
+export interface GoalHierarchy {
+  coreConstraints: string[];
+  identityGoals: string[];
+  longTermGoals: ShannonSelfImprovementGoal[];
+  sessionGoal?: {
+    title: string;
+    successCriteria: string[];
+  };
+  currentStepGoal?: string;
+}
+
+export interface StrategyUpdate {
+  id: string;
+  basedOnFailure: string;
+  triggerConditions: string[];
+  newStrategy: string;
+  appliesToModes: string[];
+  appliesToUsers?: string[];
+  confidence: number;
+  createdAt: string;
+}
+
+export interface InternalState {
+  curiosity: number;
+  caution: number;
+  confidence: number;
+  warmth: number;
+  focus: number;
+  load: number;
+  reasonNotes?: string[];
+  updatedAt: string;
+}
+
+export interface WorldModelPattern {
+  id: string;
+  domain: 'social' | 'technical' | 'self';
+  pattern: string;
+  evidenceIds: string[];
+  confidence: number;
+  applicability: string[];
+  updatedAt: string;
+}
+
 /**
  * The unified state that flows through the Shannon core graph.
  *
@@ -206,6 +295,12 @@ export interface ShannonGraphState {
 
   // -- user & conversation context --
   userProfile?: UserProfileSnapshot;
+  selfModel?: ShannonSelfModel;
+  relationshipModel?: RelationshipModel;
+  goalHierarchy?: GoalHierarchy;
+  strategyUpdates?: StrategyUpdate[];
+  internalState?: InternalState;
+  worldModelPatterns?: WorldModelPattern[];
   conversationSummary?: string;
   recentMessages?: string[];
 
@@ -222,6 +317,11 @@ export interface ShannonGraphState {
 
   // -- memory recall --
   relevantMemories: MemoryItem[];
+  selfModelPrompt?: string;
+  relationshipPrompt?: string;
+  strategyPrompt?: string;
+  internalStatePrompt?: string;
+  worldModelPrompt?: string;
 
   // -- planning --
   plan?: ShannonPlan;

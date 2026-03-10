@@ -69,6 +69,8 @@ class StartSmelting extends InstantSkill {
         return {
           success: false,
           result: `座標(${x}, ${y}, ${z})にブロックが見つかりません`,
+          failureType: 'target_not_found',
+          recoverable: true,
         };
       }
 
@@ -81,6 +83,8 @@ class StartSmelting extends InstantSkill {
         return {
           success: false,
           result: `${block.name}はかまどではありません`,
+          failureType: 'invalid_target_type',
+          recoverable: true,
         };
       }
 
@@ -90,6 +94,8 @@ class StartSmelting extends InstantSkill {
         return {
           success: false,
           result: `かまどが遠すぎます（距離: ${distance.toFixed(1)}m）`,
+          failureType: 'distance_too_far',
+          recoverable: true,
         };
       }
 
@@ -105,6 +111,8 @@ class StartSmelting extends InstantSkill {
         return {
           success: false,
           result: `${inputItem}を持っていません`,
+          failureType: 'material_missing',
+          recoverable: true,
         };
       }
 
@@ -112,6 +120,8 @@ class StartSmelting extends InstantSkill {
         return {
           success: false,
           result: `燃料${fuelItem}を持っていません。石炭か木炭を入れてください。`,
+          failureType: 'material_missing',
+          recoverable: true,
         };
       }
 
@@ -120,6 +130,8 @@ class StartSmelting extends InstantSkill {
         return {
           success: false,
           result: `${inputItem}が不足しています（必要: ${count}個、所持: ${inputCount}個）`,
+          failureType: 'material_missing',
+          recoverable: true,
         };
       }
 
@@ -129,6 +141,8 @@ class StartSmelting extends InstantSkill {
         return {
           success: false,
           result: 'かまどを開けませんでした',
+          failureType: 'interaction_failed',
+          recoverable: true,
         };
       }
 
@@ -144,6 +158,8 @@ class StartSmelting extends InstantSkill {
           return {
             success: false,
             result: `材料スロットに別のアイテムがあります: ${currentInput.name} x${currentInput.count}。先に取り出してください（withdraw-from-furnace slot="input"）`,
+            failureType: 'slot_conflict',
+            recoverable: true,
           };
         }
 
@@ -153,6 +169,8 @@ class StartSmelting extends InstantSkill {
           return {
             success: false,
             result: `燃料スロットに別のアイテムがあります: ${currentFuel.name} x${currentFuel.count}。先に取り出してください（withdraw-from-furnace slot="fuel"）`,
+            failureType: 'slot_conflict',
+            recoverable: true,
           };
         }
 
@@ -162,6 +180,8 @@ class StartSmelting extends InstantSkill {
           return {
             success: false,
             result: `完成品スロットにアイテムがあります: ${currentOutput.name} x${currentOutput.count}。先に取り出してください（withdraw-from-furnace slot="output"）`,
+            failureType: 'slot_conflict',
+            recoverable: true,
           };
         }
 
@@ -174,6 +194,8 @@ class StartSmelting extends InstantSkill {
             return {
               success: false,
               result: `材料スロットに空きが足りません。現在: ${currentInput.name} x${currentInput.count}、追加可能: ${availableSpace}個`,
+              failureType: 'slot_conflict',
+              recoverable: true,
             };
           }
         }
@@ -198,6 +220,8 @@ class StartSmelting extends InstantSkill {
       return {
         success: false,
         result: `精錬開始エラー: ${error.message}`,
+        failureType: 'smelting_failed',
+        recoverable: true,
       };
     }
   }

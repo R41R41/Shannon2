@@ -48,6 +48,8 @@ class PlaceBlockAt extends InstantSkill {
         return {
           success: false,
           result: '座標は有効な数値である必要があります',
+          failureType: 'invalid_input',
+          recoverable: false,
         };
       }
 
@@ -56,6 +58,8 @@ class PlaceBlockAt extends InstantSkill {
         return {
           success: false,
           result: `ブロック${blockName}が見つかりません`,
+          failureType: 'invalid_block',
+          recoverable: false,
         };
       }
 
@@ -67,6 +71,8 @@ class PlaceBlockAt extends InstantSkill {
         return {
           success: false,
           result: `インベントリに${blockName}がありません`,
+          failureType: 'missing_item',
+          recoverable: true,
         };
       }
 
@@ -80,6 +86,8 @@ class PlaceBlockAt extends InstantSkill {
           result: `設置場所が遠すぎます（距離: ${distance.toFixed(
             1
           )}m、5m以内に近づいてください）`,
+          failureType: 'distance_too_far',
+          recoverable: true,
         };
       }
 
@@ -89,6 +97,8 @@ class PlaceBlockAt extends InstantSkill {
         return {
           success: false,
           result: `座標(${x}, ${y}, ${z})にはすでに${existingBlock.name}があります`,
+          failureType: 'target_occupied',
+          recoverable: true,
         };
       }
 
@@ -107,6 +117,8 @@ class PlaceBlockAt extends InstantSkill {
         return {
           success: false,
           result: `座標(${x}, ${y}, ${z})はボット自身がいる位置です。別の場所に設置してください`,
+          failureType: 'invalid_target',
+          recoverable: true,
         };
       }
 
@@ -138,6 +150,8 @@ class PlaceBlockAt extends InstantSkill {
           success: false,
           result:
             '設置場所の周囲に参照ブロックがありません（空中には設置できません）',
+          failureType: 'unsupported_target',
+          recoverable: true,
         };
       }
 
@@ -162,6 +176,17 @@ class PlaceBlockAt extends InstantSkill {
       return {
         success: false,
         result: `設置エラー: ${errorDetail}`,
+        failureType: error.message.includes('far away')
+          ? 'distance_too_far'
+          : error.message.includes('cannot place')
+            ? 'unsupported_target'
+            : error.message.includes('equipped')
+              ? 'equip_failed'
+              : 'place_failed',
+        recoverable:
+          error.message.includes('far away') ||
+          error.message.includes('cannot place') ||
+          error.message.includes('equipped'),
       };
     }
   }

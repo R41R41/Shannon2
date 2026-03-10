@@ -32,13 +32,14 @@ export const webAdapter: ChannelAdapter<WebNativeEvent> = {
 
     return createEnvelope({
       channel: 'web',
-      sourceUserId: event.senderName ?? 'web-user',
+      sourceUserId: event.senderName ?? `web-user:${sessionId}`,
       sourceDisplayName: event.senderName,
       conversationId: `web:${sessionId}`,
       threadId: `web:${sessionId}`,
       text,
       tags,
       metadata: {
+        sessionId,
         recentChatLog: event.recentChatLog,
         inputType: event.type,
         legacyMemoryZone: 'web',

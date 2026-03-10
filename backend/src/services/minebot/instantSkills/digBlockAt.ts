@@ -3,6 +3,17 @@ import { CustomBot, InstantSkill } from '../types.js';
 import { createLogger } from '../../../utils/logger.js';
 const log = createLogger('Minebot:Skill:digBlockAt');
 
+const PROTECTED_UTILITY_BLOCKS = new Set([
+  'furnace',
+  'blast_furnace',
+  'smoker',
+  'crafting_table',
+  'chest',
+  'trapped_chest',
+  'barrel',
+  'ender_chest',
+]);
+
 /**
  * 原子的スキル: 近くのブロックを掘る（座標指定版）
  */
@@ -46,6 +57,8 @@ class DigBlockAt extends InstantSkill {
         return {
           success: false,
           result: '座標は有効な数値である必要があります',
+          failureType: 'invalid_input',
+          recoverable: false,
         };
       }
 
@@ -59,6 +72,8 @@ class DigBlockAt extends InstantSkill {
           result: `ブロックが遠すぎます（距離: ${distance.toFixed(
             1
           )}m、5m以内に近づいてください）`,
+          failureType: 'distance_too_far',
+          recoverable: true,
         };
       }
 
@@ -68,6 +83,17 @@ class DigBlockAt extends InstantSkill {
         return {
           success: false,
           result: `座標(${x}, ${y}, ${z})にブロックが見つかりません（チャンク未ロードの可能性）`,
+          failureType: 'target_not_found',
+          recoverable: true,
+        };
+      }
+
+      if (PROTECTED_UTILITY_BLOCKS.has(block.name)) {
+        return {
+          success: false,
+          result: `${block.name}は重要設備なのでdig-block-atでは破壊しません`,
+          failureType: 'protected_target',
+          recoverable: true,
         };
       }
 
@@ -76,6 +102,8 @@ class DigBlockAt extends InstantSkill {
         return {
           success: false,
           result: `${block.name}は掘れません（岩盤など）`,
+          failureType: 'undiggable_block',
+          recoverable: false,
         };
       }
 
@@ -90,6 +118,8 @@ class DigBlockAt extends InstantSkill {
           return {
             success: false,
             result: `${block.name}を掘るための適切なツールがありません`,
+            failureType: 'missing_tool',
+            recoverable: true,
           };
         }
 
@@ -132,6 +162,8 @@ class DigBlockAt extends InstantSkill {
         return {
           success: false,
           result: `${blockName}を掘れませんでした（まだ存在しています）。適切なツールが必要かもしれません`,
+          failureType: 'dig_failed',
+          recoverable: true,
         };
       }
 
@@ -169,6 +201,17 @@ class DigBlockAt extends InstantSkill {
       return {
         success: false,
         result: `掘削エラー: ${errorDetail}`,
+        failureType: error.message.includes('far away')
+          ? 'distance_too_far'
+          : error.message.includes("can't dig")
+            ? 'undiggable_block'
+            : error.message.includes('interrupted') || error.message.includes('aborted')
+              ? 'interrupted'
+              : 'dig_failed',
+        recoverable:
+          error.message.includes('far away') ||
+          error.message.includes('interrupted') ||
+          error.message.includes('aborted'),
       };
     }
   }

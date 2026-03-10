@@ -44,6 +44,21 @@ class CheckFurnace extends InstantSkill {
         return {
           success: false,
           result: `座標(${x}, ${y}, ${z})にブロックが見つかりません`,
+          failureType: 'target_not_found',
+          recoverable: true,
+        };
+      }
+
+      if (
+        !block.name.includes('furnace') &&
+        !block.name.includes('smoker') &&
+        !block.name.includes('blast_furnace')
+      ) {
+        return {
+          success: false,
+          result: `座標(${x}, ${y}, ${z})にある${block.name}はかまどではありません`,
+          failureType: 'invalid_target_type',
+          recoverable: true,
         };
       }
 
@@ -53,6 +68,8 @@ class CheckFurnace extends InstantSkill {
         return {
           success: false,
           result: `かまどが遠すぎます（距離: ${distance.toFixed(1)}m）`,
+          failureType: 'distance_too_far',
+          recoverable: true,
         };
       }
 
@@ -62,6 +79,8 @@ class CheckFurnace extends InstantSkill {
         return {
           success: false,
           result: 'かまどを開けませんでした',
+          failureType: 'interaction_failed',
+          recoverable: true,
         };
       }
 
@@ -120,9 +139,14 @@ class CheckFurnace extends InstantSkill {
         throw error;
       }
     } catch (error: any) {
+      const message = String(error?.message ?? '');
       return {
         success: false,
-        result: `確認エラー: ${error.message}`,
+        result: `確認エラー: ${message}`,
+        failureType: message.includes('Open did not fire')
+          ? 'interaction_failed'
+          : 'check_failed',
+        recoverable: true,
       };
     }
   }

@@ -68,20 +68,22 @@ function formatMinecraftPlan(
   message: string,
 ): ShannonActionPlan {
   const actions: MinecraftAction[] = [];
+  const actionSequence =
+    state.plan?.nextActions
+    ?? state.taskTree?.nextActionSequence
+    ?? state.taskTree?.actionSequence
+    ?? [];
 
   // If there's a text response, say it in-game
   if (message) {
     actions.push({ type: 'say', text: message });
   }
 
-  // If the plan has nextActions (from the planning node), convert them
-  if (state.plan?.nextActions) {
-    for (const action of state.plan.nextActions) {
-      // Map existing ActionItem (toolName + args) to MinecraftAction
-      const mapped = mapToolToMinecraftAction(action.toolName, action.args);
-      if (mapped) {
-        actions.push(mapped);
-      }
+  for (const action of actionSequence) {
+    // Map existing ActionItem (toolName + args) to MinecraftAction
+    const mapped = mapToolToMinecraftAction(action.toolName, action.args);
+    if (mapped) {
+      actions.push(mapped);
     }
   }
 

@@ -252,9 +252,9 @@ export type NamedLogger = Omit<typeof logger, 'colorize'>;
  * Creates a logger that prepends `[prefix]` to every message.
  *
  * @example
- *   const log = createLogger('Minebot:TaskGraph');
+ *   const log = createLogger('Minebot:TaskRuntime');
  *   log.info('タスク開始');
- *   // → 2026-02-16 19:30:45.123 [INFO   ] #0312 [Minebot:TaskGraph] タスク開始
+ *   // → 2026-02-16 19:30:45.123 [INFO   ] #0312 [Minebot:TaskRuntime] タスク開始
  */
 export function createLogger(prefix: string): NamedLogger {
   const tag = `[${prefix}]`;

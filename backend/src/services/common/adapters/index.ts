@@ -5,4 +5,7 @@ export { minebotAdapter, type MinebotNativeEvent } from './minebotAdapter.js';
 export { webAdapter, type WebNativeEvent } from './webAdapter.js';
 export { actionFormatterNode } from './actionFormatter.js';
 export { discordDispatcher } from './discordDispatcher.js';
+export { minebotDispatcher } from './minebotDispatcher.js';
 export { webDispatcher } from './webDispatcher.js';
+export { xDispatcher } from './xDispatcher.js';
+export { getActionDispatcher } from './dispatcherRegistry.js';

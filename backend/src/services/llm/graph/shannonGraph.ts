@@ -6,7 +6,6 @@
  *
  * Flow:
  *   ingest → classify → [emotion ∥ recall] → execute → format → writeback → END
- *                      → [minebot_route]    → format → writeback → END
  *
  * Memory: uses ScopedMemoryService directly (no MemoryNode wrapper).
  * Emotion: delegates to EmotionNode.
@@ -16,15 +15,20 @@
 import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { BaseMessage } from '@langchain/core/messages';
 import type {
+  InternalState,
+  RelationshipModel,
   RequestEnvelope,
   ShannonGraphState,
   ShannonMode,
+  ShannonSelfModel,
   ShannonActionPlan,
   MemoryItem,
   ToolCallRecord,
   ShannonPlan,
   SelfModProposal,
+  StrategyUpdate,
   UserProfileSnapshot,
+  WorldModelPattern,
   EmotionType,
   TaskTreeState,
 } from '@shannon/common';
@@ -59,6 +63,17 @@ const ShannonState = Annotation.Root({
 
   // -- memory (scoped recall result) --
   memoryPrompt: Annotation<string>({ reducer: replace, default: () => '' }),
+  userProfile: Annotation<UserProfileSnapshot | undefined>({ reducer: replace, default: () => undefined }),
+  selfModel: Annotation<ShannonSelfModel | undefined>({ reducer: replace, default: () => undefined }),
+  relationshipModel: Annotation<RelationshipModel | undefined>({ reducer: replace, default: () => undefined }),
+  strategyUpdates: Annotation<StrategyUpdate[] | undefined>({ reducer: replace, default: () => undefined }),
+  internalState: Annotation<InternalState | undefined>({ reducer: replace, default: () => undefined }),
+  worldModelPatterns: Annotation<WorldModelPattern[] | undefined>({ reducer: replace, default: () => undefined }),
+  relationshipPrompt: Annotation<string | undefined>({ reducer: replace, default: () => undefined }),
+  selfModelPrompt: Annotation<string | undefined>({ reducer: replace, default: () => undefined }),
+  strategyPrompt: Annotation<string | undefined>({ reducer: replace, default: () => undefined }),
+  internalStatePrompt: Annotation<string | undefined>({ reducer: replace, default: () => undefined }),
+  worldModelPrompt: Annotation<string | undefined>({ reducer: replace, default: () => undefined }),
 
   // -- planning --
   plan: Annotation<ShannonPlan | undefined>({ reducer: replace, default: () => undefined }),
@@ -80,6 +95,14 @@ const ShannonState = Annotation.Root({
   // -- bridge: messages for FCA (until FCA accepts envelope directly) --
   _legacyMessages: Annotation<BaseMessage[]>({ reducer: replace, default: () => [] }),
   _emotionState: Annotation<EmotionState | undefined>({ reducer: replace, default: () => undefined }),
+  _onToolStarting: Annotation<((toolName: string, args?: Record<string, unknown>) => void) | undefined>({
+    reducer: replace,
+    default: () => undefined,
+  }),
+  _onTaskTreeUpdate: Annotation<((taskTree: TaskTreeState) => void) | undefined>({
+    reducer: replace,
+    default: () => undefined,
+  }),
 });
 
 type ShannonStateType = typeof ShannonState.State;
@@ -112,36 +135,8 @@ async function classifyNodeFn(state: ShannonStateType): Promise<Partial<ShannonS
   };
 }
 
-async function minebotRouteNode(state: ShannonStateType): Promise<Partial<ShannonStateType>> {
-  const { getEventBus } = await import('../../../events/eventBus.js');
-  const eventBus = getEventBus();
-  const envelope = state.envelope;
-
-  eventBus.publish({
-    type: state.mode === 'minecraft_emergency' ? 'minebot:emergency' : 'minebot:voice_chat',
-    memoryZone: 'minebot',
-    data: {
-      userName: envelope.sourceUserId ?? 'unknown',
-      message: envelope.text ?? '',
-      guildId: envelope.discord?.guildId,
-      channelId: envelope.discord?.channelId,
-      isEmergency: state.mode === 'minecraft_emergency',
-    },
-  });
-
-  return {
-    finalAnswer: state.mode === 'minecraft_emergency'
-      ? '⚠️ 緊急対応中...'
-      : '🎮 Minecraftで実行中...',
-    trace: ['node:minebot_route'],
-  };
-}
-
 function classifyRouter(state: ShannonStateType): string[] {
-  if (state.mode === 'minecraft_action' || state.mode === 'minecraft_emergency') {
-    return ['minebot_route'];
-  }
-  return ['emotion', 'recall'];
+  return ['emotion_step', 'recall'];
 }
 
 /**
@@ -175,6 +170,17 @@ async function recallNode(state: ShannonStateType): Promise<Partial<ShannonState
   return {
     memoryPrompt: result.formattedPrompt,
     retrievedFacts: result.formattedPrompt ? [result.formattedPrompt] : [],
+    userProfile: result.userProfile ?? undefined,
+    selfModel: result.selfModel ?? undefined,
+    relationshipModel: result.relationshipModel ?? undefined,
+    strategyUpdates: result.strategyUpdates,
+    internalState: result.internalState ?? undefined,
+    worldModelPatterns: result.worldModelPatterns,
+    relationshipPrompt: result.relationshipPrompt || undefined,
+    selfModelPrompt: result.selfModelPrompt || undefined,
+    strategyPrompt: result.strategyPrompt || undefined,
+    internalStatePrompt: result.internalStatePrompt || undefined,
+    worldModelPrompt: result.worldModelPrompt || undefined,
     trace: ['node:recall'],
   };
 }
@@ -193,12 +199,19 @@ function createExecuteNode(fca: FunctionCallingAgent, emotionNode?: EmotionNode)
       userMessage: envelope.text ?? null,
       messages: state._legacyMessages,
       emotionState,
-      memoryState: null, // No longer passing MemoryState — memory is in retrievedFacts/memoryPrompt
+      memoryState: undefined, // No longer passing MemoryState — memory is in retrievedFacts/memoryPrompt
       context,
       channelId: envelope.discord?.channelId ?? envelope.conversationId,
       environmentState: (envelope.metadata?.environmentState as string) ?? null,
       isEmergency: envelope.tags.includes('emergency'),
       memoryPrompt: state.memoryPrompt || undefined,
+      relationshipPrompt: state.relationshipPrompt,
+      selfModelPrompt: state.selfModelPrompt,
+      strategyPrompt: state.strategyPrompt,
+      internalStatePrompt: state.internalStatePrompt,
+      worldModelPrompt: state.worldModelPrompt,
+      onToolStarting: state._onToolStarting,
+      onTaskTreeUpdate: state._onTaskTreeUpdate,
       onToolsExecuted: (messages: BaseMessage[], results: ExecutionResult[]) => {
         if (emotionNode) {
           emotionNode
@@ -210,7 +223,7 @@ function createExecuteNode(fca: FunctionCallingAgent, emotionNode?: EmotionNode)
     });
 
     return {
-      finalAnswer: agentResult.taskTree?.responseMessage ?? undefined,
+      finalAnswer: agentResult.taskTree?.strategy ?? undefined,
       taskTree: agentResult.taskTree ?? undefined,
       emotion: emotionState.current ?? undefined,
       trace: ['node:execute'],
@@ -259,8 +272,7 @@ export function buildShannonGraph(deps: ShannonGraphDeps) {
   const workflow = new StateGraph(ShannonState)
     .addNode('ingest', ingestNode)
     .addNode('classify', classifyNodeFn)
-    .addNode('minebot_route', minebotRouteNode)
-    .addNode('emotion', createEmotionNode(deps.emotionNode))
+    .addNode('emotion_step', createEmotionNode(deps.emotionNode))
     .addNode('recall', recallNode)
     .addNode('execute', createExecuteNode(deps.fca, deps.emotionNode))
     .addNode('format', formatNode)
@@ -269,12 +281,10 @@ export function buildShannonGraph(deps: ShannonGraphDeps) {
     .addEdge(START, 'ingest')
     .addEdge('ingest', 'classify')
     .addConditionalEdges('classify', classifyRouter, {
-      minebot_route: 'minebot_route',
-      emotion: 'emotion',
+      emotion_step: 'emotion_step',
       recall: 'recall',
     })
-    .addEdge('minebot_route', 'format')
-    .addEdge('emotion', 'execute')
+    .addEdge('emotion_step', 'execute')
     .addEdge('recall', 'execute')
     .addEdge('execute', 'format')
     .addEdge('format', 'writeback')
@@ -293,10 +303,16 @@ export async function invokeShannonGraph(
   graph: CompiledShannonGraph,
   envelope: RequestEnvelope,
   legacyMessages?: BaseMessage[],
+  options?: {
+    onToolStarting?: (toolName: string, args?: Record<string, unknown>) => void;
+    onTaskTreeUpdate?: (taskTree: TaskTreeState) => void;
+  },
 ): Promise<ShannonGraphState> {
   const result = await graph.invoke({
     envelope,
     _legacyMessages: legacyMessages ?? [],
+    _onToolStarting: options?.onToolStarting,
+    _onTaskTreeUpdate: options?.onTaskTreeUpdate,
   });
   return result as unknown as ShannonGraphState;
 }

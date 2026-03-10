@@ -102,7 +102,7 @@ const KNOWLEDGE_PATTERNS = [
 /**
  * MemoryNode: 記憶ツール呼び出し判断の専用ノード
  *
- * TaskGraph の実行順序:
+ * Unified Shannon graph の実行順序:
  * EmotionNode → MemoryNode.preProcess → FunctionCallingAgent → MemoryNode.postProcess
  *
  * preProcess:

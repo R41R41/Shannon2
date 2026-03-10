@@ -3,12 +3,15 @@ import { MinebotSkillInput, MinebotVoiceChatInput } from '@shannon/common';
 import fetch from 'node-fetch';
 import { Vec3 } from 'vec3';
 import { EventBus } from '../eventBus/eventBus.js';
+import { config } from '../../config/env.js';
+import { LLMService } from '../llm/client.js';
+import { minebotAdapter } from '../common/adapters/index.js';
 import { CONFIG } from './config/MinebotConfig.js';
 import AutoFaceSpeaker from './constantSkills/autoFaceSpeaker.js';
 import { EventReactionSystem } from './eventReaction/EventReactionSystem.js';
 import { BotEventHandler } from './events/BotEventHandler.js';
 import { MinebotHttpServer } from './http/MinebotHttpServer.js';
-import { CentralAgent } from './llm/graph/centralAgent.js';
+import { MinebotTaskRuntime } from './runtime/MinebotTaskRuntime.js';
 import { SkillLoader } from './skills/SkillLoader.js';
 import { SkillRegistrar } from './skills/SkillRegistrar.js';
 import { CustomBot } from './types.js';
@@ -25,7 +28,7 @@ const log = createLogger('Minebot:SkillAgent');
  * 責任:
  * - 各コンポーネントの初期化と調整
  * - チャットイベントの処理
- * - CentralAgentとの連携
+ * - unified graph 実行を包む Minebot runtime との連携（緊急対応・UI同期）
  */
 export class SkillAgent {
   private bot: CustomBot;
@@ -37,7 +40,7 @@ export class SkillAgent {
   private eventHandler: BotEventHandler;
   private eventReactionSystem: EventReactionSystem;
   private httpServer: MinebotHttpServer;
-  public centralAgent: CentralAgent;
+  private taskRuntime: MinebotTaskRuntime;
 
   // 状態
   private recentMessages: BaseMessage[] = [];
@@ -51,10 +54,11 @@ export class SkillAgent {
     // コンポーネント初期化
     this.skillLoader = new SkillLoader();
     this.skillRegistrar = new SkillRegistrar(eventBus);
-    this.centralAgent = CentralAgent.getInstance(this.bot);
-    this.eventHandler = new BotEventHandler(this.bot, this.centralAgent, this.recentMessages);
-    this.eventReactionSystem = new EventReactionSystem(this.bot);
+    this.taskRuntime = new MinebotTaskRuntime(this.bot);
+    this.eventHandler = new BotEventHandler(this.bot, this.taskRuntime, this.recentMessages);
+    this.eventReactionSystem = new EventReactionSystem(this.bot, this.taskRuntime);
     this.httpServer = new MinebotHttpServer(this.bot, () => this.sendConstantSkills(), () => this.sendReactionSettings());
+    this.httpServer.setTaskRuntime(this.taskRuntime);
   }
 
   /**
@@ -85,19 +89,15 @@ export class SkillAgent {
       await this.registerEventBusSubscriptions();
       log.success('✅ registerEventBusSubscriptions done');
 
-      // CentralAgent初期化
-      await this.centralAgent.initialize();
-      log.success('✅ centralAgent initialized');
-
-      // TaskGraphをbotに設定（HTTPサーバーからアクセスできるように）
-      (this.bot as any).taskGraph = this.centralAgent.currentTaskGraph;
+      this.taskRuntime.setExecutor((envelope, messages, options) =>
+        LLMService.getInstance(config.isDev).invokeGraph(envelope, messages, options),
+      );
+      log.success('✅ minebot task runtime connected to unified graph');
 
       // タスクリスト更新コールバックを設定
-      if (this.centralAgent.currentTaskGraph) {
-        this.centralAgent.currentTaskGraph.setTaskListUpdateCallback((taskListState) => {
-          this.sendTaskListState(taskListState);
-        });
-      }
+      this.taskRuntime.setTaskListUpdateCallback((taskListState) => {
+        void this.sendTaskListState(taskListState);
+      });
 
       // EventReactionSystem初期化
       await this.eventReactionSystem.initialize();
@@ -160,6 +160,7 @@ export class SkillAgent {
     this.skillRegistrar.registerInstantSkills(this.bot.instantSkills);
     this.skillRegistrar.registerConstantSkills(this.bot, this.bot.constantSkills);
     this.skillRegistrar.registerSkillControlEvents(this.bot);
+    await LLMService.getInstance(config.isDev).registerMinebotTools(this.bot);
 
     return { success: true, result: 'skills initialized' };
   }
@@ -372,16 +373,8 @@ export class SkillAgent {
    * FCA の音声応答コールバックをセットする
    */
   private setupVoiceResponse(guildId: string, channelId: string): void {
-    const taskGraph = this.centralAgent.currentTaskGraph;
-    if (taskGraph) {
-      taskGraph.setOnResponseText((responseText: string) => {
-        this.eventBus.publish({
-          type: 'minebot:voice_response',
-          memoryZone: 'minebot',
-          data: { guildId, channelId, responseText },
-        });
-      });
-    }
+    this.lastVoiceGuildId = guildId;
+    this.lastVoiceChannelId = channelId;
   }
 
   /**
@@ -391,7 +384,8 @@ export class SkillAgent {
     userName: string,
     message: string,
     environmentState?: string,
-    selfState?: string
+    selfState?: string,
+    voiceResponseTarget?: { guildId: string; channelId: string },
   ) {
     try {
       const currentTime = new Date().toLocaleString('ja-JP', {
@@ -405,17 +399,127 @@ export class SkillAgent {
         this.recentMessages.splice(0, this.recentMessages.length - 50);
       }
 
-      await this.centralAgent.handlePlayerMessage(
-        userName,
+      const envelope = minebotAdapter.toEnvelope({
+        senderName: userName,
+        senderId: userName,
         message,
-        environmentState,
-        selfState,
-        this.recentMessages
-      );
+        serverName: this.bot.connectedServerName || 'default',
+        senderPosition: this.bot.environmentState.senderPosition
+          ? {
+              x: this.bot.environmentState.senderPosition.x,
+              y: this.bot.environmentState.senderPosition.y,
+              z: this.bot.environmentState.senderPosition.z,
+            }
+          : undefined,
+        weather: this.bot.environmentState.weather,
+        time: this.bot.environmentState.time,
+        biome: this.bot.environmentState.biome,
+        dimension: this.bot.environmentState.dimension?.toString?.() ?? undefined,
+        bossbar: this.bot.environmentState.bossbar ?? undefined,
+        botPosition: this.bot.selfState.botPosition
+          ? {
+              x: this.bot.selfState.botPosition.x,
+              y: this.bot.selfState.botPosition.y,
+              z: this.bot.selfState.botPosition.z,
+            }
+          : undefined,
+        botHealth: Number(this.bot.health ?? 0),
+        botFoodLevel: Number(this.bot.food ?? 0),
+        botHeldItem: this.bot.selfState.botHeldItem,
+        lookingAt: this.bot.selfState.lookingAt?.name,
+        inventory: this.bot.selfState.inventory,
+        nearbyEntities: Object.values(this.bot.entities)
+          .filter((entity: any) => entity?.position && entity !== this.bot.entity)
+          .map((entity: any) => entity.username || entity.name || entity.type)
+          .filter(Boolean)
+          .slice(0, 12),
+        eventType: 'chat',
+      });
+
+      if (environmentState || selfState) {
+        envelope.metadata = {
+          ...(envelope.metadata ?? {}),
+          environmentState,
+          selfState,
+        };
+      }
+
+      let immediateAckSent = false;
+
+      const resumed = await this.taskRuntime.resumeAwaitingUserTask(message, {
+        envelope,
+        messages: [...this.recentMessages],
+        environmentState: environmentState ?? null,
+        selfState: selfState ?? null,
+        onToolStarting: (toolName, args) => {
+          if (immediateAckSent) return;
+          const ack = this.buildImmediateToolAck(toolName, args);
+          if (!ack) return;
+          immediateAckSent = true;
+          this.bot.chat(ack);
+        },
+      });
+      if (resumed) {
+        return;
+      }
+
+      const result = await this.taskRuntime.invoke({
+        envelope,
+        userMessage: message,
+        messages: [...this.recentMessages],
+        environmentState: environmentState ?? null,
+        selfState: selfState ?? null,
+        onToolStarting: (toolName, args) => {
+          if (immediateAckSent) return;
+          const ack = this.buildImmediateToolAck(toolName, args);
+          if (!ack) return;
+          immediateAckSent = true;
+          this.bot.chat(ack);
+        },
+      });
+
+      const graphResult = result?.graphResult;
+      const responseText = graphResult?.actionPlan?.message ?? graphResult?.finalAnswer;
+      if (voiceResponseTarget && responseText) {
+        this.eventBus.publish({
+          type: 'minebot:voice_response',
+          memoryZone: 'minebot',
+          data: {
+            guildId: voiceResponseTarget.guildId,
+            channelId: voiceResponseTarget.channelId,
+            responseText,
+          },
+        });
+      }
     } catch (error) {
       const llmError = new LLMError('message-processing', error as Error);
       log.error(`Message processing failed: ${llmError.message}`, error);
       this.bot.chat('エラーが発生しました。もう一度お試しください。');
+    }
+  }
+
+  private buildImmediateToolAck(
+    toolName: string,
+    args?: Record<string, unknown>,
+  ): string | null {
+    const targetName =
+      typeof args?.targetName === 'string' && args.targetName.trim()
+        ? args.targetName.trim()
+        : null;
+
+    switch (toolName) {
+      case 'follow-entity':
+        return targetName
+          ? `${targetName}のところに向かうね。`
+          : '今そっちに向かうね。';
+      case 'move-to':
+        return '今向かうね。';
+      case 'enter-portal':
+        return '今そっちへ行ってみるね。';
+      case 'flee-from':
+        return 'いったん安全な場所に離れるね。';
+      default:
+        return null;
     }
   }
 
@@ -472,6 +576,7 @@ export class SkillAgent {
         message,
         JSON.stringify(this.bot.environmentState),
         JSON.stringify(this.bot.selfState),
+        { guildId, channelId },
       );
     });
 
@@ -554,6 +659,10 @@ export class SkillAgent {
    */
   getHttpServer(): MinebotHttpServer {
     return this.httpServer;
+  }
+
+  getTaskRuntime() {
+    return this.taskRuntime;
   }
 
   /**

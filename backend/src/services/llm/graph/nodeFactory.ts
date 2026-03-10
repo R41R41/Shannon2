@@ -2,7 +2,7 @@
  * Node Factory
  *
  * Standalone initialization of EmotionNode, FunctionCallingAgent, and tools.
- * Decoupled from TaskGraph — can be used by LLMService directly.
+ * Unified graph 専用のノード初期化。
  */
 
 import { StructuredTool } from '@langchain/core/tools';

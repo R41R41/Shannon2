@@ -60,6 +60,7 @@ export const discordAdapter: ChannelAdapter<DiscordNativeEvent> = {
       metadata: {
         recentMessages: event.recentMessages,
         legacyMemoryZone: event.guildName,
+        isDM: event.isDM,
       },
     });
   },

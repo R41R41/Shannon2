@@ -5,6 +5,7 @@ import { CONFIG } from '../config/MinebotConfig.js';
 
 const log = createLogger('Minebot:HTTP');
 import { EventReactionSystem } from '../eventReaction/EventReactionSystem.js';
+import type { MinebotTaskRuntime } from '../runtime/MinebotTaskRuntime.js';
 import { SkillLoader } from '../skills/SkillLoader.js';
 import { CustomBot } from '../types.js';
 import {
@@ -40,6 +41,7 @@ export class MinebotHttpServer {
     private sendReactionSettingsCallback: () => Promise<void>;
     private onChatMessageCallback: ((sender: string, message: string) => Promise<void>) | null = null;
     private eventReactionSystem: EventReactionSystem | null = null;
+    private taskRuntime: MinebotTaskRuntime | null = null;
 
     constructor(
         bot: CustomBot,
@@ -67,6 +69,10 @@ export class MinebotHttpServer {
      */
     setEventReactionSystem(system: EventReactionSystem): void {
         this.eventReactionSystem = system;
+    }
+
+    setTaskRuntime(taskRuntime: MinebotTaskRuntime): void {
+        this.taskRuntime = taskRuntime;
     }
 
     /**
@@ -318,11 +324,10 @@ export class MinebotHttpServer {
         // タスクリスト取得エンドポイント
         this.app.get('/task_list', async (req: any, res: any) => {
             try {
-                const taskGraph = (this.bot as any).taskGraph;
-                if (!taskGraph) {
+                if (!this.taskRuntime) {
                     return res.status(200).json({ tasks: [], emergencyTask: null, currentTaskId: null });
                 }
-                const taskListState = taskGraph.getTaskListState();
+                const taskListState = this.taskRuntime.getTaskListState();
                 res.status(200).json(taskListState);
             } catch (error) {
                 const httpError = new HttpServerError('/task_list', 500, error as Error);
@@ -339,12 +344,11 @@ export class MinebotHttpServer {
                     return res.status(400).json({ success: false, result: 'taskId is required' });
                 }
 
-                const taskGraph = (this.bot as any).taskGraph;
-                if (!taskGraph) {
-                    return res.status(400).json({ success: false, result: 'TaskGraph not initialized' });
+                if (!this.taskRuntime) {
+                    return res.status(400).json({ success: false, result: 'Task runtime not initialized' });
                 }
 
-                const result = taskGraph.removeTask(taskId);
+                const result = this.taskRuntime.removeTask(taskId);
                 res.status(200).json(result);
             } catch (error) {
                 const httpError = new HttpServerError('/task_delete', 500, error as Error);
@@ -361,12 +365,11 @@ export class MinebotHttpServer {
                     return res.status(400).json({ success: false, result: 'taskId is required' });
                 }
 
-                const taskGraph = (this.bot as any).taskGraph;
-                if (!taskGraph) {
-                    return res.status(400).json({ success: false, result: 'TaskGraph not initialized' });
+                if (!this.taskRuntime) {
+                    return res.status(400).json({ success: false, result: 'Task runtime not initialized' });
                 }
 
-                const result = taskGraph.prioritizeTask(taskId);
+                const result = this.taskRuntime.prioritizeTask(taskId);
                 res.status(200).json(result);
             } catch (error) {
                 const httpError = new HttpServerError('/task_prioritize', 500, error as Error);

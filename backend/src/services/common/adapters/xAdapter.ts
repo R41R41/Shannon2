@@ -59,6 +59,7 @@ export const xAdapter: ChannelAdapter<XNativeEvent> = {
       tags,
       x: {
         tweetId,
+        conversationId: `x:${tweetId}`,
         authorId: event.authorId ?? event.authorName,
         authorName: event.authorName,
         isReply,

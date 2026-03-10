@@ -55,8 +55,16 @@ import { ReplyYoutubeCommentAgent } from './agents/replyYoutubeComment.js';
 import { ReplyYoutubeLiveCommentAgent } from './agents/replyYoutubeLiveCommentAgent.js';
 import { buildShannonGraph, invokeShannonGraph, CompiledShannonGraph } from './graph/shannonGraph.js';
 import { initializeNodes } from './graph/nodeFactory.js';
+import { FunctionCallingAgent } from './graph/nodes/FunctionCallingAgent.js';
+import { RequestExecutionCoordinator } from './graph/requestExecutionCoordinator.js';
 import type { RequestEnvelope, ShannonGraphState } from '@shannon/common';
-import { discordAdapter, webAdapter, type DiscordNativeEvent } from '../common/adapters/index.js';
+import {
+  discordAdapter,
+  webAdapter,
+  xAdapter,
+  getActionDispatcher,
+  type DiscordNativeEvent,
+} from '../common/adapters/index.js';
 import { getTracedOpenAI } from './utils/langfuse.js';
 import { logger } from '../../utils/logger.js';
 const __filename = fileURLToPath(import.meta.url);
@@ -100,6 +108,9 @@ export class LLMService {
   private groqClient: OpenAI;
   private voiceCharacterPrompt: string = '';
   private shannonGraph: CompiledShannonGraph | null = null;
+  private unifiedFca: FunctionCallingAgent | null = null;
+  private initializationPromise: Promise<void> | null = null;
+  private executionCoordinator = RequestExecutionCoordinator.getInstance();
   constructor(isDevMode: boolean) {
     this.isDevMode = isDevMode;
     this.eventBus = getEventBus();
@@ -122,40 +133,51 @@ export class LLMService {
   }
 
   public async initialize() {
-    // プロンプトホットリロードを有効化
-    const { enablePromptHotReload } = await import('./config/prompts.js');
-    enablePromptHotReload();
-
-    // Initialize nodes and build unified Shannon graph
-    const { emotionNode, fca } = await initializeNodes();
-    this.shannonGraph = buildShannonGraph({ emotionNode, fca });
-
-    // Wire TaskGraph delegate (for Minebot EventReactionSystem compatibility)
-    const { TaskGraph } = await import('./graph/taskGraph.js');
-    TaskGraph.getInstance().setInvokeDelegate((envelope, messages) =>
-      this.invokeGraph(envelope, messages),
-    );
-
-    // 各種エージェントを初期化（単発タスク用）
-    this.aboutTodayAgent = await PostAboutTodayAgent.create();
-    this.weatherAgent = await PostWeatherAgent.create();
-    this.fortuneAgent = await PostFortuneAgent.create();
-    this.replyTwitterCommentAgent = await ReplyTwitterCommentAgent.create();
-    this.quoteTwitterCommentAgent = QuoteTwitterCommentAgent.create();
-    this.replyYoutubeCommentAgent = await ReplyYoutubeCommentAgent.create();
-    this.replyYoutubeLiveCommentAgent =
-      await ReplyYoutubeLiveCommentAgent.create();
-    this.newsAgent = await PostNewsAgent.create();
-    this.autoTweetAgent = await AutoTweetAgent.create();
-    this.memberTweetAgent = await MemberTweetAgent.create();
-
-    try {
-      this.voiceCharacterPrompt = await loadPrompt('base_voice');
-    } catch {
-      logger.warn('[LLM] Failed to load base_voice prompt, voice will use default character');
+    if (this.shannonGraph && this.unifiedFca) {
+      return;
+    }
+    if (this.initializationPromise) {
+      await this.initializationPromise;
+      return;
     }
 
-    logger.info('LLM Service initialized', 'cyan');
+    this.initializationPromise = (async () => {
+      // プロンプトホットリロードを有効化
+      const { enablePromptHotReload } = await import('./config/prompts.js');
+      enablePromptHotReload();
+
+      // Initialize nodes and build unified Shannon graph
+      const { emotionNode, fca } = await initializeNodes();
+      this.unifiedFca = fca;
+      this.shannonGraph = buildShannonGraph({ emotionNode, fca });
+
+      // 各種エージェントを初期化（単発タスク用）
+      this.aboutTodayAgent = await PostAboutTodayAgent.create();
+      this.weatherAgent = await PostWeatherAgent.create();
+      this.fortuneAgent = await PostFortuneAgent.create();
+      this.replyTwitterCommentAgent = await ReplyTwitterCommentAgent.create();
+      this.quoteTwitterCommentAgent = QuoteTwitterCommentAgent.create();
+      this.replyYoutubeCommentAgent = await ReplyYoutubeCommentAgent.create();
+      this.replyYoutubeLiveCommentAgent =
+        await ReplyYoutubeLiveCommentAgent.create();
+      this.newsAgent = await PostNewsAgent.create();
+      this.autoTweetAgent = await AutoTweetAgent.create();
+      this.memberTweetAgent = await MemberTweetAgent.create();
+
+      try {
+        this.voiceCharacterPrompt = await loadPrompt('base_voice');
+      } catch {
+        logger.warn('[LLM] Failed to load base_voice prompt, voice will use default character');
+      }
+
+      logger.info('LLM Service initialized', 'cyan');
+    })();
+
+    try {
+      await this.initializationPromise;
+    } finally {
+      this.initializationPromise = null;
+    }
   }
 
   private setupEventBus() {
@@ -332,24 +354,19 @@ export class LLMService {
     }
 
     try {
-      logger.info(`[Twitter Reply] LLM生成開始: @${authorName} "${text.slice(0, 50)}" (スレッド: ${conversationThread?.length ?? 0}件)`);
-      const response = await this.replyTwitterCommentAgent.reply(
+      logger.info(`[Twitter Reply] Unified graph開始: @${authorName} "${text.slice(0, 50)}" (スレッド: ${conversationThread?.length ?? 0}件)`);
+      const envelope = xAdapter.toEnvelope({
+        replyId,
         text,
         authorName,
-        repliedTweet,
-        repliedTweetAuthorName,
-        conversationThread,
-        data.authorId,
-      );
-      logger.info(`[Twitter Reply] LLM生成完了: "${response.slice(0, 80)}"`);
-      this.eventBus.publish({
-        type: 'twitter:post_message',
-        memoryZone: 'twitter:post',
-        data: {
-          text: response,
-          replyId: replyId,
-        } as TwitterClientInput,
+        authorId: data.authorId ?? undefined,
+        repliedTweet: repliedTweet ?? undefined,
+        repliedTweetAuthorName: repliedTweetAuthorName ?? undefined,
       });
+      const history = (conversationThread ?? []).map(
+        (entry) => new HumanMessage(`${entry.authorName}: ${entry.text}`),
+      );
+      await this.invokeGraph(envelope, history);
     } catch (error) {
       logger.error('[Twitter Reply] エラー:', error);
     }
@@ -379,7 +396,7 @@ export class LLMService {
   }
 
   private async processMemberTweet(data: MemberTweetInput) {
-    const { tweetId, tweetUrl, text, authorName } = data;
+    const { tweetId, text, authorName } = data;
 
     if (!tweetId || !text || !authorName) {
       logger.error('MemberTweet data is invalid:', { tweetId, text, authorName });
@@ -388,43 +405,19 @@ export class LLMService {
 
     try {
       logger.info(
-        `[MemberTweet] FCA開始: @${data.authorUserName} "${text.slice(0, 50)}"`,
+        `[MemberTweet] Unified graph開始: @${data.authorUserName} "${text.slice(0, 50)}"`,
         'cyan',
       );
-
-      const result = await this.memberTweetAgent.respond(data);
-      if (!result) {
-        logger.warn('[MemberTweet] FCA結果なし');
-        return;
-      }
-
-      if (result.type === 'quote_rt') {
-        logger.info(
-          `[MemberTweet] 引用RT選択: "${result.text.slice(0, 60)}" → ${tweetUrl}`,
-          'green',
-        );
-        this.eventBus.publish({
-          type: 'twitter:post_message',
-          memoryZone: 'twitter:post',
-          data: {
-            text: result.text,
-            quoteTweetUrl: tweetUrl,
-          } as TwitterClientInput,
-        });
-      } else {
-        logger.info(
-          `[MemberTweet] 返信選択: "${result.text.slice(0, 60)}"`,
-          'green',
-        );
-        this.eventBus.publish({
-          type: 'twitter:post_message',
-          memoryZone: 'twitter:post',
-          data: {
-            text: result.text,
-            replyId: tweetId,
-          } as TwitterClientInput,
-        });
-      }
+      const envelope = xAdapter.toEnvelope({
+        tweetId,
+        text,
+        authorName,
+        authorId: data.authorId ?? authorName,
+      });
+      const history = (data.conversationThread ?? []).map(
+        (entry) => new HumanMessage(`${entry.authorName}: ${entry.text}`),
+      );
+      await this.invokeGraph(envelope, history);
     } catch (error) {
       logger.error('[MemberTweet] エラー:', error);
     }
@@ -529,6 +522,7 @@ export class LLMService {
           text: `${currentTime} ${message.senderName}: ${message.text}`,
           senderName: message.senderName,
           recentChatLog: message.recentChatLog,
+          sessionId: message.sessionId,
         });
         await this.invokeGraph(envelope);
       }
@@ -1110,19 +1104,49 @@ export class LLMService {
   async invokeGraph(
     envelope: RequestEnvelope,
     legacyMessages?: BaseMessage[],
+    options?: {
+      onToolStarting?: (toolName: string, args?: Record<string, unknown>) => void;
+      onTaskTreeUpdate?: (taskTree: import('@shannon/common').TaskTreeState) => void;
+    },
   ): Promise<ShannonGraphState> {
+    await this.initialize();
     if (!this.shannonGraph) {
       throw new Error('Shannon graph not initialized');
     }
 
     try {
-      return await invokeShannonGraph(this.shannonGraph, envelope, legacyMessages);
+      return await this.executionCoordinator.run(envelope, async () => {
+        const result = await invokeShannonGraph(this.shannonGraph!, envelope, legacyMessages, options);
+        await this.dispatchActionPlan(envelope, result);
+        return result;
+      });
     } catch (error) {
       const zone = envelope.metadata?.legacyMemoryZone ?? envelope.channel;
       logger.error(`Graph invocation error [${zone}]:`, error);
-      this.eventBus.log(zone as string, 'red', `Error: ${error}`, true);
+      this.eventBus.log(zone as any, 'red', `Error: ${error}`, true);
       throw error;
     }
+  }
+
+  private async dispatchActionPlan(
+    envelope: RequestEnvelope,
+    result: ShannonGraphState,
+  ): Promise<void> {
+    if (!result.actionPlan) return;
+    const dispatcher = getActionDispatcher(envelope.channel);
+    if (!dispatcher) return;
+    await dispatcher.dispatch(envelope, result.actionPlan);
+  }
+
+  public async registerMinebotTools(bot: import('../minebot/types.js').CustomBot): Promise<void> {
+    await this.initialize();
+    if (!this.unifiedFca) return;
+    const { InstantSkillTool } = await import('../minebot/skills/InstantSkillTool.js');
+    const tools = bot.instantSkills
+      .getSkills()
+      .filter((skill) => skill.isToolForLLM)
+      .map((skill) => new InstantSkillTool(skill, bot));
+    this.unifiedFca.addTools(tools);
   }
 
   private setupRealtimeAPICallback() {

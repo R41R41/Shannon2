@@ -17,6 +17,7 @@ import {
   MemoryZone,
 } from '@shannon/common';
 import type {
+  Platform,
   RequestEnvelope,
   ShannonChannel,
   ShannonMode,
@@ -26,7 +27,7 @@ import type {
 // Channel → Platform mapping (used by envelopeToTaskContext)
 // ---------------------------------------------------------------------------
 
-const channelToPlatform: Record<ShannonChannel, string> = {
+const channelToPlatform: Record<ShannonChannel, Platform> = {
   discord: 'discord',
   x: 'twitter',
   minecraft: 'minebot',
@@ -73,6 +74,12 @@ export function envelopeToTaskContext(envelope: RequestEnvelope): TaskContext {
   }
 
   ctx.conversationId = envelope.conversationId;
+  ctx.metadata = {
+    ...envelope.metadata,
+    envelopeChannel: envelope.channel,
+    envelopeTags: envelope.tags,
+    minecraft: envelope.minecraft,
+  };
   return ctx;
 }
 
