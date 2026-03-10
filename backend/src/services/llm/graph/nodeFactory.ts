@@ -38,7 +38,10 @@ export interface ShannonNodes {
 export async function initializeNodes(): Promise<ShannonNodes> {
   // 1. Load tools
   const toolsDir = join(__dirname, '../tools');
-  const tools = await loadToolsFromDirectory(toolsDir, 'LLM');
+  const tools = await loadToolsFromDirectory(toolsDir, {
+    label: 'LLM',
+    excludeDirs: ['memory'],
+  });
 
   // 2. Add memory tools
   const memoryTools = createMemoryTools();

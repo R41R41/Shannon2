@@ -9,8 +9,8 @@ import { StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { models } from '../../../config/models.js';
 import { createTracedModel } from '../utils/langfuse.js';
-import GoogleSearchTool from '../tools/googleSearch.js';
-import SearchByWikipediaTool from '../tools/searchByWikipedia.js';
+import GoogleSearchTool from '../tools/search/googleSearch.js';
+import SearchByWikipediaTool from '../tools/search/searchByWikipedia.js';
 import { logger } from '../../../utils/logger.js';
 import { BaseAgent } from './BaseAgent.js';
 

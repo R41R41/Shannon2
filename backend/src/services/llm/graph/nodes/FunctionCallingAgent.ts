@@ -14,7 +14,7 @@ import { modelManager } from '../../../../config/modelManager.js';
 import { logger } from '../../../../utils/logger.js';
 import { getEventBus } from '../../../eventBus/index.js';
 import { WorldKnowledgeService } from '../../../minebot/knowledge/WorldKnowledgeService.js';
-import UpdatePlanTool from '../../tools/updatePlan.js';
+import UpdatePlanTool from '../../tools/utility/updatePlan.js';
 import { trimContext } from '../../utils/contextManager.js';
 import { createTracedModel } from '../../utils/langfuse.js';
 import { tokenTracker } from '../../utils/tokenTracker.js';

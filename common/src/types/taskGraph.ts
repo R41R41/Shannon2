@@ -33,7 +33,7 @@ export interface HierarchicalSubTask {
 // 次に実行するアクション（実行用・引数は完全に指定）
 export interface ActionItem {
   toolName: string;
-  args: Record<string, any>;       // 引数は必須（nullは不可）
+  args: Record<string, unknown>;    // 引数は必須（nullは不可）
   expectedResult: string;
 }
 

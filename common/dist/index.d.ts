@@ -11,3 +11,4 @@ export * from "./types/twitter.js";
 export * from "./types/web.js";
 export * from "./types/youtube.js";
 export * from "./types/shannonGraph.js";
+export * from "./types/branded.js";

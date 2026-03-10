@@ -36,7 +36,7 @@ export class ToolExecutor {
      * @returns 更新された stepCounter
      */
     async executeToolCalls(
-        toolCalls: Array<{ id?: string; name: string; args: Record<string, any> }>,
+        toolCalls: Array<{ id?: string; name: string; args: Record<string, unknown> }>,
         effectiveToolMap: Map<string, StructuredTool>,
         messages: BaseMessage[],
         execCtx: ToolExecutionContext,
@@ -228,7 +228,7 @@ export class ToolExecutor {
     /**
      * ツール引数を表示用に要約
      */
-    static summarizeArgs(args: Record<string, any>): string {
+    static summarizeArgs(args: Record<string, unknown>): string {
         if (!args || Object.keys(args).length === 0) return '';
         const entries = Object.entries(args);
         if (entries.length <= 2) {
@@ -269,7 +269,7 @@ export class ToolExecutor {
     // ── private helpers ──
 
     private handleMissingTool(
-        toolCall: { id?: string; name: string; args: Record<string, any> },
+        toolCall: { id?: string; name: string; args: Record<string, unknown> },
         execCtx: ToolExecutionContext,
         isUpdatePlan: boolean,
     ): { executionResult: ExecutionResult; toolMessage: ToolMessage } {

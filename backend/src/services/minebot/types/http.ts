@@ -18,7 +18,7 @@ export interface ApiResponse<T = any> {
 export interface SkillExecutionResult {
     success: boolean;
     result: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
 }
 
 /**

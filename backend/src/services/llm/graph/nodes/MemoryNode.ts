@@ -451,8 +451,8 @@ export class MemoryNode {
     if (context.platform === 'minebot') {
       return {
         platform: 'minebot',
-        userId: context.metadata?.playerName ?? null,
-        displayName: context.metadata?.playerName ?? null,
+        userId: (context.metadata?.playerName as string) ?? null,
+        displayName: (context.metadata?.playerName as string) ?? null,
       };
     }
 

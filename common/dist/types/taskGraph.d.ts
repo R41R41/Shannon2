@@ -27,7 +27,7 @@ export interface HierarchicalSubTask {
 }
 export interface ActionItem {
     toolName: string;
-    args: Record<string, any>;
+    args: Record<string, unknown>;
     expectedResult: string;
 }
 export interface TaskTreeState {

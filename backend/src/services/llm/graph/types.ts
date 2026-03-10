@@ -18,7 +18,7 @@ export interface TaskStateInput {
   emotion?: EmotionType | null;
 
   // === コンテキスト情報 ===
-  /** @deprecated memoryZoneの代わりにcontextを使用してください */
+  /** @deprecated Since v1.5. Use context (TaskContext) instead of memoryZone. Will be removed in v2.0. */
   memoryZone?: MemoryZone;
   context?: TaskContext;
   channelId?: string | null;
@@ -59,7 +59,7 @@ export interface TaskStateInput {
  */
 export interface ExecutionResult {
   toolName: string;
-  args: Record<string, any>;
+  args: Record<string, unknown>;
   success: boolean;
   message: string;
   duration: number;

@@ -1,15 +1,12 @@
 /**
- * Shannon Unified Multi-Channel Graph Types
+ * Shannon Unified Multi-Channel Graph Types — barrel re-export.
  *
- * Phase 1: Core type definitions for the unified Shannon graph architecture.
- * These types define the RequestEnvelope, unified graph state, action plans,
- * memory items, and supporting types needed to consolidate all channels
- * (Discord, X, Minecraft, Web) into a single core graph.
- *
- * Design principles:
- * - 1 identity, 1 core graph, N channel adapters
- * - Scoped shared memory with tags
- * - Per-request parallel execution
- * - Async memory consolidation
+ * All types have been split into focused modules under ./graph/.
+ * This file re-exports everything so existing imports from
+ * '@shannon/common' continue to work unchanged.
  */
-export {};
+export * from './graph/channels.js';
+export * from './graph/envelope.js';
+export * from './graph/action.js';
+export * from './graph/memory.js';
+export * from './graph/state.js';
