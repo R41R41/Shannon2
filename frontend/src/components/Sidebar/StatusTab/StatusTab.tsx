@@ -1,15 +1,12 @@
-import { StatusAgent } from "@/services/agents/statusAgent";
 import { ConnectionStatus } from "@/services/common/WebSocketClient";
 import { ServiceStatus } from "@common/types/common";
-import { UserInfo } from "@common/types/web";
+import { useAgents } from "@/contexts/AgentContext";
 import React, { useEffect, useState } from "react";
 import { MinebotBotItem } from "../MinebotBotItem/MinebotBotItem";
 import { ServiceItem } from "../ServiceItem/ServiceItem";
 import styles from "./StatusTab.module.scss";
 
 interface StatusTabProps {
-  status: StatusAgent | null;
-  userInfo?: UserInfo | null;
   isTest?: boolean;
 }
 
@@ -58,10 +55,9 @@ const INITIAL_STATUSES: ServiceStatuses = Object.fromEntries(
 );
 
 export const StatusTab: React.FC<StatusTabProps> = ({
-  status,
-  userInfo,
   isTest,
 }) => {
+  const { status, userInfo } = useAgents();
   const [serviceStatuses, setServiceStatuses] =
     useState<ServiceStatuses>(INITIAL_STATUSES);
   const [connectionStatus, setConnectionStatus] =

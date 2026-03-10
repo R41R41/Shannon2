@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import styles from "./Emotion.module.scss";
 import { EmotionType } from "@common/types/taskGraph";
-import { EmotionAgent } from "@/services/agents/emotionAgent";
+import { useEmotion } from "@/contexts/AgentContext";
 import { Radar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -25,7 +25,6 @@ ChartJS.register(
 );
 
 interface EmotionProps {
-  emotion: EmotionAgent | null;
   isMobile?: boolean;
 }
 
@@ -57,7 +56,8 @@ interface EmotionSnapshot {
 
 const MAX_HISTORY = 20;
 
-const Emotion: React.FC<EmotionProps> = ({ emotion, isMobile }) => {
+const Emotion: React.FC<EmotionProps> = ({ isMobile }) => {
+  const emotion = useEmotion();
   const [emotionState, setEmotionState] = useState<EmotionType | null>(null);
   const animationRef = useRef<number>();
   const [animatedValues, setAnimatedValues] = useState<number[]>(
@@ -96,7 +96,7 @@ const Emotion: React.FC<EmotionProps> = ({ emotion, isMobile }) => {
 
   useEffect(() => {
     if (emotion) {
-      emotion.onUpdateEmotion((e) => {
+      const unsubscribe = emotion.onUpdateEmotion((e) => {
         setEmotionState(e);
         const now = new Date();
         const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -111,6 +111,7 @@ const Emotion: React.FC<EmotionProps> = ({ emotion, isMobile }) => {
           },
         ]);
       });
+      return () => { unsubscribe(); };
     }
   }, [emotion]);
 

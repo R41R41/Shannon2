@@ -2,18 +2,9 @@ import pathfinder from 'mineflayer-pathfinder';
 import { CustomBot, InstantSkill } from '../types.js';
 import { createLogger } from '../../../utils/logger.js';
 import { setMovements } from '../utils/setMovements.js';
+import { PROTECTED_UTILITY_BLOCKS } from '../constants.js';
 const { goals } = pathfinder;
 const log = createLogger('Minebot:Skill:moveTo');
-const PROTECTED_UTILITY_BLOCKS = new Set([
-  'furnace',
-  'blast_furnace',
-  'smoker',
-  'crafting_table',
-  'chest',
-  'trapped_chest',
-  'barrel',
-  'ender_chest',
-]);
 /**
  * 原子的スキル: 指定座標に移動するだけ
  * goalType: 'near' (デフォルト) または 'xz' (XZ座標のみ、Y座標は自動調整)

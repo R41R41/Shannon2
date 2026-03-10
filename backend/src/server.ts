@@ -3,7 +3,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import mongoose from 'mongoose';
-import { TwitterReplyOutput } from '@shannon/common';
+import { AutoTweetMode, TwitterClientInput, TwitterReplyOutput } from '@shannon/common';
 import { PORTS } from './config/ports.js';
 import { config } from './config/env.js';
 import { DiscordBot } from './services/discord/client.js';
@@ -95,10 +95,9 @@ class Server {
       }
       try {
         if (key.startsWith('minebot.')) {
-          const mk = key.replace('minebot.', '') as any;
-          modelManager.setMinebotModel(mk, model);
+          modelManager.setMinebotModel(key.replace('minebot.', '') as Parameters<typeof modelManager.setMinebotModel>[0], model);
         } else {
-          modelManager.set(key as any, model);
+          modelManager.set(key as Parameters<typeof modelManager.set>[0], model);
         }
         res.json({ ok: true, key, model });
       } catch (err) {
@@ -125,8 +124,8 @@ class Server {
 
     app.get('/api/tokens/today', async (_req, res) => {
       const daily = await tokenTracker.getDailyStats(1);
-      const todayTotal = daily.reduce((sum: number, d: any) => sum + (d.totalTokens || 0), 0);
-      const todayCalls = daily.reduce((sum: number, d: any) => sum + (d.calls || 0), 0);
+      const todayTotal = daily.reduce((sum: number, d: { totalTokens?: number }) => sum + (d.totalTokens || 0), 0);
+      const todayCalls = daily.reduce((sum: number, d: { calls?: number }) => sum + (d.calls || 0), 0);
       res.json({ totalTokens: todayTotal, callCount: todayCalls, details: daily });
     });
 
@@ -196,7 +195,7 @@ class Server {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
-      const command = (req.body as any)?.command as string | undefined;
+      const command = (req.body as { command?: string })?.command;
       const dryRun = req.query.dry_run === 'true';
       const validCommands = ['fortune', 'forecast', 'about_today', 'news_today'];
       if (!command || !validCommands.includes(command)) {
@@ -261,7 +260,7 @@ class Server {
             data: {
               text: post,
               ...(mediaId ? { imageUrl: mediaId } : {}),
-            } as any,
+            } as TwitterClientInput,
           });
           logger.info(`[Test:ScheduledPost] ${command} Twitter投稿イベント発行${mediaId ? ' (画像付き)' : ''}`);
         }
@@ -289,7 +288,7 @@ class Server {
         return;
       }
       const dryRun = req.query.dry_run === 'true';
-      const mode = ((req.body as any)?.mode as string) || 'trend';
+      const mode = ((req.body as { mode?: string })?.mode) || 'trend';
       const validModes = ['trend', 'watchlist', 'big_account_quote', 'original'];
       if (!validModes.includes(mode)) {
         res.status(400).json({ error: `mode must be one of: ${validModes.join(', ')}` });
@@ -300,19 +299,19 @@ class Server {
         const { AutoTweetAgent } = await import('./services/llm/agents/autoTweetAgent.js');
         const agent = await AutoTweetAgent.create();
 
-        let trends: any[] = [];
+        let trends: Array<{ name: string; query: string; rank: number; metaDescription?: string }> = [];
         if (mode === 'trend') {
           const trendsRes = await axios.get('https://api.twitterapi.io/twitter/trends', {
             headers: { 'X-API-Key': config.twitter.twitterApiIoKey },
             params: { woeid: '23424856' },
           });
-          trends = (trendsRes.data?.trends ?? []).map((t: any, i: number) => {
-            const trend = t.trend && typeof t.trend === 'object' ? t.trend : t;
+          trends = (trendsRes.data?.trends ?? []).map((t: Record<string, unknown>, i: number) => {
+            const trend = t.trend && typeof t.trend === 'object' ? (t.trend as Record<string, unknown>) : t;
             return {
-              name: trend.name ?? '',
-              query: trend.target?.query ?? trend.query ?? trend.name ?? '',
-              rank: trend.rank ?? i + 1,
-              metaDescription: trend.meta_description ?? trend.metaDescription ?? undefined,
+              name: (trend.name as string) ?? '',
+              query: ((trend.target as Record<string, unknown>)?.query as string) ?? (trend.query as string) ?? (trend.name as string) ?? '',
+              rank: (trend.rank as number) ?? i + 1,
+              metaDescription: ((trend.meta_description ?? trend.metaDescription) as string | undefined) ?? undefined,
             };
           });
         }
@@ -333,7 +332,7 @@ class Server {
         } catch { /* ignore */ }
 
         logger.info(`[Test:AutoTweet] mode=${mode}, トレンド${trends.length}件, 直近投稿${recentPosts.length}件`);
-        const result = await agent.generateTweet(trends, todayInfo, recentPosts, undefined, mode as any);
+        const result = await agent.generateTweet(trends, todayInfo, recentPosts, undefined, mode as AutoTweetMode);
         logger.info(`[Test:AutoTweet] 生成結果: ${JSON.stringify(result)}`);
 
         if (!dryRun && result) {
@@ -346,7 +345,7 @@ class Server {
               ...(result.type === 'quote_rt' && result.quoteUrl
                 ? { quoteTweetUrl: result.quoteUrl }
                 : {}),
-            } as any,
+            } as TwitterClientInput,
           });
           logger.info(`[Test:AutoTweet] Twitter投稿イベント発行 (type=${result.type})`);
         }
@@ -374,7 +373,7 @@ class Server {
         return;
       }
       const dryRun = req.query.dry_run === 'true';
-      const inputTweetUrl = (req.body as any)?.tweetUrl as string | undefined;
+      const inputTweetUrl = (req.body as { tweetUrl?: string })?.tweetUrl;
       try {
         const axios = (await import('axios')).default;
         const { MemberTweetAgent } = await import('./services/llm/agents/memberTweetAgent.js');
@@ -446,13 +445,13 @@ class Server {
             eventBus.publish({
               type: 'twitter:post_message',
               memoryZone: 'twitter:post',
-              data: { text: result.text, quoteTweetUrl: tweetUrl } as any,
+              data: { text: result.text, quoteTweetUrl: tweetUrl } as TwitterClientInput,
             });
           } else {
             eventBus.publish({
               type: 'twitter:post_message',
               memoryZone: 'twitter:post',
-              data: { text: result.text, replyId: tweetId } as any,
+              data: { text: result.text, replyId: tweetId } as TwitterClientInput,
             });
           }
           logger.info(`[Test:MemberTweet] Twitter投稿イベント発行 (type=${result.type})`);
@@ -480,8 +479,8 @@ class Server {
         return;
       }
       const dryRun = req.query.dry_run === 'true';
-      const inputText = (req.body as any)?.text as string | undefined;
-      const inputAuthorName = (req.body as any)?.authorName as string | undefined;
+      const inputText = (req.body as { text?: string })?.text;
+      const inputAuthorName = (req.body as { authorName?: string })?.authorName;
       try {
         const axios = (await import('axios')).default;
         const { ReplyTwitterCommentAgent } = await import('./services/llm/agents/replyTwitterComment.js');
@@ -568,7 +567,17 @@ class Server {
           event_type?: string;
           rule_id?: string;
           rule_tag?: string;
-          tweets?: Array<Record<string, any>>;
+          tweets?: Array<{
+            id?: string;
+            text?: string;
+            author?: { id?: string; userName?: string; username?: string; screenName?: string; name?: string };
+            quoted_tweet?: { text?: string; author?: { name?: string; userName?: string } };
+            quotedTweet?: { text?: string; author?: { name?: string; userName?: string } };
+            inReplyToId?: string;
+            in_reply_to_status_id?: string;
+            in_reply_to_tweet_id?: string;
+            url?: string;
+          }>;
           timestamp?: number;
         };
 
@@ -589,10 +598,10 @@ class Server {
         let processed = 0;
 
         for (const tweet of tweets) {
-          const author = tweet.author ?? {};
-          const authorId = author.id ?? '';
-          const authorUserName = author.userName ?? author.username ?? author.screenName ?? '';
-          const authorName = author.name ?? authorUserName;
+          const author = tweet.author;
+          const authorId = author?.id ?? '';
+          const authorUserName = author?.userName ?? author?.username ?? author?.screenName ?? '';
+          const authorName = author?.name ?? authorUserName;
           const tweetId = tweet.id ?? '';
           const tweetText = tweet.text ?? '';
 
@@ -625,7 +634,7 @@ class Server {
             eventBus.publish({
               type: 'twitter:like_tweet',
               memoryZone: 'twitter:post',
-              data: { tweetId, text: '' } as any,
+              data: { tweetId, text: '' } as TwitterClientInput,
             });
 
             // 日次返信上限チェック
@@ -687,7 +696,14 @@ class Server {
                   `https://api.twitterapi.io/twitter/tweets?tweet_ids=${currentReplyToId}`,
                   { headers: { 'X-API-Key': config.twitter.twitterApiIoKey } }
                 );
-                const tweetData = await tweetRes.json() as any;
+                const tweetData = await tweetRes.json() as {
+                  tweets?: Array<{
+                    text?: string;
+                    author?: { name?: string; userName?: string; username?: string };
+                    inReplyToId?: string;
+                    in_reply_to_status_id?: string;
+                  }>;
+                };
                 const t = tweetData?.tweets?.[0];
                 if (!t) break;
 

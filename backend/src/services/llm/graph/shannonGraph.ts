@@ -145,8 +145,7 @@ function classifyRouter(state: ShannonStateType): string[] {
 function createEmotionNode(emotionNode: EmotionNode) {
   return async function emotionFn(state: ShannonStateType): Promise<Partial<ShannonStateType>> {
     const result = await emotionNode.invoke({
-      userMessage: state.envelope.text ?? null,
-      context: envelopeToTaskContext(state.envelope),
+      userMessage: state.envelope.text ?? undefined,
     });
     const emotionState: EmotionState = { current: result.emotion };
     return {

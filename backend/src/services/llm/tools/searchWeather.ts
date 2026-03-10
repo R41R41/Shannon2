@@ -78,7 +78,20 @@ export default class SearchWeatherTool extends StructuredTool {
         throw new Error(`気象庁API error: ${response.status}`);
       }
 
-      const result = await response.json() as any;
+      const result = await response.json() as Array<{
+        timeSeries?: Array<{
+          timeDefines?: string[];
+          areas?: Array<{
+            weathers?: string[];
+            weatherCodes?: string[];
+            winds?: string[];
+            temps?: string[];
+            pops?: string[];
+            tempsMin?: string[];
+            tempsMax?: string[];
+          }>;
+        }>;
+      }>;
 
       // 天気予報データを解析
       const timeSeries = result[0]?.timeSeries;

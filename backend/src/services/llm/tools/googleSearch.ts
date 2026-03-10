@@ -53,7 +53,10 @@ export default class GoogleSearchTool extends StructuredTool {
 
     try {
       const response = await fetch(url);
-      const result = await response.json() as any;
+      const result = await response.json() as {
+        error?: { code: number; message: string };
+        items?: Array<{ title?: string; snippet?: string; link?: string }>;
+      };
 
       if (result.error) {
         logger.error(`Google search API error: ${result.error.code} ${result.error.message}`);
@@ -62,7 +65,7 @@ export default class GoogleSearchTool extends StructuredTool {
 
       if (result.items && result.items.length > 0) {
         // タイトル、スニペット、URLを含む詳細な結果を返す
-        const formattedResults = result.items.map((item: any, index: number) => {
+        const formattedResults = result.items.map((item, index: number) => {
           const title = item.title || 'タイトルなし';
           const snippet = item.snippet || '説明なし';
           const link = item.link || '';

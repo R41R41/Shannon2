@@ -12,6 +12,7 @@ import {
   DiscordVoiceStreamTextInput,
   EmotionType,
   MemberTweetInput,
+  MemoryZone,
   MinebotVoiceResponseOutput,
   OpenAICommandInput,
   OpenAIMessageOutput,
@@ -34,6 +35,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { z } from 'zod';
 import { config } from '../../config/env.js';
+import { classifyError, formatErrorForLog } from '../../errors/index.js';
 import { getDiscordMemoryZone } from '../../utils/discord.js';
 import { EventBus } from '../eventBus/eventBus.js';
 import { getEventBus } from '../eventBus/index.js';
@@ -490,14 +492,17 @@ export class LLMService {
     }
   }
 
-  private async processWebMessage(message: any) {
+  private async processWebMessage(message: OpenAIMessageOutput & {
+    recentChatLog?: string[];
+    sessionId?: string;
+  }) {
     try {
       // Realtime audio/text passthrough (not graph-routed)
-      if (message.type === 'realtime_text') {
+      if (message.type === 'realtime_text' && message.realtime_text) {
         await this.realtimeApi.inputText(message.realtime_text);
         return;
       }
-      if (message.type === 'realtime_audio' && message.command === 'realtime_audio_append') {
+      if (message.type === 'realtime_audio' && message.command === 'realtime_audio_append' && message.realtime_audio) {
         await this.realtimeApi.inputAudioBufferAppend(message.realtime_audio);
         return;
       }
@@ -519,9 +524,9 @@ export class LLMService {
         const currentTime = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
         const envelope = webAdapter.toEnvelope({
           type: 'text',
-          text: `${currentTime} ${message.senderName}: ${message.text}`,
-          senderName: message.senderName,
-          recentChatLog: message.recentChatLog,
+          text: `${currentTime} ${message.senderName ?? ''}: ${message.text ?? ''}`,
+          senderName: message.senderName ?? undefined,
+          recentChatLog: message.recentChatLog?.join('\n'),
           sessionId: message.sessionId,
         });
         await this.invokeGraph(envelope);
@@ -569,10 +574,10 @@ export class LLMService {
     }
   }
 
-  private publishVoiceStatus(memoryZone: string, guildId: string, status: string, detail?: string) {
+  private publishVoiceStatus(memoryZone: MemoryZone, guildId: string, status: string, detail?: string) {
     this.eventBus.publish({
       type: 'discord:voice_status',
-      memoryZone: memoryZone as any,
+      memoryZone,
       data: { guildId, status, detail } as DiscordVoiceStatusInput,
     });
   }
@@ -588,8 +593,8 @@ export class LLMService {
 
   private async processDiscordVoiceMessage(message: DiscordVoiceMessageOutput) {
     const memoryZone = await getDiscordMemoryZone(message.guildId);
-    const voiceMsg = message as any;
-    const audioBuffer: Buffer = voiceMsg.audioBuffer;
+    const voiceMsg = message as DiscordVoiceMessageOutput & { audioBuffer?: Buffer; text?: string };
+    const audioBuffer: Buffer | undefined = voiceMsg.audioBuffer;
     const directText: string | undefined = voiceMsg.text;
     const isDirectText = !!directText && directText.length > 0;
 
@@ -609,7 +614,7 @@ export class LLMService {
     } else {
       this.publishVoiceStatus(memoryZone, message.guildId, 'stt');
       try {
-        const audioBlob = new Blob([new Uint8Array(audioBuffer)], { type: 'audio/wav' });
+        const audioBlob = new Blob([new Uint8Array(audioBuffer!)], { type: 'audio/wav' });
         const audioFile = new File([audioBlob], 'voice.wav', { type: 'audio/wav' });
 
         const sttClient = config.groq.apiKey ? this.groqClient : this.openaiClient;
@@ -622,7 +627,8 @@ export class LLMService {
         });
         transcribedText = transcription.text.trim();
       } catch (error) {
-        logger.error('[LLM] Whisper STT failed:', error);
+        const sErr = classifyError(error, 'llm');
+        logger.error(`[LLM] Whisper STT failed: ${formatErrorForLog(sErr)}`);
         return;
       }
       sttMs = Date.now() - voiceStartTime;
@@ -818,7 +824,7 @@ export class LLMService {
 
     const responsePromise = new Promise<string>((resolve) => {
       const unsubscribe = this.eventBus.subscribe('discord:post_message', (event) => {
-        const data = event.data as any;
+        const data = event.data as { channelId?: string; text?: string };
         if (data.channelId === message.channelId && !data.text?.startsWith('🎤')) {
           unsubscribe();
           resolve(data.text ?? '');
@@ -963,13 +969,13 @@ export class LLMService {
       logger.warn('[Minebot Voice] Empty response text');
       this.eventBus.publish({
         type: 'discord:voice_queue_end',
-        memoryZone: 'minebot' as any,
+        memoryZone: 'minebot',
         data: { guildId, channelId, text: '' } as DiscordVoiceQueueEndInput,
       });
       return;
     }
 
-    const memoryZone = (await getDiscordMemoryZone(guildId)) as any;
+    const memoryZone = await getDiscordMemoryZone(guildId);
     logger.info(`[Minebot Voice] TTS for response: "${responseText.substring(0, 60)}..."`, 'magenta');
     this.publishVoiceStatus(memoryZone, guildId, 'tts', '🤖 Minebot TTS...');
 
@@ -1122,9 +1128,10 @@ export class LLMService {
       });
     } catch (error) {
       const zone = envelope.metadata?.legacyMemoryZone ?? envelope.channel;
-      logger.error(`Graph invocation error [${zone}]:`, error);
-      this.eventBus.log(zone as any, 'red', `Error: ${error}`, true);
-      throw error;
+      const sErr = classifyError(error, 'llm');
+      logger.error(`Graph invocation error [${zone}]: ${formatErrorForLog(sErr)}`);
+      this.eventBus.log(zone as MemoryZone, 'red', `Error: ${sErr.message}`, true);
+      throw sErr;
     }
   }
 

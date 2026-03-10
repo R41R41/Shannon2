@@ -4,6 +4,7 @@ import type {
   MinebotOutput,
   RequestEnvelope,
   ShannonActionPlan,
+  SkillParameters,
 } from '@shannon/common';
 import { getEventBus } from '../../eventBus/index.js';
 import { logger } from '../../../utils/logger.js';
@@ -83,7 +84,7 @@ function mapActionToInvocations(action: MinecraftAction): SkillInvocation[] {
 
 async function invokeMinebotSkill(invocation: SkillInvocation): Promise<void> {
   const eventBus = getEventBus();
-  const resultType = `minebot:${invocation.skillName}Result` as any;
+  const resultType = `minebot:${invocation.skillName}Result` as `minebot:${string}`;
 
   await new Promise<void>((resolve, reject) => {
     let settled = false;
@@ -99,7 +100,7 @@ async function invokeMinebotSkill(invocation: SkillInvocation): Promise<void> {
       resolve();
     };
 
-    const unsubscribe = eventBus.subscribe(resultType, (event: any) => {
+    const unsubscribe = eventBus.subscribe(resultType, (event) => {
       const result = event.data as MinebotOutput;
       if (result?.success === false) {
         const failureType = (result as MinebotOutput & { failureType?: string | null }).failureType
@@ -119,8 +120,8 @@ async function invokeMinebotSkill(invocation: SkillInvocation): Promise<void> {
     eventBus.publish({
       type: `minebot:${invocation.skillName}`,
       memoryZone: 'minecraft',
-      data: invocation.args as any,
-    } as any);
+      data: { skillParameters: invocation.args } as SkillParameters,
+    });
   });
 }
 

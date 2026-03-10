@@ -74,9 +74,10 @@ export default class SearchByWikipediaTool extends StructuredTool {
                 // 長すぎる場合は先頭2000文字に切り詰め
                 return extract.length > 2000 ? extract.slice(0, 2000) + '...' : extract;
             }
-        } catch (error: any) {
-            logger.error('Wikipedia search error:', error?.message || error);
-            return `Wikipedia検索中にエラーが発生しました: ${error?.message || error}`;
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            logger.error('Wikipedia search error:', msg);
+            return `Wikipedia検索中にエラーが発生しました: ${msg}`;
         }
     }
 }

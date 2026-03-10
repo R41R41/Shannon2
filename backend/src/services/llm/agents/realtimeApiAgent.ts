@@ -24,8 +24,8 @@ export class RealtimeAPIService {
   private isAudioResponseComplete: boolean = false;
   private isUserTranscriptResponseComplete: boolean = true;
   private isVadMode: boolean = false;
-  private noVadSessionConfig: any;
-  private vadSessionConfig: any;
+  private noVadSessionConfig: Record<string, unknown>;
+  private vadSessionConfig: Record<string, unknown>;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
   private reconnectDelay: number = 5000; // 5秒

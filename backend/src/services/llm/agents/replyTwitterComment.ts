@@ -1,38 +1,33 @@
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
 import { TaskContext } from '@shannon/common';
-import { loadPrompt } from '../config/prompts.js';
 import { config } from '../../../config/env.js';
 import { models } from '../../../config/models.js';
 import { createTracedModel } from '../utils/langfuse.js';
 import { MemoryNode } from '../graph/nodes/MemoryNode.js';
 import { IExchange } from '../../../models/PersonMemory.js';
 import { logger } from '../../../utils/logger.js';
+import { BaseAgent } from './BaseAgent.js';
 
 const OPENAI_API_KEY = config.openaiApiKey;
 if (!OPENAI_API_KEY) {
   throw new Error('OPENAI_API_KEY is not set');
 }
 
-export class ReplyTwitterCommentAgent {
+export class ReplyTwitterCommentAgent extends BaseAgent {
   private model: ChatOpenAI;
-  private systemPrompt: string;
-  private memoryNode: MemoryNode | null = null;
 
   private constructor(systemPrompt: string) {
+    super(systemPrompt);
     this.model = createTracedModel({
       modelName: models.contentGeneration,
       temperature: 1,
       apiKey: OPENAI_API_KEY,
     });
-    this.systemPrompt = systemPrompt;
   }
 
   public static async create(): Promise<ReplyTwitterCommentAgent> {
-    const prompt = await loadPrompt('reply_twitter_comment');
-    if (!prompt) {
-      throw new Error('Failed to load reply_twitter_comment prompt');
-    }
+    const prompt = await BaseAgent.loadPrompt('reply_twitter_comment');
     const agent = new ReplyTwitterCommentAgent(prompt);
     agent.memoryNode = new MemoryNode();
     await agent.memoryNode.initialize();

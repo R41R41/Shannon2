@@ -60,7 +60,7 @@ export default class DescribeImageTool extends StructuredTool {
       });
 
       const choice = response.choices[0];
-      logger.info(`🖼️ describe-image response: finish_reason=${choice.finish_reason}, content_length=${choice.message.content?.length ?? 'null'}, refusal=${(choice.message as any).refusal ?? 'none'}`);
+      logger.info(`🖼️ describe-image response: finish_reason=${choice.finish_reason}, content_length=${choice.message.content?.length ?? 'null'}, refusal=${(choice.message as OpenAI.ChatCompletion.Choice['message'] & { refusal?: string }).refusal ?? 'none'}`);
 
       if (!choice.message.content) {
         logger.warn(`🖼️ describe-image: empty content. Full response: ${JSON.stringify(choice, null, 2)}`);

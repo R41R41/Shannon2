@@ -1,18 +1,8 @@
 import { Vec3 } from 'vec3';
 import { CustomBot, InstantSkill } from '../types.js';
 import { createLogger } from '../../../utils/logger.js';
+import { PROTECTED_UTILITY_BLOCKS } from '../constants.js';
 const log = createLogger('Minebot:Skill:digBlockAt');
-
-const PROTECTED_UTILITY_BLOCKS = new Set([
-  'furnace',
-  'blast_furnace',
-  'smoker',
-  'crafting_table',
-  'chest',
-  'trapped_chest',
-  'barrel',
-  'ender_chest',
-]);
 
 /**
  * 原子的スキル: 近くのブロックを掘る（座標指定版）

@@ -1,5 +1,5 @@
 import { StructuredTool } from '@langchain/core/tools';
-import { ThreadChannel } from 'discord.js';
+import { Client, Message, ThreadChannel } from 'discord.js';
 import { z } from 'zod';
 import { DiscordBot } from '../../discord/client.js';
 import { logger } from '../../../utils/logger.js';
@@ -25,7 +25,7 @@ export default class GetDiscordImagesTool extends StructuredTool {
       .describe('検索するメッセージ数（デフォルト20）'),
   });
 
-  private extractImagesFromMessage(msg: any): string[] {
+  private extractImagesFromMessage(msg: Pick<Message, 'attachments' | 'embeds'>): string[] {
     const images: string[] = [];
     // 1. 添付ファイルから画像を取得
     for (const [, attachment] of msg.attachments) {
@@ -48,7 +48,8 @@ export default class GetDiscordImagesTool extends StructuredTool {
   async _call(data: z.infer<typeof this.schema>): Promise<string> {
     try {
       const bot = DiscordBot.getInstance();
-      const client = (bot as any).client;
+      // DiscordBot.client is private; access via cast through unknown
+      const client = (bot as unknown as { client: Client }).client;
 
       if (!client) {
         return 'エラー: Discord クライアントが初期化されていません';
@@ -57,7 +58,7 @@ export default class GetDiscordImagesTool extends StructuredTool {
       let channel = client.channels.cache.get(data.channelId);
       // キャッシュにない場合はfetchを試みる
       if (!channel) {
-        try { channel = await client.channels.fetch(data.channelId); } catch { /* ignore */ }
+        try { channel = await client.channels.fetch(data.channelId) ?? undefined; } catch { /* ignore */ }
       }
       if (!channel?.isTextBased() || !('messages' in channel)) {
         return 'エラー: 指定されたチャンネルが見つからないか、テキストチャンネルではありません';
@@ -66,7 +67,7 @@ export default class GetDiscordImagesTool extends StructuredTool {
       const limit = data.limit ?? 20;
       const messages = await channel.messages.fetch({ limit });
       const sorted = messages.sort(
-        (a: any, b: any) => b.createdTimestamp - a.createdTimestamp,
+        (a, b) => b.createdTimestamp - a.createdTimestamp,
       );
 
       const results: string[] = [];

@@ -1,12 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import styles from "./ActivityLog.module.scss";
 import { ILog, MemoryZone } from "@common/types/common";
-import { MonitoringAgent } from "@/services/agents/monitoringAgent";
+import { useMonitoring } from "@/contexts/AgentContext";
 import classNames from "classnames";
-
-interface ActivityLogProps {
-  monitoring: MonitoringAgent | null;
-}
 
 interface FilterTab {
   label: string;
@@ -44,7 +40,8 @@ const DISCORD_SERVERS = [
   },
 ];
 
-const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
+const ActivityLog: React.FC = () => {
+  const monitoring = useMonitoring();
   const [logs, setLogs] = useState<ILog[]>([]);
   const [selectedMemoryZone, setSelectedMemoryZone] = useState<
     MemoryZone | ""
@@ -57,7 +54,7 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
   const MAX_LOGS = parseInt(localStorage.getItem('shannon_log_count') || '200');
 
   useEffect(() => {
-    monitoring?.setLogCallback((log: ILog) => {
+    const unsubscribe = monitoring?.onLog((log: ILog) => {
       setLogs((prevLogs) => {
         const newLogs = [...prevLogs, log].slice(-MAX_LOGS);
         if (shouldAutoScroll) {
@@ -71,6 +68,10 @@ const ActivityLog: React.FC<ActivityLogProps> = ({ monitoring }) => {
         return newLogs;
       });
     });
+
+    return () => {
+      unsubscribe?.();
+    };
   }, [monitoring, shouldAutoScroll]);
 
   useEffect(() => {

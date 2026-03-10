@@ -110,7 +110,12 @@ export class EmotionNode {
     /**
      * 感情を分析する（初回同期評価）
      */
-    async invoke(state: any): Promise<{ emotion: EmotionType }> {
+    async invoke(state: {
+        environmentState?: string;
+        emotion?: EmotionType | null;
+        userMessage?: string;
+        messages?: BaseMessage[];
+    }): Promise<{ emotion: EmotionType }> {
         logger.info('💭 EmotionNode: 感情を分析中...');
 
         const structuredLLM = this.model.withStructuredOutput(EmotionSchema, {
@@ -181,7 +186,12 @@ export class EmotionNode {
     /**
      * 初回評価用のメッセージを構築
      */
-    private buildMessages(state: any): BaseMessage[] {
+    private buildMessages(state: {
+        environmentState?: string;
+        emotion?: EmotionType | null;
+        userMessage?: string;
+        messages?: BaseMessage[];
+    }): BaseMessage[] {
         const currentTime = new Date().toLocaleString('ja-JP', {
             timeZone: 'Asia/Tokyo',
         });

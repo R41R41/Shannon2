@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import styles from "./TaskTree.module.scss";
 import { TaskTreeState } from "@common/types/taskGraph";
-import { PlanningAgent } from "@/services/agents/planningAgent";
+import { usePlanning } from "@/contexts/AgentContext";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
@@ -9,7 +9,6 @@ import AutorenewIcon from "@mui/icons-material/Autorenew";
 import classNames from "classnames";
 
 interface TaskTreeProps {
-  planning: PlanningAgent | null;
   isMobile?: boolean;
 }
 
@@ -39,14 +38,16 @@ const statusLabel = (status: string) => {
   }
 };
 
-const TaskTree: React.FC<TaskTreeProps> = ({ planning, isMobile }) => {
+const TaskTree: React.FC<TaskTreeProps> = ({ isMobile }) => {
+  const planning = usePlanning();
   const [taskTree, setTaskTree] = useState<TaskTreeState | null>(null);
 
   useEffect(() => {
     if (planning) {
-      planning.onUpdatePlanning((taskTree) => {
+      const unsubscribe = planning.onUpdatePlanning((taskTree) => {
         setTaskTree(taskTree);
       });
+      return () => { unsubscribe(); };
     }
   }, [planning]);
 
