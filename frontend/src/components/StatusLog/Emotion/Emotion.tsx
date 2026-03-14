@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import styles from "./Emotion.module.scss";
 import { EmotionType } from "@common/types/taskGraph";
 import { useEmotion } from "@/contexts/AgentContext";
@@ -59,7 +59,6 @@ const MAX_HISTORY = 20;
 const Emotion: React.FC<EmotionProps> = ({ isMobile }) => {
   const emotion = useEmotion();
   const [emotionState, setEmotionState] = useState<EmotionType | null>(null);
-  const animationRef = useRef<number>();
   const [animatedValues, setAnimatedValues] = useState<number[]>(
     Array(8).fill(50)
   );
@@ -116,50 +115,29 @@ const Emotion: React.FC<EmotionProps> = ({ isMobile }) => {
   }, [emotion]);
 
   useEffect(() => {
-    let lastUpdate = Date.now();
-    const UPDATE_INTERVAL = 1000;
-
-    const animate = () => {
-      const now = Date.now();
-      if (now - lastUpdate >= UPDATE_INTERVAL) {
-        const newValues = Array(8)
-          .fill(0)
-          .map((_, i) => {
-            const baseValue = emotionState
-              ? [
-                  emotionState.parameters.joy,
-                  emotionState.parameters.trust,
-                  emotionState.parameters.fear,
-                  emotionState.parameters.surprise,
-                  emotionState.parameters.sadness,
-                  emotionState.parameters.disgust,
-                  emotionState.parameters.anger,
-                  emotionState.parameters.anticipation,
-                ][i]
-              : 50;
-
-            const range = baseValue * 0.1;
-            const randomOffset = Math.random() * range;
-            return Math.max(0, Math.min(100, baseValue + randomOffset));
-          });
-
-        setAnimatedValues(newValues);
-        lastUpdate = now;
-      }
-      animationRef.current = requestAnimationFrame(animate);
-    };
-
-    animationRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    };
+    const newValues = emotionState
+      ? [
+          emotionState.parameters.joy,
+          emotionState.parameters.trust,
+          emotionState.parameters.fear,
+          emotionState.parameters.surprise,
+          emotionState.parameters.sadness,
+          emotionState.parameters.disgust,
+          emotionState.parameters.anger,
+          emotionState.parameters.anticipation,
+        ]
+      : Array(8).fill(50);
+    setAnimatedValues(newValues);
   }, [emotionState]);
 
   const color = calculateColor(animatedValues);
   const colorStr = `${color.r}, ${color.g}, ${color.b}`;
 
+  // ラベルに現在の値を付与（例: "喜び 30"）
+  const labelsWithValues = EMOTION_LABELS.map((label, i) => `${label} ${Math.round(animatedValues[i])}`);
+
   const chartData = {
-    labels: EMOTION_LABELS,
+    labels: labelsWithValues,
     datasets: [
       {
         label: "感情パラメータ",
@@ -202,7 +180,8 @@ const Emotion: React.FC<EmotionProps> = ({ isMobile }) => {
         },
         pointLabels: {
           color: labelColor,
-          font: { size: 11, weight: "500" as const },
+          font: { size: 10, weight: "500" as const },
+          padding: 14,
         },
       },
     },
@@ -239,6 +218,7 @@ const Emotion: React.FC<EmotionProps> = ({ isMobile }) => {
             style={{
               backgroundColor: `rgba(${colorStr}, 0.15)`,
               color: `rgb(${colorStr})`,
+              transition: 'all 0.5s ease',
             }}
           >
             {emotionState.emotion}
@@ -255,7 +235,11 @@ const Emotion: React.FC<EmotionProps> = ({ isMobile }) => {
           <div className={styles.timelineLabel}>感情履歴</div>
           <div className={styles.timelineBars}>
             {history.map((h, i) => (
-              <div key={i} className={styles.timelineBar} title={`${h.time} ${h.label}`}>
+              <div
+                key={i}
+                className={styles.timelineBar}
+                data-tip={`${h.time}${h.label ? ` · ${h.label}` : ''}\n喜:${Math.round(h.joy)} 怒:${Math.round(h.anger)} 悲:${Math.round(h.sadness)}`}
+              >
                 <div
                   className={styles.barJoy}
                   style={{ height: `${h.joy * 0.3}px` }}

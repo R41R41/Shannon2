@@ -41,10 +41,14 @@ const statusLabel = (status: string) => {
 const TaskTree: React.FC<TaskTreeProps> = ({ isMobile }) => {
   const planning = usePlanning();
   const [taskTree, setTaskTree] = useState<TaskTreeState | null>(null);
+  const [lastCompleted, setLastCompleted] = useState<string | null>(null);
 
   useEffect(() => {
     if (planning) {
       const unsubscribe = planning.onUpdatePlanning((taskTree) => {
+        if (taskTree?.status === 'completed' && taskTree.goal) {
+          setLastCompleted(taskTree.goal);
+        }
         setTaskTree(taskTree);
       });
       return () => { unsubscribe(); };
@@ -128,7 +132,13 @@ const TaskTree: React.FC<TaskTreeProps> = ({ isMobile }) => {
       ) : (
         <div className={styles.emptyState}>
           <HourglassEmptyIcon className={styles.emptyIcon} />
-          <span>タスクなし</span>
+          <span className={styles.emptyLabel}>待機中</span>
+          {lastCompleted && (
+            <div className={styles.lastCompleted}>
+              <CheckCircleOutlineIcon className={styles.lastCompletedIcon} />
+              <span>{lastCompleted}</span>
+            </div>
+          )}
         </div>
       )}
     </div>
