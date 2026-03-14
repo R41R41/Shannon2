@@ -82,6 +82,12 @@ class MineBlock extends InstantSkill {
       toolWarning = ' ⚠️ ツルハシを所持していません。石系ブロックの採掘は非常に遅くなります。先にツルハシをクラフトすることを強く推奨します';
     }
 
+    // 採掘前のインベントリをスナップショット（ドロップアイテム検出用）
+    const beforeInventory = new Map<string, number>();
+    for (const item of this.bot.inventory.items()) {
+      beforeInventory.set(item.name, (beforeInventory.get(item.name) ?? 0) + item.count);
+    }
+
     let mined = 0;
     const failures: string[] = [];
     let lastFailureType: string | undefined;
@@ -130,10 +136,35 @@ class MineBlock extends InstantSkill {
       };
     }
 
+    // 採掘後のインベントリ差分からドロップアイテムを検出
+    const drops = this.detectDrops(beforeInventory);
+    const dropsText = drops.length > 0
+      ? `（ドロップ回収: ${drops.map(d => `${d.item} x${d.count}`).join(', ')}）`
+      : '';
+
     return {
       success: true,
-      result: `${blockName}を${mined}個採掘しました${failures.length > 0 ? `（一部失敗: ${failures.join(', ')}）` : ''}${toolWarning}`,
+      result: `${blockName}を${mined}個採掘しました${dropsText}${failures.length > 0 ? `（一部失敗: ${failures.join(', ')}）` : ''}${toolWarning}`,
     };
+  }
+
+  /**
+   * 採掘前後のインベントリ差分からドロップアイテムを検出する。
+   */
+  private detectDrops(beforeInventory: Map<string, number>): Array<{ item: string; count: number }> {
+    const afterInventory = new Map<string, number>();
+    for (const item of this.bot.inventory.items()) {
+      afterInventory.set(item.name, (afterInventory.get(item.name) ?? 0) + item.count);
+    }
+
+    const drops: Array<{ item: string; count: number }> = [];
+    for (const [name, afterCount] of afterInventory) {
+      const beforeCount = beforeInventory.get(name) ?? 0;
+      if (afterCount > beforeCount) {
+        drops.push({ item: name, count: afterCount - beforeCount });
+      }
+    }
+    return drops;
   }
 }
 

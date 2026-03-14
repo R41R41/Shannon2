@@ -42,12 +42,32 @@ export interface InventoryEntry {
     count: number;
 }
 
+export interface PlanSubtask {
+    id: string;                // "st_1", "st_2"
+    goal: string;              // "cobblestoneを8個採掘する"
+    status: 'pending' | 'in_progress' | 'completed' | 'error' | 'skipped';
+    result?: string;
+    failureReason?: string;
+    iterationsSpent: number;   // このサブタスクに費やしたイテレーション数
+}
+
+export interface PlanState {
+    goal: string;
+    strategy: string;
+    subtasks: PlanSubtask[];
+    currentSubtaskId: string | null;
+    lastUpdatedBy: 'craft_preflight' | 'meta_cognition' | 'fca';
+    createdAt: number;
+    updatedAt: number;
+}
+
 export interface BlackboardSnapshot {
     goal: string;
     emotionState: EmotionType | null;
     metaState: MetaState | null;
     taskState: TaskState;
     inventory: InventoryEntry[] | null;
+    plan: PlanState | null;
     isComplete: boolean;
     elapsedMs: number;
 }
@@ -75,6 +95,9 @@ export class CognitiveBlackboard extends EventEmitter {
     // Inventory (Minecraft)
     private _inventory: InventoryEntry[] | null = null;
 
+    // Plan (Prefrontal Cortex — 計画管理)
+    private _planState: PlanState | null = null;
+
     // Coordination
     readonly goal: string;
     private _isComplete = false;
@@ -100,6 +123,7 @@ export class CognitiveBlackboard extends EventEmitter {
     get metaState(): MetaState | null { return this._metaState; }
     get taskState(): TaskState { return this._taskState; }
     get inventory(): InventoryEntry[] | null { return this._inventory; }
+    get plan(): PlanState | null { return this._planState; }
     get isComplete(): boolean { return this._isComplete; }
     get signal(): AbortSignal { return this._abortController.signal; }
     get messages(): BaseMessage[] { return this._messages; }
@@ -112,6 +136,7 @@ export class CognitiveBlackboard extends EventEmitter {
             metaState: this._metaState,
             taskState: { ...this._taskState },
             inventory: this._inventory,
+            plan: this._planState ? { ...this._planState, subtasks: this._planState.subtasks.map(s => ({ ...s })) } : null,
             isComplete: this._isComplete,
             elapsedMs: this.elapsedMs,
         };
@@ -151,6 +176,30 @@ export class CognitiveBlackboard extends EventEmitter {
 
         this._taskState.timestamp = Date.now();
         this.emit('task:updated', this._taskState);
+    }
+
+    updatePlan(plan: PlanState): void {
+        this._planState = { ...plan, updatedAt: Date.now() };
+        this.emit('plan:updated', this._planState);
+    }
+
+    /** MetaCognition がサブタスクステータスを部分更新する */
+    patchPlanSubtask(subtaskId: string, patch: Partial<PlanSubtask>): void {
+        if (!this._planState) return;
+        const st = this._planState.subtasks.find(s => s.id === subtaskId);
+        if (st) {
+            Object.assign(st, patch);
+            this._planState.updatedAt = Date.now();
+            this._planState.lastUpdatedBy = 'meta_cognition';
+            this.emit('plan:updated', this._planState);
+        }
+    }
+
+    /** 現在の in_progress サブタスクの iterationsSpent をインクリメント */
+    incrementSubtaskIteration(): void {
+        if (!this._planState?.currentSubtaskId) return;
+        const st = this._planState.subtasks.find(s => s.id === this._planState!.currentSubtaskId);
+        if (st) st.iterationsSpent++;
     }
 
     updateInventory(inventory: InventoryEntry[]): void {

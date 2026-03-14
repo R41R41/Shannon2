@@ -41,12 +41,18 @@ export class LoopDetector {
     private blockedCallSignatures = new Set<string>();
     /** sig → ブロック時の history.length（状態変化検出用） */
     private blockTimestamps = new Map<string, number>();
+    /**
+     * key → history index: isCallBlocked で状態変化によりブロック解除された場合、
+     * そのインデックス以前の失敗をストリーク計算に含めないようにする。
+     */
+    private pardonedAfterIndex = new Map<string, number>();
 
     reset(): void {
         this.history = [];
         this.blockedTools.clear();
         this.blockedCallSignatures.clear();
         this.blockTimestamps.clear();
+        this.pardonedAfterIndex.clear();
     }
 
     /**
@@ -102,6 +108,13 @@ export class LoopDetector {
             this.blockedCallSignatures.delete(sig);
             this.blockedTools.delete(toolName);
             this.blockTimestamps.delete(sigBlocked ? sig : toolName);
+            // pardon: 過去の失敗ストリークを無視するようマーク
+            const pardonKey = sigBlocked ? sig : toolName;
+            this.pardonedAfterIndex.set(pardonKey, this.history.length);
+            // tool レベルでもブロック解除した場合、sig レベルの pardon も設定
+            if (toolBlocked) {
+                this.pardonedAfterIndex.set(toolName, this.history.length);
+            }
             logger.info(
                 `[LoopDetector] 🔓 ブロック解除: ${toolName} (状態変化を検出)`,
             );
@@ -121,6 +134,8 @@ export class LoopDetector {
         const sameCallStreaks = this.getConsecutiveFailureStreaks('call');
         for (const [sig, streak] of sameCallStreaks) {
             if (streak.count >= SAME_CALL_THRESHOLD) {
+                // 既にブロック解除済み（pardoned）の場合は再ブロックしない
+                if (this.blockedCallSignatures.has(sig)) continue;
                 newBlockedSigs.add(sig);
                 const toolName = streak.toolName;
                 const lastError = streak.lastError || '不明';
@@ -137,6 +152,7 @@ export class LoopDetector {
         const sameToolStreaks = this.getConsecutiveFailureStreaks('tool');
         for (const [toolName, streak] of sameToolStreaks) {
             if (streak.count >= SAME_TOOL_THRESHOLD) {
+                if (this.blockedTools.has(toolName)) continue;
                 newBlockedTools.add(toolName);
                 reasons.push(
                     `${toolName} が ${streak.count} 回連続失敗（引数を変えても失敗し続けている）`,
@@ -165,15 +181,11 @@ export class LoopDetector {
         // ブロック状態を更新（タイムスタンプも記録）
         for (const sig of newBlockedSigs) {
             this.blockedCallSignatures.add(sig);
-            if (!this.blockTimestamps.has(sig)) {
-                this.blockTimestamps.set(sig, this.history.length);
-            }
+            this.blockTimestamps.set(sig, this.history.length);
         }
         for (const tool of newBlockedTools) {
             this.blockedTools.add(tool);
-            if (!this.blockTimestamps.has(tool)) {
-                this.blockTimestamps.set(tool, this.history.length);
-            }
+            this.blockTimestamps.set(tool, this.history.length);
         }
 
         const detected = reasons.length > 0;
@@ -210,11 +222,16 @@ export class LoopDetector {
      * 連続失敗ストリークを計算する。
      * mode='call': (toolName, argsHash) の組み合わせ単位
      * mode='tool': toolName 単位
+     *
+     * 履歴を末尾から逆順にスキャンし、各キーについて：
+     * - 成功レコードに到達 → そのキーのストリーク確定（それ以前は数えない）
+     * - pardonedAfterIndex 以前のレコード → そのキーのストリーク確定
      */
     private getConsecutiveFailureStreaks(
         mode: 'call' | 'tool',
     ): Map<string, { count: number; toolName: string; lastError?: string }> {
         const streaks = new Map<string, { count: number; toolName: string; lastError?: string }>();
+        const settled = new Set<string>();
 
         for (let i = this.history.length - 1; i >= 0; i--) {
             const record = this.history[i];
@@ -222,42 +239,35 @@ export class LoopDetector {
                 ? `${record.toolName}:${record.argsHash}`
                 : record.toolName;
 
-            if (!streaks.has(key)) {
-                if (record.success) continue;
+            if (settled.has(key)) continue;
+
+            // pardon 境界チェック: この index が pardon 以前なら、このキーは確定
+            const pardonIdx = this.pardonedAfterIndex.get(key) ?? -1;
+            if (i < pardonIdx) {
+                settled.add(key);
+                continue;
+            }
+
+            // 成功レコード → このキーのストリーク確定（成功で途切れた）
+            if (record.success) {
+                settled.add(key);
+                continue;
+            }
+
+            // 失敗をカウント
+            const existing = streaks.get(key);
+            if (existing) {
+                existing.count++;
+            } else {
                 streaks.set(key, {
                     count: 1,
                     toolName: record.toolName,
                     lastError: record.errorMessage,
                 });
-            } else {
-                const streak = streaks.get(key)!;
-                if (record.success) continue;
-                if (this.isContiguousFailure(key, i, mode)) {
-                    streak.count++;
-                } else {
-                    break;
-                }
             }
         }
 
         return streaks;
-    }
-
-    /**
-     * index i のレコードが、同キーの連続失敗ストリークの一部かどうか
-     */
-    private isContiguousFailure(key: string, index: number, mode: 'call' | 'tool'): boolean {
-        for (let j = index + 1; j < this.history.length; j++) {
-            const record = this.history[j];
-            const recordKey = mode === 'call'
-                ? `${record.toolName}:${record.argsHash}`
-                : record.toolName;
-
-            if (recordKey === key) {
-                return !record.success;
-            }
-        }
-        return true;
     }
 
     static hashArgs(args: Record<string, unknown>): string {

@@ -456,6 +456,88 @@ export function runCraftPreflight(input: CraftPreflightInput): CraftPlan | undef
     }
 }
 
+// ── CraftPlan → PlanState conversion ─────────────────────────────
+
+import type { PlanState, PlanSubtask } from '../cognitive/CognitiveBlackboard.js';
+
+/**
+ * CraftPlan を CognitiveBlackboard 用の PlanState に変換する。
+ * ParallelExecutor で blackboard.updatePlan() に渡す。
+ */
+export function craftPlanToPlanState(craftPlan: CraftPlan, goal: string): PlanState {
+    const subtasks: PlanSubtask[] = [];
+    let stepId = 1;
+
+    // 1. 不足素材の採掘ステップ
+    for (const m of craftPlan.missingMaterials) {
+        const shortage = m.need - m.have;
+        const blockName = getMineableBlockName(m.item);
+        subtasks.push({
+            id: `st_${stepId++}`,
+            goal: blockName !== m.item
+                ? `${blockName}を${shortage}個採掘して${m.item}を入手`
+                : `${m.item}を${shortage}個入手`,
+            status: 'pending',
+            iterationsSpent: 0,
+        });
+    }
+
+    // 2. インフラ設置（crafting_table）
+    if (craftPlan.needsCraftingTable && !craftPlan.craftingTableAvailable) {
+        subtasks.push({
+            id: `st_${stepId++}`,
+            goal: 'crafting_tableをクラフトして設置',
+            status: 'pending',
+            iterationsSpent: 0,
+        });
+    }
+
+    // 3. インフラ設置（furnace）
+    if (craftPlan.needsFurnace && !craftPlan.furnaceAvailable) {
+        subtasks.push({
+            id: `st_${stepId++}`,
+            goal: 'furnaceをクラフトして設置',
+            status: 'pending',
+            iterationsSpent: 0,
+        });
+    }
+
+    // 4. 精錬ステップ
+    const smeltItems = craftPlan.steps
+        .filter(s => s.startsWith('start-smelting'))
+        .map(s => s);
+    if (smeltItems.length > 0) {
+        subtasks.push({
+            id: `st_${stepId++}`,
+            goal: '素材を精錬する',
+            status: 'pending',
+            iterationsSpent: 0,
+        });
+    }
+
+    // 5. crafting_table 使用 + 最終クラフト
+    subtasks.push({
+        id: `st_${stepId++}`,
+        goal: `${craftPlan.target}をクラフト`,
+        status: 'pending',
+        iterationsSpent: 0,
+    });
+
+    const strategy = craftPlan.canCraftImmediately
+        ? '材料・インフラ全て揃い。即クラフト可能'
+        : craftPlan.steps.slice(0, 3).join(' → ');
+
+    return {
+        goal,
+        strategy,
+        subtasks,
+        currentSubtaskId: subtasks[0]?.id ?? null,
+        lastUpdatedBy: 'craft_preflight',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+    };
+}
+
 // ── Debug helpers ────────────────────────────────────────────────
 
 /** ツリーをコンパクトな1行文字列にフォーマット */

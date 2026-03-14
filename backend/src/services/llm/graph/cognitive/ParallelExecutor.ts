@@ -11,6 +11,7 @@ import { ModelSelector } from './ModelSelector.js';
 import { TaskEpisodeMemory } from './TaskEpisodeMemory.js';
 import { SelfImprovementDaemon } from './selfImprove/index.js';
 import type { ExecutionResult } from '../types.js';
+import { craftPlanToPlanState } from '../nodes/CraftPreflightNode.js';
 
 /**
  * ParallelExecutor — 認知プロセスのオーケストレーター。
@@ -85,6 +86,15 @@ export class ParallelExecutor {
             }
         }
 
+        // CraftPreflight の結果をプランとして blackboard に注入
+        if (state.craftPlan) {
+            const planState = craftPlanToPlanState(state.craftPlan, goal);
+            blackboard.updatePlan(planState);
+            logger.info(
+                `[ParallelExecutor] 📋 初期プラン注入: ${planState.subtasks.length}サブタスク (${planState.strategy.substring(0, 60)})`,
+            );
+        }
+
         // 認知プロセスを条件付きで生成
         const emotionLoop = skipEmotionLoop
             ? null
@@ -122,6 +132,9 @@ export class ParallelExecutor {
                     iteration: blackboard.taskState.iteration + 1,
                     newResults: results,
                 });
+
+                // Plan: 現在のサブタスクのイテレーション数をインクリメント
+                blackboard.incrementSubtaskIteration();
 
                 // MetaCognition スキップ時: 軽量な自動エスカレーション
                 if (skipMetaCognition) {
