@@ -50,6 +50,10 @@ const FALLBACK_FOOD_POINTS: Record<string, number> = {
  * 体力または満腹度が低い時に自動で食べ物を食べる
  */
 class AutoEat extends ConstantSkill {
+  /** ログスロットル: 食べ物なし警告を30秒に1回に抑制 */
+  private lastNoFoodWarnAt = 0;
+  private static readonly NO_FOOD_WARN_INTERVAL_MS = 30_000;
+
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'auto-eat';
@@ -82,7 +86,11 @@ class AutoEat extends ConstantSkill {
         });
 
       if (foodItems.length === 0) {
-        log.warn(`⚠ 食べ物が見つかりません: food=${food}/20 health=${health}/20`);
+        const now = Date.now();
+        if (now - this.lastNoFoodWarnAt >= AutoEat.NO_FOOD_WARN_INTERVAL_MS) {
+          log.warn(`⚠ 食べ物が見つかりません: food=${food}/20 health=${health}/20`);
+          this.lastNoFoodWarnAt = now;
+        }
         return;
       }
 

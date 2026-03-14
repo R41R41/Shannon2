@@ -4,14 +4,37 @@ import { CustomBot, InstantSkill } from '../types.js';
 
 /**
  * 原子的スキル: かまどで精錬を開始
+ *
+ * かまどに材料が既に入っている場合は燃料追加のみで精錬を再開できる。
  */
 class StartSmelting extends InstantSkill {
   private mcData: any;
 
+  /** 燃料1個あたりの精錬回数 */
+  private static readonly FUEL_SMELTS: Record<string, number> = {
+    coal: 8,
+    charcoal: 8,
+    coal_block: 80,
+    lava_bucket: 100,
+    blaze_rod: 12,
+    dried_kelp_block: 20,
+    // 木系燃料
+    oak_planks: 1.5, bamboo_planks: 1.5, spruce_planks: 1.5, birch_planks: 1.5,
+    jungle_planks: 1.5, acacia_planks: 1.5, dark_oak_planks: 1.5, cherry_planks: 1.5,
+    mangrove_planks: 1.5, crimson_planks: 1.5, warped_planks: 1.5,
+    oak_log: 1.5, spruce_log: 1.5, birch_log: 1.5, jungle_log: 1.5,
+    acacia_log: 1.5, dark_oak_log: 1.5, cherry_log: 1.5, mangrove_log: 1.5,
+    stick: 0.5,
+    bamboo: 0.25,
+    // 木製ツール・その他
+    wooden_pickaxe: 1, wooden_axe: 1, wooden_sword: 1, wooden_shovel: 1, wooden_hoe: 1,
+    bow: 1.5, fishing_rod: 1.5, crossbow: 1.5,
+  };
+
   constructor(bot: CustomBot) {
     super(bot);
     this.skillName = 'start-smelting';
-    this.description = 'かまどに材料と燃料を入れて精錬を開始します。';
+    this.description = 'かまどに材料と燃料を入れて精錬を開始します。かまどに材料が既に入っている場合は燃料追加のみで再開します。';
     this.mcData = minecraftData(this.bot.version);
     this.params = [
       {
@@ -51,6 +74,18 @@ class StartSmelting extends InstantSkill {
         default: 1,
       },
     ];
+  }
+
+  /** 燃料の精錬能力を返す（未知の燃料は 1 として扱う） */
+  private getFuelSmelts(fuelName: string): number {
+    // 完全一致
+    if (StartSmelting.FUEL_SMELTS[fuelName] !== undefined) {
+      return StartSmelting.FUEL_SMELTS[fuelName];
+    }
+    // _planks / _log サフィックスで部分一致
+    if (fuelName.endsWith('_planks')) return 1.5;
+    if (fuelName.endsWith('_log') || fuelName.endsWith('_wood') || fuelName.endsWith('_stem')) return 1.5;
+    return 1;
   }
 
   async runImpl(
@@ -99,37 +134,15 @@ class StartSmelting extends InstantSkill {
         };
       }
 
-      // 材料と燃料を持っているかチェック
-      const inputItems = this.bot.inventory
-        .items()
-        .filter((item) => item.name === inputItem);
+      // 燃料を持っているかチェック（材料チェックはかまど状態確認後に行う）
       const fuelItems = this.bot.inventory
         .items()
         .filter((item) => item.name === fuelItem);
-
-      if (inputItems.length === 0) {
-        return {
-          success: false,
-          result: `${inputItem}を持っていません`,
-          failureType: 'material_missing',
-          recoverable: true,
-        };
-      }
 
       if (fuelItems.length === 0) {
         return {
           success: false,
           result: `燃料${fuelItem}を持っていません。石炭か木炭を入れてください。`,
-          failureType: 'material_missing',
-          recoverable: true,
-        };
-      }
-
-      const inputCount = inputItems.reduce((sum, item) => sum + item.count, 0);
-      if (inputCount < count) {
-        return {
-          success: false,
-          result: `${inputItem}が不足しています（必要: ${count}個、所持: ${inputCount}個）`,
           failureType: 'material_missing',
           recoverable: true,
         };
@@ -174,43 +187,156 @@ class StartSmelting extends InstantSkill {
           };
         }
 
-        // 出力スロットにアイテムがあれば警告
+        // 出力スロットにアイテムがあれば自動回収
+        let withdrawnOutput: { name: string; count: number } | null = null;
         if (currentOutput) {
-          furnace.close();
-          return {
-            success: false,
-            result: `完成品スロットにアイテムがあります: ${currentOutput.name} x${currentOutput.count}。先に取り出してください（withdraw-from-furnace slot="output"）`,
-            failureType: 'slot_conflict',
-            recoverable: true,
-          };
-        }
-
-        // 材料スロットの空き容量をチェック
-        if (currentInput) {
-          const maxStack = 64; // ほとんどのアイテムのスタック上限
-          const availableSpace = maxStack - currentInput.count;
-          if (count > availableSpace) {
+          try {
+            await furnace.takeOutput();
+            withdrawnOutput = {
+              name: currentOutput.name,
+              count: currentOutput.count,
+            };
+          } catch {
             furnace.close();
             return {
               success: false,
-              result: `材料スロットに空きが足りません。現在: ${currentInput.name} x${currentInput.count}、追加可能: ${availableSpace}個`,
+              result: `完成品スロットにアイテムがあります: ${currentOutput.name} x${currentOutput.count}。取り出しに失敗しました（withdraw-from-furnace slot="output"で手動取り出し）`,
               failureType: 'slot_conflict',
               recoverable: true,
             };
           }
         }
 
-        // 材料を入れる（上のスロット）
-        await furnace.putInput(inputItems[0].type, null, count);
+        // かまどに同じ材料が既にある場合は「再開モード」（燃料追加のみ）
+        const alreadyInFurnace = currentInput?.name === inputItem ? currentInput.count : 0;
+        const isResumeMode = alreadyInFurnace > 0;
 
-        // 燃料を入れる（下のスロット）
-        await furnace.putFuel(fuelItems[0].type, null, 1);
+        // 精錬対象数: かまど内の分 + 新規投入分
+        let totalSmeltCount: number;
+        let newInputCount = 0;
+
+        if (isResumeMode) {
+          // 再開モード: かまど内の材料を精錬する。追加分があればインベントリからも投入
+          const inputItems = this.bot.inventory
+            .items()
+            .filter((item) => item.name === inputItem);
+          const inventoryCount = inputItems.reduce((sum, item) => sum + item.count, 0);
+          const wantToAdd = Math.max(0, count - alreadyInFurnace);
+          newInputCount = Math.min(wantToAdd, inventoryCount);
+
+          // 材料スロットの空き容量チェック
+          const maxStack = 64;
+          const availableSpace = maxStack - alreadyInFurnace;
+          newInputCount = Math.min(newInputCount, availableSpace);
+
+          totalSmeltCount = alreadyInFurnace + newInputCount;
+
+          if (newInputCount > 0) {
+            await furnace.putInput(inputItems[0].type, null, newInputCount);
+          }
+        } else {
+          // 新規モード: インベントリから材料を投入
+          const inputItems = this.bot.inventory
+            .items()
+            .filter((item) => item.name === inputItem);
+
+          if (inputItems.length === 0) {
+            furnace.close();
+            return {
+              success: false,
+              result: `${inputItem}を持っていません`,
+              failureType: 'material_missing',
+              recoverable: true,
+            };
+          }
+
+          const inventoryCount = inputItems.reduce((sum, item) => sum + item.count, 0);
+          if (inventoryCount < count) {
+            furnace.close();
+            return {
+              success: false,
+              result: `${inputItem}が不足しています（必要: ${count}個、所持: ${inventoryCount}個）`,
+              failureType: 'material_missing',
+              recoverable: true,
+            };
+          }
+
+          totalSmeltCount = count;
+          newInputCount = count;
+          await furnace.putInput(inputItems[0].type, null, count);
+        }
+
+        // 必要な燃料数を計算（既存燃料の残り精錬能力を考慮）
+        const smeltsPerFuel = this.getFuelSmelts(fuelItem);
+        const existingFuelSmelts = currentFuel
+          ? this.getFuelSmelts(currentFuel.name) * currentFuel.count
+          : 0;
+        const neededSmelts = Math.max(0, totalSmeltCount - existingFuelSmelts);
+        const neededFuelCount = neededSmelts > 0
+          ? Math.ceil(neededSmelts / smeltsPerFuel)
+          : 0;
+
+        // 燃料投入
+        if (neededFuelCount > 0) {
+          const fuelAvailable = fuelItems.reduce((sum, item) => sum + item.count, 0);
+          const fuelToAdd = Math.min(neededFuelCount, fuelAvailable);
+
+          if (fuelToAdd === 0) {
+            furnace.close();
+            return {
+              success: false,
+              result: `燃料${fuelItem}が不足しています（必要: ${neededFuelCount}個）`,
+              failureType: 'material_missing',
+              recoverable: true,
+            };
+          }
+
+          await furnace.putFuel(fuelItems[0].type, null, fuelToAdd);
+
+          if (fuelToAdd < neededFuelCount) {
+            // 燃料が足りないが部分的に投入
+            const partialSmelts = Math.floor(existingFuelSmelts + fuelToAdd * smeltsPerFuel);
+            furnace.close();
+            const isBlastOrSmoker =
+              block!.name.includes('blast_furnace') ||
+              block!.name.includes('smoker');
+            const secPerItem = isBlastOrSmoker ? 5 : 10;
+            let resultMsg = `${inputItem} x${totalSmeltCount}中、燃料が${fuelToAdd}個しかないため約${partialSmelts}個のみ精錬可能（約${partialSmelts * secPerItem}秒）。残りは燃料追加後に再度start-smeltingしてください`;
+            if (withdrawnOutput) {
+              resultMsg += `。※完成品スロットから${withdrawnOutput.name} x${withdrawnOutput.count}を自動回収しました`;
+            }
+            return {
+              success: true,
+              result: resultMsg,
+            };
+          }
+        }
 
         furnace.close();
 
+        // 精錬時間の見積もり（通常かまど: 10秒/個, ブラストファーネス/スモーカー: 5秒/個）
+        const isBlastOrSmoker =
+          block!.name.includes('blast_furnace') ||
+          block!.name.includes('smoker');
+        const secPerItem = isBlastOrSmoker ? 5 : 10;
+        const estimatedSec = totalSmeltCount * secPerItem;
+
+        let resultMsg: string;
+        if (isResumeMode) {
+          resultMsg = `精錬を再開しました。かまど内${inputItem} x${alreadyInFurnace}`;
+          if (newInputCount > 0) resultMsg += ` + 追加${newInputCount}`;
+          resultMsg += `（計${totalSmeltCount}個、燃料: ${fuelItem}）。約${estimatedSec}秒で完了予定`;
+        } else {
+          resultMsg = `${inputItem} x${totalSmeltCount}の精錬を開始しました（燃料: ${fuelItem} x${neededFuelCount}）。約${estimatedSec}秒で完了予定`;
+        }
+        if (withdrawnOutput) {
+          resultMsg += `。※完成品スロットから${withdrawnOutput.name} x${withdrawnOutput.count}を自動回収しインベントリに入れました`;
+        }
+        resultMsg += `。完了後はcheck-furnaceで確認し、withdraw-from-furnace slot="output"で取り出してください`;
+
         return {
           success: true,
-          result: `${inputItem} x${count}の精錬を開始しました（燃料: ${fuelItem}）`,
+          result: resultMsg,
         };
       } catch (error: any) {
         furnace.close();

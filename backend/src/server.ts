@@ -18,6 +18,7 @@ import { registerModelRoutes } from './routes/modelRoutes.js';
 import { registerTokenRoutes } from './routes/tokenRoutes.js';
 import { registerTestRoutes } from './routes/testRoutes.js';
 import { registerWebhookRoutes } from './routes/webhookRoutes.js';
+import { registerPublicRoutes } from './routes/publicRoutes.js';
 
 class Server {
   private llmService: LLMService;
@@ -75,6 +76,7 @@ class Server {
     registerTokenRoutes(app);
     registerTestRoutes(app);
     registerWebhookRoutes(app, this.twitterClient);
+    registerPublicRoutes(app, this.llmService);
 
     const port = config.port;
     this.httpServer = app.listen(port, () => {

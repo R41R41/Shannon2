@@ -73,6 +73,15 @@ class MineBlock extends InstantSkill {
       };
     }
 
+    // ツルハシの有無を事前チェック（石系ブロック掘削の効率警告）
+    const needsPickaxe = ['stone', 'ore', 'cobble', 'deepslate', 'brick', 'obsidian', 'concrete', 'terracotta', 'basalt', 'netherrack']
+      .some(keyword => blockName.includes(keyword));
+    const hasPickaxe = this.bot.inventory.items().some(item => item.name.includes('pickaxe'));
+    let toolWarning = '';
+    if (needsPickaxe && !hasPickaxe) {
+      toolWarning = ' ⚠️ ツルハシを所持していません。石系ブロックの採掘は非常に遅くなります。先にツルハシをクラフトすることを強く推奨します';
+    }
+
     let mined = 0;
     const failures: string[] = [];
     let lastFailureType: string | undefined;
@@ -123,7 +132,7 @@ class MineBlock extends InstantSkill {
 
     return {
       success: true,
-      result: `${blockName}を${mined}個採掘しました${failures.length > 0 ? `（一部失敗: ${failures.join(', ')}）` : ''}`,
+      result: `${blockName}を${mined}個採掘しました${failures.length > 0 ? `（一部失敗: ${failures.join(', ')}）` : ''}${toolWarning}`,
     };
   }
 }

@@ -330,11 +330,46 @@ class MoveTo extends InstantSkill {
 
       await Promise.race([this.bot.pathfinder.goto(goal), timeoutPromise, stuckAbortPromise]);
 
+      // 到達確認: pathfinder が success を返しても実際に到達していない場合がある
+      const finalPos = this.bot.entity.position;
+      let finalDistance: number;
+      switch (goalType) {
+        case 'xz':
+        case 'nearxz':
+          finalDistance = Math.sqrt(
+            Math.pow(x - finalPos.x, 2) + Math.pow(z - finalPos.z, 2)
+          );
+          break;
+        case 'y':
+          finalDistance = Math.abs(y - finalPos.y);
+          break;
+        case 'near':
+        default:
+          finalDistance = Math.sqrt(
+            Math.pow(x - finalPos.x, 2) +
+            Math.pow(y - finalPos.y, 2) +
+            Math.pow(z - finalPos.z, 2)
+          );
+          break;
+      }
+
+      log.debug(`✅ 移動完了確認: 実距離=${finalDistance.toFixed(1)}m, 許容=${range}m`);
+
+      // 許容距離の2倍以上離れている場合は失敗とみなす（最低5m + 浮動小数点マージン）
+      const acceptableDistance = Math.max(range * 2, 5) + 0.5;
+      if (finalDistance > acceptableDistance) {
+        log.warn(`⚠️ 到達確認失敗: 実距離=${finalDistance.toFixed(1)}m > 許容=${acceptableDistance}m (現在: ${finalPos.x.toFixed(1)}, ${finalPos.y.toFixed(1)}, ${finalPos.z.toFixed(1)})`);
+        return {
+          success: false,
+          result: `移動したが目標地点に到達できませんでした（実距離: ${finalDistance.toFixed(1)}m、許容: ${acceptableDistance}m）。チャンク未ロード・地形障害・Y座標の大きな差の可能性があります`,
+          failureType: 'position_verification_failed',
+          recoverable: true,
+        };
+      }
+
       return {
         success: true,
-        result: `${goalDescription}に移動しました（距離: ${distance.toFixed(
-          1
-        )}m）`,
+        result: `${goalDescription}に移動しました（移動距離: ${distance.toFixed(1)}m、最終距離: ${finalDistance.toFixed(1)}m）`,
       };
     } catch (error: any) {
       // エラーメッセージを詳細化

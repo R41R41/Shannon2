@@ -16,6 +16,7 @@ import { logger } from '../../../../utils/logger.js';
 import { getEventBus } from '../../../eventBus/index.js';
 import { WorldKnowledgeService } from '../../../minebot/knowledge/WorldKnowledgeService.js';
 import { RecipeDependencyResolver } from '../../../minebot/knowledge/RecipeDependencyResolver.js';
+import type { CraftPlan } from './CraftPreflightNode.js';
 import { TaskEpisodeMemory } from '../cognitive/TaskEpisodeMemory.js';
 import UpdatePlanTool from '../../tools/utility/updatePlan.js';
 import { trimContext } from '../../utils/contextManager.js';
@@ -71,6 +72,12 @@ export interface FunctionCallingAgentState {
     selectedModel?: string;
     /** メタ認知等から現在実行中のスキルを中断するためのコールバック */
     onRequestSkillInterrupt?: () => void;
+    /** ClassifyNode からの分類結果 */
+    classifyMode?: string;
+    needsTools?: boolean;
+    needsPlanning?: boolean;
+    /** CraftPreflight ノードからの決定論的クラフト計画 */
+    craftPlan?: CraftPlan;
 }
 
 /**
@@ -171,9 +178,26 @@ export class FunctionCallingAgent {
     }
 
     /**
-     * ユーザーフィードバックを追加（実行中に呼ばれる）
+     * CognitiveBlackboard のアクセサを TaskTreePublisher に転送する。
+     * ParallelExecutor から呼び出される。
+     */
+    public setBlackboardAccessor(fn: Parameters<typeof this.taskTreePublisher.setBlackboardAccessor>[0]): void {
+        this.taskTreePublisher.setBlackboardAccessor(fn);
+    }
+
+    /**
+     * ユーザーフィードバックを追加（実行中に呼ばれる）。
+     * 重複排除: 既にキューにある内容と類似していれば最新のもので上書きする。
      */
     public addFeedback(feedback: string): void {
+        if (this.pendingFeedback.length > 0) {
+            const last = this.pendingFeedback[this.pendingFeedback.length - 1];
+            if (last.startsWith('[メタ認知]') && feedback.startsWith('[メタ認知]')) {
+                this.pendingFeedback[this.pendingFeedback.length - 1] = feedback;
+                logger.warn(`📝 FunctionCallingAgent: メタ認知フィードバック上書き: ${feedback}`);
+                return;
+            }
+        }
         this.pendingFeedback.push(feedback);
         logger.warn(`📝 FunctionCallingAgent: フィードバック追加: ${feedback}`);
     }
@@ -192,6 +216,8 @@ export class FunctionCallingAgent {
         isEmergency?: boolean;
         messages: BaseMessage[];
         forceStop: boolean;
+        /** ユーザー向け応答文（task-complete 時の最後の assistant content） */
+        lastAssistantContent?: string;
     }> {
         const startTime = Date.now();
         const goal = state.userMessage || 'Unknown task';
@@ -206,6 +232,10 @@ export class FunctionCallingAgent {
 
         // 動的モデル選択 (RAS / ModelSelector)
         const modelSelector = new ModelSelector(state.selectedModel || FunctionCallingAgent.MODEL_NAME);
+        const platform = state.context?.platform ?? null;
+        if (platform === 'minecraft' || platform === 'minebot') {
+            modelSelector.setMaxEscalationLevel('gpt-5-mini-fast');
+        }
         logger.info(`🤖 FunctionCallingAgent: タスク実行開始 "${goal}"${isEmergency ? ' [緊急]' : ''} (model=${modelSelector.modelName})`, 'cyan');
         if (signal) {
             signal.addEventListener('abort', onParentAbort, { once: true });
@@ -218,6 +248,27 @@ export class FunctionCallingAgent {
             effectiveTools = this.tools.filter(t => state.allowedTools!.includes(t.name));
             effectiveToolMap = new Map(effectiveTools.map(t => [t.name, t]));
             logger.info(`🔒 allowedTools: ${state.allowedTools.join(', ')} (${effectiveTools.length}/${this.tools.length})`, 'cyan');
+        }
+
+        // Phase 2-D: Minecraft はプラットフォーム非関連ツールを除外（入力トークン -1600〜3200）
+        if (platform === 'minecraft' || platform === 'minebot') {
+            const NON_MINECRAFT_TOOLS = new Set([
+                'post-on-twitter', 'like-tweet', 'retweet-tweet', 'quote-retweet',
+                'get-x-or-twitter-post-content-from-url', 'generate-tweet-text',
+                'chat-on-discord', 'get-discord-recent-messages',
+                'get-server-emoji-on-discord', 'react-by-server-emoji-on-discord', 'get-discord-images',
+                'chat-on-web',
+                'get-youtube-video-content-from-url',
+                'get-notion-page-content-from-url',
+                'create-image', 'describe-image', 'edit-image', 'describe-notion-image',
+                'google-search', 'search-by-wikipedia', 'search-weather', 'wolframalpha', 'fetch-url',
+            ]);
+            const beforeCount = effectiveTools.length;
+            effectiveTools = effectiveTools.filter(t => !NON_MINECRAFT_TOOLS.has(t.name));
+            effectiveToolMap = new Map(effectiveTools.map(t => [t.name, t]));
+            if (effectiveTools.length < beforeCount) {
+                logger.info(`🎮 Minecraft ツールフィルタ: ${beforeCount} → ${effectiveTools.length} ツール`, 'cyan');
+            }
         }
 
         const channelOutputTools = this.promptBuilder.getDisabledOutputTools(state.context);
@@ -248,46 +299,80 @@ export class FunctionCallingAgent {
             state.strategyPrompt,
             state.internalStatePrompt,
             state.worldModelPrompt,
+            state.classifyMode,
+            state.needsTools,
         );
 
-        // Minecraft ボットの場合、ワールド知識を注入
-        try {
-            const envObj = state.environmentState ? JSON.parse(state.environmentState) : null;
-            if (envObj?.botPosition) {
-                const wk = WorldKnowledgeService.getInstance();
-                const pos = envObj.botPosition;
-                const knowledgeContext = await wk.buildContextForPosition(
-                    { x: Math.floor(pos.x), y: Math.floor(pos.y), z: Math.floor(pos.z) },
-                    64,
+        // Phase 3-A: Minecraft 事前準備を並列化（WorldKnowledge + TaskEpisodeMemory: -0.5〜1.5秒）
+        {
+            const isMinecraft = platform === 'minecraft' || platform === 'minebot';
+
+            // 並列タスク群を構築
+            const parallelTasks: Promise<string | null>[] = [];
+
+            // 1. WorldKnowledge (Minecraft のみ)
+            if (isMinecraft) {
+                parallelTasks.push(
+                    (async () => {
+                        try {
+                            const envObj = state.environmentState ? JSON.parse(state.environmentState) : null;
+                            if (envObj?.botPosition) {
+                                const wk = WorldKnowledgeService.getInstance();
+                                const pos = envObj.botPosition;
+                                return await wk.buildContextForPosition(
+                                    { x: Math.floor(pos.x), y: Math.floor(pos.y), z: Math.floor(pos.z) },
+                                    64,
+                                );
+                            }
+                        } catch { }
+                        return null;
+                    })(),
                 );
-                if (knowledgeContext) {
-                    systemPrompt += knowledgeContext;
-                }
             }
-        } catch { }
 
-        // Minecraft: ゴールからクラフト関連アイテムを抽出し依存チェーンを注入
-        if (state.context?.platform === 'minecraft' || state.context?.platform === 'minebot') {
-            try {
-                const depPrompt = this.buildCraftDependencyPrompt(goal);
-                if (depPrompt) {
-                    systemPrompt += depPrompt;
-                }
-            } catch { }
-        }
-
-        // 海馬: 過去の類似タスクエピソードを想起して注入
-        try {
-            const episodeMemory = TaskEpisodeMemory.getInstance();
-            const episodes = await episodeMemory.recallRelevantEpisodes(
-                goal,
-                state.context?.platform ?? 'unknown',
+            // 2. TaskEpisodeMemory (全プラットフォーム)
+            parallelTasks.push(
+                (async () => {
+                    try {
+                        const episodeMemory = TaskEpisodeMemory.getInstance();
+                        const episodes = await episodeMemory.recallRelevantEpisodes(
+                            goal,
+                            state.context?.platform ?? 'unknown',
+                        );
+                        return episodeMemory.formatForPrompt(episodes) || null;
+                    } catch { }
+                    return null;
+                })(),
             );
-            const episodePrompt = episodeMemory.formatForPrompt(episodes);
-            if (episodePrompt) {
-                systemPrompt += `\n\n${episodePrompt}`;
+
+            // 並列実行
+            const results = await Promise.all(parallelTasks);
+
+            // 結果をシステムプロンプトに注入
+            for (const result of results) {
+                if (result) systemPrompt += `\n\n${result}`;
             }
-        } catch { }
+
+            // CraftPlan (決定論的前処理) or フォールバック: RecipeDependency
+            if (isMinecraft) {
+                if (state.craftPlan?.promptInjection) {
+                    // CraftPreflight ノードからの短い注入テキストを使用
+                    systemPrompt += `\n\n${state.craftPlan.promptInjection}`;
+                } else {
+                    // フォールバック: 従来の冗長テキスト
+                    try {
+                        const mcMeta = state.context?.metadata?.minecraft as Record<string, unknown> | undefined;
+                        const inventory = Array.isArray(mcMeta?.inventory)
+                            ? (mcMeta!.inventory as Array<{ name: string; count: number }>)
+                            : null;
+                        const depPrompt = this.buildCraftDependencyPrompt(goal, inventory);
+                        if (depPrompt) {
+                            systemPrompt += depPrompt;
+                        }
+                    } catch { }
+                }
+            }
+        }
 
         const messages: BaseMessage[] = [
             new SystemMessage(systemPrompt),
@@ -329,6 +414,8 @@ export class FunctionCallingAgent {
         let consecutiveTextOnly = 0;
         const MAX_CONSECUTIVE_TEXT_ONLY = 3;
         let lastThinkingContent: string | null = null;
+        let consecutiveBlockedOnly = 0;
+        const MAX_CONSECUTIVE_BLOCKED_ONLY = 5;
 
         // 初期 UI 更新
         this.taskTreePublisher.publishTaskTree({
@@ -460,6 +547,46 @@ export class FunctionCallingAgent {
                 if (toolCalls.length === 0) {
                     consecutiveTextOnly++;
 
+                    // ── 分類駆動の即完了: needsTools=false ならテキスト応答を正当な返答として受け入れる ──
+                    const textContent = typeof thinkingContent === 'string' ? thinkingContent.trim() : '';
+                    if (state.needsTools === false && textContent.length > 0) {
+                        const stripContentPrefix = (t: string) => t.replace(/^content:\s*/i, '').trim();
+                        const cleanContent = stripContentPrefix(textContent);
+                        if (cleanContent.length > 0) {
+                            logger.info(`⚡ 分類駆動即完了: needsTools=false → テキスト応答で完了 (${iteration + 1}イテレーション, ${((Date.now() - startTime) / 1000).toFixed(1)}s)`);
+
+                            this.taskTreePublisher.publishTaskTree({
+                                status: 'completed',
+                                goal,
+                                strategy: cleanContent,
+                                hierarchicalSubTasks: steps,
+                                currentSubTaskId: null,
+                            }, state.context?.platform ?? null, state.channelId, state.taskId, state.onTaskTreeUpdate);
+
+                            this.thinkingManager.resetThinkingState();
+
+                            return {
+                                taskTree: {
+                                    status: 'completed' as const,
+                                    goal,
+                                    strategy: cleanContent,
+                                    recoveryStatus: 'idle' as const,
+                                    lastFailureType: null,
+                                    recoveryAttempts: 0,
+                                    hierarchicalSubTasks: steps,
+                                    subTasks: null,
+                                } as TaskTreeState,
+                                recoveryStatus: 'idle' as const,
+                                recoveryAttempts: 0,
+                                lastFailureType: undefined,
+                                isEmergency: false,
+                                messages,
+                                forceStop: false,
+                                lastAssistantContent: cleanContent,
+                            };
+                        }
+                    }
+
                     // UI に思考を反映
                     this.taskTreePublisher.publishTaskTree({
                         status: 'in_progress',
@@ -560,19 +687,24 @@ export class FunctionCallingAgent {
                     }
 
                     if (hasRepeatedBlock) {
-                        logger.warn(`[ForwardModel] 🔺 連続ブロック上限到達 → エスカレーション要求`);
-                        if (modelSelector.escalate('ForwardModel: 同一パターン連続ブロック3回')) {
-                            effectiveModelWithTools = modelSelector.bindTools(
-                                [...effectiveToolMap.values()],
-                            );
-                        }
+                        // ForwardModel 連続ブロックはルール側の問題であり、モデル能力不足ではない。
+                        // エスカレーションすると応答速度が低下するだけで問題は解決しないため、
+                        // 警告ログのみ出力しエスカレーションは行わない。
+                        logger.warn(`[ForwardModel] 🔺 連続ブロック上限到達 — エスカレーション不要（ルール側の問題）`);
                     }
 
                     if (passedToolCalls.length === 0) {
-                        iteration++;
+                        consecutiveBlockedOnly++;
+                        if (consecutiveBlockedOnly >= MAX_CONSECUTIVE_BLOCKED_ONLY) {
+                            logger.warn(`⚠ ブロックのみ${MAX_CONSECUTIVE_BLOCKED_ONLY}回連続 → イテレーション消費`);
+                            iteration++;
+                            consecutiveBlockedOnly = 0;
+                        }
                         continue;
                     }
                 }
+
+                consecutiveBlockedOnly = 0;
 
                 // ── ツール実行 ──
                 logger.info(`🔧 ${passedToolCalls.length}個のツールを実行中...`, 'cyan');
@@ -602,6 +734,16 @@ export class FunctionCallingAgent {
                 const completeCall = toolCalls.find((tc) => tc.name === 'task-complete');
                 if (completeCall) {
                     const summary = completeCall.args?.summary || 'タスク完了';
+                    // ユーザー向け応答は「最後の assistant 本文」を優先（挨拶で要約文が返る問題の対策）
+                    // "content:" プレフィックスはプロンプト指示由来のラベルなので除去
+                    const stripContentPrefix = (t: string) => t.replace(/^content:\s*/i, '').trim();
+                    const lastAssistantContent =
+                        (typeof thinkingContent === 'string' && thinkingContent.trim())
+                            ? stripContentPrefix(thinkingContent)
+                            : (typeof lastThinkingContent === 'string' && lastThinkingContent.trim())
+                                ? stripContentPrefix(lastThinkingContent)
+                                : undefined;
+
                     logger.success(`✅ FunctionCallingAgent: タスク完了 (${iteration + 1}イテレーション, ${((Date.now() - startTime) / 1000).toFixed(1)}s)`);
                     logger.info(`   応答: ${summary.substring(0, 200)}`);
 
@@ -637,12 +779,20 @@ export class FunctionCallingAgent {
                         isEmergency,
                         messages,
                         forceStop: false,
+                        lastAssistantContent,
                     };
                 }
 
+                // ── ForwardModel: 成功ツールのブロックカウンタリセット + 学習 ──
+                for (const result of iterationResults) {
+                    if (result.success) {
+                        this.forwardModel.onToolExecuted(result.toolName, result.args ?? {});
+                    }
+                }
+                this.forwardModel.learn(iterationResults);
+
                 // ── LoopDetector: 繰り返し失敗の検出（前帯状皮質） ──
                 const loopDetection = this.loopDetector.recordAndCheck(passedToolCalls, iterationResults);
-                this.forwardModel.learn(iterationResults);
 
                 if (loopDetection.detected) {
                     logger.warn(`[LoopDetector] 🔴 ループ検出: ${loopDetection.summary}`);
@@ -657,7 +807,10 @@ export class FunctionCallingAgent {
                     }
 
                     // エスカレーション推奨 → モデルを上げる
-                    if (loopDetection.needsEscalation) {
+                    // Minecraft ではツール失敗はゲーム状態起因が多く、モデル能力不足ではない。
+                    // エスカレーションすると応答速度が低下するだけなのでスキップ。
+                    const isMinecraftPlatform = state.context?.platform === 'minecraft' || state.context?.platform === 'minebot';
+                    if (loopDetection.needsEscalation && !isMinecraftPlatform) {
                         if (modelSelector.escalate('LoopDetector: 高失敗率')) {
                             effectiveModelWithTools = modelSelector.bindTools(
                                 [...effectiveToolMap.values()],
@@ -856,15 +1009,21 @@ export class FunctionCallingAgent {
 
     /**
      * ゴール文字列からクラフト対象アイテムを推定し、依存チェーンをプロンプト用テキストとして返す。
-     * minecraft-data のデフォルトバージョン 1.20 を使用。
+     * インベントリが渡された場合は突合済みの製作計画を返す。
      */
-    private buildCraftDependencyPrompt(goal: string): string | null {
+    private buildCraftDependencyPrompt(
+        goal: string,
+        inventory: Array<{ name: string; count: number }> | null,
+    ): string | null {
         const MC_VERSION = '1.20';
         const resolver = RecipeDependencyResolver.getInstance(MC_VERSION);
 
         const items = this.extractCraftTargets(goal);
         if (items.length === 0) return null;
 
+        if (inventory && inventory.length > 0) {
+            return resolver.buildDependencyPromptWithInventory(items, inventory);
+        }
         return resolver.buildDependencyPrompt(items);
     }
 

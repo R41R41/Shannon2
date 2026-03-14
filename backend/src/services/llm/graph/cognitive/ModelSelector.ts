@@ -58,6 +58,7 @@ export class ModelSelector {
     private tools: StructuredTool[] = [];
     private escalationCount = 0;
     private deescalationCount = 0;
+    private maxEscalationIndex: number = ESCALATION_CHAIN.length - 1;
 
     constructor(initialModelName?: string) {
         const idx = initialModelName
@@ -119,12 +120,24 @@ export class ModelSelector {
     }
 
     /**
+     * エスカレーション上限を設定する。
+     * Minecraft 等レイテンシ重視のプラットフォームでは重いモデルへの昇格を制限する。
+     */
+    setMaxEscalationLevel(maxModelName: string): void {
+        const idx = ESCALATION_CHAIN.findIndex(s => s.name === maxModelName);
+        if (idx >= 0) {
+            this.maxEscalationIndex = idx;
+            logger.info(`[ModelSelector] 🔒 エスカレーション上限: ${maxModelName} (index ${idx})`);
+        }
+    }
+
+    /**
      * 上位モデルへエスカレーションする。
-     * @returns エスカレーションが成功したか（最上位の場合は false）
+     * @returns エスカレーションが成功したか（上限/最上位の場合は false）
      */
     escalate(reason: string): boolean {
-        if (this.currentIndex >= ESCALATION_CHAIN.length - 1) {
-            logger.warn(`[ModelSelector] ⚠️ 既に最上位モデル (${this.modelName}) — エスカレーション不可`);
+        if (this.currentIndex >= this.maxEscalationIndex) {
+            logger.warn(`[ModelSelector] ⚠️ エスカレーション上限 (${this.modelName}, max=${ESCALATION_CHAIN[this.maxEscalationIndex]?.name}) — スキップ`);
             return false;
         }
 

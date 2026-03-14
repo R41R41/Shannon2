@@ -20,6 +20,7 @@ type UnifiedExecutor = (
     onToolStarting?: (toolName: string, args?: Record<string, unknown>) => void;
     onTaskTreeUpdate?: (taskTree: TaskTreeState) => void;
     onRequestSkillInterrupt?: () => void;
+    abortSignal?: AbortSignal;
   },
 ) => Promise<any>;
 
@@ -104,6 +105,7 @@ export class MinebotTaskRuntime {
           this.bot.interruptExecution = true;
           log.warn('⚡ MetaCognition からスキル中断要求 → bot.interruptExecution = true');
         },
+        abortSignal: this.abortController?.signal,
       });
 
       const taskTree =
@@ -253,7 +255,7 @@ export class MinebotTaskRuntime {
     return this.isEmergencyMode;
   }
 
-  public interruptForEmergency(_message: string): void {
+  public async interruptForEmergency(_message: string): Promise<void> {
     const executingTask = this.taskQueue.find((task) => task.status === 'executing');
     if (executingTask) {
       executingTask.status = 'paused';
@@ -263,6 +265,19 @@ export class MinebotTaskRuntime {
     this.isEmergencyMode = true;
     if (this.isExecuting) {
       this.forceStop();
+
+      // forceStop() は AbortController.abort() するが、FCA の実行ループが
+      // 実際に終了して isExecuting = false になるまでラグがある。
+      // 緊急タスクの invoke() が拒否されないよう、解除を待つ。
+      const deadline = Date.now() + 2000;
+      while (this.isExecuting && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      if (this.isExecuting) {
+        log.warn('⚡ タスクが2秒以内に停止しなかったため isExecuting を強制クリア');
+        this.isExecuting = false;
+        this.abortController = null;
+      }
     }
     this.notifyTaskListUpdate();
   }
@@ -333,6 +348,26 @@ export class MinebotTaskRuntime {
       }
       this.notifyTaskListUpdate();
       void this.executeNextTask();
+      return { success: true };
+    }
+
+    // currentState に直接保持されているタスク（taskQueue に入っていないケース）
+    if (this.currentState?.taskId === taskId) {
+      // forceStop() は currentState.forceStop フラグを参照するため、
+      // currentState をクリアする前に呼ぶ必要がある
+      if (this.isExecuting) {
+        this.forceStop();
+      }
+      this.currentState = null;
+      // taskQueue にも存在する場合は併せて削除
+      const qIdx = this.taskQueue.findIndex((task) => task.id === taskId);
+      if (qIdx !== -1) {
+        this.taskQueue.splice(qIdx, 1);
+      }
+      this.notifyTaskListUpdate();
+      if (!this.isEmergencyMode) {
+        void this.executeNextTask();
+      }
       return { success: true };
     }
 
@@ -604,6 +639,23 @@ export class MinebotTaskRuntime {
 
   private taskInputToEnvelope(input: TaskStateInput): RequestEnvelope {
     if (input.envelope) {
+      // 既存の envelope がある場合でも、Minecraft チャネルなら
+      // リアルタイムのインベントリと nearbyInfrastructure で補強する
+      if (input.envelope.channel === 'minecraft' && input.envelope.minecraft) {
+        const freshInventory = this.bot.inventory?.items().map((item) => ({
+          name: item.name,
+          count: item.count,
+        })) ?? [];
+        const nearbyInfrastructure = this.scanNearbyInfrastructure();
+
+        // インベントリが空でない場合のみ上書き（フォールバック保護）
+        if (freshInventory.length > 0 || !input.envelope.minecraft.inventory?.length) {
+          input.envelope.minecraft.inventory = freshInventory.length > 0
+            ? freshInventory
+            : input.envelope.minecraft.inventory;
+        }
+        input.envelope.minecraft.nearbyInfrastructure = nearbyInfrastructure;
+      }
       return input.envelope;
     }
 
@@ -611,6 +663,16 @@ export class MinebotTaskRuntime {
     if (input.isEmergency) {
       tags.push('emergency');
     }
+
+    // bot の現在状態をスナップショットして envelope に含める
+    const pos = this.bot.entity?.position;
+    const inventory = this.bot.inventory?.items().map((item) => ({
+      name: item.name,
+      count: item.count,
+    })) ?? [];
+
+    // 近くのインフラブロックをスキャン（crafting_table, furnace 等）
+    const nearbyInfrastructure = this.scanNearbyInfrastructure();
 
     return createEnvelope({
       channel: 'minecraft',
@@ -620,11 +682,56 @@ export class MinebotTaskRuntime {
       threadId: `minecraft:${this.bot.connectedServerName || 'default'}`,
       text: input.userMessage ?? undefined,
       tags,
+      minecraft: {
+        worldId: this.bot.connectedServerName || 'default',
+        position: pos ? { x: Math.floor(pos.x), y: Math.floor(pos.y), z: Math.floor(pos.z) } : undefined,
+        health: this.bot.health ?? undefined,
+        food: this.bot.food ?? undefined,
+        inventory,
+        nearbyInfrastructure,
+      } as any,
       metadata: {
         environmentState: input.environmentState,
         selfState: input.selfState,
         taskOrigin: 'minebot-runtime',
       },
     });
+  }
+
+  /**
+   * 半径 8 ブロック以内のインフラブロック（crafting_table, furnace 等）をスキャン。
+   * CraftPreflight ノードおよび PromptBuilder で使用する。
+   */
+  private scanNearbyInfrastructure(): Array<{ name: string; x: number; y: number; z: number; distance: number }> {
+    const SCAN_BLOCKS = [
+      'crafting_table', 'furnace', 'blast_furnace', 'smoker',
+      'chest', 'enchanting_table', 'anvil',
+    ];
+    const results: Array<{ name: string; x: number; y: number; z: number; distance: number }> = [];
+
+    try {
+      const pos = this.bot.entity?.position;
+      if (!pos) return results;
+
+      for (const blockName of SCAN_BLOCKS) {
+        const blockId = (this.bot as any).registry?.blocksByName?.[blockName]?.id;
+        if (blockId == null) continue;
+
+        const found = this.bot.findBlocks({ matching: blockId, maxDistance: 8, count: 3 });
+        for (const blockPos of found) {
+          results.push({
+            name: blockName,
+            x: blockPos.x,
+            y: blockPos.y,
+            z: blockPos.z,
+            distance: Math.round(pos.distanceTo(blockPos) * 10) / 10,
+          });
+        }
+      }
+    } catch (err) {
+      log.warn(`Failed to scan nearby infrastructure: ${err}`);
+    }
+
+    return results;
   }
 }

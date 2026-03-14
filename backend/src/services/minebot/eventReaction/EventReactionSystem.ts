@@ -328,7 +328,11 @@ export class EventReactionSystem {
         log.error(`🚨 緊急対応: ${message}`);
 
         try {
-            this.taskRuntime.interruptForEmergency(message);
+            // 1. 即座の反射的逃走（LLM を待たずに物理行動）
+            this.executeReflexiveFlee();
+
+            // 2. 実行中タスクを中断し、isExecuting 解除を待つ
+            await this.taskRuntime.interruptForEmergency(message);
 
             const emergencyTaskInput = {
                 userMessage: message,
@@ -337,6 +341,7 @@ export class EventReactionSystem {
             };
             this.taskRuntime.setEmergencyTask(emergencyTaskInput);
 
+            // 3. LLM ベースの緊急タスクを実行
             await this.taskRuntime.invoke(emergencyTaskInput);
 
             return { handled: true, reactionType: 'emergency', message };
@@ -395,6 +400,74 @@ export class EventReactionSystem {
             || StatusEventHandler.buildTaskMessage(eventData)
             || EnvironmentEventHandler.buildTaskMessage(eventData)
             || 'イベントが発生した';
+    }
+
+    /**
+     * 反射的逃走 — LLM を待たず即座に敵から離れる物理行動。
+     * 脊髄反射に相当し、生存確率を大幅に上げる。
+     */
+    private executeReflexiveFlee(): void {
+        try {
+            if (!this.bot.entity) return;
+
+            // 進行中のアクションを停止
+            this.bot.clearControlStates();
+            const pathfinder = (this.bot as any).pathfinder;
+            pathfinder?.setGoal?.(null);
+            pathfinder?.stop?.();
+
+            // 最も近い敵対 Mob を見つける
+            const botPos = this.bot.entity.position;
+            let nearestHostile: { position: { x: number; y: number; z: number }; distance: number } | null = null;
+
+            for (const entity of Object.values(this.bot.entities)) {
+                if (entity.id === this.bot.entity.id) continue;
+                const mobName = String((entity as any).name || '').toLowerCase();
+                const isHostile = ['zombie', 'skeleton', 'creeper', 'spider', 'drowned', 'husk',
+                    'stray', 'witch', 'phantom', 'pillager', 'vindicator', 'warden'].some(h => mobName.includes(h));
+                if (!isHostile) continue;
+
+                const dist = botPos.distanceTo(entity.position);
+                if (dist < 16 && (!nearestHostile || dist < nearestHostile.distance)) {
+                    nearestHostile = { position: entity.position, distance: dist };
+                }
+            }
+
+            if (nearestHostile) {
+                // 敵の反対方向を向いてスプリントジャンプで逃走
+                const dx = botPos.x - nearestHostile.position.x;
+                const dz = botPos.z - nearestHostile.position.z;
+                const len = Math.sqrt(dx * dx + dz * dz) || 1;
+                const fleeYaw = Math.atan2(-dx / len, -dz / len);
+
+                this.bot.look(fleeYaw, 0, true);
+                this.bot.setControlState('forward', true);
+                this.bot.setControlState('sprint', true);
+                this.bot.setControlState('jump', true);
+
+                log.warn(`⚡ 反射的逃走: 敵(${nearestHostile.distance.toFixed(1)}m)から離脱中`);
+
+                // 2秒後に制御状態をクリア（LLM タスクに制御を渡す）
+                setTimeout(() => {
+                    try {
+                        this.bot.clearControlStates();
+                    } catch { /* bot might be dead */ }
+                }, 2000);
+            } else {
+                // 敵が見つからない場合もジャンプして離脱を試みる
+                this.bot.setControlState('jump', true);
+                this.bot.setControlState('forward', true);
+                this.bot.setControlState('sprint', true);
+                log.warn('⚡ 反射的逃走: 敵不明、前方にスプリント');
+                setTimeout(() => {
+                    try {
+                        this.bot.clearControlStates();
+                    } catch { /* ignore */ }
+                }, 1500);
+            }
+        } catch (error) {
+            log.error('反射的逃走エラー（無視して緊急タスクを続行）', error);
+        }
     }
 
     /**

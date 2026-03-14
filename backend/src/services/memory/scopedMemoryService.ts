@@ -51,6 +51,8 @@ import { IExchange } from '../../models/PersonMemory.js';
 export interface ScopedRecallQuery {
   envelope: RequestEnvelope;
   text: string;
+  /** true の場合、person/selfModel/relationship/semantic search をスキップ（Minecraft 高速パス用） */
+  lightweightMode?: boolean;
 }
 
 export interface ScopedRecallResult {
@@ -120,10 +122,39 @@ export class ScopedMemoryService {
    * filtered by visibility scope and privacy rules.
    */
   async recall(query: ScopedRecallQuery): Promise<ScopedRecallResult> {
-    const { envelope, text } = query;
+    const { envelope, text, lightweightMode } = query;
     const userId = this.recallEngine.resolveCanonicalUserId(envelope);
     const channel = envelope.channel;
     const scopeTags = this.scopeDeriver.deriveScopeTags(envelope);
+
+    // Phase 2-C: 軽量モード（Minecraft アクション向け）
+    // person, selfModel, relationship, internalState, semantic search をスキップ
+    // strategyUpdates と worldPatterns のみ取得（-1〜4秒）
+    if (lightweightMode) {
+      const [strategyUpdates, worldModelPatterns] = await Promise.all([
+        this.recallEngine.recallStrategyUpdates(envelope, userId, scopeTags),
+        this.recallEngine.recallWorldPatterns(envelope, scopeTags),
+      ]);
+      const strategyPrompt = this.formatter.formatStrategyPrompt(strategyUpdates);
+      const worldModelPrompt = this.formatter.formatWorldPatternPrompt(worldModelPatterns);
+      const formattedPrompt = [strategyPrompt, worldModelPrompt].filter(Boolean).join('\n\n');
+      return {
+        person: null,
+        memories: [],
+        userProfile: null,
+        relationshipModel: null,
+        selfModel: null,
+        strategyUpdates,
+        internalState: null,
+        worldModelPatterns,
+        relationshipPrompt: '',
+        selfModelPrompt: '',
+        strategyPrompt,
+        internalStatePrompt: '',
+        worldModelPrompt,
+        formattedPrompt,
+      };
+    }
 
     // 1. Recall person
     const person = await this.recallEngine.recallPerson(envelope);

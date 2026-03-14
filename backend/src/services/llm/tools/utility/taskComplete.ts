@@ -14,12 +14,12 @@ export default class TaskCompleteTool extends StructuredTool {
     'Declare the current task as complete. Call this ONLY when the final goal has been fully achieved ' +
     '(e.g., the requested item is in inventory, the information has been delivered, etc.). ' +
     'Do NOT call this after intermediate steps like starting smelting — wait until the end product is ready. ' +
-    'Provide a brief summary of what was accomplished.';
+    'Provide a brief internal summary of what was accomplished (for logging/UI; the text shown to the user is taken from your normal reply content, not this summary).';
 
   schema = z.object({
     summary: z
       .string()
-      .describe('Brief summary of what was accomplished (this will be shown to the user)'),
+      .describe('Brief internal summary of what was accomplished (used for logging/status; user-facing message comes from your reply content)'),
   });
 
   async _call(data: z.infer<typeof this.schema>): Promise<string> {

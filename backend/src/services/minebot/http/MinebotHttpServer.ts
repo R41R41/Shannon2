@@ -89,7 +89,7 @@ export class MinebotHttpServer {
         // アイテム投げ捨てエンドポイント
         this.app.post('/throw_item', async (req: any, res: any) => {
             try {
-                const { itemName } = req.body as ThrowItemRequest;
+                const { itemName, count = 1 } = req.body as ThrowItemRequest;
                 const dropItem = this.bot.instantSkills.getSkill('drop-item');
                 if (!dropItem) {
                     const response: ApiResponse = { success: false, result: 'drop-item skill not found' };
@@ -98,7 +98,7 @@ export class MinebotHttpServer {
 
                 // minecraft:oak_log -> oak_log の形式変換
                 const cleanItemName = itemName.includes(':') ? itemName.split(':')[1] : itemName;
-                const result = await dropItem.run(cleanItemName, 1);
+                const result = await dropItem.run(cleanItemName, count);
 
                 log.info(`📦 アイテムドロップ: ${cleanItemName} → ${result.result}`);
                 const response: ApiResponse = { success: result.success, result: result.result };
@@ -348,7 +348,12 @@ export class MinebotHttpServer {
                     return res.status(400).json({ success: false, result: 'Task runtime not initialized' });
                 }
 
+                const queueIds = this.taskRuntime.getTaskListState().tasks.map((t: any) => t.id);
+                const emergencyId = this.taskRuntime.getTaskListState().emergencyTask?.id;
+                log.info(`/task_delete taskId=${taskId}, queueIds=[${queueIds.join(',')}], emergencyId=${emergencyId ?? 'none'}`);
+
                 const result = this.taskRuntime.removeTask(taskId);
+                log.info(`/task_delete result: ${JSON.stringify(result)}`);
                 res.status(200).json(result);
             } catch (error) {
                 const httpError = new HttpServerError('/task_delete', 500, error as Error);

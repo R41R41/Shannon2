@@ -18,6 +18,15 @@ export class InstantSkills {
   getSkills(): InstantSkill[] {
     return this.skills;
   }
+  hasSkill(name: string): boolean {
+    return this.skills.some((skill) => skill.skillName === name);
+  }
+  removeSkill(name: string): boolean {
+    const idx = this.skills.findIndex((skill) => skill.skillName === name);
+    if (idx === -1) return false;
+    this.skills.splice(idx, 1);
+    return true;
+  }
 }
 
 // タスクキューのエントリー型
@@ -236,6 +245,17 @@ export class ConstantSkills {
 
   getSkills(): ConstantSkill[] {
     return this.skills;
+  }
+  hasSkill(name: string): boolean {
+    return this.skills.some((skill) => skill.skillName === name);
+  }
+  removeSkill(name: string): boolean {
+    const idx = this.skills.findIndex((skill) => skill.skillName === name);
+    if (idx === -1) return false;
+    const skill = this.skills[idx];
+    skill.status = false;
+    this.skills.splice(idx, 1);
+    return true;
   }
 
   // キューの状態を取得

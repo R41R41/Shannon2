@@ -25,6 +25,7 @@ export interface MinecraftContext {
   food?: number;
   nearbyEntities?: string[];
   inventory?: Array<{ name: string; count: number }>;
+  nearbyInfrastructure?: Array<{ name: string; x: number; y: number; z: number; distance: number }>;
   eventType?:
     | 'chat'
     | 'mentioned'

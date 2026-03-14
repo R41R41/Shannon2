@@ -26,6 +26,7 @@ export interface SkillExecutionResult {
  */
 export interface ThrowItemRequest {
     itemName: string;
+    count?: number;
 }
 
 /**

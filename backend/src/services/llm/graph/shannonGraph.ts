@@ -34,6 +34,7 @@ import type {
 } from '@shannon/common';
 import { inferInitialMode, envelopeToTaskContext } from './stateBridge.js';
 import { actionFormatterNode } from '../../common/adapters/actionFormatter.js';
+import { loadPublicKnowledge } from './publicKnowledge.js';
 import { EmotionNode, EmotionState } from './nodes/EmotionNode.js';
 import { FunctionCallingAgent } from './nodes/FunctionCallingAgent.js';
 import { ClassifyNode } from './nodes/ClassifyNode.js';
@@ -42,6 +43,7 @@ import { ModelSelector } from './cognitive/ModelSelector.js';
 import { ParallelExecutor } from './cognitive/ParallelExecutor.js';
 import { TaskEpisodeMemory } from './cognitive/TaskEpisodeMemory.js';
 import type { ExecutionResult } from './types.js';
+import { CraftPlan, runCraftPreflight } from './nodes/CraftPreflightNode.js';
 
 // ---------------------------------------------------------------------------
 // LangGraph Annotation (state schema)
@@ -81,6 +83,9 @@ const ShannonState = Annotation.Root({
   // -- model selection (RAS) --
   selectedModel: Annotation<string | undefined>({ reducer: replace, default: () => undefined }),
 
+  // -- craft preflight (deterministic pre-computation for Minecraft crafting) --
+  craftPlan: Annotation<CraftPlan | undefined>({ reducer: replace, default: () => undefined }),
+
   // -- planning --
   plan: Annotation<ShannonPlan | undefined>({ reducer: replace, default: () => undefined }),
   taskTree: Annotation<TaskTreeState | undefined>({ reducer: replace, default: () => undefined }),
@@ -113,6 +118,10 @@ const ShannonState = Annotation.Root({
     reducer: replace,
     default: () => undefined,
   }),
+  _abortSignal: Annotation<AbortSignal | undefined>({
+    reducer: replace,
+    default: () => undefined,
+  }),
 });
 
 type ShannonStateType = typeof ShannonState.State;
@@ -133,8 +142,65 @@ async function ingestNode(state: ShannonStateType): Promise<Partial<ShannonState
   return { mode, trace: ['node:ingest'] };
 }
 
+/**
+ * ingest 後のルーティング:
+ * - emergency タグ付き → 直接 execute（classify/emotion/recall スキップ）
+ * - それ以外 → classify
+ */
+function ingestRouter(state: ShannonStateType): string {
+  if (state.envelope.tags.includes('emergency')) {
+    return 'emergency_fastpath';
+  }
+  return 'classify';
+}
+
+/**
+ * 緊急ファストパス: classify/emotion/recall を完全スキップし、
+ * ハードコードされた緊急分類で直接 execute へ進む。
+ * 効果: -7〜18秒（LLM 分類 + 感情評価 + 記憶検索を全スキップ）
+ */
+async function emergencyFastpathNode(state: ShannonStateType): Promise<Partial<ShannonStateType>> {
+  const selectedModel = ModelSelector.selectInitialModel('high', false, 'minecraft_emergency');
+  return {
+    mode: 'minecraft_emergency' as ShannonMode,
+    intent: state.envelope.text?.slice(0, 100) ?? 'emergency',
+    riskLevel: 'high',
+    needsTools: true,
+    needsPlanning: false,
+    selectedModel,
+    trace: ['node:emergency_fastpath'],
+  };
+}
+
 async function classifyNodeFn(state: ShannonStateType): Promise<Partial<ShannonStateType>> {
-  const result = await classifyNode.invoke(state.envelope);
+  const envelope = state.envelope;
+
+  // Phase 2-A: Minecraft チャンネルはヒューリスティック分類（LLM スキップ: -2〜5秒）
+  if (envelope.channel === 'minecraft') {
+    const text = envelope.text ?? '';
+    const isEmergency = /緊急|emergency|attack|死|help|助けて|hostile|ゾンビ|スケルトン|クリーパー/i.test(text);
+    const mode: ShannonMode = isEmergency ? 'minecraft_emergency' : 'minecraft_action';
+    // クラフト・精錬系は依存チェーンが深い（logs→planks→table→furnace→smelt→craft）ため planning 必要
+    const craftKeywords = /作って|craft|ツルハシ|pickaxe|剣|sword|鎧|armor|精錬|smelt|建て|build/i;
+    const needsPlanning = !isEmergency && (text.length > 50 || craftKeywords.test(text));
+    const selectedModel = ModelSelector.selectInitialModel(
+      isEmergency ? 'high' : 'mid',
+      needsPlanning,
+      mode,
+    );
+    return {
+      mode,
+      intent: text.slice(0, 100),
+      riskLevel: isEmergency ? 'high' : 'mid',
+      needsTools: true,
+      needsPlanning,
+      selectedModel,
+      trace: ['node:classify:heuristic'],
+    };
+  }
+
+  // 他のチャンネルは LLM 分類
+  const result = await classifyNode.invoke(envelope);
   const selectedModel = ModelSelector.selectInitialModel(
     result.riskLevel as 'low' | 'mid' | 'high' | undefined,
     result.needsPlanning,
@@ -151,7 +217,35 @@ async function classifyNodeFn(state: ShannonStateType): Promise<Partial<ShannonS
   };
 }
 
+/**
+ * CraftPreflight ノード: Minecraft クラフトタスクの決定論的前処理。
+ * LLM を使わず、レシピ解決・インベントリ突合・インフラ検索をコードで事前計算する。
+ */
+async function craftPreflightNodeFn(state: ShannonStateType): Promise<Partial<ShannonStateType>> {
+  const mc = state.envelope.minecraft;
+  const plan = runCraftPreflight({
+    channel: state.envelope.channel,
+    text: state.envelope.text,
+    inventory: mc?.inventory,
+    nearbyInfrastructure: mc?.nearbyInfrastructure,
+  });
+  return {
+    craftPlan: plan,
+    trace: ['node:craft_preflight'],
+  };
+}
+
+/**
+ * Phase 2-B: classify 後のルーティング
+ * - Minecraft → recall + craft_preflight 並列（emotion はスキップ）
+ * - その他 → emotion + recall 並列（従来通り）
+ */
 function classifyRouter(state: ShannonStateType): string[] {
+  const channel = state.envelope.channel;
+  if (channel === 'minecraft') {
+    // emotion をスキップし recall + craft_preflight を並列実行
+    return ['recall', 'craft_preflight'];
+  }
   return ['emotion_step', 'recall'];
 }
 
@@ -177,14 +271,46 @@ function createEmotionNode(emotionNode: EmotionNode) {
  * No MemoryNode wrapper — queries directly with privacy filter and ranking.
  */
 async function recallNode(state: ShannonStateType): Promise<Partial<ShannonStateType>> {
+  const channel = state.envelope.channel;
+  const mode = state.mode;
+
+  // Phase 2-C: Minecraft アクションは軽量 recall（person/self/relationship スキップ: -1〜4秒）
+  if (channel === 'minecraft' && (mode === 'minecraft_action' || mode === 'minecraft_emergency')) {
+    const result = await scopedMemory.recall({
+      envelope: state.envelope,
+      text: state.envelope.text ?? '',
+      lightweightMode: true,  // person, selfModel, relationship, semantic search をスキップ
+    });
+    return {
+      memoryPrompt: result.formattedPrompt,
+      retrievedFacts: result.formattedPrompt ? [result.formattedPrompt] : [],
+      strategyUpdates: result.strategyUpdates,
+      worldModelPatterns: result.worldModelPatterns,
+      strategyPrompt: result.strategyPrompt || undefined,
+      worldModelPrompt: result.worldModelPrompt || undefined,
+      trace: ['node:recall:lightweight'],
+    };
+  }
+
   const result = await scopedMemory.recall({
     envelope: state.envelope,
     text: state.envelope.text ?? '',
   });
 
+  // Web channel: inject public knowledge about Shannon/AiMineLab
+  let memoryPrompt = result.formattedPrompt;
+  if (channel === 'web') {
+    const publicKnowledge = loadPublicKnowledge(state.envelope.text ?? '');
+    if (publicKnowledge) {
+      memoryPrompt = memoryPrompt
+        ? `${memoryPrompt}\n\n${publicKnowledge}`
+        : publicKnowledge;
+    }
+  }
+
   return {
-    memoryPrompt: result.formattedPrompt,
-    retrievedFacts: result.formattedPrompt ? [result.formattedPrompt] : [],
+    memoryPrompt,
+    retrievedFacts: memoryPrompt ? [memoryPrompt] : [],
     userProfile: result.userProfile ?? undefined,
     selfModel: result.selfModel ?? undefined,
     relationshipModel: result.relationshipModel ?? undefined,
@@ -234,6 +360,10 @@ function createExecuteNode(fca: FunctionCallingAgent, emotionNode?: EmotionNode)
       onTaskTreeUpdate: state._onTaskTreeUpdate,
       onRequestSkillInterrupt: state._onRequestSkillInterrupt,
       selectedModel: state.selectedModel,
+      classifyMode: state.mode,
+      needsTools: state.needsTools,
+      needsPlanning: state.needsPlanning,
+      craftPlan: state.craftPlan,
       onToolsExecuted: (messages: BaseMessage[], results: ExecutionResult[]) => {
         if (emotionNode) {
           emotionNode
@@ -246,9 +376,9 @@ function createExecuteNode(fca: FunctionCallingAgent, emotionNode?: EmotionNode)
 
     if (parallelExecutor) {
       // 3並列プロセス: EmotionLoop + MetaCognitionLoop + TaskExecutionLoop
-      const result = await parallelExecutor.run(fcaState);
+      const result = await parallelExecutor.run(fcaState, state._abortSignal);
       return {
-        finalAnswer: result.taskTree?.strategy ?? undefined,
+        finalAnswer: result.lastAssistantContent ?? result.taskTree?.strategy ?? undefined,
         taskTree: result.taskTree ?? undefined,
         emotion: result.finalEmotion ?? emotionState.current ?? undefined,
         trace: ['node:execute:parallel'],
@@ -270,7 +400,7 @@ function createExecuteNode(fca: FunctionCallingAgent, emotionNode?: EmotionNode)
     } catch { }
 
     return {
-      finalAnswer: agentResult.taskTree?.strategy ?? undefined,
+      finalAnswer: agentResult.lastAssistantContent ?? agentResult.taskTree?.strategy ?? undefined,
       taskTree: agentResult.taskTree ?? undefined,
       emotion: emotionState.current ?? undefined,
       trace: ['node:execute'],
@@ -318,21 +448,32 @@ export interface ShannonGraphDeps {
 export function buildShannonGraph(deps: ShannonGraphDeps) {
   const workflow = new StateGraph(ShannonState)
     .addNode('ingest', ingestNode)
+    .addNode('emergency_fastpath', emergencyFastpathNode)
     .addNode('classify', classifyNodeFn)
     .addNode('emotion_step', createEmotionNode(deps.emotionNode))
     .addNode('recall', recallNode)
+    .addNode('craft_preflight', craftPreflightNodeFn)
     .addNode('execute', createExecuteNode(deps.fca, deps.emotionNode))
     .addNode('format', formatNode)
     .addNode('writeback', writebackNode)
 
+    // Phase 1-A: ingest → 緊急なら fastpath、通常なら classify
     .addEdge(START, 'ingest')
-    .addEdge('ingest', 'classify')
+    .addConditionalEdges('ingest', ingestRouter, {
+      emergency_fastpath: 'emergency_fastpath',
+      classify: 'classify',
+    })
+    // emergency_fastpath → 直接 execute（classify/emotion/recall スキップ）
+    .addEdge('emergency_fastpath', 'execute')
+    // Phase 2-B: classify → Minecraft は recall のみ、他は emotion+recall 並列
     .addConditionalEdges('classify', classifyRouter, {
       emotion_step: 'emotion_step',
       recall: 'recall',
+      craft_preflight: 'craft_preflight',
     })
     .addEdge('emotion_step', 'execute')
     .addEdge('recall', 'execute')
+    .addEdge('craft_preflight', 'execute')
     .addEdge('execute', 'format')
     .addEdge('format', 'writeback')
     .addEdge('writeback', END);
@@ -354,6 +495,7 @@ export async function invokeShannonGraph(
     onToolStarting?: (toolName: string, args?: Record<string, unknown>) => void;
     onTaskTreeUpdate?: (taskTree: TaskTreeState) => void;
     onRequestSkillInterrupt?: () => void;
+    abortSignal?: AbortSignal;
   },
 ): Promise<ShannonGraphState> {
   const result = await graph.invoke({
@@ -362,6 +504,7 @@ export async function invokeShannonGraph(
     _onToolStarting: options?.onToolStarting,
     _onTaskTreeUpdate: options?.onTaskTreeUpdate,
     _onRequestSkillInterrupt: options?.onRequestSkillInterrupt,
+    _abortSignal: options?.abortSignal,
   });
   return result as unknown as ShannonGraphState;
 }

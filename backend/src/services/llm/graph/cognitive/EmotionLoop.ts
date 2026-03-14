@@ -38,7 +38,7 @@ export class EmotionLoop {
 
         // イベントリスナーを登録
         const onTaskUpdated = () => this.scheduleTick();
-        const onMetaUpdated = () => this.tick();
+        const onMetaUpdated = () => this.scheduleTick();
         const onCompleted = () => { this.stopped = true; };
 
         this.blackboard.on('task:updated', onTaskUpdated);

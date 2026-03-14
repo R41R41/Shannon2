@@ -63,6 +63,50 @@ class CraftOne extends InstantSkill {
    * 木材系アイテムに注釈を追加
    */
   /**
+   * 材料不足時に「製錬が必要」ヒントを生成する。
+   * 例: iron_ingot が必要だが raw_iron を持っている → 「炉で製錬してください」
+   */
+  private suggestSmeltingHint(requiredMaterials: string, inventoryItems: any[]): string | null {
+    const smeltMap: Record<string, string> = {
+      iron_ingot: 'raw_iron',
+      gold_ingot: 'raw_gold',
+      copper_ingot: 'raw_copper',
+    };
+    const hints: string[] = [];
+    for (const [ingot, raw] of Object.entries(smeltMap)) {
+      if (requiredMaterials.includes(ingot)) {
+        const rawItem = inventoryItems.find((i: any) => i.name === raw);
+        if (rawItem) {
+          hints.push(`${ingot}が必要ですが${raw}(x${rawItem.count})があります。start-smeltingで炉に入れてから製錬してください`);
+        }
+      }
+    }
+    return hints.length > 0 ? hints.join('; ') : null;
+  }
+
+  /**
+   * planks が必要だがログを持っている場合のヒント生成
+   */
+  private suggestPlanksHint(requiredMaterials: string, inventoryItems: any[]): string | null {
+    if (!requiredMaterials.includes('planks')) return null;
+
+    const logs = inventoryItems.filter((i: any) =>
+      i.name.endsWith('_log') || i.name.endsWith('_wood') || i.name.endsWith('_stem'),
+    );
+    if (logs.length === 0) return null;
+
+    const hints: string[] = [];
+    for (const log of logs) {
+      const woodType = log.name.replace(/_log$|_wood$|_stem$/, '');
+      const planksName = `${woodType}_planks`;
+      if (this.mcData.itemsByName[planksName]) {
+        hints.push(`${log.name}(x${log.count})からcraft-one(${planksName})で木材を作れる`);
+      }
+    }
+    return hints.length > 0 ? hints.slice(0, 2).join('; ') : null;
+  }
+
+  /**
    * 材料不足時に、インベントリの素材で作れる代替アイテムを提案する
    */
   private suggestAlternatives(itemName: string, inventoryItems: any[]): string | null {
@@ -123,6 +167,8 @@ class CraftOne extends InstantSkill {
   }
 
   async runImpl(itemName: string, count: number = 1) {
+    // クラフト前のアイテム数（catch で部分成功を検出するため外側に定義）
+    let beforeCount = 0;
     try {
       // 開いているGUIを閉じる（activate-blockで開いたクラフトテーブルなど）
       if (this.bot.currentWindow) {
@@ -225,12 +271,17 @@ class CraftOne extends InstantSkill {
             ? recipePatterns.join(' or ')
             : '不明';
 
-          const alternatives = this.suggestAlternatives(itemName, this.bot.inventory.items());
+          const inventoryItemsList = this.bot.inventory.items();
+          const alternatives = this.suggestAlternatives(itemName, inventoryItemsList);
+          const smeltHint = this.suggestSmeltingHint(requiredMaterials, inventoryItemsList);
+          const planksHint = this.suggestPlanksHint(requiredMaterials, inventoryItemsList);
           return {
             success: false,
             result: `${itemName}のクラフトに必要な材料が不足。` +
               `必要: ${requiredMaterials}。` +
               `現在のインベントリ: ${inventory}。` +
+              (smeltHint ? ` ⚠️ 製錬ヒント: ${smeltHint}。` : '') +
+              (planksHint ? ` 💡 木材ヒント: ${planksHint}。` : '') +
               (alternatives ? ` 代替案: ${alternatives}` : ''),
           };
         }
@@ -242,13 +293,19 @@ class CraftOne extends InstantSkill {
 
       const recipe = recipes[0];
 
+      // レシピ1回あたりの出力数を考慮してクラフト回数を算出
+      // count=4, 1回で4個産出 → craftOps=1 (oak_planks等)
+      // count=4, 1回で2個産出 → craftOps=2 (stick等)
+      const resultPerCraft = recipe.result?.count ?? 1;
+      const craftOps = Math.ceil(craftCount / resultPerCraft);
+
       // クラフト前のアイテム数を記録
-      const beforeCount = this.bot.inventory.items()
+      beforeCount = this.bot.inventory.items()
         .filter((i: any) => i.name === itemName)
         .reduce((sum: number, i: any) => sum + i.count, 0);
 
       // クラフト実行
-      await this.bot.craft(recipe, craftCount, craftingTable || undefined);
+      await this.bot.craft(recipe, craftOps, craftingTable || undefined);
 
       // 少し待ってからインベントリを確認
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -271,6 +328,20 @@ class CraftOne extends InstantSkill {
         };
       }
     } catch (error: any) {
+      // エラーでも部分的にクラフト成功している場合がある
+      // （bot.craft が途中で例外を投げてもアイテムは増えている）
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const afterCount = this.bot.inventory.items()
+        .filter((i: any) => i.name === itemName)
+        .reduce((sum: number, i: any) => sum + i.count, 0);
+      const crafted = afterCount - beforeCount;
+      if (crafted > 0) {
+        return {
+          success: true,
+          result: `${itemName}を${crafted}個クラフトしました（要求より少ない可能性あり）`,
+        };
+      }
+
       let errorDetail = error.message;
       if (error.message.includes('missing')) {
         errorDetail = '必要な材料が不足しています';

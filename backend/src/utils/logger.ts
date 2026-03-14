@@ -58,7 +58,7 @@ function stripAnsi(text: string): string {
 // ---------------------------------------------------------------------------
 // Service categories for per-service log files
 // ---------------------------------------------------------------------------
-export type ServiceCategory = 'twitter' | 'minebot' | 'discord';
+export type ServiceCategory = 'twitter' | 'minebot' | 'discord' | 'website';
 
 const SERVICE_STREAMS: Map<ServiceCategory, { stream: WriteStream | null; dateKey: string }> = new Map();
 
@@ -111,6 +111,7 @@ function inferService(prefix: string): ServiceCategory | undefined {
   if (lower.startsWith('minebot:') || lower.startsWith('minecraft:')) return 'minebot';
   if (lower.startsWith('discord:')) return 'discord';
   if (lower.startsWith('twitter:')) return 'twitter';
+  if (lower.startsWith('website:') || lower.startsWith('web:') || lower.startsWith('publicchat:')) return 'website';
   return undefined;
 }
 

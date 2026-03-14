@@ -1,6 +1,10 @@
+import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { TaskContext } from '@shannon/common';
 import { EmotionState } from '../EmotionNode.js';
 import { MemoryState } from '../MemoryNode.js';
+import type { SelfImprovementRulesFile } from '../../cognitive/selfImprove/types.js';
 
 /**
  * FunctionCallingAgent 用のシステムプロンプト構築ユーティリティ
@@ -8,7 +12,60 @@ import { MemoryState } from '../MemoryNode.js';
  * 感情・記憶・環境・プラットフォーム情報をもとにシステムプロンプトを組み立てる。
  * ツール情報は API の tools パラメータで渡すため、ここではルールとコンテキストのみ。
  */
+/** シャノンプロフィールのキャッシュ */
+let _cachedProfile: string | null = null;
+
+function loadShannonProfile(): string {
+    if (_cachedProfile !== null) return _cachedProfile;
+    try {
+        const profilePath = resolve(process.cwd(), 'backend/saves/prompts/others/shannon_profile.md');
+        _cachedProfile = readFileSync(profilePath, 'utf-8').trim();
+    } catch {
+        _cachedProfile = '';
+    }
+    return _cachedProfile;
+}
+
+/** 動的ルールのキャッシュ（60秒間有効） */
+const DYNAMIC_RULES_CACHE_TTL_MS = 60_000;
+const RULES_FILE_PATH = 'backend/saves/minecraft/self_improvement_rules.json';
+
+let _cachedDynamicRules: string[] = [];
+let _cacheTimestamp = 0;
+
+async function loadDynamicRules(): Promise<string[]> {
+    const now = Date.now();
+    if (now - _cacheTimestamp < DYNAMIC_RULES_CACHE_TTL_MS) {
+        return _cachedDynamicRules;
+    }
+    try {
+        const filePath = resolve(process.cwd(), RULES_FILE_PATH);
+        const content = await readFile(filePath, 'utf-8');
+        const data: SelfImprovementRulesFile = JSON.parse(content);
+        _cachedDynamicRules = data.rules
+            .filter(r => r.enabled && r.target === 'prompt')
+            .map(r => r.rule);
+        _cacheTimestamp = now;
+    } catch {
+        // ファイルがなければ空配列
+        _cachedDynamicRules = [];
+        _cacheTimestamp = now;
+    }
+    return _cachedDynamicRules;
+}
+
+// 初回ロードを非同期で開始（結果はキャッシュされる）
+loadDynamicRules().catch(() => {});
+
 export class PromptBuilder {
+    /**
+     * 動的ルールのキャッシュをリフレッシュ（外部から呼ぶ）
+     */
+    static async refreshDynamicRules(): Promise<void> {
+        _cacheTimestamp = 0;
+        await loadDynamicRules();
+    }
+
     /**
      * 完全なシステムプロンプトを構築
      */
@@ -23,6 +80,8 @@ export class PromptBuilder {
         strategyPrompt?: string,
         internalStatePrompt?: string,
         worldModelPrompt?: string,
+        classifyMode?: string,
+        needsTools?: boolean,
     ): string {
         const currentTime = new Date().toLocaleString('ja-JP', {
             timeZone: 'Asia/Tokyo',
@@ -31,7 +90,7 @@ export class PromptBuilder {
         const platformInfo = this.formatPlatformInfo(context);
         const minecraftRules = this.formatMinecraftRules(context);
         const emotionInfo = this.formatEmotionInfo(emotionState);
-        const envInfo = this.formatEnvironmentInfo(environmentState);
+        const envInfo = this.formatEnvironmentInfo(environmentState, context);
         const memoryInfo = this.formatMemoryInfo(
             memoryState,
             memoryPrompt,
@@ -41,9 +100,14 @@ export class PromptBuilder {
             internalStatePrompt,
             worldModelPrompt,
         );
-        const responseInstruction = this.buildResponseInstruction(context);
+        const responseInstruction = this.buildResponseInstruction(context, classifyMode, needsTools);
 
-        return `あなたはAGI「シャノン」です。ユーザーの指示に従ってツールを使いタスクを実行してください。
+        // Web/Discord ではシャノンのプロフィールを注入して人格を保つ
+        const profileSection = (context?.platform === 'web' || context?.platform === 'discord')
+            ? `\n\n${loadShannonProfile()}\n\n---\n\n`
+            : '';
+
+        return `あなたはAGI「シャノン」です。${profileSection}ユーザーの指示に従ってツールを使いタスクを実行してください。
 ${responseInstruction}
 
 ## 思考と行動
@@ -92,20 +156,35 @@ ${minecraftRules}
     /**
      * プラットフォーム別の応答指示を構築
      */
-    buildResponseInstruction(context: TaskContext | null): string {
+    buildResponseInstruction(context: TaskContext | null, classifyMode?: string, needsTools?: boolean): string {
+        let base: string;
         switch (context?.platform) {
             case 'discord':
-                return '最終返信は chat-on-discord を使わず、通常の文章として返してください。システムが action plan として Discord に配信します。';
+                base = '最終返信は chat-on-discord を使わず、通常の文章として返してください。システムが action plan として Discord に配信します。';
+                break;
             case 'web':
-                return '最終返信は chat-on-web を使わず、通常の文章として返してください。システムが action plan として Web UI に配信します。';
+                base = '最終返信は chat-on-web を使わず、通常の文章として返してください。システムが action plan として Web UI に配信します。';
+                break;
             case 'twitter':
-                return '今は X 上の返信処理です。post-on-twitter を最終返信のために使わず、投稿本文だけを通常の文章として返してください。システムが reply/post を実行します。';
+                base = '今は X 上の返信処理です。post-on-twitter を最終返信のために使わず、投稿本文だけを通常の文章として返してください。システムが reply/post を実行します。';
+                break;
             case 'minebot':
             case 'minecraft':
-                return '今は Minecraft 上で行動できます。最終返信は chat-on-web や chat-on-discord を使わず通常の文章として返してください。必要な物理行動は Minecraft 用ツールを使って実行し、システムが action plan に変換します。';
+                base = '今は Minecraft 上で行動できます。最終返信は chat-on-web や chat-on-discord を使わず通常の文章として返してください。必要な物理行動は Minecraft 用ツールを使って実行し、システムが action plan に変換します。';
+                break;
             default:
-                return '最終的な回答は通常の文章として返してください。';
+                base = '最終的な回答は通常の文章として返してください。';
+                break;
         }
+
+        // 分類駆動の指示追加: needsTools=false なら会話モードを明示
+        if (needsTools === false) {
+            base += '\n\n**このリクエストは会話的な応答で十分です。** 検索やツールの使用は不要です。task-complete の summary に応答文を入れて完了してください。';
+        } else if (classifyMode === 'planning') {
+            base += '\n\n複雑なマルチステップタスクです。まず update-plan で計画を立ててから実行してください。';
+        }
+
+        return base;
     }
 
     /**
@@ -180,14 +259,29 @@ ${minecraftRules}
 - **確認を求めずに即座に行動する**。「続けてもいいですか？」「よろしいですか？」は禁止。自律的に最後まで実行する
 - Minecraftでは座標を推測しない。絶対座標が必要なら get-position / 周辺観測系ツールの結果を根拠に使う
 - 原点付近や現在地から極端に離れた座標を思いつきで指定しない
-- 今ある所持品で達成できるなら、新しく採掘・回収しに行く前にまず所持品を使う
-- クラフトや精錬の前に、必要素材・必要設備がインベントリと周囲にあるかを確認する
+- **ingotが必要なとき、所持品にraw素材(raw_iron, raw_gold, raw_copper等)があるなら採掘せずに製錬から始める**
+- 【クラフト分析】セクションがある場合はその指示に従い、材料十分なら採掘しない、作業台/かまどの座標が示されていたらそれを使う
+- **石系ブロック（stone, ore, cobble, deepslate 等）の採掘にはツルハシが必須**。ツルハシなしだと掘削が極端に遅い、またはドロップしない。採掘前に check-inventory-item でツルハシの有無を確認し、なければ先にクラフトする
 - **採掘にツルハシが必要なのに missing_tool で失敗した場合**: 石のツルハシを作る材料(cobblestone x3以上, stick x2以上)がインベントリにあれば、**先に craft-one(stone_pickaxe) を実行する**。丸石の採掘にもツルハシが必要なため、素手で丸石を採掘しに行かないこと
-- place-block-at は自分の足元または隣接マスなど、今いる位置との関係が説明できる座標だけを使う。**草(short_grass等)がある場所にはブロックを置けない**ので、先に dig-block-at で除去してから設置する
+- 掘削結果に「⚠️ 掘削に○秒かかりました」と表示された場合、適切なツールを装備していない。次の採掘の前にツールを確認・クラフトすること
+- **place-block-at**: **草(short_grass等)がある場所にはブロックを置けない**ので、先に dig-block-at で除去してから設置する。座標を推測しない
 - move-to / place-block-at / mine-block が distance_too_far / path_not_found で失敗したら、同じ座標を連打せず位置確認か別手段に切り替える
-- **精錬(start-smelting)のフロー**: (1) かまどの完成品スロットが空か確認(check-furnace)→空でなければ withdraw-from-furnace(slot=output)で取り出す (2) start-smeltingで精錬開始 (3) 精錬完了まで10秒程度待つ(check-furnaceで確認) (4) 完了後に withdraw-from-furnace(slot=output)で回収
+- **move-to が position_verification_failed を返した場合**: pathfinderは成功したが実際に到達していない（地形障害・チャンク未ロード・Y座標が大きく違うなど）。同じ座標を再試行せず、get-positionで現在地を確認してから別のgoalType（xz等）や別ルートを試すか、目標を変更する
+- **craft-one が「製錬ヒント」を含む失敗を返した場合**: 必要なingotをraw素材から製錬する必要がある。start-smeltingフローを実行してから再度クラフトする（例: iron_pickaxeに必要なiron_ingotがなくraw_ironがある→まずraw_ironをかまどで製錬してiron_ingotを作る）
+- **start-smeltingの前提条件**: まず find-blocks(furnace) でかまどの座標を取得する。**かまどがなければ先に cobblestone x8 で craft-one(furnace) → place-block-at で足元に設置**。座標を推測して(0,64,0)等を入れない。crafting_tableが必要ならさらに先にplanks x4でcrafting_tableを作る
+- **精錬(start-smelting)のフロー**: (1) start-smeltingで精錬開始（完成品スロットのアイテムは自動回収される） (2) 精錬完了まで待つ（1個=10秒。7個なら約70秒） (3) **完了後は必ずcheck-furnaceで状態確認→withdraw-from-furnace(slot="output")で完成品を回収**。check-inventory-itemでは確認できない（精錬品はかまどの中にある）
+- **精錬待ち中の重要ルール**: 精錬を開始したら、完了を待ってからかまどから回収する。**精錬品はかまどの中にあるので、check-inventory-itemではなくcheck-furnace→withdraw-from-furnaceで取り出す**。精錬中にiron_ingotが足りないと判断して採掘に行かないこと
 - **鉄鉱石はiron_ore**(raw_ironはアイテム名)。find-blocksにはブロック名を使う
-- 1ターンで依存関係のある複数ツールを同時に呼ばない（例: place-block-atとstart-smeltingを同時に呼ぶと、設置前に精錬しようとして失敗する）`;
+- 1ターンで依存関係のある複数ツールを同時に呼ばない（例: place-block-atとstart-smeltingを同時に呼ぶと、設置前に精錬しようとして失敗する）${this.formatDynamicRules()}`;
+    }
+
+    /**
+     * 自己改善デーモンが追加した動的ルールをフォーマット
+     */
+    private formatDynamicRules(): string {
+        if (_cachedDynamicRules.length === 0) return '';
+        const lines = _cachedDynamicRules.map(r => `\n- ${r}`);
+        return lines.join('');
     }
 
     private formatEmotionInfo(emotionState: EmotionState): string {
@@ -196,7 +290,10 @@ ${minecraftRules}
         return `\n- 感情: ${e.emotion} (joy=${e.parameters.joy}, trust=${e.parameters.trust}, anticipation=${e.parameters.anticipation})`;
     }
 
-    private formatEnvironmentInfo(environmentState: string | null): string {
+    private formatEnvironmentInfo(environmentState: string | null, context: TaskContext | null): string {
+        // Minecraft では environmentState を注入しない
+        // (minecraft context の position/inventory/health 等と完全に重複するため)
+        if (context?.platform === 'minecraft' || context?.platform === 'minebot') return '';
         if (!environmentState) return '';
         return `\n- 環境: ${environmentState}`;
     }

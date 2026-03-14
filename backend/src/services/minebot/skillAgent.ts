@@ -162,6 +162,14 @@ export class SkillAgent {
     this.skillRegistrar.registerSkillControlEvents(this.bot);
     await LLMService.getInstance(config.isDev).registerMinebotTools(this.bot);
 
+    // SelfImprovementDaemon に bot 参照を注入（プロアクティブ・スキル生成用）
+    try {
+      const { SelfImprovementDaemon } = await import('../llm/graph/cognitive/selfImprove/index.js');
+      SelfImprovementDaemon.getInstance().setBot(this.bot);
+    } catch {
+      // non-critical: SelfImprovementDaemon がなくてもスキルは動作する
+    }
+
     return { success: true, result: 'skills initialized' };
   }
 
@@ -512,8 +520,7 @@ export class SkillAgent {
         return targetName
           ? `${targetName}のところに向かうね。`
           : '今そっちに向かうね。';
-      case 'move-to':
-        return '今向かうね。';
+      // move-to は内部的に何度も呼ばれるためチャット不要
       case 'enter-portal':
         return '今そっちへ行ってみるね。';
       case 'flee-from':

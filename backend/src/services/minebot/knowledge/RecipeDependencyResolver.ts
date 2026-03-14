@@ -1,7 +1,7 @@
 import minecraftData from 'minecraft-data';
 import { getSmeltingSource } from './smeltingRecipes.js';
 
-interface DependencyNode {
+export interface DependencyNode {
     item: string;
     quantity: number;
     children: DependencyNode[];
@@ -54,16 +54,20 @@ export class RecipeDependencyResolver {
 
         visited.add(itemName);
 
-        const craftNode = this.tryResolveCraft(itemName, quantity, depth, visited);
-        if (craftNode) {
-            visited.delete(itemName);
-            return craftNode;
-        }
-
+        // 精錬レシピがあるアイテムは smelt を優先する。
+        // 例: iron_ingot は raw_iron → furnace が正しいルートだが、
+        // minecraft-data には iron_block → 9 iron_ingot のクラフトレシピもあるため
+        // craft を先に試すと間違った依存ツリーになる。
         const smeltNode = this.tryResolveSmelt(itemName, quantity, depth, visited);
         if (smeltNode) {
             visited.delete(itemName);
             return smeltNode;
+        }
+
+        const craftNode = this.tryResolveCraft(itemName, quantity, depth, visited);
+        if (craftNode) {
+            visited.delete(itemName);
+            return craftNode;
         }
 
         visited.delete(itemName);
@@ -214,5 +218,100 @@ export class RecipeDependencyResolver {
         if (sections.length === 0) return null;
 
         return `\n\n## クラフト依存チェーン（参考）\n以下はターゲットアイテムの完全な依存ツリーです。素材の確保から順に実行してください。\n\n${sections.join('\n\n')}`;
+    }
+
+    /**
+     * インベントリを突合した製作計画プロンプトを構築する。
+     * 依存ツリーの末端素材（raw 素材）を集計し、手持ちとの差分から
+     * 「不足分」を明示することで、LLM が無駄な採掘を避けられるようにする。
+     */
+    buildDependencyPromptWithInventory(
+        items: string[],
+        inventory: Array<{ name: string; count: number }>,
+    ): string | null {
+        const inventoryMap = new Map<string, number>();
+        for (const entry of inventory) {
+            inventoryMap.set(entry.name, (inventoryMap.get(entry.name) || 0) + entry.count);
+        }
+
+        const sections: string[] = [];
+
+        for (const item of items) {
+            try {
+                const tree = this.resolve(item);
+                if (tree.children.length === 0) continue;
+
+                // 依存ツリーを表示
+                sections.push(this.formatForPrompt(tree));
+
+                // 末端素材を集計
+                const leafNeeds = new Map<string, number>();
+                this.collectLeafMaterials(tree, leafNeeds);
+
+                // インベントリと突合
+                const lines: string[] = ['  --- 所持品との突合 ---'];
+                let allSatisfied = true;
+
+                for (const [mat, needed] of leafNeeds) {
+                    const have = inventoryMap.get(mat) || 0;
+                    const shortage = Math.max(0, needed - have);
+                    if (shortage > 0) {
+                        allSatisfied = false;
+                        lines.push(`  ${mat}: 必要${needed} / 所持${have} → 不足${shortage}`);
+                    } else {
+                        lines.push(`  ${mat}: 必要${needed} / 所持${have} → ✔ 十分`);
+                    }
+                }
+
+                // 精錬可能な中間素材もチェック（例: raw_iron→iron_ingot）
+                const intermediateNeeds = new Map<string, number>();
+                this.collectIntermediateMaterials(tree, intermediateNeeds);
+                for (const [mat, needed] of intermediateNeeds) {
+                    const have = inventoryMap.get(mat) || 0;
+                    if (have > 0) {
+                        lines.push(`  ${mat}: 必要${needed} / 所持${have} → 所持品を活用可能`);
+                    }
+                }
+
+                if (allSatisfied) {
+                    lines.push('  ★ 全素材が揃っています。採掘不要、すぐにクラフト/精錬を開始できます');
+                }
+
+                sections.push(lines.join('\n'));
+            } catch {
+                // unknown item — skip
+            }
+        }
+
+        if (sections.length === 0) return null;
+
+        return `\n\n## 製作計画（インベントリ突合済み）\n**重要: 所持品で足りる素材は新たに採掘しないこと。不足分だけを調達する。**\n\n${sections.join('\n\n')}`;
+    }
+
+    /**
+     * 依存ツリーの末端（raw 素材）を再帰的に集計する。
+     */
+    collectLeafMaterials(node: DependencyNode, result: Map<string, number>): void {
+        if (node.children.length === 0) {
+            result.set(node.item, (result.get(node.item) || 0) + node.quantity);
+            return;
+        }
+        for (const child of node.children) {
+            this.collectLeafMaterials(child, result);
+        }
+    }
+
+    /**
+     * 依存ツリーの中間ノード（craft/smelt で生成されるアイテム）を集計する。
+     * インベントリに中間素材が既にある場合の活用を促すため。
+     */
+    collectIntermediateMaterials(node: DependencyNode, result: Map<string, number>): void {
+        if (node.children.length === 0) return;
+        for (const child of node.children) {
+            if (child.method !== 'raw') {
+                result.set(child.item, (result.get(child.item) || 0) + child.quantity);
+            }
+            this.collectIntermediateMaterials(child, result);
+        }
     }
 }

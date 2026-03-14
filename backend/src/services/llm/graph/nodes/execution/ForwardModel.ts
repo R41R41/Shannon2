@@ -73,6 +73,24 @@ export class ForwardModel {
             this.recentResults.push(result);
             if (this.recentResults.length > 50) this.recentResults.shift();
 
+            // 成功時: 同ツールの学習済み失敗パターンをクリア（状態が変化した可能性があるため）
+            if (result.success) {
+                for (const [key, pattern] of this.learnedPatterns) {
+                    if (pattern.toolName === result.toolName) {
+                        this.learnedPatterns.delete(key);
+                    }
+                }
+                // move-to 成功時: 距離関連の失敗パターンもクリア
+                // （start-smelting/withdraw-from-furnace の distance_too_far は移動後に解決される）
+                if (result.toolName === 'move-to') {
+                    for (const [key, pattern] of this.learnedPatterns) {
+                        if (pattern.failureMessage.includes('遠すぎ') || pattern.failureMessage.includes('distance_too_far')) {
+                            this.learnedPatterns.delete(key);
+                        }
+                    }
+                }
+            }
+
             if (!result.success && result.error) {
                 const key = this.extractPatternKey(result);
                 if (!key) continue;
@@ -137,6 +155,13 @@ export class ForwardModel {
         toolName: string,
         args: Record<string, unknown>,
     ): Prediction {
+        // craft-one は専用ルール (checkRules) で判定するため、学習パターンをスキップ。
+        // 理由: craft-one の成否は外部状態 (crafting_table の有無・インベントリ) に依存し、
+        //       同一 args でも状態変化後に成功する。learned pattern では検知できない。
+        if (toolName === 'craft-one') {
+            return { shouldBlock: false, reason: null, suggestion: null, consecutiveBlocks: 0 };
+        }
+
         for (const [, pattern] of this.learnedPatterns) {
             if (pattern.toolName !== toolName) continue;
             if (pattern.occurrences < 2) continue;
@@ -186,25 +211,49 @@ export class ForwardModel {
             }
         }
 
+        // Rule: start-smelting / withdraw-from-furnace が距離エラーで失敗した直後
+        if (toolName === 'start-smelting' || toolName === 'withdraw-from-furnace') {
+            const lastFailure = recent
+                .filter(r => r.toolName === toolName && !r.success)
+                .pop();
+            if (lastFailure?.failureType === 'distance_too_far') {
+                const lastMoveSuccess = recent
+                    .filter(r => r.toolName === 'move-to' && r.success)
+                    .pop();
+                if (!lastMoveSuccess || recent.indexOf(lastMoveSuccess) < recent.indexOf(lastFailure)) {
+                    return {
+                        shouldBlock: true,
+                        reason: `前回 ${toolName} が距離エラーで失敗し、その後 move-to で近づいていない`,
+                        suggestion: 'まず move-to でかまどの近くに移動してください',
+                        consecutiveBlocks: 0,
+                    };
+                }
+            }
+        }
+
         // Rule: craft-one が crafting_table 不足で失敗した直後に同じアイテムを craft しようとしている
+        // ※ crafting_table 自体は 2x2 レシピなので作業台不要 → 失敗したアイテムと同じ場合のみブロック
         if (toolName === 'craft-one') {
             const lastCraftFailure = recent
                 .filter(r => r.toolName === 'craft-one' && !r.success)
                 .pop();
             if (lastCraftFailure?.error?.includes('クラフトテーブルが必要')) {
-                const lastTableAction = recent
-                    .filter(r =>
-                        (r.toolName === 'activate-block' && r.success) ||
-                        (r.toolName === 'place-block-at' && r.success && r.args?.blockName === 'crafting_table'),
-                    )
-                    .pop();
-                if (!lastTableAction || recent.indexOf(lastTableAction) < recent.indexOf(lastCraftFailure)) {
-                    return {
-                        shouldBlock: true,
-                        reason: 'クラフトテーブルが利用可能になっていない状態で craft-one を呼ぼうとしている',
-                        suggestion: 'まず crafting_table をインベントリから設置(place-block-at)するか、近くの crafting_table を activate-block してからクラフトしてください。crafting_table がなければ木材(planks)4個でクラフトしてください。',
-                        consecutiveBlocks: 0,
-                    };
+                const failedItem = lastCraftFailure.args?.itemName;
+                if (failedItem && failedItem === args.itemName) {
+                    const lastTableAction = recent
+                        .filter(r =>
+                            (r.toolName === 'activate-block' && r.success) ||
+                            (r.toolName === 'place-block-at' && r.success && r.args?.blockName === 'crafting_table'),
+                        )
+                        .pop();
+                    if (!lastTableAction || recent.indexOf(lastTableAction) < recent.indexOf(lastCraftFailure)) {
+                        return {
+                            shouldBlock: true,
+                            reason: `${failedItem}のクラフトにはクラフトテーブルが必要だが、まだ利用可能になっていない`,
+                            suggestion: 'まず crafting_table をインベントリから設置(place-block-at)するか、近くの crafting_table を activate-block してからクラフトしてください。crafting_table がなければ木材(planks)4個でクラフトしてください。',
+                            consecutiveBlocks: 0,
+                        };
+                    }
                 }
             }
         }
@@ -250,11 +299,15 @@ export class ForwardModel {
             case 'move-to':
                 return `target=${Math.round(args.x as number ?? 0)},${Math.round(args.z as number ?? 0)}`;
             case 'activate-block':
-                return `block=${args.blockName ?? 'unknown'}`;
+                return `block=${args.blockName ?? 'unknown'},pos=${Math.round(args.x as number ?? 0)},${Math.round(args.y as number ?? 0)},${Math.round(args.z as number ?? 0)}`;
             case 'place-block-at':
-                return `block=${args.blockName ?? 'unknown'}`;
+                return `block=${args.blockName ?? 'unknown'},pos=${Math.round(args.x as number ?? 0)},${Math.round(args.y as number ?? 0)},${Math.round(args.z as number ?? 0)}`;
             case 'find-blocks':
                 return `block=${args.blockName ?? 'unknown'}`;
+            case 'start-smelting':
+                return `pos=${Math.round(args.x as number ?? 0)},${Math.round(args.y as number ?? 0)},${Math.round(args.z as number ?? 0)},input=${args.inputItem ?? 'unknown'},fuel=${args.fuelItem ?? 'unknown'}`;
+            case 'withdraw-from-furnace':
+                return `pos=${Math.round(args.x as number ?? 0)},${Math.round(args.y as number ?? 0)},${Math.round(args.z as number ?? 0)}`;
             case 'check-furnace':
                 return `pos=${args.x},${args.y},${args.z}`;
             default:

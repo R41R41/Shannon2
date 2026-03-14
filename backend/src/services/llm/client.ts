@@ -218,6 +218,7 @@ export class LLMService {
       onToolStarting?: (toolName: string, args?: Record<string, unknown>) => void;
       onTaskTreeUpdate?: (taskTree: import('@shannon/common').TaskTreeState) => void;
       onRequestSkillInterrupt?: () => void;
+      abortSignal?: AbortSignal;
     },
   ): Promise<ShannonGraphState> {
     await this.initialize();
@@ -259,5 +260,17 @@ export class LLMService {
       .filter((skill) => skill.isToolForLLM)
       .map((skill) => new InstantSkillTool(skill, bot));
     this.unifiedFca.addTools(tools);
+  }
+
+  public async registerSingleMinebotTool(
+    skill: import('../minebot/types.js').InstantSkill,
+    bot: import('../minebot/types.js').CustomBot,
+  ): Promise<void> {
+    await this.initialize();
+    if (!this.unifiedFca) return;
+    if (!skill.isToolForLLM) return;
+    const { InstantSkillTool } = await import('../minebot/skills/InstantSkillTool.js');
+    const tool = new InstantSkillTool(skill, bot);
+    this.unifiedFca.addTools([tool]);
   }
 }

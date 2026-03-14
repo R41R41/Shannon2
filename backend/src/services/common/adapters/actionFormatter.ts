@@ -74,13 +74,11 @@ function formatMinecraftPlan(
     ?? state.taskTree?.actionSequence
     ?? [];
 
-  // If there's a text response, say it in-game
-  if (message) {
-    actions.push({ type: 'say', text: message });
-  }
+  // NOTE: Don't create 'say' actions from finalAnswer for Minecraft.
+  // The FCA already sends chat messages directly via the 'chat' tool during execution.
+  // Adding a 'say' here would cause duplicate messages.
 
   for (const action of actionSequence) {
-    // Map existing ActionItem (toolName + args) to MinecraftAction
     const mapped = mapToolToMinecraftAction(action.toolName, action.args);
     if (mapped) {
       actions.push(mapped);
@@ -89,7 +87,7 @@ function formatMinecraftPlan(
 
   return {
     channel: 'minecraft',
-    message,
+    message: '',
     minecraftActions: actions.length > 0 ? actions : undefined,
   };
 }

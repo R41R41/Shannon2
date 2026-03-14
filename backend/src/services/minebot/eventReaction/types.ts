@@ -43,7 +43,7 @@ export interface EventReactionConfig {
 export const DEFAULT_REACTION_CONFIGS: EventReactionConfig[] = [
     { eventType: 'player_facing', enabled: true, probability: 30, idleOnly: true, reactionType: 'task' },
     { eventType: 'player_speak', enabled: true, probability: 100, idleOnly: false, reactionType: 'task' },
-    { eventType: 'hostile_approach', enabled: true, probability: 100, idleOnly: true, reactionType: 'task' }, // 戦闘中は割り込まない
+    { eventType: 'hostile_approach', enabled: true, probability: 100, idleOnly: false, reactionType: 'emergency' }, // タスク中でも敵接近時は緊急対応
     { eventType: 'item_obtained', enabled: true, probability: 30, idleOnly: true, reactionType: 'info' }, // タスク生成しない（ログのみ）
     { eventType: 'time_change', enabled: true, probability: 30, idleOnly: true, reactionType: 'task' }, // idle時のみ
     { eventType: 'weather_change', enabled: true, probability: 30, idleOnly: true, reactionType: 'task' }, // idle時のみ

@@ -37,11 +37,17 @@ export interface TaskState {
     timestamp: number;
 }
 
+export interface InventoryEntry {
+    name: string;
+    count: number;
+}
+
 export interface BlackboardSnapshot {
     goal: string;
     emotionState: EmotionType | null;
     metaState: MetaState | null;
     taskState: TaskState;
+    inventory: InventoryEntry[] | null;
     isComplete: boolean;
     elapsedMs: number;
 }
@@ -65,6 +71,9 @@ export class CognitiveBlackboard extends EventEmitter {
         totalFailures: 0,
         timestamp: Date.now(),
     };
+
+    // Inventory (Minecraft)
+    private _inventory: InventoryEntry[] | null = null;
 
     // Coordination
     readonly goal: string;
@@ -90,6 +99,7 @@ export class CognitiveBlackboard extends EventEmitter {
     get emotionState(): EmotionType | null { return this._emotionState; }
     get metaState(): MetaState | null { return this._metaState; }
     get taskState(): TaskState { return this._taskState; }
+    get inventory(): InventoryEntry[] | null { return this._inventory; }
     get isComplete(): boolean { return this._isComplete; }
     get signal(): AbortSignal { return this._abortController.signal; }
     get messages(): BaseMessage[] { return this._messages; }
@@ -101,6 +111,7 @@ export class CognitiveBlackboard extends EventEmitter {
             emotionState: this._emotionState,
             metaState: this._metaState,
             taskState: { ...this._taskState },
+            inventory: this._inventory,
             isComplete: this._isComplete,
             elapsedMs: this.elapsedMs,
         };
@@ -140,6 +151,10 @@ export class CognitiveBlackboard extends EventEmitter {
 
         this._taskState.timestamp = Date.now();
         this.emit('task:updated', this._taskState);
+    }
+
+    updateInventory(inventory: InventoryEntry[]): void {
+        this._inventory = inventory;
     }
 
     notifyLoopDetected(summary: string): void {

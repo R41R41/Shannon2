@@ -39,11 +39,14 @@ export class LoopDetector {
     private history: ToolCallRecord[] = [];
     private blockedTools = new Set<string>();
     private blockedCallSignatures = new Set<string>();
+    /** sig → ブロック時の history.length（状態変化検出用） */
+    private blockTimestamps = new Map<string, number>();
 
     reset(): void {
         this.history = [];
         this.blockedTools.clear();
         this.blockedCallSignatures.clear();
+        this.blockTimestamps.clear();
     }
 
     /**
@@ -80,11 +83,32 @@ export class LoopDetector {
     }
 
     /**
-     * 指定ツール+引数の組み合わせがブロックされているか
+     * 指定ツール+引数の組み合わせがブロックされているか。
+     * ブロック後に「関連する状態変化」（他ツールの成功）があった場合はブロックを解除する。
      */
     isCallBlocked(toolName: string, args: Record<string, unknown>): boolean {
         const sig = `${toolName}:${LoopDetector.hashArgs(args)}`;
-        return this.blockedCallSignatures.has(sig) || this.blockedTools.has(toolName);
+        const sigBlocked = this.blockedCallSignatures.has(sig);
+        const toolBlocked = this.blockedTools.has(toolName);
+        if (!sigBlocked && !toolBlocked) return false;
+
+        // ブロック後に状態変化（=別ツールが成功）があったらブロック解除
+        const blockedAt = this.blockTimestamps.get(sigBlocked ? sig : toolName) ?? 0;
+        const hasStateChange = this.history
+            .slice(blockedAt)
+            .some(r => r.success && r.toolName !== toolName);
+
+        if (hasStateChange) {
+            this.blockedCallSignatures.delete(sig);
+            this.blockedTools.delete(toolName);
+            this.blockTimestamps.delete(sigBlocked ? sig : toolName);
+            logger.info(
+                `[LoopDetector] 🔓 ブロック解除: ${toolName} (状態変化を検出)`,
+            );
+            return false;
+        }
+
+        return true;
     }
 
     private detect(): LoopDetection {
@@ -138,9 +162,19 @@ export class LoopDetector {
             }
         }
 
-        // ブロック状態を更新
-        for (const sig of newBlockedSigs) this.blockedCallSignatures.add(sig);
-        for (const tool of newBlockedTools) this.blockedTools.add(tool);
+        // ブロック状態を更新（タイムスタンプも記録）
+        for (const sig of newBlockedSigs) {
+            this.blockedCallSignatures.add(sig);
+            if (!this.blockTimestamps.has(sig)) {
+                this.blockTimestamps.set(sig, this.history.length);
+            }
+        }
+        for (const tool of newBlockedTools) {
+            this.blockedTools.add(tool);
+            if (!this.blockTimestamps.has(tool)) {
+                this.blockTimestamps.set(tool, this.history.length);
+            }
+        }
 
         const detected = reasons.length > 0;
 

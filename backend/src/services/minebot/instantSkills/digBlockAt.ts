@@ -135,6 +135,9 @@ class DigBlockAt extends InstantSkill {
 
       const blockName = block.name;
 
+      // 装備したツール名を記録（結果メッセージ用）
+      const equippedTool = this.bot.heldItem?.name ?? '素手';
+
       const beforeItems = new Map<string, number>();
       if (collect) {
         for (const item of this.bot.inventory.items()) {
@@ -142,7 +145,9 @@ class DigBlockAt extends InstantSkill {
         }
       }
 
+      const digStart = Date.now();
       await this.bot.dig(block);
+      const digDurationMs = Date.now() - digStart;
 
       // 掘削完了を確認
       await new Promise(resolve => setTimeout(resolve, 200));
@@ -157,10 +162,20 @@ class DigBlockAt extends InstantSkill {
         };
       }
 
+      // 掘削が遅い場合の警告（適切なツールを使っていない可能性）
+      const SLOW_DIG_THRESHOLD_MS = 5000;
+      const slowWarning = digDurationMs > SLOW_DIG_THRESHOLD_MS
+        ? ` ⚠️ 掘削に${(digDurationMs / 1000).toFixed(1)}秒かかりました（使用: ${equippedTool}）。適切なツール（ツルハシ等）を装備すれば大幅に高速化できます`
+        : '';
+
+      if (digDurationMs > SLOW_DIG_THRESHOLD_MS) {
+        log.warn(`⚠️ 掘削が遅い: ${blockName} を ${equippedTool} で ${(digDurationMs / 1000).toFixed(1)}秒`);
+      }
+
       if (!collect) {
         return {
           success: true,
-          result: `${blockName}を掘りました（回収スキップ）`,
+          result: `${blockName}を掘りました（回収スキップ）${slowWarning}`,
         };
       }
 
@@ -169,13 +184,13 @@ class DigBlockAt extends InstantSkill {
       if (collected.length > 0) {
         return {
           success: true,
-          result: `${blockName}を掘りました。${collected.join(', ')}を回収`,
+          result: `${blockName}を掘りました。${collected.join(', ')}を回収${slowWarning}`,
         };
       }
 
       return {
         success: true,
-        result: `${blockName}を掘りました（ドロップ未回収 — 足元にない可能性）`,
+        result: `${blockName}を掘りました（ドロップ未回収 — 足元にない可能性）${slowWarning}`,
       };
     } catch (error: any) {
       // エラーメッセージを詳細化

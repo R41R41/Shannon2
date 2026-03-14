@@ -29,6 +29,13 @@ export interface MinecraftContext {
         name: string;
         count: number;
     }>;
+    nearbyInfrastructure?: Array<{
+        name: string;
+        x: number;
+        y: number;
+        z: number;
+        distance: number;
+    }>;
     eventType?: 'chat' | 'mentioned' | 'attacked' | 'observed' | 'task_result' | 'death' | 'system';
 }
 /** Discord-specific context. */

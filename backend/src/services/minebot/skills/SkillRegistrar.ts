@@ -95,6 +95,61 @@ export class SkillRegistrar {
     }
 
     /**
+     * 単一 InstantSkill を EventBus に登録（ホットリロード用）
+     */
+    registerSingleInstantSkill(skill: import('../types.js').InstantSkill): void {
+        this.eventBus.subscribe(`minebot:${skill.skillName}`, async (event) => {
+            try {
+                const data = event.data as any;
+                const parameters: unknown[] = Array.isArray(data?.skillParameters)
+                    ? data.skillParameters
+                    : Array.isArray(data) ? data : [];
+                skill.status = true;
+                const response = await skill.run(...parameters);
+                skill.status = false;
+
+                this.eventBus.publish({
+                    type: `minebot:${skill.skillName}Result`,
+                    memoryZone: 'minecraft',
+                    data: response,
+                });
+            } catch (error: any) {
+                this.eventBus.publish({
+                    type: `minebot:${skill.skillName}Result`,
+                    memoryZone: 'minecraft',
+                    data: {
+                        success: false,
+                        result: error?.message ?? String(error),
+                    },
+                });
+            }
+        });
+        log.info(`✅ Hot-registered instant skill: ${skill.skillName}`);
+    }
+
+    /**
+     * 単一 ConstantSkill を定期実行ハンドラーに登録（ホットリロード用）
+     */
+    registerSingleConstantSkill(bot: CustomBot, constantSkills: ConstantSkills, skill: import('../types.js').ConstantSkill): void {
+        if (skill.interval && skill.interval > 0) {
+            bot.on(`taskPer${skill.interval}ms`, async () => {
+                if (skill.status && !skill.isLocked) {
+                    try {
+                        await constantSkills.requestExecution(skill, []);
+                    } catch (error: any) {
+                        this.eventBus.log(
+                            'minecraft',
+                            'red',
+                            `${skill.skillName} error: ${error}`
+                        );
+                    }
+                }
+            });
+        }
+        log.info(`✅ Hot-registered constant skill: ${skill.skillName}`);
+    }
+
+    /**
      * EventBus経由のスキル制御イベントを登録
      */
     registerSkillControlEvents(bot: CustomBot): void {

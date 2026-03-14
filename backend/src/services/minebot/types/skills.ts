@@ -121,7 +121,7 @@ export abstract class InstantSkill extends Skill {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     try {
-      // 中断監視: 500msごとに interruptExecution フラグをチェック
+      // 中断監視: 100msごとに interruptExecution フラグをチェック（Phase 1-C: 500ms→100ms）
       const interruptPromise = new Promise<SkillResult>((resolve) => {
         interruptCheckInterval = setInterval(() => {
           if (this.bot.interruptExecution) {
@@ -143,7 +143,7 @@ export abstract class InstantSkill extends Skill {
               result: `フィードバックにより中断されました（${this.skillName}）。再計画します。`,
             });
           }
-        }, 500);
+        }, 100);
       });
 
       // タイムアウト制御
